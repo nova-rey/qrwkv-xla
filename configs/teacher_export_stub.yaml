@@ -1,0 +1,12 @@
+teacher:
+  family: qwen
+  policy_label: Qwen3.latest
+  fallback_label: Qwen3.0
+  resolved_model_id: null
+
+export:
+  sequence_length: 64
+  targets:
+    hidden_states: true
+    logits: false
+    attention_targets: false

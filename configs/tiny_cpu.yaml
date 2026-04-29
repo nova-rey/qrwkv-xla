@@ -1,0 +1,13 @@
+runtime:
+  backend: cpu
+  require_accelerator: false
+
+model:
+  student_architecture: rwkv7_style
+  hidden_size: 128
+  num_layers: 2
+  sequence_length: 64
+
+training:
+  batch_size: 2
+  max_steps: 10

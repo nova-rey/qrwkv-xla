@@ -1,0 +1,12 @@
+distillation:
+  stage: 0
+  losses:
+    hidden_mse:
+      enabled: true
+      weight: 1.0
+    logits_kl:
+      enabled: false
+      weight: 0.0
+    attention_or_mixer:
+      enabled: false
+      weight: 0.0

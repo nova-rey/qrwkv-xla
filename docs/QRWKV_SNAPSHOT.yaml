@@ -1,0 +1,43 @@
+project: QRWKV-XLA
+phase: 0
+checkpoint: A
+status: scaffolding
+mission: >
+  Build a JAX/XLA-first RADLADS-style transformer-to-RWKV7 recurrent
+  conversion pipeline for TPU-first training.
+
+reference_repo:
+  name: nova-rey/radlads-TPU-adapter
+  role: reference_only
+  direct_port: false
+
+teacher:
+  family: qwen
+  primary_policy: latest_qwen3_open_weight_available_at_experiment_time
+  fallback_label: Qwen3.0
+
+student:
+  architecture: RWKV7-style recurrent student
+  framework: JAX
+  target_runtime:
+    - CPU debug
+    - TPU smoke
+    - TPU scale-up later
+
+hardware:
+  local: VM with no GPU
+  free_online:
+    - Kaggle TPU if available
+    - Colab TPU if available
+    - Modal/Lightning GPU optional sanity only
+
+workflow:
+  phase_structure: Prompt A/B/C
+  agent: Nyx/Codex
+  lint_format: Ruff + Black
+  bible_policy: append_only
+
+current_goal: >
+  Establish project skeleton, documentation, roadmap, artifact contracts,
+  testing strategy, and implementation phases without committing to disposable
+  toy code.

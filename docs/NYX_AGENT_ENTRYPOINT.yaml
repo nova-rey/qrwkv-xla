@@ -1,0 +1,22 @@
+project: QRWKV-XLA
+start_here:
+  - docs/QRWKV_SNAPSHOT.yaml
+  - docs/ARCHITECTURE.md
+  - docs/ROADMAP.md
+  - docs/DEV_WORKFLOW.md
+  - docs/PHASE_CHECKLIST.md
+
+current_phase:
+  phase: 0
+  checkpoint: A
+  title: Project skeleton and docs
+
+instructions:
+  - Keep changes small and reversible.
+  - Maintain Ruff + Black formatting compliance.
+  - Keep tests passing.
+  - Update QRWKV_SNAPSHOT.yaml after meaningful changes.
+  - Append to QRWKV_BIBLE.md; never overwrite historical entries.
+  - Do not implement serious model logic during Prompt A.
+  - Do not introduce CUDA, Triton, flash-attention, or DeepSpeed dependencies.
+  - Do not make notebooks the primary workflow.

@@ -1,0 +1,13 @@
+runtime:
+  backend: tpu
+  require_accelerator: true
+
+model:
+  student_architecture: rwkv7_style
+  hidden_size: 128
+  num_layers: 2
+  sequence_length: 64
+
+training:
+  batch_size: 1
+  max_steps: 3

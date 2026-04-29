@@ -1,0 +1,74 @@
+# QRWKV-XLA Roadmap
+
+## Phase 0 — Foundation
+Goal: docs, skeleton, architecture, configs, test tiers.
+
+Checkpoints:
+- P0A: docs + repo skeleton
+- P0B: config/dataclass skeleton + placeholder CLI scripts
+- P0C: CI/lint/test cleanup and docs sync
+
+## Phase 1 — Target Artifact Pipeline
+Goal: define and implement teacher target artifact storage format.
+
+Checkpoints:
+- P1A: artifact schema docs + sample shard format
+- P1B: PyTorch/HF teacher exporter stub with fake/small targets
+- P1C: artifact validator + dataset reader tests
+
+## Phase 2 — JAX Student Runtime Skeleton
+Goal: real JAX training loop shape without final RWKV7 complexity.
+
+Checkpoints:
+- P2A: JAX module interfaces + training state contracts
+- P2B: recurrent student shell + loss registry + CPU train step
+- P2C: checkpoint/resume + smoke scripts
+
+## Phase 3 — RWKV7-Style Recurrent Core
+Goal: implement XLA-friendly RWKV7-style recurrence.
+
+Checkpoints:
+- P3A: RWKV7 math spec + shape contracts
+- P3B: scan-based recurrent block implementation
+- P3C: correctness tests, numerical stability notes, CPU training sanity
+
+## Phase 4 — Distillation Stages
+Goal: staged RADLADS-like training.
+
+Checkpoints:
+- P4A: hidden-state distillation
+- P4B: logit distillation
+- P4C: attention/mixer behavior distillation
+- P4D: staged schedule runner
+
+## Phase 5 — TPU Smoke and XLA Discipline
+Goal: prove the code runs on actual TPU environments.
+
+Checkpoints:
+- P5A: Kaggle/Colab TPU smoke script
+- P5B: static-shape audit
+- P5C: compile/recompile logging and known XLA pitfalls doc
+
+## Phase 6 — Qwen Teacher Integration
+Goal: export real targets from selected Qwen teacher.
+
+Checkpoints:
+- P6A: resolve Qwen3.latest model ID into metadata
+- P6B: export small target shards
+- P6C: train student on real exported targets
+
+## Phase 7 — Evaluation and Export
+Goal: generation sanity, teacher/student comparison, packaging.
+
+Checkpoints:
+- P7A: eval harness skeleton
+- P7B: recurrent inference path
+- P7C: export format and model card artifacts
+
+## Phase 8 — TPU Scale-Up
+Goal: multi-device/multi-host TPU training plan.
+
+Checkpoints:
+- P8A: sharding strategy
+- P8B: multi-device training smoke
+- P8C: larger teacher/student experiments
