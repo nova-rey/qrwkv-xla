@@ -20,3 +20,11 @@ The initial scaffold existed but needed normalization into valid, readable
 multiline files. This pass updates the workflow model from A/B/C prompts to Nyx
 as the primary implementation agent with Codex as a sub-agent, then adds the
 first config and target artifact contract layer.
+
+## Phase 1 — Target Artifact Store Foundation
+
+This phase adds the first durable data contract between future PyTorch/Hugging
+Face teacher extraction and future JAX/XLA student training. The project can
+now create fake teacher target bundles, write and read manifest JSON, validate
+NPZ shards, inspect bundle metadata, and test the artifact store without
+requiring GPU, TPU, PyTorch, JAX, or network access.

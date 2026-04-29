@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 0.5
-checkpoint: foundation_contracts
-status: normalized_scaffold
+phase: 1
+checkpoint: target_artifact_store_foundation
+status: complete
 mission: >
   Build a JAX/XLA-first RADLADS-style transformer-to-RWKV7 recurrent
   conversion pipeline for TPU-first training.
@@ -40,6 +40,6 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Normalize the scaffold into a readable, validated development base and add
-  the first config and teacher-target artifact contracts without implementing
-  real model logic.
+  Implement the first real teacher target artifact store contract: manifest
+  JSON, NPZ shards, bundle validation, fake target creation, and inspection
+  tools.

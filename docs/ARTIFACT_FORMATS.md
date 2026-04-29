@@ -1,20 +1,26 @@
 # Artifact Formats
 
-Teacher target artifacts are intended to start with a simple manifest-plus-shards
-layout:
+QRWKV-XLA target bundles now use a canonical manifest-plus-shards layout:
 
 ```text
 artifacts/
   teacher_targets/
-    <run_id>/
+    <bundle_id>/
       manifest.json
       shards/
         shard_000000.npz
         shard_000001.npz
 ```
 
-The implemented manifest contract for this phase is represented by a
-`TeacherTargetManifest` dataclass plus explicit validation helpers.
+A bundle directory must contain:
+- `manifest.json`
+- `shards/`
+- at least one `.npz` shard
+
+## Manifest
+
+The manifest is pretty-printed UTF-8 JSON (`indent=2`, `sort_keys=True`) using
+the validated `TeacherTargetManifest` contract.
 
 Example manifest:
 
@@ -42,15 +48,50 @@ Example manifest:
 }
 ```
 
+## Shards
+
+Each shard is a NumPy `.npz` archive. P1 supports these keys:
+- `input_ids`
+- `attention_mask`
+- `hidden_states`
+- `logits` (optional)
+- `attention_targets` (optional)
+
+Required keys for a minimal valid shard:
+- `input_ids`
+- `attention_mask`
+- `hidden_states`
+
+### Shape contracts
+
+Required:
+- `input_ids`: `[batch, sequence_length]`
+- `attention_mask`: `[batch, sequence_length]`
+- `hidden_states`: `[batch, num_layers, sequence_length, hidden_size]`
+
+Optional:
+- `logits`: `[batch, sequence_length, vocab_size]`
+- `attention_targets`: lightly validated in P1; if present, the first two dims
+  must match batch and sequence length.
+
+## Fake target workflow
+
+Create a fake bundle:
+
+```bash
+PYTHONPATH=src python scripts/create_fake_targets.py --out artifacts/teacher_targets/fake_p1
+```
+
+Inspect a fake bundle:
+
+```bash
+PYTHONPATH=src python scripts/inspect_targets.py artifacts/teacher_targets/fake_p1
+```
+
 ## Notes
 
-- `schema_version`, `teacher_family`, and `teacher_policy_label` must be
-  non-empty.
-- `sequence_length`, `hidden_size`, and `num_layers` must all be positive.
-- `dtype` must currently be one of `fp32`, `bf16`, or `fp16`.
-- `targets.input_ids` is required to remain `true` for now.
-- Additional unknown top-level manifest fields are preserved under `extra` in
-  the dataclass layer.
-
-Real target shard generation is not implemented yet. This phase only establishes
-an initial readable, testable contract for later exporter work.
+- Real teacher extraction is not implemented yet.
+- P1 uses NumPy `.npz` shards because they are simple, CPU-only, inspectable,
+  and easy to test.
+- Larger-scale formats (for example Zarr, safetensors, or mmap-oriented layouts)
+  can be reconsidered later if real exporter scale demands it.

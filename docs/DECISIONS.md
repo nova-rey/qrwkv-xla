@@ -45,3 +45,9 @@ A/B/C prompt split is optional and only used when it helps.
 Initial config and artifact schemas use standard-library dataclasses plus
 explicit validation. Pydantic or other schema frameworks may be considered later
 if the project needs stronger runtime validation or serialization features.
+
+## D009 — NPZ Shards for Initial Target Bundles
+Initial teacher target bundles use a manifest JSON plus NumPy `.npz` shards.
+This keeps the first artifact store simple, CPU-only, inspectable, and testable.
+Larger-scale storage formats such as Zarr, safetensors, or memory-mapped arrays
+may be considered later when real teacher extraction scale demands it.

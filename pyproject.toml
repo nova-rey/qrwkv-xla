@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Nyx" }]
 dependencies = [
+  "numpy>=1.26",
   "PyYAML>=6.0",
 ]
 

@@ -8,13 +8,15 @@ Checkpoints:
 - P0B: config/dataclass skeleton + placeholder CLI scripts
 - P0C: CI/lint/test cleanup and docs sync
 
-## Phase 1 — Target Artifact Pipeline
-Goal: define and implement teacher target artifact storage format.
+## Phase 1 — Target Artifact Store Foundation
+Goal: implement the first usable teacher target artifact storage layer.
+
+Status: complete locally for fake/CPU-only bundles.
 
 Checkpoints:
 - P1A: artifact schema docs + sample shard format
-- P1B: PyTorch/HF teacher exporter stub with fake/small targets
-- P1C: artifact validator + dataset reader tests
+- P1B: manifest JSON + NPZ shard read/write/validation
+- P1C: fake bundle generator, inspector, and bundle tests
 
 ## Phase 2 — JAX Student Runtime Skeleton
 Goal: real JAX training loop shape without final RWKV7 complexity.

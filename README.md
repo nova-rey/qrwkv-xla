@@ -7,17 +7,22 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 0.5: normalized scaffold plus foundation config and artifact contracts.
+Phase 1: target artifact store foundation.
+
+The project can now define, write, read, validate, inspect, and test fake
+teacher target bundles on CPU without requiring JAX, PyTorch, TPU, GPU, or
+network access.
 
 ## Design Principles
 
 - Full-system architecture from day one
 - Tiny configs, not disposable toy systems
 - JAX/XLA-first student training
-- PyTorch/Hugging Face teacher extraction
+- PyTorch/Hugging Face teacher extraction later
 - CPU local development
 - TPU smoke tests when available
 - No CUDA/Triton dependency in student training path
+- Simple, inspectable artifact formats first
 
 ## Reference
 

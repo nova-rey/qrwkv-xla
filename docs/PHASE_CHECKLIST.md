@@ -36,3 +36,17 @@
 - [x] Add config loading tests
 - [x] Add target manifest tests
 - [x] Run full validation stack
+
+## P1 — Target Artifact Store Foundation
+
+- [x] Add artifact layout helpers
+- [x] Add shard read/write helpers
+- [x] Add bundle read/write/inspect/validate helpers
+- [x] Add fake target generation script
+- [x] Add target inspection script
+- [x] Add shard tests
+- [x] Add bundle tests
+- [x] Update artifact docs
+- [x] Update snapshot
+- [x] Append Bible entry
+- [x] Run validation commands
