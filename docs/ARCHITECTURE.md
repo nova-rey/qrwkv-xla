@@ -1,12 +1,15 @@
 # QRWKV-XLA Architecture
 
-QRWKV-XLA is intended to be a full-featured long-term codebase for transformer-to-recurrent distillation under JAX/XLA constraints. Phase 0 creates the shape and contracts of the system without implementing the real model yet.
+QRWKV-XLA is intended to be a full-featured long-term codebase for transformer-to-recurrent distillation under JAX/XLA constraints. The early phases focus on contracts and pipeline boundaries before heavyweight model integration.
 
 ## Major subsystems
 
 ### Teacher Exporter
-- **Framework:** PyTorch + Hugging Face
-- **Purpose:** Load Qwen teacher models, freeze the teacher, and export reusable teacher targets.
+- **Current shape:** protocol/interface plus deterministic fake implementation
+- **Later framework:** PyTorch + Hugging Face
+- **Purpose:** export reusable teacher targets through a stable exporter contract.
+
+Teacher Exporter is now represented by a protocol/interface and a fake deterministic implementation. Real PyTorch/Hugging Face exporters will later implement the same contract.
 
 ### Target Artifact Store
 - **Purpose:** Store input ids, masks, hidden states, logits, attention or mixer targets, metadata, tokenizer references, teacher identity, and stage info.

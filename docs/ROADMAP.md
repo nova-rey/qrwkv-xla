@@ -18,15 +18,23 @@ Checkpoints:
 - P1B: manifest JSON + NPZ shard read/write/validation
 - P1C: fake bundle generator, inspector, and bundle tests
 
-## Phase 2 — JAX Student Runtime Skeleton
+## Phase 2 — Teacher Exporter Interface
+Goal: create reusable exporter contracts and a fake exporter pipeline.
+
+Checkpoints:
+- P2A: teacher export config + request/result contracts
+- P2B: deterministic fake exporter + registry + CLI
+- P2C: exporter tests + docs sync
+
+## Phase 3 — JAX Student Runtime Skeleton
 Goal: real JAX training loop shape without final RWKV7 complexity.
 
 Checkpoints:
-- P2A: JAX module interfaces + training state contracts
-- P2B: recurrent student shell + loss registry + CPU train step
-- P2C: checkpoint/resume + smoke scripts
+- P3A: JAX module interfaces + training state contracts
+- P3B: recurrent student shell + loss registry + CPU train step
+- P3C: checkpoint/resume + smoke scripts
 
-## Phase 3 — RWKV7-Style Recurrent Core
+## Phase 4 — RWKV7-Style Recurrent Core
 Goal: implement XLA-friendly RWKV7-style recurrence.
 
 Checkpoints:
@@ -34,7 +42,7 @@ Checkpoints:
 - P3B: scan-based recurrent block implementation
 - P3C: correctness tests, numerical stability notes, CPU training sanity
 
-## Phase 4 — Distillation Stages
+## Phase 5 — Distillation Stages
 Goal: staged RADLADS-like training.
 
 Checkpoints:
@@ -43,7 +51,7 @@ Checkpoints:
 - P4C: attention/mixer behavior distillation
 - P4D: staged schedule runner
 
-## Phase 5 — TPU Smoke and XLA Discipline
+## Phase 6 — TPU Smoke and XLA Discipline
 Goal: prove the code runs on actual TPU environments.
 
 Checkpoints:
@@ -51,7 +59,7 @@ Checkpoints:
 - P5B: static-shape audit
 - P5C: compile/recompile logging and known XLA pitfalls doc
 
-## Phase 6 — Qwen Teacher Integration
+## Phase 7 — Qwen Teacher Integration
 Goal: export real targets from selected Qwen teacher.
 
 Checkpoints:
@@ -59,7 +67,7 @@ Checkpoints:
 - P6B: export small target shards
 - P6C: train student on real exported targets
 
-## Phase 7 — Evaluation and Export
+## Phase 8 — Evaluation and Export
 Goal: generation sanity, teacher/student comparison, packaging.
 
 Checkpoints:
@@ -67,7 +75,7 @@ Checkpoints:
 - P7B: recurrent inference path
 - P7C: export format and model card artifacts
 
-## Phase 8 — TPU Scale-Up
+## Phase 9 — TPU Scale-Up
 Goal: multi-device/multi-host TPU training plan.
 
 Checkpoints:

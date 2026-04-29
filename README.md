@@ -7,11 +7,11 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 1: target artifact store foundation.
+Phase 2: teacher exporter interface + fake export pipeline.
 
 The project can now define, write, read, validate, inspect, and test fake
-teacher target bundles on CPU without requiring JAX, PyTorch, TPU, GPU, or
-network access.
+teacher target bundles on CPU through a reusable exporter interface without
+requiring JAX, PyTorch, TPU, GPU, or network access.
 
 ## Design Principles
 
@@ -23,6 +23,16 @@ network access.
 - TPU smoke tests when available
 - No CUDA/Triton dependency in student training path
 - Simple, inspectable artifact formats first
+
+## Quick Usage
+
+```bash
+PYTHONPATH=src python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
+PYTHONPATH=src python scripts/inspect_targets.py artifacts/teacher_targets/fake_export
+```
+
+The current exporter path uses the deterministic fake exporter. Real Qwen /
+PyTorch / Hugging Face teacher loading is intentionally deferred.
 
 ## Reference
 

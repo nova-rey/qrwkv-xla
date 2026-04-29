@@ -50,3 +50,20 @@
 - [x] Update snapshot
 - [x] Append Bible entry
 - [x] Run validation commands
+
+## P2 — Teacher Exporter Interface + Fake Export Pipeline
+
+- [x] Add teacher export config dataclasses
+- [x] Add teacher export config loader
+- [x] Add export request/result contracts
+- [x] Add TeacherExporter protocol
+- [x] Add fake deterministic exporter
+- [x] Add exporter registry
+- [x] Add export_teacher_targets.py CLI
+- [x] Update teacher_export_stub.yaml
+- [x] Add fake exporter tests
+- [x] Add CLI tests
+- [x] Update docs
+- [x] Update snapshot
+- [x] Append Bible entry
+- [x] Run validation commands

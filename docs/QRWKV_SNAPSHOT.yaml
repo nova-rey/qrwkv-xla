@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 1
-checkpoint: target_artifact_store_foundation
+phase: 2
+checkpoint: teacher_exporter_interface
 status: complete
 mission: >
   Build a JAX/XLA-first RADLADS-style transformer-to-RWKV7 recurrent
@@ -40,6 +40,6 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Implement the first real teacher target artifact store contract: manifest
-  JSON, NPZ shards, bundle validation, fake target creation, and inspection
-  tools.
+  Implement the teacher exporter interface and deterministic fake exporter
+  pipeline that writes valid P1 target bundles without requiring PyTorch,
+  Hugging Face, network access, GPU, or TPU.

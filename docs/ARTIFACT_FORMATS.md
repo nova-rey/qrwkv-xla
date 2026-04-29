@@ -88,6 +88,21 @@ Inspect a fake bundle:
 PYTHONPATH=src python scripts/inspect_targets.py artifacts/teacher_targets/fake_p1
 ```
 
+## Exporter Integration
+
+Teacher exporters write bundles using the artifact store API. P2 provides a
+fake exporter that generates deterministic target bundles without loading a
+real model.
+
+```bash
+PYTHONPATH=src python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
+PYTHONPATH=src python scripts/inspect_targets.py artifacts/teacher_targets/fake_export
+```
+
+Distinction:
+- `scripts/create_fake_targets.py` = low-level artifact store utility
+- `scripts/export_teacher_targets.py` = teacher-export subsystem entrypoint
+
 ## Notes
 
 - Real teacher extraction is not implemented yet.

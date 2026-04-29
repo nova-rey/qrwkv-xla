@@ -28,3 +28,11 @@ Face teacher extraction and future JAX/XLA student training. The project can
 now create fake teacher target bundles, write and read manifest JSON, validate
 NPZ shards, inspect bundle metadata, and test the artifact store without
 requiring GPU, TPU, PyTorch, JAX, or network access.
+
+## Phase 2 — Teacher Exporter Interface + Fake Export Pipeline
+
+This phase adds the exporter-shaped side of the pipeline. QRWKV-XLA now has a
+teacher export configuration schema, export request/result contracts, a
+TeacherExporter protocol, a deterministic fake exporter, and a CLI entrypoint
+that writes valid target bundles through the artifact store. Real
+Qwen/PyTorch/Hugging Face loading remains intentionally deferred.

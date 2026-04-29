@@ -51,3 +51,14 @@ Initial teacher target bundles use a manifest JSON plus NumPy `.npz` shards.
 This keeps the first artifact store simple, CPU-only, inspectable, and testable.
 Larger-scale storage formats such as Zarr, safetensors, or memory-mapped arrays
 may be considered later when real teacher extraction scale demands it.
+
+## D010 — Fake Exporter as Permanent Test Double
+QRWKV-XLA will keep a deterministic fake teacher exporter as a permanent test
+double. It exercises the same artifact-writing pathway as future real
+exporters, allowing the pipeline to be tested without network, GPU, TPU,
+PyTorch, or Hugging Face dependencies.
+
+## D011 — Real Teacher Loading Deferred
+P2 intentionally does not load Qwen, PyTorch, Hugging Face Transformers, or
+tokenizers. The project will first stabilize exporter contracts and artifact
+writing before adding heavyweight model dependencies.
