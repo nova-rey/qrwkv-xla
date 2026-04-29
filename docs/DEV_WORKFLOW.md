@@ -1,6 +1,6 @@
 # Development Workflow
 
-QRWKV-XLA follows the normal Nova / Nyx / Codex rhythm.
+QRWKV-XLA now uses Nyx as the primary implementation agent.
 
 ## Roles
 
@@ -8,27 +8,30 @@ QRWKV-XLA follows the normal Nova / Nyx / Codex rhythm.
 - design
 - architecture
 - specs
-- prompt writing
 - review guidance
 
-### Nyx / Codex
-- mechanical implementation
-- repo edits
-- tests
-- lint
-- scaffolding
-- CI preparation
+### Nyx
+- primary implementation agent
+- repo-level decisions within the current spec
+- file structure consistency
+- docs updates
+- ensuring tests pass
+- deciding when to delegate mechanical tasks
 
-## Default phase structure
+### Codex
+- sub-agent used by Nyx for mechanical edits
+- targeted code generation
+- test writing
+- lint/format cleanup
+- import/path issue cleanup
 
-### Prompt A
-Design, docs, scaffolding, and minimal or no functional code.
+## Default workflow
 
-### Prompt B
-Main implementation.
+The default operating model is whole-implementation specs executed by Nyx,
+optionally with Codex as a sub-agent for mechanical work.
 
-### Prompt C
-CI, polish, cleanup, and docs sync.
+The older Prompt A / B / C split is not the default workflow anymore, though it
+can still be resurrected when it is useful for a phase plan.
 
 ## Checkpoint discipline
 
@@ -42,8 +45,10 @@ Every phase/checkpoint should preserve:
 
 ## Historical log policy
 
-Only append new phase/update notes to `docs/QRWKV_BIBLE.md`. Do not rewrite earlier history.
+Only append new phase/update notes to `docs/QRWKV_BIBLE.md`. Do not rewrite
+earlier history.
 
-## Current commit theme
+## Current commit themes
 
-`P0A: scaffold QRWKV-XLA foundation docs`
+- `P0A: scaffold QRWKV-XLA foundation docs`
+- `P0.5: normalize scaffold and add config artifact contracts`

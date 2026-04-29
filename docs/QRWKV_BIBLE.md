@@ -13,3 +13,10 @@ Initial target:
 - Student: RWKV7-style recurrent architecture
 - Runtime: CPU debug first, TPU smoke second, TPU scale later
 - Workflow: Nova design/specs, Nyx/Codex implementation
+
+## Phase 0.5 — Foundation Normalization and Contracts
+
+The initial scaffold existed but needed normalization into valid, readable
+multiline files. This pass updates the workflow model from A/B/C prompts to Nyx
+as the primary implementation agent with Codex as a sub-agent, then adds the
+first config and target artifact contract layer.

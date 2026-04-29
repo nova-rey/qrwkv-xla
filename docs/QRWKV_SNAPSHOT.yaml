@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 0
-checkpoint: A
-status: scaffolding
+phase: 0.5
+checkpoint: foundation_contracts
+status: normalized_scaffold
 mission: >
   Build a JAX/XLA-first RADLADS-style transformer-to-RWKV7 recurrent
   conversion pipeline for TPU-first training.
@@ -32,12 +32,14 @@ hardware:
     - Modal/Lightning GPU optional sanity only
 
 workflow:
-  phase_structure: Prompt A/B/C
-  agent: Nyx/Codex
-  lint_format: Ruff + Black
+  primary_agent: Nyx
+  sub_agent: Codex
+  spec_style: whole_implementation_spec
+  legacy_prompt_structure: A/B/C optional only if useful
+  lint_format: Ruff + Black-compatible
   bible_policy: append_only
 
 current_goal: >
-  Establish project skeleton, documentation, roadmap, artifact contracts,
-  testing strategy, and implementation phases without committing to disposable
-  toy code.
+  Normalize the scaffold into a readable, validated development base and add
+  the first config and teacher-target artifact contracts without implementing
+  real model logic.

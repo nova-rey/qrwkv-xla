@@ -2,11 +2,12 @@
 
 QRWKV-XLA is a JAX/XLA-first recurrent conversion pipeline inspired by RADLADS.
 
-It aims to distill Qwen-family transformer teachers into RWKV7-style recurrent students using TPU-friendly training infrastructure.
+It aims to distill Qwen-family transformer teachers into RWKV7-style recurrent
+students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 0: project skeleton and architecture docs.
+Phase 0.5: normalized scaffold plus foundation config and artifact contracts.
 
 ## Design Principles
 
@@ -20,6 +21,10 @@ Phase 0: project skeleton and architecture docs.
 
 ## Reference
 
-This project uses `nova-rey/radlads-TPU-adapter` as a conceptual and architectural reference, not as code to directly port.
+This project uses `nova-rey/radlads-TPU-adapter` as a conceptual and
+architectural reference, not as code to directly port.
 
-The reference RADLADS lineage includes RAD-RWKV6/RAD-RWKV7 components, Hugging Face conversion scripts, staged configs, Lightning trainer flows, `lm_eval` support, and inference support. QRWKV-XLA is being rebuilt around XLA and TPU constraints from day one instead of carrying over GPU-shaped internals.
+The reference RADLADS lineage includes RAD-RWKV6/RAD-RWKV7 components,
+Hugging Face conversion scripts, staged configs, Lightning trainer flows,
+`lm_eval` support, and inference support. QRWKV-XLA is being rebuilt around XLA
+and TPU constraints from day one instead of carrying over GPU-shaped internals.

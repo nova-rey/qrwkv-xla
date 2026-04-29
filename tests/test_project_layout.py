@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_PATHS = [
@@ -24,11 +26,26 @@ REQUIRED_PATHS = [
     ROOT / "scripts" / "print_env.py",
     ROOT / "scripts" / "smoke_cpu.py",
     ROOT / "scripts" / "smoke_tpu.py",
+    ROOT / "src" / "qrwkv_xla" / "config" / "schema.py",
+    ROOT / "src" / "qrwkv_xla" / "config" / "load.py",
+    ROOT / "src" / "qrwkv_xla" / "targets" / "manifest.py",
+    ROOT / "src" / "qrwkv_xla" / "targets" / "validate.py",
     ROOT / "tests" / "test_imports.py",
     ROOT / "tests" / "test_project_layout.py",
+    ROOT / "tests" / "test_config_loading.py",
+    ROOT / "tests" / "test_target_manifest.py",
 ]
 
 
 def test_required_paths_exist() -> None:
     missing = [path for path in REQUIRED_PATHS if not path.exists()]
     assert not missing, f"Missing required paths: {missing}"
+
+
+def test_yaml_docs_parse() -> None:
+    for path in [
+        ROOT / "docs" / "QRWKV_SNAPSHOT.yaml",
+        ROOT / "docs" / "NYX_AGENT_ENTRYPOINT.yaml",
+    ]:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+        assert isinstance(payload, dict)

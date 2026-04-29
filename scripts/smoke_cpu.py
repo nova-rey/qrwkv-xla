@@ -11,9 +11,14 @@ def main() -> None:
         sys.path.insert(0, str(src))
 
     import qrwkv_xla
+    from qrwkv_xla.config import load_config
 
+    config = load_config(root / "configs" / "tiny_cpu.yaml")
     print("CPU smoke placeholder ran")
     print(f"Imported qrwkv_xla {qrwkv_xla.__version__}")
+    print(f"Backend: {config.runtime.backend}")
+    print(f"Student architecture: {config.model.student_architecture}")
+    print(f"Sequence length: {config.model.sequence_length}")
 
 
 if __name__ == "__main__":

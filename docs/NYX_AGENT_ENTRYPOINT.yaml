@@ -7,16 +7,22 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 0
-  checkpoint: A
-  title: Project skeleton and docs
+  phase: 0.5
+  checkpoint: foundation_contracts
+  title: Normalize scaffold and add config/artifact contracts
+
+workflow:
+  primary_agent: Nyx
+  sub_agent: Codex
+  spec_style: whole_implementation_spec
+  legacy_prompt_structure: A/B/C optional only if useful
 
 instructions:
   - Keep changes small and reversible.
-  - Maintain Ruff + Black formatting compliance.
+  - Maintain Ruff + Black-compatible formatting compliance.
   - Keep tests passing.
   - Update QRWKV_SNAPSHOT.yaml after meaningful changes.
   - Append to QRWKV_BIBLE.md; never overwrite historical entries.
-  - Do not implement serious model logic during Prompt A.
+  - Do not implement serious model logic during this foundation phase.
   - Do not introduce CUDA, Triton, flash-attention, or DeepSpeed dependencies.
   - Do not make notebooks the primary workflow.
