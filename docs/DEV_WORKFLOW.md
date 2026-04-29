@@ -33,6 +33,25 @@ optionally with Codex as a sub-agent for mechanical work.
 The older Prompt A / B / C split is not the default workflow anymore, though it
 can still be resurrected when it is useful for a phase plan.
 
+## Local validation
+
+QRWKV-XLA uses Strategy A editable installs for development:
+
+```bash
+python -m pip install -e ".[dev]"
+python scripts/validate_local.py
+```
+
+`scripts/validate_local.py` does not install dependencies. It mirrors the core
+CI validation sequence, prints each command, and fails fast. Scripts and tests
+should import `qrwkv_xla` through the editable install instead of setting
+`PYTHONPATH=src` or patching `sys.path`.
+
+Generated validation outputs live under `artifacts/`, which is gitignored.
+
+Before handoff, Nyx should run `scripts/validate_local.py` or the equivalent
+individual command list from `docs/CI.md`.
+
 ## Checkpoint discipline
 
 Every phase/checkpoint should preserve:
@@ -52,3 +71,4 @@ earlier history.
 
 - `P0A: scaffold QRWKV-XLA foundation docs`
 - `P0.5: normalize scaffold and add config artifact contracts`
+- `P2.5: stabilize editable install validation and CI`

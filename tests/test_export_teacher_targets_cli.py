@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -12,14 +11,6 @@ from qrwkv_xla.targets.store import shard_path
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "export_teacher_targets.py"
 CONFIG = ROOT / "configs" / "teacher_export_stub.yaml"
-
-
-def _env() -> dict[str, str]:
-    env = dict(os.environ)
-    existing = env.get("PYTHONPATH")
-    src = str(ROOT / "src")
-    env["PYTHONPATH"] = src if not existing else f"{src}:{existing}"
-    return env
 
 
 def test_cli_exports_bundle(tmp_path: Path) -> None:
@@ -34,7 +25,6 @@ def test_cli_exports_bundle(tmp_path: Path) -> None:
             str(out_dir),
         ],
         cwd=ROOT,
-        env=_env(),
         capture_output=True,
         text=True,
         check=False,
@@ -61,7 +51,6 @@ def test_cli_unknown_backend_fails(tmp_path: Path) -> None:
             "unknown",
         ],
         cwd=ROOT,
-        env=_env(),
         capture_output=True,
         text=True,
         check=False,
@@ -87,7 +76,6 @@ def test_cli_include_logits_writes_logits(tmp_path: Path) -> None:
             "--include-logits",
         ],
         cwd=ROOT,
-        env=_env(),
         capture_output=True,
         text=True,
         check=False,

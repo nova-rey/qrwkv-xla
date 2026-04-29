@@ -1,18 +1,9 @@
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import numpy as np
-
-
-def _add_src_to_path() -> Path:
-    root = Path(__file__).resolve().parents[1]
-    src = root / "src"
-    if str(src) not in sys.path:
-        sys.path.insert(0, str(src))
-    return root
 
 
 def main() -> None:
@@ -25,8 +16,6 @@ def main() -> None:
     parser.add_argument("--num-layers", type=int, default=2)
     parser.add_argument("--seed", type=int, default=1234)
     args = parser.parse_args()
-
-    _add_src_to_path()
 
     from qrwkv_xla.targets import (
         TargetFlags,

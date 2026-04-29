@@ -62,3 +62,18 @@ PyTorch, or Hugging Face dependencies.
 P2 intentionally does not load Qwen, PyTorch, Hugging Face Transformers, or
 tokenizers. The project will first stabilize exporter contracts and artifact
 writing before adding heavyweight model dependencies.
+
+## D012 — Strategy A Editable Install Workflow
+QRWKV-XLA uses editable install as the blessed development and CI workflow:
+`python -m pip install -e ".[dev]"`.
+
+Scripts, tests, and validation commands should import `qrwkv_xla` through the
+installed package metadata instead of setting `PYTHONPATH=src` or mutating
+`sys.path` inside entrypoint scripts. `scripts/validate_local.py` mirrors CI but
+does not install dependencies; environment setup is an explicit caller
+responsibility.
+
+## D013 — Local Validation Mirrors CI
+Local validation should mirror the CI command sequence through
+`scripts/validate_local.py` or the equivalent individual command list. CI and
+local handoff checks should stay aligned so failures reproduce before handoff.

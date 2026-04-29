@@ -7,11 +7,13 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 2: teacher exporter interface + fake export pipeline.
+Phase 2.5: stabilization of the teacher exporter interface, fake export
+pipeline, package import path, local validation, and CI.
 
 The project can now define, write, read, validate, inspect, and test fake
-teacher target bundles on CPU through a reusable exporter interface without
-requiring JAX, PyTorch, TPU, GPU, or network access.
+teacher target bundles on CPU through a reusable exporter interface. The
+stabilized development path uses an editable install and does not require JAX,
+PyTorch, TPU, GPU, or network access for core validation.
 
 ## Design Principles
 
@@ -27,12 +29,44 @@ requiring JAX, PyTorch, TPU, GPU, or network access.
 ## Quick Usage
 
 ```bash
-PYTHONPATH=src python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
-PYTHONPATH=src python scripts/inspect_targets.py artifacts/teacher_targets/fake_export
+python -m pip install -e ".[dev]"
+python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
+python scripts/inspect_targets.py artifacts/teacher_targets/fake_export
+python scripts/validate_local.py
 ```
 
 The current exporter path uses the deterministic fake exporter. Real Qwen /
 PyTorch / Hugging Face teacher loading is intentionally deferred.
+
+Generated bundles are written under `artifacts/`, which is gitignored.
+
+See `docs/CI.md` for the exact CI command sequence and local mirror.
+
+## Local Development
+
+Use the blessed editable-install workflow:
+
+```bash
+python -m pip install -e ".[dev]"
+python scripts/validate_local.py
+```
+
+The current tests are CPU-only and do not require JAX, PyTorch, GPU, TPU, or
+network access.
+
+Individual checks:
+
+```bash
+python -m compileall src scripts tests
+python scripts/print_env.py
+python scripts/smoke_cpu.py
+python scripts/smoke_tpu.py
+python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
+python scripts/inspect_targets.py artifacts/teacher_targets/fake_export
+python -m pytest
+python -m ruff check .
+python -m ruff format --check .
+```
 
 ## Reference
 

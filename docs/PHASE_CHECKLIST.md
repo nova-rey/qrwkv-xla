@@ -67,3 +67,15 @@
 - [x] Update snapshot
 - [x] Append Bible entry
 - [x] Run validation commands
+
+## P2.5 — Test Robustness + CI Foundation
+
+- [x] Use editable install as the blessed local and CI workflow
+- [x] Remove validation-time dependency installation from `scripts/validate_local.py`
+- [x] Mirror CI locally through `scripts/validate_local.py`
+- [x] Add GitHub Actions CI for Python 3.11 and 3.12
+- [x] Run compileall only on `src`, `scripts`, and `tests`
+- [x] Keep tests CPU-only with no JAX, PyTorch, GPU, TPU, or network requirement
+- [x] Keep generated fake export outputs under gitignored `artifacts/`
+- [x] Document the local validation and individual check commands
+- [x] Avoid model, trainer, and heavyweight dependency changes

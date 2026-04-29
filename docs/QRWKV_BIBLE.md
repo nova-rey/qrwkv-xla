@@ -36,3 +36,15 @@ teacher export configuration schema, export request/result contracts, a
 TeacherExporter protocol, a deterministic fake exporter, and a CLI entrypoint
 that writes valid target bundles through the artifact store. Real
 Qwen/PyTorch/Hugging Face loading remains intentionally deferred.
+
+## Phase 2.5 — Editable Install Validation and CI Stabilization
+
+This stabilization phase keeps the P2 behavior intact while standardizing how
+the repository is validated. QRWKV-XLA now treats `python -m pip install -e ".[dev]"`
+as the blessed development setup, with scripts and tests importing the installed
+package instead of using `PYTHONPATH=src` or script-local path patching.
+
+Local validation mirrors the core CI commands through `scripts/validate_local.py`
+without installing dependencies. CI runs the same validation sequence on
+Python 3.11 and 3.12. Fake teacher export artifacts remain generated local state
+under the gitignored `artifacts/` directory.

@@ -6,14 +6,6 @@ from dataclasses import replace
 from pathlib import Path
 
 
-def _add_src_to_path() -> Path:
-    root = Path(__file__).resolve().parents[1]
-    src = root / "src"
-    if str(src) not in sys.path:
-        sys.path.insert(0, str(src))
-    return root
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Export teacher targets")
     parser.add_argument("--config", required=True, help="Path to teacher export YAML")
@@ -28,8 +20,6 @@ def main() -> None:
         help="Include logits in the exported shards",
     )
     args = parser.parse_args()
-
-    _add_src_to_path()
 
     from qrwkv_xla.targets import inspect_target_bundle, validate_target_bundle
     from qrwkv_xla.teacher_export import (

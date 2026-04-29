@@ -1,0 +1,32 @@
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.mark.parametrize(
+    "script_name",
+    [
+        "create_fake_targets.py",
+        "inspect_targets.py",
+        "export_teacher_targets.py",
+    ],
+)
+def test_script_help(script_name: str) -> None:
+    script = ROOT / "scripts" / script_name
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "usage:" in result.stdout

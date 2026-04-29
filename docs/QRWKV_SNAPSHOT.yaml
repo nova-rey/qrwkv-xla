@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 2
-checkpoint: teacher_exporter_interface
-status: complete
+phase: 2.5
+checkpoint: test_robustness_ci
+status: stabilization
 mission: >
   Build a JAX/XLA-first RADLADS-style transformer-to-RWKV7 recurrent
   conversion pipeline for TPU-first training.
@@ -37,9 +37,10 @@ workflow:
   spec_style: whole_implementation_spec
   legacy_prompt_structure: A/B/C optional only if useful
   lint_format: Ruff + Black-compatible
+  local_validation: Strategy A editable install, then scripts/validate_local.py
   bible_policy: append_only
 
 current_goal: >
-  Implement the teacher exporter interface and deterministic fake exporter
-  pipeline that writes valid P1 target bundles without requiring PyTorch,
-  Hugging Face, network access, GPU, or TPU.
+  Establish test robustness and a CI foundation with editable-install
+  validation parity, CPU-only checks, and no JAX, PyTorch, GPU, TPU, or network
+  requirements for local validation.
