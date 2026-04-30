@@ -7,13 +7,16 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 7: optional Hugging Face teacher export backend, with Phase 6 XLA
-discipline and TPU smoke readiness preserved.
+Phase 8 prep: offline Qwen policy resolution and dry-run export preparation on
+top of the optional Hugging Face teacher exporter, with Phase 6 XLA discipline
+and TPU smoke readiness preserved.
 
 The project can define, write, read, validate, inspect, and test fake teacher
 target bundles on CPU through a reusable exporter interface. It also has an
 optional Hugging Face / PyTorch exporter backend behind the `teacher-hf` extra;
-that path is not part of default CI/local validation. It also has a JAX
+that path is not part of default CI/local validation. Qwen policy labels are
+resolved only from local YAML and never by automatic internet lookup. It also
+has a JAX
 student runtime path and an XLA-friendly `rwkv7_reference` recurrent reference
 implementation for CPU/JIT/gradient coverage and smoke training. The current
 distillation runtime loads stage configs, composes weighted hidden-state losses,
@@ -78,6 +81,8 @@ python scripts/xla_inspect.py
 python scripts/smoke_cpu.py
 python scripts/smoke_tpu.py
 python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
+python scripts/resolve_qwen_policy.py Qwen3.latest --allow-unresolved
+python scripts/export_teacher_targets.py --config configs/teacher_export_qwen_dryrun.yaml --dry-run --resolve-qwen-policy --allow-unresolved-policy
 python scripts/inspect_targets.py artifacts/teacher_targets/fake_export
 python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2
 python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --student-architecture rwkv7_reference --max-steps 2
@@ -104,7 +109,8 @@ python scripts/inspect_targets.py artifacts/teacher_targets/hf_tiny
 ```
 
 This uses a tiny public model for backend validation. Qwen export is
-intentionally not the default smoke path.
+intentionally not the default smoke path. See `docs/QWEN_EXPORT_POLICY.md` for
+offline policy resolution and manual-only Qwen export prep.
 
 ## TPU Launcher Smoke
 

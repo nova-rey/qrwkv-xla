@@ -83,13 +83,19 @@ the backend and artifact path without making torch/transformers base
 dependencies, without adding network-required default tests, and without running
 Qwen smoke by default.
 
-## Phase 8 — Evaluation and Export
-Goal: generation sanity, teacher/student comparison, packaging.
+## Phase 8 — Qwen Policy Prep, Evaluation, and Export
+Goal: offline Qwen policy prep, generation sanity, teacher/student comparison,
+packaging.
 
 Checkpoints:
-- P8A: eval harness skeleton
-- P8B: recurrent inference path
-- P8C: export format and model card artifacts
+- P8A: local/offline Qwen policy resolver and dry-run export preparation
+- P8B: eval harness skeleton
+- P8C: recurrent inference path
+- P8D: export format and model card artifacts
+
+Current checkpoint: `qwen_policy_offline_prep`. This checkpoint keeps Qwen
+export manual-only, avoids automatic model lookup, and preserves default
+validation under `.[dev]` without `teacher-hf`.
 
 ## Phase 9 — TPU Scale-Up
 Goal: multi-device/multi-host TPU training plan.

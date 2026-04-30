@@ -10,6 +10,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "export_teacher_targets.py"
 CONFIG = ROOT / "configs" / "teacher_export_stub.yaml"
+QWEN_DRYRUN = ROOT / "configs" / "teacher_export_qwen_dryrun.yaml"
 
 
 def test_export_teacher_targets_help_lists_hf_flags() -> None:
@@ -31,6 +32,10 @@ def test_export_teacher_targets_help_lists_hf_flags() -> None:
         "--revision",
         "--device",
         "--dtype",
+        "--qwen-policy",
+        "--resolve-qwen-policy",
+        "--allow-unresolved-policy",
+        "--dry-run",
     ):
         assert flag in result.stdout
 
@@ -104,10 +109,7 @@ def test_cli_accepts_hf_overrides_without_real_hf(
         "qrwkv_xla.teacher_export.get_teacher_exporter",
         lambda _: StubExporter(),
     )
-    monkeypatch.setattr(
-        "qrwkv_xla.targets.validate_target_bundle",
-        lambda _path: None,
-    )
+    monkeypatch.setattr("qrwkv_xla.targets.validate_target_bundle", lambda _path: None)
     monkeypatch.setattr(
         "qrwkv_xla.targets.inspect_target_bundle",
         lambda _path: {"target_keys": ["attention_mask", "hidden_states", "input_ids"]},
@@ -146,6 +148,98 @@ def test_cli_hf_backend_missing_dependencies_exits_nonzero(tmp_path: Path) -> No
         assert result.returncode != 0
     else:
         pytest.skip("teacher-hf dependencies are installed in this environment")
+
+
+def test_qwen_dry_run_unresolved_allowed_exits_zero() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--config",
+            str(QWEN_DRYRUN),
+            "--dry-run",
+            "--resolve-qwen-policy",
+            "--allow-unresolved-policy",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "dry_run: true" in result.stdout
+    assert "resolution_status: unresolved" in result.stdout
+
+
+def test_qwen_dry_run_unresolved_without_allow_exits_nonzero() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--config",
+            str(QWEN_DRYRUN),
+            "--dry-run",
+            "--resolve-qwen-policy",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "unresolved" in result.stderr
+
+
+def test_qwen_dry_run_model_id_override_marks_resolved() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--config",
+            str(QWEN_DRYRUN),
+            "--dry-run",
+            "--resolve-qwen-policy",
+            "--model-id",
+            "local/qwen-test",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "model_id: local/qwen-test" in result.stdout
+    assert "tokenizer_id: local/qwen-test" in result.stdout
+    assert "resolution_status: resolved" in result.stdout
+
+
+def test_qwen_dry_run_does_not_import_hf_module(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _load_script_module()
+    sys.modules.pop("qrwkv_xla.teacher_export.hf", None)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            str(SCRIPT),
+            "--config",
+            str(QWEN_DRYRUN),
+            "--dry-run",
+            "--resolve-qwen-policy",
+            "--allow-unresolved-policy",
+        ],
+    )
+
+    module.main()
+
+    output = capsys.readouterr().out
+    assert "dry_run: true" in output
+    assert "qrwkv_xla.teacher_export.hf" not in sys.modules
 
 
 def _load_script_module():

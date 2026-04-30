@@ -47,6 +47,8 @@ class ExportRuntimeConfig:
     num_shards: int = 2
     seed: int = 1234
     output_dir: Path = Path("artifacts/teacher_targets/fake_export")
+    require_resolved_model: bool = False
+    qwen_policy_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -74,7 +76,7 @@ def validate_teacher_export_config(config: TeacherExportConfig) -> None:
         )
 
     _require_positive("targets.sequence_length", config.targets.sequence_length)
-    _require_positive("targets.vocab_size", config.targets.vocab_size)
+    _require_non_negative("targets.vocab_size", config.targets.vocab_size)
     _require_non_negative("targets.max_new_tokens", config.targets.max_new_tokens)
 
     if config.targets.hidden_size is not None:
@@ -94,6 +96,15 @@ def validate_teacher_export_config(config: TeacherExportConfig) -> None:
             "runtime.exporter_backend must be one of "
             f"{{{allowed}}}, got {config.runtime.exporter_backend!r}"
         )
+    if (
+        config.runtime.require_resolved_model
+        and not config.teacher.resolved_model_id
+        and config.runtime.qwen_policy_path is None
+    ):
+        raise ValueError(
+            "runtime.require_resolved_model requires teacher.resolved_model_id "
+            "or runtime.qwen_policy_path"
+        )
 
     _require_positive("runtime.batch_size", config.runtime.batch_size)
     _require_positive("runtime.num_shards", config.runtime.num_shards)
@@ -103,6 +114,7 @@ def validate_teacher_export_config(config: TeacherExportConfig) -> None:
             raise ValueError(f"targets.prompt_texts[{index}] must be non-empty")
 
     if config.runtime.exporter_backend == "fake":
+        _require_positive("targets.vocab_size", config.targets.vocab_size)
         if config.targets.hidden_size is None:
             raise ValueError("targets.hidden_size must be set for fake export")
         if config.targets.num_layers is None:
@@ -124,6 +136,13 @@ def load_teacher_export_config(path: str | Path) -> TeacherExportConfig:
     prompt_file = _optional_path(targets_data.get("prompt_file"))
     if prompt_file is not None and not prompt_file.is_absolute():
         prompt_file = config_path.parent / prompt_file
+    qwen_policy_path = _optional_path(runtime_data.get("qwen_policy_path"))
+    if qwen_policy_path is not None and not qwen_policy_path.is_absolute():
+        config_relative = config_path.parent / qwen_policy_path
+        repo_relative = config_path.parent.parent / qwen_policy_path
+        qwen_policy_path = (
+            config_relative if config_relative.exists() else repo_relative
+        )
 
     config = TeacherExportConfig(
         teacher=TeacherModelConfig(
@@ -167,6 +186,10 @@ def load_teacher_export_config(path: str | Path) -> TeacherExportConfig:
                     )
                 )
             ),
+            require_resolved_model=bool(
+                runtime_data.get("require_resolved_model", False)
+            ),
+            qwen_policy_path=qwen_policy_path,
         ),
     )
     validate_teacher_export_config(config)

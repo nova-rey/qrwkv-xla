@@ -1,0 +1,30 @@
+teacher:
+  family: qwen
+  policy_label: qwen-tiny-smoke
+  fallback_label: Qwen3.0
+  resolved_model_id: null # Fill manually before running.
+  tokenizer_id: null # Optional; defaults to resolved_model_id when supported.
+  trust_remote_code: true
+  revision: null
+  device: cpu
+  dtype: auto
+
+targets:
+  sequence_length: 64
+  hidden_size: null
+  num_layers: null
+  dtype: fp32
+  include_logits: false
+  include_attention_targets: false
+  vocab_size: 0
+  prompt_texts:
+    - "QRWKV-XLA Qwen manual smoke."
+
+runtime:
+  exporter_backend: hf
+  batch_size: 1
+  num_shards: 1
+  seed: 1234
+  output_dir: artifacts/teacher_targets/qwen_manual_smoke
+  require_resolved_model: true
+  qwen_policy_path: configs/qwen_policy.yaml

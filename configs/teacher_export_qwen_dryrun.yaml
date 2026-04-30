@@ -1,0 +1,31 @@
+teacher:
+  family: qwen
+  policy_label: Qwen3.latest
+  fallback_label: Qwen3.0
+  resolved_model_id: null
+  tokenizer_id: null
+  trust_remote_code: true
+  revision: null
+  device: cpu
+  dtype: auto
+
+targets:
+  sequence_length: 64
+  hidden_size: null
+  num_layers: null
+  dtype: fp32
+  include_logits: true
+  include_attention_targets: false
+  vocab_size: 0
+  prompt_texts:
+    - "QRWKV-XLA Qwen dry-run prompt."
+    - "This config is for validation and policy resolution only."
+
+runtime:
+  exporter_backend: hf
+  batch_size: 1
+  num_shards: 1
+  seed: 1234
+  output_dir: artifacts/teacher_targets/qwen_dryrun
+  require_resolved_model: true
+  qwen_policy_path: configs/qwen_policy.yaml

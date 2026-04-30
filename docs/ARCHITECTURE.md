@@ -6,7 +6,8 @@ QRWKV-XLA is intended to be a full-featured long-term codebase for transformer-t
 
 ### Teacher Exporter
 - **Current shape:** protocol/interface plus deterministic fake implementation
-  and optional Hugging Face / PyTorch backend
+  and optional Hugging Face / PyTorch backend, with an offline Qwen policy
+  resolver above the generic HF exporter
 - **Optional framework:** PyTorch + Hugging Face, installed through
   `.[teacher-hf]`
 - **Purpose:** export reusable teacher targets through a stable exporter contract.
@@ -16,6 +17,10 @@ implementation for default CPU validation, and an optional HF backend that
 implements the same target bundle contract without becoming a base dependency.
 The backend registry keeps HF/PyTorch optional by loading heavy dependencies only
 inside the HF export path.
+
+Qwen policy resolution is a local preflight layer. It maps labels such as
+`Qwen3.latest` through `configs/qwen_policy.yaml`, can dry-run without
+torch/transformers, and never performs network or API lookup.
 
 ### Target Artifact Store
 - **Purpose:** Store input ids, masks, hidden states, logits, attention or mixer targets, metadata, tokenizer references, teacher identity, and stage info.

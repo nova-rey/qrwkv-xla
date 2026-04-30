@@ -95,3 +95,14 @@ shape metadata in the manifest.
 
 Qwen smoke execution, network-dependent model downloads, GPU assumptions, and
 generated `artifacts/` outputs remain outside default validation.
+
+## Phase 8 — Offline Qwen Policy Prep
+
+This phase adds a local Qwen policy resolver and dry-run export preparation
+layer above the optional HF exporter. `Qwen3.latest` is treated as a local YAML
+label, not a web lookup, and the default policy intentionally leaves concrete
+Qwen model ids unresolved.
+
+Default validation now checks policy parsing and Qwen dry-run behavior without
+installing `teacher-hf`, importing torch/transformers, loading a model, writing
+a Qwen bundle, or touching the network. Real Qwen export remains manual-only.

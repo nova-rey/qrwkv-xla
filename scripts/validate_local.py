@@ -20,6 +20,21 @@ COMMANDS = [
     ],
     [
         sys.executable,
+        "scripts/resolve_qwen_policy.py",
+        "Qwen3.latest",
+        "--allow-unresolved",
+    ],
+    [
+        sys.executable,
+        "scripts/export_teacher_targets.py",
+        "--config",
+        "configs/teacher_export_qwen_dryrun.yaml",
+        "--dry-run",
+        "--resolve-qwen-policy",
+        "--allow-unresolved-policy",
+    ],
+    [
+        sys.executable,
         "scripts/inspect_targets.py",
         "artifacts/teacher_targets/fake_export",
     ],

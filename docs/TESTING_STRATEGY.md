@@ -69,3 +69,7 @@ mutation. The fake export and smoke training steps write only gitignored
 
 The HF backend has stubbed unit/CLI tests in default pytest, but no default test
 imports torch/transformers, touches the network, assumes GPU, or runs Qwen.
+
+Qwen policy tests are offline only. Default validation resolves
+`Qwen3.latest` as an unresolved local label and runs the Qwen export CLI in
+`--dry-run` mode, without loading HF models or writing a Qwen bundle.

@@ -23,6 +23,10 @@ The tiny smoke config uses `sshleifer/tiny-gpt2`. This is for backend
 validation only. Qwen policy labels remain documented, but Qwen is not the
 manual smoke default yet.
 
+For Qwen-specific policy handling, see `docs/QWEN_EXPORT_POLICY.md`.
+`Qwen3.latest` is a local policy label only; resolving it never performs a web
+lookup.
+
 ## Prompt handling
 
 Prompts are resolved in this order:

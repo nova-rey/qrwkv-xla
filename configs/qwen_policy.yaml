@@ -1,0 +1,41 @@
+schema_version: "0.1"
+
+policies:
+  Qwen3.latest:
+    description: >
+      Project policy label for the latest viable open-weight Qwen3-family
+      teacher selected by the user/project maintainers.
+    resolved_model_id: null
+    tokenizer_id: null
+    trust_remote_code: true
+    dtype: auto
+    device: cpu
+    requires_manual_resolution: true
+    notes:
+      - "Set resolved_model_id before real export."
+      - "Do not use this unresolved policy in automated export."
+
+  Qwen3.0:
+    description: >
+      Fallback Qwen3-line teacher policy.
+    resolved_model_id: null
+    tokenizer_id: null
+    trust_remote_code: true
+    dtype: auto
+    device: cpu
+    requires_manual_resolution: true
+    notes:
+      - "Set resolved_model_id before real export."
+
+  qwen-tiny-smoke:
+    description: >
+      Optional manually configured small Qwen/HF-compatible model for backend smoke.
+      This is not part of default CI.
+    resolved_model_id: null
+    tokenizer_id: null
+    trust_remote_code: false
+    dtype: auto
+    device: cpu
+    requires_manual_resolution: true
+    notes:
+      - "Fill with a small model ID only for manual testing."

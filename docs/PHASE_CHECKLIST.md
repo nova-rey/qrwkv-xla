@@ -148,3 +148,15 @@
 - [x] Update snapshot
 - [x] Append Bible entry
 - [x] Run validation
+
+## P8 — Offline Qwen Policy Prep
+
+- [x] Add local Qwen policy dataclasses and validation
+- [x] Add offline Qwen policy resolver CLI
+- [x] Add unresolved Qwen policy YAML
+- [x] Add Qwen dry-run and manual export configs without concrete model ids
+- [x] Add teacher export CLI dry-run policy resolution
+- [x] Keep real Qwen export out of default validation
+- [x] Keep torch/transformers out of base and dev dependencies
+- [x] Add offline resolver/config/CLI tests
+- [x] Update docs and snapshot

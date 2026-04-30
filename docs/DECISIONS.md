@@ -133,3 +133,16 @@ runs.
 For real HF exports, `hidden_size` and `num_layers` in the manifest are
 inferred from actual model outputs rather than trusted from config. Prompt
 batches define output shards.
+
+## D026 — Qwen Policy Resolution Is Offline
+`Qwen3.latest` and related labels resolve only through local policy files.
+There is no automatic web/API lookup for latest Qwen models.
+
+## D027 — Qwen Export Is Manual-Only
+Default validation may dry-run Qwen policy prep, but it must not run real Qwen
+export, download models, or require `teacher-hf`.
+
+## D028 — HF Exporter Stays Generic
+Qwen-specific policy behavior lives above the generic HF exporter. The HF
+backend remains a model-id-driven exporter and should avoid Qwen-specific
+special cases unless a concrete compatibility issue requires one.

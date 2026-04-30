@@ -76,6 +76,10 @@ path. HF/PyTorch work belongs behind `.[teacher-hf]`, should lazy import those
 libraries, and should keep network/model-download tests gated behind
 `QRWKV_RUN_HF_INTEGRATION=1`.
 
+P8+ Qwen policy changes should keep `Qwen3.latest` as a local label only. Dry-run
+policy checks must work offline without `teacher-hf`; real Qwen export remains a
+manual action with an explicit model id.
+
 Skipped HF integration tests are not failures unless the run explicitly enabled
 `QRWKV_RUN_HF_INTEGRATION=1`.
 

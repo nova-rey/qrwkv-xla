@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 7
-checkpoint: hf_teacher_exporter_backend
+phase: 8
+checkpoint: qwen_policy_offline_prep
 status: complete
 mission: >
   Build a JAX/XLA-first RADLADS-style transformer-to-RWKV7 recurrent
@@ -41,6 +41,6 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add an optional Hugging Face/PyTorch teacher exporter backend while preserving
-  CPU-only fake-export default validation, XLA discipline, and canonical
-  distill naming.
+  Add offline Qwen policy resolution and dry-run export preparation above the
+  optional HF teacher exporter while preserving CPU-only fake-export default
+  validation and avoiding automatic internet lookup.
