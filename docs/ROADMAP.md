@@ -69,13 +69,19 @@ Checkpoints:
 - P6B: static-shape and JIT smoke coverage
 - P6C: TPU-ready launcher scripts and docs
 
-## Phase 7 — Qwen Teacher Integration
-Goal: export real targets from selected Qwen teacher.
+## Phase 7 — Hugging Face Teacher Exporter Backend
+Goal: add optional HF/PyTorch teacher export using small public models before
+Qwen-scale exports.
 
 Checkpoints:
-- P7A: resolve Qwen3.latest model ID into metadata
-- P7B: export small target shards
+- P7A: optional HF/PyTorch backend behind `teacher-hf`
+- P7B: resolve Qwen3.latest model ID into metadata
 - P7C: train student on real exported targets
+
+Current checkpoint: `hf_teacher_exporter_backend`. This checkpoint adds
+the backend and artifact path without making torch/transformers base
+dependencies, without adding network-required default tests, and without running
+Qwen smoke by default.
 
 ## Phase 8 — Evaluation and Export
 Goal: generation sanity, teacher/student comparison, packaging.

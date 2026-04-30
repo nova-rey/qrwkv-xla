@@ -6,10 +6,16 @@ QRWKV-XLA is intended to be a full-featured long-term codebase for transformer-t
 
 ### Teacher Exporter
 - **Current shape:** protocol/interface plus deterministic fake implementation
-- **Later framework:** PyTorch + Hugging Face
+  and optional Hugging Face / PyTorch backend
+- **Optional framework:** PyTorch + Hugging Face, installed through
+  `.[teacher-hf]`
 - **Purpose:** export reusable teacher targets through a stable exporter contract.
 
-Teacher Exporter is now represented by a protocol/interface and a fake deterministic implementation. Real PyTorch/Hugging Face exporters will later implement the same contract.
+Teacher Exporter is represented by a protocol/interface, a fake deterministic
+implementation for default CPU validation, and an optional HF backend that
+implements the same target bundle contract without becoming a base dependency.
+The backend registry keeps HF/PyTorch optional by loading heavy dependencies only
+inside the HF export path.
 
 ### Target Artifact Store
 - **Purpose:** Store input ids, masks, hidden states, logits, attention or mixer targets, metadata, tokenizer references, teacher identity, and stage info.

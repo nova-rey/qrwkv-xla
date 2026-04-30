@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 6
-checkpoint: xla_discipline_tpu_smoke_readiness
+phase: 7
+checkpoint: hf_teacher_exporter_backend
 status: complete
 mission: >
   Build a JAX/XLA-first RADLADS-style transformer-to-RWKV7 recurrent
@@ -41,6 +41,6 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Harden XLA runtime discipline with JAX device inspection, CPU-safe static
-  smoke checks, TPU-ready distillation smoke scripts, documentation for
-  Kaggle/Colab launcher use, and CI validation that does not require TPU.
+  Add an optional Hugging Face/PyTorch teacher exporter backend while preserving
+  CPU-only fake-export default validation, XLA discipline, and canonical
+  distill naming.

@@ -15,6 +15,11 @@ Kaggle/Colab/free TPU when available. Should be tiny and fast.
 Tier 3 also includes TPU-ready smoke scripts that CI runs without requiring
 TPU. Real TPU environments should use `--require-tpu`.
 
+HF backend unit tests use mocks/stubs by default. Optional HF integration tests
+are outside the default tiers. They require `.[teacher-hf]`, may require cached
+or downloadable model assets, and only run when
+`QRWKV_RUN_HF_INTEGRATION=1` is set.
+
 ## Tier 4: large TPU scale tests
 Only after grant or paid TPU access.
 
@@ -61,3 +66,6 @@ The editable install is intentional. Tests and scripts should import the
 installed package rather than depending on `PYTHONPATH=src` or local path
 mutation. The fake export and smoke training steps write only gitignored
 `artifacts/` content.
+
+The HF backend has stubbed unit/CLI tests in default pytest, but no default test
+imports torch/transformers, touches the network, assumes GPU, or runs Qwen.

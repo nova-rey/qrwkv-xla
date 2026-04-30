@@ -71,6 +71,14 @@ smoke training paths.
 P6+ changes touching JAX hot paths should preserve CPU-only CI and should avoid
 claiming TPU success unless run with `--require-tpu` on an actual TPU backend.
 
+P7+ teacher export changes should preserve the fake exporter as the default
+path. HF/PyTorch work belongs behind `.[teacher-hf]`, should lazy import those
+libraries, and should keep network/model-download tests gated behind
+`QRWKV_RUN_HF_INTEGRATION=1`.
+
+Skipped HF integration tests are not failures unless the run explicitly enabled
+`QRWKV_RUN_HF_INTEGRATION=1`.
+
 ## Checkpoint discipline
 
 Every phase/checkpoint should preserve:

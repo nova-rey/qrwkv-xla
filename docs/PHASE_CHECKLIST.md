@@ -130,3 +130,21 @@
 - [x] Update snapshot
 - [x] Append Bible entry
 - [x] Run validation
+
+## P7 — Optional Hugging Face Teacher Export Backend
+
+- [x] Add optional `teacher-hf` dependency extra
+- [x] Extend teacher export config for HF fields
+- [x] Add prompt loading helper
+- [x] Add HFTeacherExporter
+- [x] Register hf backend
+- [x] Update `export_teacher_targets.py` flags
+- [x] Add tiny HF export config
+- [x] Add HF backend docs
+- [x] Add mocked/unit tests
+- [x] Add optional integration test gate
+- [x] Keep fake exporter as the default validation path
+- [x] Update README/docs
+- [x] Update snapshot
+- [x] Append Bible entry
+- [x] Run validation

@@ -82,3 +82,16 @@ in CI. The project now has JAX runtime inspection, XLA/static-shape smoke
 helpers, TPU-ready distillation smoke scripts, and documentation for running
 the repo on Kaggle/Colab-style TPU environments. TPU hard-fail behavior is
 opt-in through `--require-tpu`.
+
+## Phase 7 — Optional Hugging Face Teacher Export Backend
+
+This phase adds a real teacher-export backend boundary without changing the
+default validation surface. PyTorch and Hugging Face Transformers remain
+optional through the `teacher-hf` extra; the fake exporter remains the default
+for CI and local validation. The HF backend lazily imports its dependencies,
+uses fixed-length prompt tokenization, exports hidden states and optional logits
+through the existing target bundle writer, and records model-derived hidden
+shape metadata in the manifest.
+
+Qwen smoke execution, network-dependent model downloads, GPU assumptions, and
+generated `artifacts/` outputs remain outside default validation.

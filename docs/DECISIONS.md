@@ -116,3 +116,20 @@ thin if retained.
 ## D022 — Sharding Deferred Until After Single-Device Smoke
 QRWKV-XLA will validate single-device XLA/JAX runtime behavior before adding
 multi-device TPU sharding, `pjit`, or Pallas kernels.
+
+## D023 — Hugging Face Teacher Export Is Optional
+The HF/PyTorch teacher exporter is available through `.[teacher-hf]` only.
+Torch and Transformers must not become base or dev dependencies, and default
+local/CI validation must continue to use fake exported targets without network,
+GPU, TPU, or Qwen smoke requirements.
+
+## D024 — Tiny HF Model Before Qwen
+P7 validates the first real teacher exporter with a tiny public Hugging Face
+causal language model rather than Qwen3.latest. Qwen export remains the target,
+but the backend should be proven on small models before larger policy-driven
+runs.
+
+## D025 — Hidden Dimensions Are Inferred From Real Teacher Outputs
+For real HF exports, `hidden_size` and `num_layers` in the manifest are
+inferred from actual model outputs rather than trusted from config. Prompt
+batches define output shards.

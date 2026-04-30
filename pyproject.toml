@@ -18,6 +18,10 @@ dependencies = [
 jax = [
   "jax[cpu]>=0.4.0",
 ]
+teacher-hf = [
+  "torch>=2.2",
+  "transformers>=4.40",
+]
 dev = [
   "jax[cpu]>=0.4.0",
   "pytest>=8.0",

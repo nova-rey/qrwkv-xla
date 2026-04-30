@@ -7,10 +7,13 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 6: XLA discipline and TPU smoke readiness.
+Phase 7: optional Hugging Face teacher export backend, with Phase 6 XLA
+discipline and TPU smoke readiness preserved.
 
 The project can define, write, read, validate, inspect, and test fake teacher
-target bundles on CPU through a reusable exporter interface. It also has a JAX
+target bundles on CPU through a reusable exporter interface. It also has an
+optional Hugging Face / PyTorch exporter backend behind the `teacher-hf` extra;
+that path is not part of default CI/local validation. It also has a JAX
 student runtime path and an XLA-friendly `rwkv7_reference` recurrent reference
 implementation for CPU/JIT/gradient coverage and smoke training. The current
 distillation runtime loads stage configs, composes weighted hidden-state losses,
@@ -24,7 +27,7 @@ The reference core is not a final optimized RWKV7 kernel.
 - Full-system architecture from day one
 - Tiny configs, not disposable toy systems
 - JAX/XLA-first student training
-- PyTorch/Hugging Face teacher extraction later
+- PyTorch/Hugging Face teacher extraction optional, never required by default
 - CPU local development
 - TPU smoke tests when available
 - No CUDA/Triton dependency in student training path
@@ -41,8 +44,9 @@ python scripts/tpu_distill_smoke.py --targets artifacts/teacher_targets/fake_exp
 python scripts/validate_local.py
 ```
 
-The current exporter path uses the deterministic fake exporter. Real Qwen /
-PyTorch / Hugging Face teacher loading is intentionally deferred.
+The default exporter path uses the deterministic fake exporter. The optional HF
+backend is installed with `python -m pip install -e ".[dev,teacher-hf]"` and is
+documented in `docs/HF_TEACHER_EXPORT.md`.
 
 `scripts/run_distill_stage.py` is the primary entrypoint for staged distillation. It currently supports hidden-state distillation against fake teacher bundles with `tiny_student` or `rwkv7_reference` students.
 
@@ -61,8 +65,9 @@ python -m pip install -e ".[dev]"
 python scripts/validate_local.py
 ```
 
-The current tests are CPU-only. They require JAX CPU through the `dev` extra,
-but do not require PyTorch, GPU, TPU, or network access.
+The current default tests are CPU-only. They require JAX CPU through the `dev`
+extra, but do not require PyTorch, GPU, TPU, or network access. HF integration
+coverage is opt-in through `QRWKV_RUN_HF_INTEGRATION=1`.
 
 Individual checks:
 
@@ -82,6 +87,24 @@ python -m pytest
 python -m ruff check .
 python -m ruff format --check .
 ```
+
+## Optional Hugging Face Teacher Export
+
+Install the optional backend:
+
+```bash
+python -m pip install -e ".[dev,teacher-hf]"
+```
+
+Run a tiny HF smoke export:
+
+```bash
+python scripts/export_teacher_targets.py --config configs/teacher_export_hf_tiny.yaml --backend hf
+python scripts/inspect_targets.py artifacts/teacher_targets/hf_tiny
+```
+
+This uses a tiny public model for backend validation. Qwen export is
+intentionally not the default smoke path.
 
 ## TPU Launcher Smoke
 

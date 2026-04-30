@@ -90,9 +90,9 @@ PYTHONPATH=src python scripts/inspect_targets.py artifacts/teacher_targets/fake_
 
 ## Exporter Integration
 
-Teacher exporters write bundles using the artifact store API. P2 provides a
-fake exporter that generates deterministic target bundles without loading a
-real model.
+Teacher exporters write bundles using the artifact store API. The fake exporter
+generates deterministic target bundles without loading a real model. The
+optional HF exporter writes the same layout using Hugging Face model outputs.
 
 ```bash
 PYTHONPATH=src python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
@@ -103,9 +103,17 @@ Distinction:
 - `scripts/create_fake_targets.py` = low-level artifact store utility
 - `scripts/export_teacher_targets.py` = teacher-export subsystem entrypoint
 
+HF export keeps the same shard keys. Hidden states are stored as
+`[batch, num_layers, sequence_length, hidden_size]`, with the embedding hidden
+state excluded when the model returns one. Runtime prompt batches map one-to-one
+to output shards. For HF export, `manifest.json` records the actual inferred
+`hidden_size` and `num_layers` from model outputs rather than trusting config
+guesses.
+
 ## Notes
 
-- Real teacher extraction is not implemented yet.
+- Real teacher extraction is available only through the optional `teacher-hf`
+  extra and is not part of default validation.
 - P1 uses NumPy `.npz` shards because they are simple, CPU-only, inspectable,
   and easy to test.
 - Larger-scale formats (for example Zarr, safetensors, or mmap-oriented layouts)
