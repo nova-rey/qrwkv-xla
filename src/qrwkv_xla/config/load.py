@@ -44,6 +44,7 @@ def load_config(path: str | Path) -> QRWKVConfig:
     )
     model = ModelConfig(
         student_architecture=str(model_data.get("student_architecture", "rwkv7_style")),
+        vocab_size=int(model_data.get("vocab_size", 512)),
         hidden_size=int(model_data.get("hidden_size", 128)),
         num_layers=int(model_data.get("num_layers", 2)),
         sequence_length=int(model_data.get("sequence_length", 64)),
@@ -73,6 +74,7 @@ def _validate(
         )
 
     _require_positive("model.hidden_size", model.hidden_size)
+    _require_positive("model.vocab_size", model.vocab_size)
     _require_positive("model.num_layers", model.num_layers)
     _require_positive("model.sequence_length", model.sequence_length)
     _require_positive("training.batch_size", training.batch_size)

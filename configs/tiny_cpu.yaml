@@ -4,6 +4,7 @@ runtime:
 
 model:
   student_architecture: rwkv7_style
+  vocab_size: 512
   hidden_size: 128
   num_layers: 2
   sequence_length: 64

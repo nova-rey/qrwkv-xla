@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
         "create_fake_targets.py",
         "inspect_targets.py",
         "export_teacher_targets.py",
+        "train_student_smoke.py",
     ],
 )
 def test_script_help(script_name: str) -> None:

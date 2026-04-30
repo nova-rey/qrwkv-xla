@@ -13,6 +13,7 @@ class RuntimeConfig:
 @dataclass(frozen=True)
 class ModelConfig:
     student_architecture: str = "rwkv7_style"
+    vocab_size: int = 512
     hidden_size: int = 128
     num_layers: int = 2
     sequence_length: int = 64

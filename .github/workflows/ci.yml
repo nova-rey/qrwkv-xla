@@ -44,6 +44,9 @@ jobs:
       - name: Inspect fake teacher targets
         run: python scripts/inspect_targets.py artifacts/teacher_targets/fake_export
 
+      - name: Run student train smoke
+        run: python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2
+
       - name: Run tests
         run: python -m pytest
 

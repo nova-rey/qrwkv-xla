@@ -45,6 +45,7 @@ class FakeTeacherExporter:
             dtype=config.targets.dtype,
             created_by="FakeTeacherExporter",
             notes=["deterministic fake exporter bundle"],
+            extra={"vocab_size": config.targets.vocab_size},
         )
 
         rng = np.random.default_rng(config.runtime.seed)
