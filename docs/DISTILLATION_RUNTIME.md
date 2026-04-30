@@ -5,6 +5,12 @@
 The Phase 5 distillation runtime turns the earlier smoke-training path into a
 reusable staged distillation entrypoint for QRWKV-XLA.
 
+The canonical package name is `qrwkv_xla.distill`. The older
+`qrwkv_xla.distillation` namespace is a thin compatibility alias and should not
+be used in new docs or primary scripts.
+
+Canonical script: `scripts/run_distill_stage.py`
+
 Current runtime shape:
 
 ```text
@@ -84,6 +90,9 @@ silently ignoring it.
 ```bash
 python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml
 ```
+
+`scripts/run_distill_stage.py` is the canonical script name. The older
+`scripts/run_distillation_stage.py` is kept only as a compatibility alias.
 
 Optional overrides:
 

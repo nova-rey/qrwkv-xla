@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 COMMANDS = [
     [sys.executable, "-m", "compileall", "src", "scripts", "tests"],
     [sys.executable, "scripts/print_env.py"],
+    [sys.executable, "scripts/xla_inspect.py"],
     [sys.executable, "scripts/smoke_cpu.py"],
     [sys.executable, "scripts/smoke_tpu.py"],
     [
@@ -45,6 +46,16 @@ COMMANDS = [
         "scripts/run_distill_stage.py",
         "--config",
         "configs/distill_stage0_stub.yaml",
+        "--max-steps",
+        "2",
+    ],
+    [
+        sys.executable,
+        "scripts/tpu_distill_smoke.py",
+        "--targets",
+        "artifacts/teacher_targets/fake_export",
+        "--max-steps",
+        "2",
     ],
     [sys.executable, "-m", "pytest"],
     [sys.executable, "-m", "ruff", "check", "."],

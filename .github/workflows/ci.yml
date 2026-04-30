@@ -32,6 +32,9 @@ jobs:
       - name: Print environment
         run: python scripts/print_env.py
 
+      - name: Inspect JAX/XLA runtime
+        run: python scripts/xla_inspect.py
+
       - name: Run CPU smoke
         run: python scripts/smoke_cpu.py
 
@@ -51,7 +54,10 @@ jobs:
         run: python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --student-architecture rwkv7_reference --max-steps 2
 
       - name: Run distillation stage smoke
-        run: python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml
+        run: python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --max-steps 2
+
+      - name: Run TPU-ready distill smoke
+        run: python scripts/tpu_distill_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2
 
       - name: Run tests
         run: python -m pytest

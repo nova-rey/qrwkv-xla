@@ -1,0 +1,26 @@
+distillation:
+  stage: 0
+  targets_dir: artifacts/teacher_targets/fake_export
+  student:
+    architecture: rwkv7_reference
+    vocab_size: 512
+    hidden_size: null
+    num_layers: null
+  optimizer:
+    type: sgd
+    learning_rate: 0.001
+  training:
+    max_steps: 2
+    seed: 0
+  losses:
+    hidden_mse:
+      enabled: true
+      weight: 1.0
+    logits_kl:
+      enabled: false
+      weight: 0.0
+    attention_or_mixer:
+      enabled: false
+      weight: 0.0
+runtime:
+  require_tpu: false

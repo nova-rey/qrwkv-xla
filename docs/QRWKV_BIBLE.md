@@ -74,3 +74,11 @@ records metric history summaries, and exposes `scripts/run_distill_stage.py`
 for local and CI smoke validation. Logits KL is present as opt-in plumbing with
 clear validation, but actual student logits remain deferred until a student
 head is added.
+
+## Phase 6 — XLA Discipline and TPU Smoke Readiness
+
+This phase prepares QRWKV-XLA for real TPU smoke testing without requiring TPU
+in CI. The project now has JAX runtime inspection, XLA/static-shape smoke
+helpers, TPU-ready distillation smoke scripts, and documentation for running
+the repo on Kaggle/Colab-style TPU environments. TPU hard-fail behavior is
+opt-in through `--require-tpu`.

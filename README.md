@@ -7,7 +7,7 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 5: distillation stage runtime.
+Phase 6: XLA discipline and TPU smoke readiness.
 
 The project can define, write, read, validate, inspect, and test fake teacher
 target bundles on CPU through a reusable exporter interface. It also has a JAX
@@ -15,6 +15,8 @@ student runtime path and an XLA-friendly `rwkv7_reference` recurrent reference
 implementation for CPU/JIT/gradient coverage and smoke training. The current
 distillation runtime loads stage configs, composes weighted hidden-state losses,
 plumbs optional logits KL, and runs a CPU-only stage smoke over target bundles.
+It also exposes CPU-safe JAX runtime inspection and static-shape JIT smoke
+helpers used by local, CI, and TPU launcher checks.
 The reference core is not a final optimized RWKV7 kernel.
 
 ## Design Principles
@@ -32,17 +34,19 @@ The reference core is not a final optimized RWKV7 kernel.
 
 ```bash
 python -m pip install -e ".[dev]"
+python scripts/xla_inspect.py
 python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
 python scripts/inspect_targets.py artifacts/teacher_targets/fake_export
-python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --student-architecture rwkv7_reference --max-steps 2
-python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml
+python scripts/tpu_distill_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2
 python scripts/validate_local.py
 ```
 
 The current exporter path uses the deterministic fake exporter. Real Qwen /
 PyTorch / Hugging Face teacher loading is intentionally deferred.
 
-`scripts/run_distill_stage.py` is now the primary entrypoint for staged distillation. It currently supports hidden-state distillation against fake teacher bundles with `tiny_student` or `rwkv7_reference` students.
+`scripts/run_distill_stage.py` is the primary entrypoint for staged distillation. It currently supports hidden-state distillation against fake teacher bundles with `tiny_student` or `rwkv7_reference` students.
+
+`scripts/tpu_distill_smoke.py` runs on the available JAX backend by default and only requires TPU when `--require-tpu` is passed.
 
 Generated bundles are written under `artifacts/`, which is gitignored.
 
@@ -65,17 +69,42 @@ Individual checks:
 ```bash
 python -m compileall src scripts tests
 python scripts/print_env.py
+python scripts/xla_inspect.py
 python scripts/smoke_cpu.py
 python scripts/smoke_tpu.py
 python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
 python scripts/inspect_targets.py artifacts/teacher_targets/fake_export
 python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2
 python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --student-architecture rwkv7_reference --max-steps 2
-python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml
+python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --max-steps 2
+python scripts/tpu_distill_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2
 python -m pytest
 python -m ruff check .
 python -m ruff format --check .
 ```
+
+## TPU Launcher Smoke
+
+Kaggle and Colab TPU sessions should be treated as launch wrappers for the repo
+scripts:
+
+```bash
+python -m pip install -e ".[dev]"
+python scripts/xla_inspect.py
+python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
+python scripts/tpu_distill_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2
+python scripts/tpu_distill_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2 --require-tpu
+```
+
+Without `--require-tpu`, `scripts/tpu_distill_smoke.py` exits successfully on
+whatever JAX backend is available. See `docs/TPU_SMOKE_GUIDE.md`.
+
+## Naming
+
+The canonical distillation package is `qrwkv_xla.distill`, and the canonical
+stage runner is `scripts/run_distill_stage.py`. The older
+`qrwkv_xla.distillation` package and `scripts/run_distillation_stage.py` remain
+thin compatibility aliases only.
 
 ## Reference
 

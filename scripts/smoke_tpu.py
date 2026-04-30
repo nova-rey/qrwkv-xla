@@ -1,38 +1,42 @@
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
+from qrwkv_xla.config import load_config
+from qrwkv_xla.xla import format_jax_runtime_info, get_jax_runtime_info
+
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Run a QRWKV-XLA TPU environment smoke"
+    )
+    parser.add_argument("--config", default="configs/tiny_tpu_smoke.yaml")
+    args = parser.parse_args()
+
     root = Path(__file__).resolve().parents[1]
-    src = root / "src"
-    if str(src) not in sys.path:
-        sys.path.insert(0, str(src))
+    config = load_config(root / args.config)
 
-    from qrwkv_xla.config import load_config
-
-    config = load_config(root / "configs" / "tiny_tpu_smoke.yaml")
     print(f"Loaded config backend: {config.runtime.backend}")
     print(f"Configured sequence length: {config.model.sequence_length}")
 
-    try:
-        import jax  # type: ignore
-    except ImportError:
-        print("JAX is not installed; TPU smoke placeholder exiting gracefully.")
-        sys.exit(0)
+    runtime = get_jax_runtime_info()
+    print(format_jax_runtime_info(runtime))
 
-    devices = list(jax.devices())
-    print("JAX devices:")
-    for device in devices:
-        print(f"- {device}")
+    if not runtime.has_tpu:
+        print(
+            "No TPU detected; TPU smoke skipped. "
+            "Use --require-tpu scripts for hard failure."
+        )
+        raise SystemExit(0)
 
-    if not any(getattr(device, "platform", "") == "tpu" for device in devices):
-        print("No TPU detected; Phase 0 smoke exits gracefully.")
-        sys.exit(0)
-
-    print("TPU detected; Phase 0 smoke placeholder completed.")
+    print("TPU detected; TPU smoke environment looks ready.")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except ValueError as exc:
+        print(f"TPU smoke failed: {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc

@@ -68,6 +68,9 @@ From Phase 5 onward, new training behavior should prefer the distillation stage
 runner (`scripts/run_distill_stage.py`) rather than adding separate one-off
 smoke training paths.
 
+P6+ changes touching JAX hot paths should preserve CPU-only CI and should avoid
+claiming TPU success unless run with `--require-tpu` on an actual TPU backend.
+
 ## Checkpoint discipline
 
 Every phase/checkpoint should preserve:

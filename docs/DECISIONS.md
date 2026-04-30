@@ -100,3 +100,19 @@ The Phase 5 loss registry includes `logits_kl`, but current student
 implementations do not emit logits. Enabling logits KL therefore validates that
 both student logits and target logits exist and fails clearly until a student
 logits head is introduced.
+
+## D020 — TPU Smoke Scripts Must Degrade Gracefully
+TPU smoke scripts run on the available JAX backend by default and only fail for
+missing TPU when `--require-tpu` is explicitly passed. This keeps CI and CPU-only
+development reliable while still supporting hard TPU validation in real TPU
+environments.
+
+## D021 — `distill` Is Canonical
+The canonical distillation package is `qrwkv_xla.distill`, and the canonical
+CLI is `scripts/run_distill_stage.py`. Any `distillation` package or
+`run_distillation_stage.py` script is a compatibility alias and should remain
+thin if retained.
+
+## D022 — Sharding Deferred Until After Single-Device Smoke
+QRWKV-XLA will validate single-device XLA/JAX runtime behavior before adding
+multi-device TPU sharding, `pjit`, or Pallas kernels.

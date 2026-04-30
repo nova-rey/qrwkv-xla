@@ -35,6 +35,16 @@ gradient flow for the student path. It is not a final optimized RWKV7 kernel.
   bundles.
 - **Purpose:** Coordinate staged losses for hidden-state distillation, logit distillation, attention/mixer behavior distillation, and optional instruction/behavior preservation.
 
+### XLA Discipline / TPU Smoke
+- **Current shape:** runtime inspection utilities, distillation smoke wrapper,
+  CPU-safe default behavior, and explicit TPU hard-fail mode.
+- **Purpose:** Verify XLA/JAX runtime visibility and single-device smoke
+  readiness without turning TPU launcher checks into a second training stack.
+
+The TPU smoke path is intentionally CPU-safe by default. Real TPU validation is
+opt-in through `--require-tpu`. Sharding, `pjit`, and Pallas work remain
+deferred.
+
 ### Checkpointing
 - **Purpose:** Save and resume JAX student state, tracking optimizer state, config, RNG state, global step, artifact IDs, and model metadata.
 

@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 5
-checkpoint: distillation_stage_runtime
-status: stage_runtime
+phase: 6
+checkpoint: xla_discipline_tpu_smoke_readiness
+status: complete
 mission: >
   Build a JAX/XLA-first RADLADS-style transformer-to-RWKV7 recurrent
   conversion pipeline for TPU-first training.
@@ -41,7 +41,6 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Establish the first configured distillation stage runtime for the JAX student
-  path: weighted hidden-state loss composition, optional logits KL plumbing,
-  CPU-only stage runner, metrics summaries, CLI coverage, and local/CI
-  validation without adding heavyweight dependencies.
+  Harden XLA runtime discipline with JAX device inspection, CPU-safe static
+  smoke checks, TPU-ready distillation smoke scripts, documentation for
+  Kaggle/Colab launcher use, and CI validation that does not require TPU.

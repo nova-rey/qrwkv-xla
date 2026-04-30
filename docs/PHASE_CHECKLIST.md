@@ -112,3 +112,21 @@
 - [x] Add unit and CLI coverage
 - [x] Update local validation and CI command sequence
 - [x] Update docs, snapshot, decisions, and append-only Bible
+
+## P6 — XLA Discipline and TPU Smoke Readiness
+
+- [x] Add JAX/XLA runtime inspection utilities
+- [x] Add XLA static smoke helper
+- [x] Add `xla_inspect.py`
+- [x] Add `tpu_distill_smoke.py`
+- [x] Improve `smoke_tpu.py`
+- [x] Add tiny TPU distill smoke config
+- [x] Add XLA/TPU smoke tests
+- [x] Update CI/local validation command sequence
+- [x] Add `XLA_DISCIPLINE.md`
+- [x] Add `TPU_SMOKE_GUIDE.md`
+- [x] Clarify canonical `distill` naming and thin `distillation` aliases
+- [x] Update docs
+- [x] Update snapshot
+- [x] Append Bible entry
+- [x] Run validation

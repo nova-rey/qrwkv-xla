@@ -11,21 +11,24 @@ CI runs these commands in order:
 ```bash
 python -m compileall src scripts tests
 python scripts/print_env.py
+python scripts/xla_inspect.py
 python scripts/smoke_cpu.py
 python scripts/smoke_tpu.py
 python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
 python scripts/inspect_targets.py artifacts/teacher_targets/fake_export
 python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2
 python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --student-architecture rwkv7_reference --max-steps 2
-python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml
+python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --max-steps 2
+python scripts/tpu_distill_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2
 python -m pytest
 python -m ruff check .
 python -m ruff format --check .
 ```
 
-The TPU smoke script is intentionally graceful when JAX or TPU devices are not
-available. It verifies that the TPU config path loads without making local CPU
-development depend on TPU hardware.
+`xla_inspect.py` is inspection-only and exits 0 by default, even without TPU.
+`tpu_distill_smoke.py` is intentionally graceful when JAX or TPU devices are
+not available, unless `--require-tpu` is explicitly passed in a real TPU
+environment.
 
 ## Local Mirror
 

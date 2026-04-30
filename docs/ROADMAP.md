@@ -60,13 +60,14 @@ configured hidden-state distillation stage on fake/exported target bundles,
 while keeping logits KL opt-in and clearly validated until student logits are
 implemented.
 
-## Phase 6 — TPU Smoke and XLA Discipline
-Goal: prove the code runs on actual TPU environments.
+## Phase 6 — XLA Discipline + TPU Smoke Readiness
+Goal: harden JAX/XLA runtime discipline and provide TPU-ready smoke scripts
+that degrade gracefully without TPU.
 
 Checkpoints:
-- P6A: Kaggle/Colab TPU smoke script
-- P6B: static-shape audit
-- P6C: compile/recompile logging and known XLA pitfalls doc
+- P6A: JAX runtime inspection and backend visibility
+- P6B: static-shape and JIT smoke coverage
+- P6C: TPU-ready launcher scripts and docs
 
 ## Phase 7 — Qwen Teacher Integration
 Goal: export real targets from selected Qwen teacher.
