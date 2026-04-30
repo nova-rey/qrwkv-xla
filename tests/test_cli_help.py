@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
         "xla_inspect.py",
         "tpu_distill_smoke.py",
         "smoke_tpu.py",
+        "validate_pipeline.py",
     ],
 )
 def test_script_help(script_name: str) -> None:

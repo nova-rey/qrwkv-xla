@@ -68,6 +68,26 @@ python -m pip install -e ".[dev]"
 python scripts/validate_local.py
 ```
 
+## End-to-End Validation
+
+The canonical whole-pipeline validation command is:
+
+```bash
+python scripts/validate_pipeline.py
+```
+
+The default path is CPU-safe, offline, and requires only `.[dev]`. Optional
+checks are explicit:
+
+```bash
+python scripts/validate_pipeline.py --include-hf
+python scripts/validate_pipeline.py --require-tpu
+```
+
+`--include-hf` requires the optional `teacher-hf` dependencies and validates the
+tiny HF export path. `--require-tpu` makes TPU availability a hard requirement
+for the TPU distillation smoke. Neither flag is used by default CI.
+
 The current default tests are CPU-only. They require JAX CPU through the `dev`
 extra, but do not require PyTorch, GPU, TPU, or network access. HF integration
 coverage is opt-in through `QRWKV_RUN_HF_INTEGRATION=1`.
@@ -76,18 +96,7 @@ Individual checks:
 
 ```bash
 python -m compileall src scripts tests
-python scripts/print_env.py
-python scripts/xla_inspect.py
-python scripts/smoke_cpu.py
-python scripts/smoke_tpu.py
-python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
-python scripts/resolve_qwen_policy.py Qwen3.latest --allow-unresolved
-python scripts/export_teacher_targets.py --config configs/teacher_export_qwen_dryrun.yaml --dry-run --resolve-qwen-policy --allow-unresolved-policy
-python scripts/inspect_targets.py artifacts/teacher_targets/fake_export
-python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2
-python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --student-architecture rwkv7_reference --max-steps 2
-python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --max-steps 2
-python scripts/tpu_distill_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2
+python scripts/validate_pipeline.py
 python -m pytest
 python -m ruff check .
 python -m ruff format --check .

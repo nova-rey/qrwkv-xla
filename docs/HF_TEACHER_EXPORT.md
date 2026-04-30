@@ -27,6 +27,14 @@ For Qwen-specific policy handling, see `docs/QWEN_EXPORT_POLICY.md`.
 `Qwen3.latest` is a local policy label only; resolving it never performs a web
 lookup.
 
+The optional HF smoke can also be run through the canonical pipeline harness:
+
+```bash
+python scripts/validate_pipeline.py --include-hf
+```
+
+This flag is intentionally outside default CI and default local validation.
+
 ## Prompt handling
 
 Prompts are resolved in this order:

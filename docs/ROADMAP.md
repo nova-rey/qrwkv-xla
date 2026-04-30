@@ -101,6 +101,11 @@ validation under `.[dev]` without `teacher-hf`.
 Goal: multi-device/multi-host TPU training plan.
 
 Checkpoints:
-- P9A: sharding strategy
-- P9B: multi-device training smoke
-- P9C: larger teacher/student experiments
+- P9A: canonical pipeline validation harness
+- P9B: sharding strategy
+- P9C: multi-device training smoke
+- P9D: larger teacher/student experiments
+
+Current checkpoint: `pipeline_validation_harness`. This checkpoint makes
+`scripts/validate_pipeline.py` the canonical safe end-to-end validation command
+and keeps optional HF and hard TPU paths behind explicit flags.

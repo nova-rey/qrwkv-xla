@@ -160,3 +160,15 @@
 - [x] Keep torch/transformers out of base and dev dependencies
 - [x] Add offline resolver/config/CLI tests
 - [x] Update docs and snapshot
+
+## P9 — Canonical Pipeline Validation Harness
+
+- [x] Add `qrwkv_xla.validation.pipeline`
+- [x] Add `scripts/validate_pipeline.py`
+- [x] Keep default pipeline CPU-safe, offline, and `.[dev]` only
+- [x] Gate tiny HF validation behind `--include-hf`
+- [x] Gate hard TPU validation behind `--require-tpu`
+- [x] Refactor `scripts/validate_local.py` to call the pipeline harness
+- [x] Replace duplicated CI smoke chain with the pipeline harness
+- [x] Add unit and CLI help coverage
+- [x] Document default, HF, and hard TPU validation modes

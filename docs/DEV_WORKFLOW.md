@@ -52,6 +52,20 @@ Generated validation outputs live under `artifacts/`, which is gitignored.
 Before handoff, Nyx should run `scripts/validate_local.py` or the equivalent
 individual command list from `docs/CI.md`.
 
+For a narrower whole-pipeline handoff check, run:
+
+```bash
+python scripts/validate_pipeline.py
+```
+
+Optional HF and hard TPU checks are reported separately and are never implied by
+default handoff validation:
+
+```bash
+python scripts/validate_pipeline.py --include-hf
+python scripts/validate_pipeline.py --require-tpu
+```
+
 For Phase 4 student-runtime work, the validation path must include both smoke
 training commands:
 

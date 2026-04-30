@@ -106,3 +106,18 @@ Qwen model ids unresolved.
 Default validation now checks policy parsing and Qwen dry-run behavior without
 installing `teacher-hf`, importing torch/transformers, loading a model, writing
 a Qwen bundle, or touching the network. Real Qwen export remains manual-only.
+
+## Phase 9 — Canonical Pipeline Validation Harness
+
+This phase adds `qrwkv_xla.validation.pipeline` and
+`scripts/validate_pipeline.py` as the canonical end-to-end validation surface.
+The default command remains CPU-safe, offline, and available under `.[dev]`: it
+prints environment/runtime info, runs CPU and TPU-safe smokes, checks unresolved
+Qwen policy dry-runs, exports and inspects fake targets, smokes both
+`tiny_student` and `rwkv7_reference`, runs the distillation stage, and runs the
+TPU-ready distillation smoke without requiring TPU.
+
+Optional tiny HF validation is available only through `--include-hf`. Hard TPU
+validation is available only through `--require-tpu`. CI and
+`scripts/validate_local.py` use the default pipeline path and do not imply
+either optional mode.

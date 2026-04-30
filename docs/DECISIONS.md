@@ -146,3 +146,13 @@ export, download models, or require `teacher-hf`.
 Qwen-specific policy behavior lives above the generic HF exporter. The HF
 backend remains a model-id-driven exporter and should avoid Qwen-specific
 special cases unless a concrete compatibility issue requires one.
+
+## D029 — Pipeline Validation Is Canonical
+`scripts/validate_pipeline.py` is the canonical end-to-end validation harness
+for the safe local/CI pipeline. It must stay CPU-safe, offline, and runnable
+with only `.[dev]` by default.
+
+## D030 — Optional Validation Must Stay Explicit
+Tiny HF validation requires `--include-hf`, and hard TPU validation requires
+`--require-tpu`. Neither optional path should become part of default CI or
+default handoff validation.

@@ -73,3 +73,17 @@ imports torch/transformers, touches the network, assumes GPU, or runs Qwen.
 Qwen policy tests are offline only. Default validation resolves
 `Qwen3.latest` as an unresolved local label and runs the Qwen export CLI in
 `--dry-run` mode, without loading HF models or writing a Qwen bundle.
+
+## Canonical Pipeline Validation
+
+The canonical whole safe path check is:
+
+```bash
+python scripts/validate_pipeline.py
+```
+
+It covers the default end-to-end pipeline under `.[dev]` without network, HF
+model loading, real Qwen export, or TPU requirements. `scripts/validate_local.py`
+runs compileall, pipeline validation, pytest, Ruff lint, and Ruff format check.
+Optional HF validation uses `--include-hf`; hard TPU validation uses
+`--require-tpu` and is reported separately.

@@ -56,6 +56,16 @@ The TPU smoke path is intentionally CPU-safe by default. Real TPU validation is
 opt-in through `--require-tpu`. Sharding, `pjit`, and Pallas work remain
 deferred.
 
+### Pipeline Validation
+- **Current shape:** `qrwkv_xla.validation.pipeline` plus
+  `scripts/validate_pipeline.py`.
+- **Purpose:** Provide one canonical end-to-end validation harness for the safe
+  local/CI pipeline while keeping HF export and hard TPU checks explicit.
+
+The default validation harness runs only offline, CPU-safe commands that are
+available under `.[dev]`. Optional tiny HF validation requires `--include-hf`;
+hard TPU validation requires `--require-tpu`.
+
 ### Checkpointing
 - **Purpose:** Save and resume JAX student state, tracking optimizer state, config, RNG state, global step, artifact IDs, and model metadata.
 

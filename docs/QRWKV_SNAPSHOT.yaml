@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 8
-checkpoint: qwen_policy_offline_prep
+phase: 9
+checkpoint: pipeline_validation_harness
 status: complete
 mission: >
   Build a JAX/XLA-first RADLADS-style transformer-to-RWKV7 recurrent
@@ -37,10 +37,10 @@ workflow:
   spec_style: whole_implementation_spec
   legacy_prompt_structure: A/B/C optional only if useful
   lint_format: Ruff + Black-compatible
-  local_validation: Strategy A editable install, then scripts/validate_local.py
+  local_validation: Strategy A editable install, then scripts/validate_pipeline.py or scripts/validate_local.py
   bible_policy: append_only
 
 current_goal: >
-  Add offline Qwen policy resolution and dry-run export preparation above the
-  optional HF teacher exporter while preserving CPU-only fake-export default
-  validation and avoiding automatic internet lookup.
+  Provide a canonical end-to-end validation harness whose default path remains
+  CPU-safe and offline under .[dev], while keeping optional HF and hard TPU
+  checks behind explicit flags.

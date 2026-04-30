@@ -28,6 +28,15 @@ python scripts/tpu_distill_smoke.py --targets artifacts/teacher_targets/fake_exp
 If `--require-tpu` is omitted, the script runs on whatever JAX backend is
 available.
 
+The canonical hard TPU pipeline check is:
+
+```bash
+python scripts/validate_pipeline.py --require-tpu
+```
+
+This passes `--require-tpu` to the TPU distillation smoke and should only be
+used in an actual TPU environment.
+
 ## Notes
 
 - CI does not require TPU.

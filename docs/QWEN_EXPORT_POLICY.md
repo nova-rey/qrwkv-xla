@@ -36,3 +36,7 @@ reviewing the selected model repository and accepting the code execution risk.
 
 Default validation does not run real Qwen export, does not require
 torch/transformers, and does not contact the network.
+
+`python scripts/validate_pipeline.py` includes only the offline Qwen resolver
+and Qwen export dry-run checks. It does not write a Qwen bundle or load a Qwen
+model.
