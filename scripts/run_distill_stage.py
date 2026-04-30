@@ -17,6 +17,9 @@ def main() -> None:
     parser.add_argument("--max-steps", type=int)
     parser.add_argument("--learning-rate", type=float)
     parser.add_argument("--seed", type=int)
+    parser.add_argument("--checkpoint-out")
+    parser.add_argument("--resume-from")
+    parser.add_argument("--checkpoint-overwrite", action="store_true")
     args = parser.parse_args()
 
     from qrwkv_xla.distill import load_distill_stage_config, run_distill_stage
@@ -40,12 +43,40 @@ def main() -> None:
         )
     if args.seed is not None:
         config = replace(config, training=replace(config.training, seed=args.seed))
+    if (
+        args.checkpoint_out is not None
+        or args.resume_from is not None
+        or args.checkpoint_overwrite
+    ):
+        config = replace(
+            config,
+            checkpoint=replace(
+                config.checkpoint,
+                checkpoint_out=(
+                    Path(args.checkpoint_out)
+                    if args.checkpoint_out is not None
+                    else config.checkpoint.checkpoint_out
+                ),
+                resume_from=(
+                    Path(args.resume_from)
+                    if args.resume_from is not None
+                    else config.checkpoint.resume_from
+                ),
+                overwrite=args.checkpoint_overwrite or config.checkpoint.overwrite,
+            ),
+        )
 
     result = run_distill_stage(config)
     print(f"stage: {result.stage}")
     print(f"student_architecture: {result.student_architecture}")
     print(f"targets: {result.target_bundle}")
     print(f"steps: {result.steps}")
+    print(f"start_step: {result.start_step}")
+    print(f"end_step: {result.end_step}")
+    if result.resume_from is not None:
+        print(f"resume_from: {result.resume_from}")
+    if result.checkpoint_out is not None:
+        print(f"checkpoint_out: {result.checkpoint_out}")
     print(f"initial_loss: {result.initial_loss:.8f}")
     print(f"final_loss: {result.final_loss:.8f}")
     if result.final_hidden_mse is not None:

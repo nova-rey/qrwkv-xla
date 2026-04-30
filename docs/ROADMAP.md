@@ -109,3 +109,16 @@ Checkpoints:
 Current checkpoint: `pipeline_validation_harness`. This checkpoint makes
 `scripts/validate_pipeline.py` the canonical safe end-to-end validation command
 and keeps optional HF and hard TPU paths behind explicit flags.
+
+## Phase 10 — Checkpoint/Resume + Staged Continuation
+Goal: add local checkpoint save/resume for staged distillation without changing
+the dependency boundary.
+
+Checkpoints:
+- P10A: JSON + NPZ checkpoint helper
+- P10B: distill runner save/resume and CLI flags
+- P10C: validation pipeline checkpoint smoke
+- P10D: staged hidden-only to later logits continuation docs
+
+Current checkpoint: `checkpoint_resume_staged_continuation`. This checkpoint
+keeps checkpointing local, CPU-safe, offline, and under `checkpoints/`.

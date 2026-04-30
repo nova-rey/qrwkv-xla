@@ -121,3 +121,24 @@ Optional tiny HF validation is available only through `--include-hf`. Hard TPU
 validation is available only through `--require-tpu`. CI and
 `scripts/validate_local.py` use the default pipeline path and do not imply
 either optional mode.
+
+## Phase 10 — Checkpoint/Resume + Staged Continuation
+
+This phase adds local checkpointing for distillation stages using a JSON
+manifest plus NumPy NPZ parameter archive. Checkpoints are written only under
+the gitignored `checkpoints/` directory and remain CPU-safe and offline by
+default.
+
+The distill runner can now save a final checkpoint and resume from an existing
+checkpoint. Resume validates the student architecture plus `vocab_size`,
+`hidden_size`, and `num_layers` before training. On resume, `max_steps` means
+additional steps for the current invocation, so a checkpoint at step N resumed
+with M steps ends at N + M.
+
+Orbax remains deferred. The current requirement is inspectable single-process
+staged continuation for hidden-state distillation. A richer checkpoint manager
+can be revisited after optimizer state, multi-device training, and release
+artifact requirements are concrete.
+
+The staged plan is hidden-only continuation first, followed later by a logits
+continuation phase once students emit logits and logits targets are enabled.

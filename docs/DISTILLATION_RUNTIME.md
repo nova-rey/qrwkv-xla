@@ -114,7 +114,19 @@ Phase 5 does **not** yet include:
 - PyTorch or Hugging Face target extraction
 - TPU sharding
 - multi-stage orchestration
-- checkpointing overhaul
+- optimizer-state checkpointing
 - production RWKV optimization
 - lm_eval integration
 - full RADLADS parity
+
+## Checkpoint/Resume
+
+`scripts/run_distill_stage.py` accepts `--checkpoint-out`, `--resume-from`, and
+`--checkpoint-overwrite`. Fresh runs initialize student params from the training
+seed. Resume loads params and the starting step from the checkpoint, validates
+architecture plus `vocab_size`, `hidden_size`, and `num_layers`, then runs
+`max_steps` additional updates.
+
+The final checkpoint step is the loaded start step plus the current invocation's
+`max_steps`. Use a different output directory from the resume source unless
+overwrite is explicitly enabled.

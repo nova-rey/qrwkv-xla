@@ -28,6 +28,13 @@ class DistillTrainingConfig:
 
 
 @dataclass(frozen=True)
+class DistillCheckpointConfig:
+    checkpoint_out: Path | None = None
+    resume_from: Path | None = None
+    overwrite: bool = False
+
+
+@dataclass(frozen=True)
 class LossWeightConfig:
     enabled: bool = True
     weight: float = 1.0
@@ -52,6 +59,7 @@ class DistillStageConfig:
     optimizer: DistillOptimizerConfig = field(default_factory=DistillOptimizerConfig)
     training: DistillTrainingConfig = field(default_factory=DistillTrainingConfig)
     losses: DistillLossConfig = field(default_factory=DistillLossConfig)
+    checkpoint: DistillCheckpointConfig = field(default_factory=DistillCheckpointConfig)
 
 
 def load_distill_stage_config(path: str | Path) -> DistillStageConfig:
@@ -77,6 +85,7 @@ def load_distill_stage_config(path: str | Path) -> DistillStageConfig:
         optimizer=_load_optimizer(raw_stage.get("optimizer", {})),
         training=_load_training(raw_stage.get("training", {})),
         losses=_load_losses(raw_stage.get("losses", {})),
+        checkpoint=_load_checkpoint(raw_stage.get("checkpoint", {})),
     )
     validate_distill_stage_config(config)
     return config
@@ -105,6 +114,22 @@ def validate_distill_stage_config(config: DistillStageConfig) -> None:
         raise ValueError("training.max_steps must be > 0")
     if config.training.seed < 0:
         raise ValueError("training.seed must be >= 0")
+    if (
+        config.checkpoint.checkpoint_out is not None
+        and config.checkpoint.resume_from is not None
+        and config.checkpoint.checkpoint_out == config.checkpoint.resume_from
+        and not config.checkpoint.overwrite
+    ):
+        raise ValueError(
+            "checkpoint_out and resume_from cannot be the same path unless "
+            "checkpoint overwrite is enabled"
+        )
+    for name, value in (
+        ("checkpoint_out", config.checkpoint.checkpoint_out),
+        ("resume_from", config.checkpoint.resume_from),
+    ):
+        if value is not None and "checkpoints" not in value.parts:
+            raise ValueError(f"{name} must live under a checkpoints/ directory")
 
     enabled_positive = False
     for name in ("hidden_mse", "logits_kl", "attention_or_mixer"):
@@ -148,6 +173,16 @@ def _load_training(data: Any) -> DistillTrainingConfig:
     )
 
 
+def _load_checkpoint(data: Any) -> DistillCheckpointConfig:
+    if not isinstance(data, dict):
+        raise ValueError("distillation.checkpoint must be a mapping")
+    return DistillCheckpointConfig(
+        checkpoint_out=_optional_path(data.get("checkpoint_out")),
+        resume_from=_optional_path(data.get("resume_from")),
+        overwrite=bool(data.get("overwrite", False)),
+    )
+
+
 def _load_losses(data: Any) -> DistillLossConfig:
     if not isinstance(data, dict):
         raise ValueError("distillation.losses must be a mapping")
@@ -182,6 +217,13 @@ def _optional_int(value: Any) -> int | None:
     return int(value)
 
 
+def _optional_path(value: Any) -> Path | None:
+    if value is None:
+        return None
+    return Path(str(value))
+
+
+DistillationCheckpointConfig = DistillCheckpointConfig
 DistillationStudentConfig = DistillStudentConfig
 DistillationOptimizerConfig = DistillOptimizerConfig
 DistillationTrainingConfig = DistillTrainingConfig

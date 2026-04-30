@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 9
-checkpoint: pipeline_validation_harness
+phase: 10
+checkpoint: checkpoint_resume_staged_continuation
 status: complete
 mission: >
   Build a JAX/XLA-first RADLADS-style transformer-to-RWKV7 recurrent
@@ -41,6 +41,11 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Provide a canonical end-to-end validation harness whose default path remains
-  CPU-safe and offline under .[dev], while keeping optional HF and hard TPU
-  checks behind explicit flags.
+  Provide local JSON + NPZ checkpoint/resume support for staged distillation
+  while keeping the default pipeline CPU-safe, offline, and dependency-light.
+
+checkpointing:
+  format: JSON manifest plus NPZ arrays
+  directory: checkpoints/
+  gitignored: true
+  orbax_required: false

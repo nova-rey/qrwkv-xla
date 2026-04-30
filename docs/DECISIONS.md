@@ -156,3 +156,17 @@ with only `.[dev]` by default.
 Tiny HF validation requires `--include-hf`, and hard TPU validation requires
 `--require-tpu`. Neither optional path should become part of default CI or
 default handoff validation.
+
+## D031 — Checkpoints Are JSON + NPZ
+P10 checkpointing uses an inspectable JSON manifest plus `params.npz` arrays.
+Pickle, object arrays, Orbax, and framework-specific checkpoint stacks are not
+required for the local distillation continuation path.
+
+## D032 — Checkpoints Stay Local Under `checkpoints/`
+Generated checkpoints must live under `checkpoints/`, which is gitignored.
+Default validation may create checkpoint smoke artifacts there, but they are
+local state and must not be committed.
+
+## D033 — Resume Steps Are Additional
+When resuming distillation, `max_steps` means additional steps for that
+invocation. The final checkpoint step is `loaded_step + max_steps`.

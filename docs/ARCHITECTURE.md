@@ -67,7 +67,9 @@ available under `.[dev]`. Optional tiny HF validation requires `--include-hf`;
 hard TPU validation requires `--require-tpu`.
 
 ### Checkpointing
-- **Purpose:** Save and resume JAX student state, tracking optimizer state, config, RNG state, global step, artifact IDs, and model metadata.
+- **Purpose:** Save and resume JAX student params with config, step, target
+  metadata, and artifact metadata. Optimizer-state checkpointing is deferred
+  until a richer optimizer stack exists.
 
 ### Evaluation
 - **Purpose:** Compare student vs teacher with loss curves, generation sanity checks, recurrent inference checks, and later `lm_eval`-style integration.
@@ -78,3 +80,14 @@ hard TPU validation requires `--require-tpu`.
 ## Architectural framing
 
 The earliest runnable configs may be tiny, but the architecture is real. Small configurations are allowed; disposable toy architecture is not.
+
+## Checkpoint Boundary
+
+Distillation checkpoints are local artifacts made of `checkpoint.json` and
+`params.npz`. The manifest records student architecture/config, step, learning
+rate, loss config, target manifest metadata, and parameter array metadata. The
+NPZ file stores raw arrays without pickle or object arrays.
+
+This boundary is intentionally below Orbax/Flax/Equinox. The current runtime is
+single-process and dependency-light; multi-device checkpoint management remains
+future work.

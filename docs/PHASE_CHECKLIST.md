@@ -172,3 +172,12 @@
 - [x] Replace duplicated CI smoke chain with the pipeline harness
 - [x] Add unit and CLI help coverage
 - [x] Document default, HF, and hard TPU validation modes
+
+## Phase 10 — Checkpoint/Resume
+
+- [x] Add local JSON + NPZ checkpoint helper.
+- [x] Add distill config, runner, and CLI save/resume support.
+- [x] Keep resume steps additive for each invocation.
+- [x] Fail clearly on architecture and student shape config mismatch.
+- [x] Add default validation pipeline checkpoint save/resume smoke.
+- [x] Document why Orbax is deferred.

@@ -144,6 +144,19 @@ stage runner is `scripts/run_distill_stage.py`. The older
 `qrwkv_xla.distillation` package and `scripts/run_distillation_stage.py` remain
 thin compatibility aliases only.
 
+## Checkpointing
+
+Distillation stages can save and resume local JSON + NPZ checkpoints under
+`checkpoints/`:
+
+```bash
+python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --max-steps 2 --checkpoint-out checkpoints/stage0 --checkpoint-overwrite
+python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --max-steps 2 --resume-from checkpoints/stage0 --checkpoint-out checkpoints/stage0_resume --checkpoint-overwrite
+```
+
+On resume, `--max-steps` means additional steps for that invocation. See
+`docs/CHECKPOINTING.md`.
+
 ## Reference
 
 This project uses `nova-rey/radlads-TPU-adapter` as a conceptual and

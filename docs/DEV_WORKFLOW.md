@@ -118,3 +118,10 @@ earlier history.
 - `P0.5: normalize scaffold and add config artifact contracts`
 - `P2.5: stabilize editable install validation and CI`
 - `P4: add RWKV7 reference recurrent core`
+
+## Checkpoint Artifacts
+
+Local checkpoint experiments should write under `checkpoints/`. That directory
+is ignored by git and can be deleted between runs. Use `--checkpoint-overwrite`
+for repeatable local smoke commands that intentionally replace an existing
+checkpoint directory.

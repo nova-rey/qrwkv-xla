@@ -45,6 +45,9 @@ CPU-only handoff validation.
 Generated bundles live under `artifacts/`, which is gitignored. They are local
 validation outputs and must not be committed.
 
+The default pipeline also runs a checkpoint save/resume smoke. Generated
+checkpoint artifacts live under `checkpoints/`, which is gitignored.
+
 ## CI-Safe vs Optional
 
 CI should run:

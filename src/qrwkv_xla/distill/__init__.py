@@ -1,11 +1,13 @@
 """Distillation stage runtime for QRWKV-XLA."""
 
 from qrwkv_xla.distill.config import (
+    DistillationCheckpointConfig,
     DistillationLossConfig,
     DistillationOptimizerConfig,
     DistillationStageConfig,
     DistillationStudentConfig,
     DistillationTrainingConfig,
+    DistillCheckpointConfig,
     DistillLossConfig,
     DistillOptimizerConfig,
     DistillStageConfig,
@@ -47,12 +49,14 @@ def __getattr__(name: str):
 
 __all__ = [
     "DistillLossConfig",
+    "DistillCheckpointConfig",
     "DistillOptimizerConfig",
     "DistillStageConfig",
     "DistillStageResult",
     "DistillStudentConfig",
     "DistillTrainingConfig",
     "DistillationLossConfig",
+    "DistillationCheckpointConfig",
     "DistillationOptimizerConfig",
     "DistillationStageConfig",
     "DistillationStageResult",

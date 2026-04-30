@@ -87,3 +87,10 @@ model loading, real Qwen export, or TPU requirements. `scripts/validate_local.py
 runs compileall, pipeline validation, pytest, Ruff lint, and Ruff format check.
 Optional HF validation uses `--include-hf`; hard TPU validation uses
 `--require-tpu` and is reported separately.
+
+## Checkpoint/Resume Coverage
+
+P10 adds CPU-only tests for the JSON + NPZ checkpoint helper, distill
+save/resume behavior, CLI flags, mismatch failures, and the validation pipeline
+checkpoint smoke commands. The default pipeline writes only under
+`checkpoints/`, which is gitignored.

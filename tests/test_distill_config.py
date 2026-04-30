@@ -24,6 +24,7 @@ def test_missing_sections_use_defaults(tmp_path: Path) -> None:
     assert config.student.architecture == "rwkv7_reference"
     assert config.training.max_steps == 7
     assert config.losses.hidden_mse.enabled is True
+    assert config.checkpoint.checkpoint_out is None
 
 
 def test_missing_top_level_distillation_key_raises(tmp_path: Path) -> None:
@@ -86,3 +87,22 @@ def test_attention_or_mixer_enabled_raises(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="attention_or_mixer"):
         load_distill_stage_config(path)
+
+
+def test_checkpoint_config_loads(tmp_path: Path) -> None:
+    path = tmp_path / "distill.yaml"
+    path.write_text(
+        (
+            "distillation:\n"
+            "  checkpoint:\n"
+            "    checkpoint_out: checkpoints/unit/out\n"
+            "    resume_from: checkpoints/unit/in\n"
+            "    overwrite: true\n"
+        ),
+        encoding="utf-8",
+    )
+    config = load_distill_stage_config(path)
+
+    assert config.checkpoint.checkpoint_out == Path("checkpoints/unit/out")
+    assert config.checkpoint.resume_from == Path("checkpoints/unit/in")
+    assert config.checkpoint.overwrite is True
