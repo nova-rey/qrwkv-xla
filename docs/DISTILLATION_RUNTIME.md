@@ -130,3 +130,10 @@ architecture plus `vocab_size`, `hidden_size`, and `num_layers`, then runs
 The final checkpoint step is the loaded start step plus the current invocation's
 `max_steps`. Use a different output directory from the resume source unless
 overwrite is explicitly enabled.
+## Run tracking
+
+The distillation runner accepts an opt-in `tracking` config. When enabled, it
+creates a run directory under `runs/`, writes metadata before the training loop,
+appends per-step metrics to JSONL, and writes a final summary after checkpoint
+save. If no checkpoint output is configured, the final checkpoint defaults to
+`runs/<run_id>/checkpoints/final`.

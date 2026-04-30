@@ -31,6 +31,8 @@ def test_default_command_list_includes_expected_safe_commands() -> None:
     assert any("tiny_student" in command for command in joined)
     assert any("rwkv7_reference" in command for command in joined)
     assert any("scripts/run_distill_stage.py" in command for command in joined)
+    assert any("--track-run" in command for command in joined)
+    assert any("--run-root runs/pipeline_smoke" in command for command in joined)
     assert any(
         "--checkpoint-out checkpoints/pipeline_smoke/stage0" in command
         for command in joined

@@ -125,3 +125,12 @@ Local checkpoint experiments should write under `checkpoints/`. That directory
 is ignored by git and can be deleted between runs. Use `--checkpoint-overwrite`
 for repeatable local smoke commands that intentionally replace an existing
 checkpoint directory.
+## Tracked distillation smoke
+
+Use this when you need local run artifacts while debugging:
+
+```bash
+python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --max-steps 1 --track-run --run-name dev-smoke
+```
+
+Generated runs are ignored by git under `runs/`.

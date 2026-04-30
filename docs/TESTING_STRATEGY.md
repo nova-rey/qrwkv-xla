@@ -94,3 +94,9 @@ P10 adds CPU-only tests for the JSON + NPZ checkpoint helper, distill
 save/resume behavior, CLI flags, mismatch failures, and the validation pipeline
 checkpoint smoke commands. The default pipeline writes only under
 `checkpoints/`, which is gitignored.
+
+## Run tracking coverage
+
+Run tracking tests cover run id/path helpers, JSON-safe conversion, JSONL metric
+append behavior, CLI flags, and distillation integration. The default validation
+pipeline includes a one-step tracked distillation smoke under `runs/`.

@@ -11,6 +11,7 @@ FAKE_TARGETS = "artifacts/teacher_targets/fake_export"
 HF_TINY_TARGETS = "artifacts/teacher_targets/hf_tiny"
 CHECKPOINT_SMOKE = "checkpoints/pipeline_smoke/stage0"
 CHECKPOINT_SMOKE_RESUME = "checkpoints/pipeline_smoke/stage0_resume"
+TRACKING_SMOKE_ROOT = "runs/pipeline_smoke"
 
 
 @dataclass(frozen=True)
@@ -104,6 +105,20 @@ def build_validation_commands(
             "configs/distill_stage0_stub.yaml",
             "--max-steps",
             max_steps_value,
+        ),
+        (
+            sys.executable,
+            "scripts/run_distill_stage.py",
+            "--config",
+            "configs/distill_stage0_stub.yaml",
+            "--max-steps",
+            "1",
+            "--track-run",
+            "--run-root",
+            TRACKING_SMOKE_ROOT,
+            "--run-name",
+            "pipeline-smoke",
+            "--run-overwrite",
         ),
         (
             sys.executable,
@@ -243,6 +258,8 @@ def build_step_name(command: tuple[str, ...]) -> str:
         )
         return f"train_student_smoke {architecture}"
     if script == "run_distill_stage":
+        if "--track-run" in command:
+            return "run_distill_stage tracked"
         if "--resume-from" in command:
             return "run_distill_stage checkpoint-resume"
         if "--checkpoint-out" in command:

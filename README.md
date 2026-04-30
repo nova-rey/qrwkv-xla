@@ -154,6 +154,16 @@ python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --
 python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --max-steps 2 --resume-from checkpoints/stage0 --checkpoint-out checkpoints/stage0_resume --checkpoint-overwrite
 ```
 
+Run tracking is available as an opt-in local file feature. It writes
+`run.json`, `metrics.jsonl`, `summary.json`, and, when no checkpoint output is
+provided, `runs/<run_id>/checkpoints/final`:
+
+```bash
+python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --max-steps 2 --track-run --run-name stage0-smoke
+```
+
+See `docs/RUN_TRACKING.md`.
+
 On resume, `--max-steps` means additional steps for that invocation. See
 `docs/CHECKPOINTING.md`.
 

@@ -1,6 +1,7 @@
 project: QRWKV-XLA
-phase: 10
-checkpoint: checkpoint_resume_staged_continuation
+phase: 11
+checkpoint: local_run_tracking
+run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
   Build a JAX/XLA-first RADLADS-style transformer-to-RWKV7 recurrent
@@ -41,11 +42,17 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Provide local JSON + NPZ checkpoint/resume support for staged distillation
-  while keeping the default pipeline CPU-safe, offline, and dependency-light.
+  Provide opt-in local run tracking for staged distillation while keeping the
+  default pipeline CPU-safe, offline, and dependency-light.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
   directory: checkpoints/
   gitignored: true
   orbax_required: false
+
+tracking:
+  format: run.json plus metrics.jsonl plus summary.json
+  directory: runs/
+  gitignored: true
+  enabled_by_default: false

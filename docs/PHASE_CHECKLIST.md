@@ -181,3 +181,9 @@
 - [x] Fail clearly on architecture and student shape config mismatch.
 - [x] Add default validation pipeline checkpoint save/resume smoke.
 - [x] Document why Orbax is deferred.
+## P11 local run tracking
+
+- [x] Add opt-in distillation tracking config and CLI flags.
+- [x] Write `run.json`, `metrics.jsonl`, and `summary.json` under `runs/`.
+- [x] Default tracked final checkpoints to `runs/<run_id>/checkpoints/final`.
+- [x] Keep tracking disabled by default and offline-only.

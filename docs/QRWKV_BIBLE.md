@@ -142,3 +142,15 @@ artifact requirements are concrete.
 
 The staged plan is hidden-only continuation first, followed later by a logits
 continuation phase once students emit logits and logits targets are enabled.
+## P11 - Local Run Tracking
+
+P11 adds opt-in local run tracking for distillation runs. Tracking writes
+`run.json`, `metrics.jsonl`, and `summary.json` under `runs/<run_id>/`; when no
+checkpoint output is configured, the final checkpoint defaults to
+`runs/<run_id>/checkpoints/final`. The feature is disabled by default and uses
+only durable local files.
+
+The canonical CLI flags are `--track-run`, `--run-root`, `--run-name`,
+repeatable `--run-tag`, repeatable `--run-note`, and `--run-overwrite`.
+Metadata capture for git and JAX runtime state is best effort and must not make
+training fail when unavailable.

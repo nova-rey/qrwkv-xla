@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -13,6 +14,14 @@ from qrwkv_xla.distill.metrics import metrics_to_floats
 from qrwkv_xla.students import create_student
 from qrwkv_xla.targets import read_manifest
 from qrwkv_xla.targets.store import manifest_path
+from qrwkv_xla.tracking import (
+    MetricsLogger,
+    create_run_context,
+    get_environment_metadata,
+    get_git_metadata,
+    write_run_metadata,
+    write_run_summary,
+)
 from qrwkv_xla.trainers.state import TrainState
 from qrwkv_xla.trainers.step import batch_to_jax, make_train_step
 
@@ -31,6 +40,9 @@ class DistillStageResult:
     resume_from: Path | None = None
     start_step: int = 0
     end_step: int = 0
+    run_dir: Path | None = None
+    metrics_path: Path | None = None
+    summary_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -71,6 +83,7 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
         num_layers=num_layers,
     )
     student_config = {
+        "architecture": config.student.architecture,
         "vocab_size": config.student.vocab_size,
         "hidden_size": hidden_size,
         "num_layers": num_layers,
@@ -81,6 +94,7 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
     )
     start_step = 0
     params = student.init_params(jax.random.PRNGKey(config.training.seed))
+    parent_checkpoint_manifest: dict[str, object] | None = None
     if config.checkpoint.resume_from is not None:
         loaded = load_checkpoint(config.checkpoint.resume_from)
         _validate_resume_checkpoint(
@@ -91,6 +105,7 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
         )
         start_step = loaded.manifest.step
         params = loaded.params
+        parent_checkpoint_manifest = asdict(loaded.manifest)
 
     state = TrainState(
         params=params,
@@ -102,21 +117,81 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
     if not shard_batches:
         raise ValueError(f"Target bundle contains no shards: {dataset.bundle_dir}")
 
+    checkpoint_out = config.checkpoint.checkpoint_out
+    checkpoint_overwrite = config.checkpoint.overwrite
+    run_context = None
+    metrics_logger: MetricsLogger | None = None
+    if config.tracking.enabled:
+        command = list(sys.argv)
+        git_metadata = get_git_metadata(Path(__file__).resolve().parents[3])
+        environment_metadata = get_environment_metadata()
+        checkpoint_metadata = {
+            "checkpoint_out": checkpoint_out,
+            "resume_from": config.checkpoint.resume_from,
+            "overwrite": checkpoint_overwrite,
+            "parent_checkpoint_manifest": parent_checkpoint_manifest,
+        }
+        teacher_target = {
+            "targets_dir": config.targets_dir,
+            "manifest": asdict(manifest),
+        }
+        if checkpoint_out is None:
+            checkpoint_metadata["checkpoint_out"] = "runs/<run_id>/checkpoints/final"
+        run_context = create_run_context(
+            run_root=config.tracking.run_root or Path("runs"),
+            stage=config.stage,
+            student_architecture=config.student.architecture,
+            run_name=config.tracking.run_name,
+            command=command,
+            git=git_metadata,
+            environment=environment_metadata,
+            distillation={
+                "stage": config.stage,
+                "targets_dir": config.targets_dir,
+                "optimizer": asdict(config.optimizer),
+                "training": asdict(config.training),
+                "losses": asdict(config.losses),
+            },
+            teacher_target=teacher_target,
+            student=student_config,
+            checkpoint=checkpoint_metadata,
+            tags=config.tracking.tags,
+            notes=config.tracking.notes,
+            overwrite=config.tracking.overwrite,
+        )
+        write_run_metadata(run_context)
+        metrics_logger = MetricsLogger(run_context.paths.metrics_jsonl)
+        if checkpoint_out is None:
+            checkpoint_out = run_context.paths.default_final_checkpoint
+            checkpoint_overwrite = config.tracking.overwrite
+
     initial_loss: float | None = None
     final_metrics: dict[str, float] | None = None
-    for step_index in range(config.training.max_steps):
-        batch = shard_batches[step_index % len(shard_batches)]
-        state, metrics = train_step(state, batch)
-        float_metrics = metrics_to_floats(metrics)
-        if initial_loss is None:
-            initial_loss = float_metrics["loss"]
-        final_metrics = float_metrics
+    with metrics_logger or _NullMetricsLogger() as active_logger:
+        for step_index in range(config.training.max_steps):
+            batch = shard_batches[step_index % len(shard_batches)]
+            state, metrics = train_step(state, batch)
+            float_metrics = metrics_to_floats(metrics)
+            if initial_loss is None:
+                initial_loss = float_metrics["loss"]
+            final_metrics = float_metrics
+            if metrics_logger is not None:
+                active_logger.log(
+                    step=state.step,
+                    values=float_metrics,
+                    phase="train",
+                    extra={
+                        "local_step": step_index + 1,
+                        "start_step": start_step,
+                        "shard_index": step_index % len(shard_batches),
+                    },
+                )
 
     assert initial_loss is not None
     assert final_metrics is not None
-    if config.checkpoint.checkpoint_out is not None:
+    if checkpoint_out is not None:
         save_checkpoint(
-            config.checkpoint.checkpoint_out,
+            checkpoint_out,
             state.params,
             student_architecture=config.student.architecture,
             student_config=student_config,
@@ -128,7 +203,29 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
                 "simple JSON + NPZ checkpoint",
                 f"distillation stage {config.stage}",
             ],
-            overwrite=config.checkpoint.overwrite,
+            overwrite=checkpoint_overwrite,
+        )
+    if run_context is not None:
+        write_run_summary(
+            context=run_context,
+            summary={
+                "status": "completed",
+                "started_at_utc": run_context.metadata.created_at_utc,
+                "finished_at_utc": _utc_now(),
+                "run_id": run_context.metadata.run_id,
+                "stage": config.stage,
+                "student_architecture": config.student.architecture,
+                "steps": config.training.max_steps,
+                "start_step": start_step,
+                "end_step": state.step,
+                "initial_loss": initial_loss,
+                "final_loss": final_metrics["loss"],
+                "final_hidden_mse": final_metrics.get("hidden_mse"),
+                "final_logits_kl": final_metrics.get("logits_kl"),
+                "checkpoint_out": checkpoint_out,
+                "resume_from": config.checkpoint.resume_from,
+                "target_bundle": dataset.bundle_dir,
+            },
         )
     return DistillStageResult(
         stage=config.stage,
@@ -139,10 +236,17 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
         final_hidden_mse=final_metrics.get("hidden_mse"),
         final_logits_kl=final_metrics.get("logits_kl"),
         target_bundle=dataset.bundle_dir,
-        checkpoint_out=config.checkpoint.checkpoint_out,
+        checkpoint_out=checkpoint_out,
         resume_from=config.checkpoint.resume_from,
         start_step=start_step,
         end_step=state.step,
+        run_dir=run_context.paths.run_dir if run_context is not None else None,
+        metrics_path=(
+            run_context.paths.metrics_jsonl if run_context is not None else None
+        ),
+        summary_path=(
+            run_context.paths.summary_json if run_context is not None else None
+        ),
     )
 
 
@@ -172,7 +276,7 @@ def _validate_resume_checkpoint(
     checkpoint_student_config: dict[str, object],
     *,
     expected_architecture: str,
-    expected_student_config: dict[str, int],
+    expected_student_config: dict[str, int | str],
 ) -> None:
     if checkpoint_architecture != expected_architecture:
         raise ValueError(
@@ -189,5 +293,23 @@ def _validate_resume_checkpoint(
             )
 
 
+@dataclass(frozen=True)
+class _NullMetricsLogger:
+    def __enter__(self) -> _NullMetricsLogger:
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        return None
+
+    def log(self, *args, **kwargs) -> None:
+        return None
+
+
 DistillationStageResult = DistillStageResult
 run_distillation_stage = run_distill_stage
+
+
+def _utc_now() -> str:
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")

@@ -35,6 +35,16 @@ class DistillCheckpointConfig:
 
 
 @dataclass(frozen=True)
+class DistillTrackingConfig:
+    run_root: Path | None = None
+    run_name: str | None = None
+    enabled: bool = False
+    overwrite: bool = False
+    tags: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class LossWeightConfig:
     enabled: bool = True
     weight: float = 1.0
@@ -60,6 +70,7 @@ class DistillStageConfig:
     training: DistillTrainingConfig = field(default_factory=DistillTrainingConfig)
     losses: DistillLossConfig = field(default_factory=DistillLossConfig)
     checkpoint: DistillCheckpointConfig = field(default_factory=DistillCheckpointConfig)
+    tracking: DistillTrackingConfig = field(default_factory=DistillTrackingConfig)
 
 
 def load_distill_stage_config(path: str | Path) -> DistillStageConfig:
@@ -86,6 +97,7 @@ def load_distill_stage_config(path: str | Path) -> DistillStageConfig:
         training=_load_training(raw_stage.get("training", {})),
         losses=_load_losses(raw_stage.get("losses", {})),
         checkpoint=_load_checkpoint(raw_stage.get("checkpoint", {})),
+        tracking=_load_tracking(raw_stage.get("tracking", {})),
     )
     validate_distill_stage_config(config)
     return config
@@ -130,6 +142,15 @@ def validate_distill_stage_config(config: DistillStageConfig) -> None:
     ):
         if value is not None and "checkpoints" not in value.parts:
             raise ValueError(f"{name} must live under a checkpoints/ directory")
+    if config.tracking.run_root is not None and (
+        "runs" not in config.tracking.run_root.parts
+        and config.tracking.run_root.name != "runs"
+    ):
+        raise ValueError("tracking.run_root must be runs/ or live under runs/")
+    if not all(isinstance(tag, str) for tag in config.tracking.tags):
+        raise ValueError("tracking.tags must be a list of strings")
+    if not all(isinstance(note, str) for note in config.tracking.notes):
+        raise ValueError("tracking.notes must be a list of strings")
 
     enabled_positive = False
     for name in ("hidden_mse", "logits_kl", "attention_or_mixer"):
@@ -183,6 +204,19 @@ def _load_checkpoint(data: Any) -> DistillCheckpointConfig:
     )
 
 
+def _load_tracking(data: Any) -> DistillTrackingConfig:
+    if not isinstance(data, dict):
+        raise ValueError("distillation.tracking must be a mapping")
+    return DistillTrackingConfig(
+        run_root=_optional_path(data.get("run_root")),
+        run_name=_optional_str(data.get("run_name")),
+        enabled=bool(data.get("enabled", False)),
+        overwrite=bool(data.get("overwrite", False)),
+        tags=_string_list(data.get("tags", []), "tracking.tags"),
+        notes=_string_list(data.get("notes", []), "tracking.notes"),
+    )
+
+
 def _load_losses(data: Any) -> DistillLossConfig:
     if not isinstance(data, dict):
         raise ValueError("distillation.losses must be a mapping")
@@ -223,7 +257,24 @@ def _optional_path(value: Any) -> Path | None:
     return Path(str(value))
 
 
+def _optional_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
+def _string_list(value: Any, name: str) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError(f"{name} must be a list")
+    if not all(isinstance(item, str) for item in value):
+        raise ValueError(f"{name} must be a list of strings")
+    return list(value)
+
+
 DistillationCheckpointConfig = DistillCheckpointConfig
+DistillationTrackingConfig = DistillTrackingConfig
 DistillationStudentConfig = DistillStudentConfig
 DistillationOptimizerConfig = DistillOptimizerConfig
 DistillationTrainingConfig = DistillTrainingConfig

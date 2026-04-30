@@ -122,3 +122,9 @@ Checkpoints:
 
 Current checkpoint: `checkpoint_resume_staged_continuation`. This checkpoint
 keeps checkpointing local, CPU-safe, offline, and under `checkpoints/`.
+
+## P11 run tracking
+
+P11 adds opt-in local run tracking for staged distillation. The next useful
+extensions are richer evaluation summaries and cross-run comparison helpers,
+still using local artifacts under `runs/`.

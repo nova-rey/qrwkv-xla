@@ -106,3 +106,28 @@ def test_checkpoint_config_loads(tmp_path: Path) -> None:
     assert config.checkpoint.checkpoint_out == Path("checkpoints/unit/out")
     assert config.checkpoint.resume_from == Path("checkpoints/unit/in")
     assert config.checkpoint.overwrite is True
+
+
+def test_tracking_config_loads(tmp_path: Path) -> None:
+    path = tmp_path / "distill.yaml"
+    path.write_text(
+        (
+            "distillation:\n"
+            "  tracking:\n"
+            "    enabled: true\n"
+            "    run_root: runs/unit\n"
+            "    run_name: unit smoke\n"
+            "    overwrite: true\n"
+            "    tags: [unit, smoke]\n"
+            "    notes: [local only]\n"
+        ),
+        encoding="utf-8",
+    )
+    config = load_distill_stage_config(path)
+
+    assert config.tracking.enabled is True
+    assert config.tracking.run_root == Path("runs/unit")
+    assert config.tracking.run_name == "unit smoke"
+    assert config.tracking.overwrite is True
+    assert config.tracking.tags == ["unit", "smoke"]
+    assert config.tracking.notes == ["local only"]

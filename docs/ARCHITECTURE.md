@@ -91,3 +91,11 @@ NPZ file stores raw arrays without pickle or object arrays.
 This boundary is intentionally below Orbax/Flax/Equinox. The current runtime is
 single-process and dependency-light; multi-device checkpoint management remains
 future work.
+
+## Local run tracking
+
+Distillation run tracking lives in `qrwkv_xla.tracking`. It is intentionally a
+small local-file layer around the canonical `qrwkv_xla.distill` runner:
+`run.json` captures metadata, `metrics.jsonl` records per-step metrics, and
+`summary.json` records final outcomes. It has no service dependency and remains
+disabled unless config or CLI flags enable it.

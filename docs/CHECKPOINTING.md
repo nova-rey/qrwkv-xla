@@ -65,3 +65,9 @@ The expected path is hidden-only continuation first: export targets, train on
 hidden-state MSE, checkpoint, then resume for more hidden-state steps. Later,
 when student logits are implemented, the same staged flow can continue into a
 logits-aware phase using a new checkpoint output directory.
+## Tracking default checkpoint
+
+When distillation tracking is enabled and no `checkpoint_out` is configured, the
+runner saves the final checkpoint at `runs/<run_id>/checkpoints/final`. This
+still uses the same simple JSON + NPZ checkpoint format and preserves explicit
+checkpoint paths when provided.

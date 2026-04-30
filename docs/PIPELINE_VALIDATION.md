@@ -68,3 +68,9 @@ result.
 - No TPU with `--require-tpu`: rerun on a TPU-backed JAX environment or omit the
   flag for CPU-safe validation.
 - Generated bundle issues: delete local `artifacts/` and rerun the pipeline.
+## Tracked run smoke
+
+The default validation pipeline includes a one-step tracked distillation run
+under `runs/pipeline_smoke`. This verifies local `run.json`, `metrics.jsonl`,
+`summary.json`, and the tracked default checkpoint path without enabling any
+external service.
