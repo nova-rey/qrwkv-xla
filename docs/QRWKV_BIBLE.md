@@ -48,3 +48,15 @@ Local validation mirrors the core CI commands through `scripts/validate_local.py
 without installing dependencies. CI runs the same validation sequence on
 Python 3.11 and 3.12. Fake teacher export artifacts remain generated local state
 under the gitignored `artifacts/` directory.
+
+## Phase 4 — RWKV7 Reference Recurrent Core
+
+This phase adds `rwkv7_reference` as the first RWKV7-style recurrent core for
+the JAX student path. It is an XLA-friendly recurrent reference implementation
+for shape contracts, masking behavior, JIT compatibility, gradient flow, and
+student smoke training. It is not the final optimized RWKV7 kernel.
+
+The validation path now includes both the tiny student smoke command and the
+`rwkv7_reference` smoke command after fake teacher target export and inspection.
+This preserves the smallest trainer test double while adding recurrent
+reference coverage for Phase 4.

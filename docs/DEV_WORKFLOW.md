@@ -52,6 +52,18 @@ Generated validation outputs live under `artifacts/`, which is gitignored.
 Before handoff, Nyx should run `scripts/validate_local.py` or the equivalent
 individual command list from `docs/CI.md`.
 
+For Phase 4 student-runtime work, the validation path must include both smoke
+training commands:
+
+```bash
+python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2
+python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --student-architecture rwkv7_reference --max-steps 2
+```
+
+The `rwkv7_reference` architecture is an XLA-friendly recurrent reference
+implementation for correctness and integration checks. It is not the final
+optimized RWKV7 kernel.
+
 ## Checkpoint discipline
 
 Every phase/checkpoint should preserve:
@@ -72,3 +84,4 @@ earlier history.
 - `P0A: scaffold QRWKV-XLA foundation docs`
 - `P0.5: normalize scaffold and add config artifact contracts`
 - `P2.5: stabilize editable install validation and CI`
+- `P4: add RWKV7 reference recurrent core`

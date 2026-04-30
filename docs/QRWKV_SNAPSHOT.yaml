@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 2.5
-checkpoint: test_robustness_ci
-status: stabilization
+phase: 4
+checkpoint: rwkv7_reference_core
+status: reference_core
 mission: >
   Build a JAX/XLA-first RADLADS-style transformer-to-RWKV7 recurrent
   conversion pipeline for TPU-first training.
@@ -41,6 +41,7 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Establish test robustness and a CI foundation with editable-install
-  validation parity, CPU-only checks, and no JAX, PyTorch, GPU, TPU, or network
-  requirements for local validation.
+  Establish an XLA-friendly RWKV7-style recurrent reference implementation for
+  the JAX student path, with CPU forward, JIT, masking, gradient, and smoke
+  training coverage. This reference core is not the final optimized RWKV7
+  kernel.

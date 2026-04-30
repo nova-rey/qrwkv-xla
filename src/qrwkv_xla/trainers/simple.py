@@ -6,7 +6,7 @@ from pathlib import Path
 import jax
 
 from qrwkv_xla.datasets.target_bundle import TargetBundleDataset
-from qrwkv_xla.students.tiny import TinyStudent
+from qrwkv_xla.students.base import StudentModel
 from qrwkv_xla.trainers.state import TrainState
 from qrwkv_xla.trainers.step import batch_to_jax, make_train_step
 
@@ -21,7 +21,7 @@ class SimpleTrainResult:
 def train_on_bundle_once(
     *,
     bundle_dir: str | Path,
-    student: TinyStudent,
+    student: StudentModel,
     seed: int = 0,
     learning_rate: float = 1e-3,
     max_steps: int = 5,

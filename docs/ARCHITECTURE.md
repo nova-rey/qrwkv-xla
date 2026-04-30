@@ -19,9 +19,18 @@ Teacher Exporter is now represented by a protocol/interface and a fake determini
 - **Purpose:** Train RWKV7-style recurrent students using XLA-friendly code paths with CPU debug, TPU smoke, and eventual TPU scale-up support.
 
 ### Student Model Core
-- **Purpose:** Define RWKV7-style recurrent model interfaces and later host scan-based recurrent blocks plus stateful inference contracts.
+- **Current shape:** `tiny_student` trainer test double plus `rwkv7_reference`
+  recurrent reference implementation.
+- **Purpose:** Define RWKV7-style recurrent model interfaces and host
+  scan-based recurrent blocks plus later stateful inference contracts.
+
+The `rwkv7_reference` core is an XLA-friendly recurrent reference
+implementation. It exists to lock down shapes, masking, JIT behavior, and
+gradient flow for the student path. It is not a final optimized RWKV7 kernel.
 
 ### Distillation Engine
+- **Current shape:** small hidden-state MSE smoke training path over fake target
+  bundles.
 - **Purpose:** Coordinate staged losses for hidden-state distillation, logit distillation, attention/mixer behavior distillation, and optional instruction/behavior preservation.
 
 ### Checkpointing

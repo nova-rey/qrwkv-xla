@@ -7,13 +7,13 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 2.5: stabilization of the teacher exporter interface, fake export
-pipeline, package import path, local validation, and CI.
+Phase 4: RWKV7-style recurrent reference core.
 
-The project can now define, write, read, validate, inspect, and test fake
-teacher target bundles on CPU through a reusable exporter interface. The
-stabilized development path uses an editable install and does not require JAX,
-PyTorch, TPU, GPU, or network access for core validation.
+The project can define, write, read, validate, inspect, and test fake teacher
+target bundles on CPU through a reusable exporter interface. It also has a JAX
+student runtime path and an XLA-friendly `rwkv7_reference` recurrent reference
+implementation for CPU/JIT/gradient coverage and smoke training. This reference
+core is not a final optimized RWKV7 kernel.
 
 ## Design Principles
 
@@ -32,6 +32,7 @@ PyTorch, TPU, GPU, or network access for core validation.
 python -m pip install -e ".[dev]"
 python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
 python scripts/inspect_targets.py artifacts/teacher_targets/fake_export
+python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --student-architecture rwkv7_reference --max-steps 2
 python scripts/validate_local.py
 ```
 
@@ -63,6 +64,8 @@ python scripts/smoke_cpu.py
 python scripts/smoke_tpu.py
 python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
 python scripts/inspect_targets.py artifacts/teacher_targets/fake_export
+python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2
+python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --student-architecture rwkv7_reference --max-steps 2
 python -m pytest
 python -m ruff check .
 python -m ruff format --check .

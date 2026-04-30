@@ -79,3 +79,24 @@
 - [x] Keep generated fake export outputs under gitignored `artifacts/`
 - [x] Document the local validation and individual check commands
 - [x] Avoid model, trainer, and heavyweight dependency changes
+
+## P3 — JAX Student Runtime Skeleton
+
+- [x] Add student model interface and output contract
+- [x] Add tiny JAX student implementation for trainer smoke coverage
+- [x] Add student factory entrypoint
+- [x] Add hidden-state MSE train-on-bundle smoke path
+- [x] Add `scripts/train_student_smoke.py`
+- [x] Add validation commands for student smoke training
+
+## P4 — RWKV7-Style Recurrent Reference Core
+
+- [x] Add `rwkv7_reference` student factory architecture
+- [x] Add XLA-friendly scan-based recurrent reference layer
+- [x] Add matrix parameterization for reference core projections
+- [x] Add attention-mask behavior for recurrent state/output handling
+- [x] Add CPU forward, determinism, mask, and JIT tests
+- [x] Add smoke training coverage for `rwkv7_reference`
+- [x] Document that `rwkv7_reference` is a reference implementation, not a final optimized kernel
+- [x] Update snapshot, roadmap, testing strategy, workflow, and README
+- [x] Append Bible entry

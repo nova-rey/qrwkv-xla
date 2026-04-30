@@ -77,3 +77,14 @@ responsibility.
 Local validation should mirror the CI command sequence through
 `scripts/validate_local.py` or the equivalent individual command list. CI and
 local handoff checks should stay aligned so failures reproduce before handoff.
+
+## D016 — RWKV7 Reference Core Before Optimized Kernel
+Phase 4 introduces `rwkv7_reference` as an XLA-friendly recurrent reference
+implementation for the student path. It exists to validate shape contracts,
+masking semantics, JIT compatibility, and gradient flow before any optimized
+RWKV7 kernel work. It must not be described as the final optimized kernel.
+
+## D017 — Use `jax.lax.scan` for Token Recurrence
+The RWKV7 reference path uses `jax.lax.scan` across sequence length so token
+recurrence is represented in an XLA-friendly form rather than as a Python-side
+token loop.

@@ -38,47 +38,51 @@ Checkpoints:
 Goal: implement XLA-friendly RWKV7-style recurrence.
 
 Checkpoints:
-- P3A: RWKV7 math spec + shape contracts
-- P3B: scan-based recurrent block implementation
-- P3C: correctness tests, numerical stability notes, CPU training sanity
+- P4A: RWKV7 reference math spec + shape contracts
+- P4B: scan-based recurrent reference block implementation
+- P4C: correctness tests, numerical stability notes, CPU/JIT/gradient sanity
+
+Current checkpoint: `rwkv7_reference_core`. This checkpoint provides an
+XLA-friendly recurrent reference implementation for the student path; it is not
+the final optimized RWKV7 kernel.
 
 ## Phase 5 — Distillation Stages
 Goal: staged RADLADS-like training.
 
 Checkpoints:
-- P4A: hidden-state distillation
-- P4B: logit distillation
-- P4C: attention/mixer behavior distillation
-- P4D: staged schedule runner
+- P5A: hidden-state distillation
+- P5B: logit distillation
+- P5C: attention/mixer behavior distillation
+- P5D: staged schedule runner
 
 ## Phase 6 — TPU Smoke and XLA Discipline
 Goal: prove the code runs on actual TPU environments.
 
 Checkpoints:
-- P5A: Kaggle/Colab TPU smoke script
-- P5B: static-shape audit
-- P5C: compile/recompile logging and known XLA pitfalls doc
+- P6A: Kaggle/Colab TPU smoke script
+- P6B: static-shape audit
+- P6C: compile/recompile logging and known XLA pitfalls doc
 
 ## Phase 7 — Qwen Teacher Integration
 Goal: export real targets from selected Qwen teacher.
 
 Checkpoints:
-- P6A: resolve Qwen3.latest model ID into metadata
-- P6B: export small target shards
-- P6C: train student on real exported targets
+- P7A: resolve Qwen3.latest model ID into metadata
+- P7B: export small target shards
+- P7C: train student on real exported targets
 
 ## Phase 8 — Evaluation and Export
 Goal: generation sanity, teacher/student comparison, packaging.
 
 Checkpoints:
-- P7A: eval harness skeleton
-- P7B: recurrent inference path
-- P7C: export format and model card artifacts
+- P8A: eval harness skeleton
+- P8B: recurrent inference path
+- P8C: export format and model card artifacts
 
 ## Phase 9 — TPU Scale-Up
 Goal: multi-device/multi-host TPU training plan.
 
 Checkpoints:
-- P8A: sharding strategy
-- P8B: multi-device training smoke
-- P8C: larger teacher/student experiments
+- P9A: sharding strategy
+- P9B: multi-device training smoke
+- P9C: larger teacher/student experiments

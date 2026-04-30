@@ -1,8 +1,16 @@
 distillation:
   stage: 0
-  target_bundle: artifacts/teacher_targets/fake_export
-  student_config: configs/tiny_cpu.yaml
-  max_steps: 2
+  targets_dir: artifacts/teacher_targets/fake_export
+  student:
+    architecture: rwkv7_reference
+    vocab_size: 512
+    hidden_size: 128
+    num_layers: 2
+  optimizer:
+    type: sgd
+    learning_rate: 0.001
+  training:
+    max_steps: 5
   losses:
     hidden_mse:
       enabled: true
