@@ -29,7 +29,9 @@ implementation. It exists to lock down shapes, masking, JIT behavior, and
 gradient flow for the student path. It is not a final optimized RWKV7 kernel.
 
 ### Distillation Engine
-- **Current shape:** small hidden-state MSE smoke training path over fake target
+- **Current shape:** stage config dataclasses/YAML loading, weighted loss
+  registry/composition, hidden-state distillation runtime, optional logits KL
+  validation plumbing, metrics summaries, and a CPU-only stage CLI over target
   bundles.
 - **Purpose:** Coordinate staged losses for hidden-state distillation, logit distillation, attention/mixer behavior distillation, and optional instruction/behavior preservation.
 

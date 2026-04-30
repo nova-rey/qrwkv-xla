@@ -60,3 +60,17 @@ The validation path now includes both the tiny student smoke command and the
 `rwkv7_reference` smoke command after fake teacher target export and inspection.
 This preserves the smallest trainer test double while adding recurrent
 reference coverage for Phase 4.
+
+## Phase 5 — Distillation Stage Runtime
+
+This phase adds the first configured distillation runtime while keeping the
+dependency boundary CPU-only and JAX-first. Stage YAML now loads into typed
+dataclasses, losses are registered and composed with explicit weights, and the
+existing smoke training path accepts a distillation objective rather than being
+replaced by a separate trainer.
+
+The runnable stage performs hidden-state MSE distillation over target bundles,
+records metric history summaries, and exposes `scripts/run_distill_stage.py`
+for local and CI smoke validation. Logits KL is present as opt-in plumbing with
+clear validation, but actual student logits remain deferred until a student
+head is added.

@@ -50,6 +50,9 @@ jobs:
       - name: Run RWKV7 reference student train smoke
         run: python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --student-architecture rwkv7_reference --max-steps 2
 
+      - name: Run distillation stage smoke
+        run: python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml
+
       - name: Run tests
         run: python -m pytest
 

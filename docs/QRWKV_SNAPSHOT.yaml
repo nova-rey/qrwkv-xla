@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 4
-checkpoint: rwkv7_reference_core
-status: reference_core
+phase: 5
+checkpoint: distillation_stage_runtime
+status: stage_runtime
 mission: >
   Build a JAX/XLA-first RADLADS-style transformer-to-RWKV7 recurrent
   conversion pipeline for TPU-first training.
@@ -41,7 +41,7 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Establish an XLA-friendly RWKV7-style recurrent reference implementation for
-  the JAX student path, with CPU forward, JIT, masking, gradient, and smoke
-  training coverage. This reference core is not the final optimized RWKV7
-  kernel.
+  Establish the first configured distillation stage runtime for the JAX student
+  path: weighted hidden-state loss composition, optional logits KL plumbing,
+  CPU-only stage runner, metrics summaries, CLI coverage, and local/CI
+  validation without adding heavyweight dependencies.

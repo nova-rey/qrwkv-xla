@@ -15,6 +15,9 @@ python scripts/smoke_cpu.py
 python scripts/smoke_tpu.py
 python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
 python scripts/inspect_targets.py artifacts/teacher_targets/fake_export
+python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2
+python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --student-architecture rwkv7_reference --max-steps 2
+python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml
 python -m pytest
 python -m ruff check .
 python -m ruff format --check .

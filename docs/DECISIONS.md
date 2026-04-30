@@ -88,3 +88,15 @@ RWKV7 kernel work. It must not be described as the final optimized kernel.
 The RWKV7 reference path uses `jax.lax.scan` across sequence length so token
 recurrence is represented in an XLA-friendly form rather than as a Python-side
 token loop.
+
+## D018 — Distillation Runtime Reuses the Smoke Trainer
+Phase 5 extends the existing JAX smoke training path with a composed
+distillation objective instead of creating a parallel trainer stack. The default
+behavior remains hidden-state MSE, while stage configs can opt into registered
+weighted loss terms.
+
+## D019 — Logits KL Is Plumbed Before Student Logits
+The Phase 5 loss registry includes `logits_kl`, but current student
+implementations do not emit logits. Enabling logits KL therefore validates that
+both student logits and target logits exist and fails clearly until a student
+logits head is introduced.

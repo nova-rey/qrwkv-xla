@@ -64,6 +64,10 @@ The `rwkv7_reference` architecture is an XLA-friendly recurrent reference
 implementation for correctness and integration checks. It is not the final
 optimized RWKV7 kernel.
 
+From Phase 5 onward, new training behavior should prefer the distillation stage
+runner (`scripts/run_distill_stage.py`) rather than adding separate one-off
+smoke training paths.
+
 ## Checkpoint discipline
 
 Every phase/checkpoint should preserve:

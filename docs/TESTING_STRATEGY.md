@@ -23,14 +23,14 @@ Phase 0 only requires real Tier 0 tests:
 
 Those tests should pass even if JAX or TPU libraries are unavailable.
 
-## Phase 4 validation scope
+## Phase 5 validation scope
 
-Phase 4 keeps the Strategy A editable-install workflow and extends validation
-with JAX student runtime coverage. The `rwkv7_reference` model is covered as an
-XLA-friendly recurrent reference implementation, not a final optimized kernel.
-Coverage includes CPU forward tests, JIT execution tests, attention-mask
-behavior, deterministic initialization/application checks, and gradient coverage
-through the smoke training path.
+Phase 5 keeps the Strategy A editable-install workflow and extends validation
+with the configured distillation stage runtime. The `rwkv7_reference` model is
+still covered as an XLA-friendly recurrent reference implementation, not a final
+optimized kernel. Distillation coverage includes YAML config loading, weighted
+loss composition, hidden-state stage training, optional logits KL validation,
+metrics summaries, and the CLI stage smoke.
 
 ```bash
 python -m pip install -e ".[dev]"
@@ -47,6 +47,7 @@ python scripts/validate_local.py
 - `python scripts/inspect_targets.py artifacts/teacher_targets/fake_export`
 - `python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --max-steps 2`
 - `python scripts/train_student_smoke.py --targets artifacts/teacher_targets/fake_export --student-architecture rwkv7_reference --max-steps 2`
+- `python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml`
 - `python -m pytest`
 - `python -m ruff check .`
 - `python -m ruff format --check .`

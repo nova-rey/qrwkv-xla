@@ -100,3 +100,15 @@
 - [x] Document that `rwkv7_reference` is a reference implementation, not a final optimized kernel
 - [x] Update snapshot, roadmap, testing strategy, workflow, and README
 - [x] Append Bible entry
+
+## P5 — Distillation Stage Runtime
+
+- [x] Add distillation config dataclasses and YAML loading
+- [x] Add weighted loss registry and composition helpers
+- [x] Integrate hidden-state distillation into the existing train step
+- [x] Add optional logits KL loss plumbing and validation
+- [x] Add one-stage distillation runner and metrics summaries
+- [x] Add `scripts/run_distill_stage.py`
+- [x] Add unit and CLI coverage
+- [x] Update local validation and CI command sequence
+- [x] Update docs, snapshot, decisions, and append-only Bible

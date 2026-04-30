@@ -50,10 +50,15 @@ the final optimized RWKV7 kernel.
 Goal: staged RADLADS-like training.
 
 Checkpoints:
-- P5A: hidden-state distillation
-- P5B: logit distillation
+- P5A: hidden-state distillation complete for CPU stage runtime
+- P5B: logit distillation plumbing complete; student logits head deferred
 - P5C: attention/mixer behavior distillation
-- P5D: staged schedule runner
+- P5D: staged schedule runner complete for one-stage configs
+
+Current checkpoint: `distillation_stage_runtime`. This checkpoint runs a
+configured hidden-state distillation stage on fake/exported target bundles,
+while keeping logits KL opt-in and clearly validated until student logits are
+implemented.
 
 ## Phase 6 — TPU Smoke and XLA Discipline
 Goal: prove the code runs on actual TPU environments.

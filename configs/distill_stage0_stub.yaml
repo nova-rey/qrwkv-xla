@@ -4,13 +4,14 @@ distillation:
   student:
     architecture: rwkv7_reference
     vocab_size: 512
-    hidden_size: 128
-    num_layers: 2
+    hidden_size: null
+    num_layers: null
   optimizer:
     type: sgd
     learning_rate: 0.001
   training:
     max_steps: 5
+    seed: 0
   losses:
     hidden_mse:
       enabled: true

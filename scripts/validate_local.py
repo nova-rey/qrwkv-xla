@@ -40,6 +40,12 @@ COMMANDS = [
         "--max-steps",
         "2",
     ],
+    [
+        sys.executable,
+        "scripts/run_distill_stage.py",
+        "--config",
+        "configs/distill_stage0_stub.yaml",
+    ],
     [sys.executable, "-m", "pytest"],
     [sys.executable, "-m", "ruff", "check", "."],
     [sys.executable, "-m", "ruff", "format", "--check", "."],
