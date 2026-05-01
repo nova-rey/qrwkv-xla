@@ -21,7 +21,8 @@ path. It is CPU-safe, offline, and uses only `.[dev]` by default. Optional HF
 validation (`--include-hf`) and hard TPU validation (`--require-tpu`) are not
 part of default CI.
 The default path also inspects the smoke prompt corpus, creates its manifest,
-and dry-runs the Qwen corpus config without importing Hugging Face modules.
+dry-runs the Qwen corpus config without importing Hugging Face modules, and
+runs a tiny greedy generation smoke from a logits-capable checkpoint.
 
 ## Local Mirror
 
@@ -46,6 +47,7 @@ edits to take effect immediately during development.
 
 ## Generated Artifacts
 
-Validation writes fake teacher target bundles under `artifacts/`. That directory
-is gitignored and should remain local/generated state rather than committed
-repository content.
+Validation writes fake teacher target bundles under `artifacts/`, checkpoints
+under `checkpoints/`, local runs under `runs/`, and generation smoke artifacts
+under `eval_outputs/`. Those directories are gitignored and should remain
+local/generated state rather than committed repository content.

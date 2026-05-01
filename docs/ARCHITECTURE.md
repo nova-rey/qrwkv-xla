@@ -103,6 +103,7 @@ small local-file layer around the canonical `qrwkv_xla.distill` runner:
 `run.json` captures metadata, `metrics.jsonl` records per-step metrics, and
 `summary.json` records final outcomes. It has no service dependency and remains
 disabled unless config or CLI flags enable it.
+
 ## Student LM Head
 
 P13 adds an optional LM head to student architectures. With
@@ -110,3 +111,11 @@ P13 adds an optional LM head to student architectures. With
 `emit_logits=true`, students return logits shaped `[batch, sequence, vocab]`.
 Untied LM heads are the default; tied embeddings are supported where the token
 embedding shape is `[vocab, hidden]`.
+
+## Generation Smoke
+
+The `qrwkv_xla.generation` package contains the minimal P14 inference path:
+`SmokeTokenizer`, full-sequence greedy decoding, checkpoint reconstruction for
+logits-capable students, local generation artifact writers, and a tiny prompt
+corpus smoke harness. Hidden-only checkpoints fail before generation because
+they cannot emit logits.

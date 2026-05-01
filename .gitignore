@@ -10,3 +10,4 @@ build/
 artifacts/
 checkpoints/
 runs/
+eval_outputs/

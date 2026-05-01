@@ -128,6 +128,7 @@ Local checkpoint experiments should write under `checkpoints/`. That directory
 is ignored by git and can be deleted between runs. Use `--checkpoint-overwrite`
 for repeatable local smoke commands that intentionally replace an existing
 checkpoint directory.
+
 ## Tracked distillation smoke
 
 Use this when you need local run artifacts while debugging:
@@ -137,8 +138,15 @@ python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --
 ```
 
 Generated runs are ignored by git under `runs/`.
+
 ## Logits KL Checks
 
 When enabling logits KL, confirm the teacher target bundle includes logits and
 that the student config has `emit_logits=true`. Real Qwen logits exports should
 be treated as expensive and optional, not part of default validation.
+
+## Generation Smoke
+
+Generation smoke output should not be described as quality evidence. It only
+proves that a logits-capable checkpoint can be loaded and decoded through the
+minimal generation path.

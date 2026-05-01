@@ -24,7 +24,14 @@ exports are optional manual work.
 
 Current limitations:
 
-- No generation or sampling CLI is included.
-- No tokenizer-aware evaluation harness is included.
+- Generation smoke is minimal and greedy-only.
+- No tokenizer-aware quality evaluation harness is included.
 - No advanced loss scheduling is included.
 - Large Qwen logits exports are not part of default validation.
+
+## Generation Smoke
+
+Once a logits-capable checkpoint exists, P14 generation smoke can decode short
+greedy outputs through `scripts/generate_from_checkpoint.py`. This only proves
+checkpoint loading, logits availability, and decode-loop wiring; it is not a
+quality evaluation.

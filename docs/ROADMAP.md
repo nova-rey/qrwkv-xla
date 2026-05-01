@@ -139,3 +139,8 @@ still using local artifacts under `runs/`.
 
 Goal: add student logits output and logits KL distillation so hidden-only
 checkpoints can later continue toward output behavior.
+
+## Phase 14 — Generation Smoke + Tiny Evaluation Harness
+
+Goal: load logits-capable checkpoints and run tiny greedy generation/eval smoke
+checks without external tokenizer dependencies.

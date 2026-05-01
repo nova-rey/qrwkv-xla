@@ -77,14 +77,23 @@ result.
 - No TPU with `--require-tpu`: rerun on a TPU-backed JAX environment or omit the
   flag for CPU-safe validation.
 - Generated bundle issues: delete local `artifacts/` and rerun the pipeline.
+
 ## Tracked run smoke
 
 The default validation pipeline includes a one-step tracked distillation run
 under `runs/pipeline_smoke`. This verifies local `run.json`, `metrics.jsonl`,
 `summary.json`, and the tracked default checkpoint path without enabling any
 external service.
+
 ## Logits KL Smoke
 
 The default pipeline exports fake logits targets, inspects them, runs
 `configs/distill_stage0_logits_stub.yaml`, and smokes hidden-only to logits
 checkpoint continuation. This remains CPU-only and network-free.
+
+## Generation Smoke
+
+Default pipeline validation now produces a tiny logits-capable checkpoint and
+runs `scripts/generate_from_checkpoint.py` with a short prompt. The step writes
+local JSONL/JSON artifacts under `eval_outputs/pipeline_generation_smoke` and
+remains CPU-only, offline, and free of tokenizer/model downloads.

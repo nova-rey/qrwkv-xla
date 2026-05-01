@@ -15,6 +15,7 @@ CHECKPOINT_SMOKE = "checkpoints/pipeline_smoke/stage0"
 CHECKPOINT_SMOKE_RESUME = "checkpoints/pipeline_smoke/stage0_resume"
 CHECKPOINT_HIDDEN_FOR_LOGITS = "checkpoints/pipeline_hidden_only_for_logits"
 CHECKPOINT_HIDDEN_PLUS_LOGITS = "checkpoints/pipeline_hidden_plus_logits"
+EVAL_GENERATION_SMOKE = "eval_outputs/pipeline_generation_smoke"
 TRACKING_SMOKE_ROOT = "runs/pipeline_smoke"
 
 
@@ -215,6 +216,18 @@ def build_validation_commands(
             CHECKPOINT_HIDDEN_PLUS_LOGITS,
             "--checkpoint-overwrite",
         ),
+        (
+            sys.executable,
+            "scripts/generate_from_checkpoint.py",
+            "--checkpoint",
+            CHECKPOINT_HIDDEN_PLUS_LOGITS,
+            "--prompt",
+            "Hello QRWKV",
+            "--max-new-tokens",
+            "4",
+            "--output-dir",
+            EVAL_GENERATION_SMOKE,
+        ),
         tuple(tpu_distill_command),
     ]
 
@@ -354,6 +367,8 @@ def build_step_name(command: tuple[str, ...]) -> str:
             return "run_distill_stage checkpoint-save"
         targets = _option_value(command, "--targets")
         return f"run_distill_stage {Path(targets).name}" if targets else script
+    if script == "generate_from_checkpoint":
+        return "generate_from_checkpoint smoke"
     if script == "tpu_distill_smoke" and "--require-tpu" in command:
         return "tpu_distill_smoke require-tpu"
     return script

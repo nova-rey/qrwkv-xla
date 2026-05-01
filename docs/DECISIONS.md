@@ -213,3 +213,19 @@ checkpoints.
 Student LM heads support optional tied embeddings where practical, but untied
 LM heads remain the simple default for clear checkpoint behavior and shape
 validation.
+## D042 — Generation Smoke Before Quality Evaluation
+
+QRWKV-XLA implements a tiny greedy generation smoke path before adding benchmark
+or quality evaluation. The first goal is to verify checkpoint loading, logits
+availability, decoding loop behavior, and artifact writing.
+
+## D043 — SmokeTokenizer Avoids Required Tokenizer Dependencies
+
+P14 uses a dependency-free smoke tokenizer for default generation tests so CI
+remains CPU-only, network-free, and independent of Hugging Face tokenizer
+packages.
+
+## D044 — Cached Recurrent Inference Is Deferred
+
+P14 generation may recompute the full sequence each token. Optimized recurrent
+cached-state inference is deferred until the basic generation path is validated.

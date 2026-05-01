@@ -7,9 +7,9 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 12: prompt corpus and export-set provenance on top of the staged
-distillation runtime, XLA discipline, optional HF exporter, checkpoint/resume,
-and local run tracking.
+Phase 14: generation smoke and tiny evaluation harness on top of prompt corpus
+provenance, logits KL distillation, checkpoint/resume, XLA discipline, optional
+HF exporter, and local run tracking.
 
 The project can define, write, read, validate, inspect, and test fake teacher
 target bundles on CPU through a reusable exporter interface. It also has an
@@ -194,6 +194,20 @@ python scripts/run_distill_stage.py --config configs/distill_stage0_logits_stub.
 ```
 
 See `docs/LOGITS_DISTILLATION.md`.
+
+## Generation Smoke
+
+Logits-capable checkpoints can run a tiny greedy generation smoke with the
+dependency-free `SmokeTokenizer`:
+
+```bash
+python scripts/export_teacher_targets.py --config configs/teacher_export_stub_logits.yaml
+python scripts/run_distill_stage.py --config configs/distill_stage0_logits_stub.yaml --max-steps 1 --checkpoint-out checkpoints/generation_smoke --checkpoint-overwrite
+python scripts/generate_from_checkpoint.py --checkpoint checkpoints/generation_smoke --prompt "Hello QRWKV" --max-new-tokens 8 --output-dir eval_outputs/generation_smoke
+```
+
+The output is a wiring sanity check, not model quality evidence. See
+`docs/GENERATION_SMOKE.md`.
 
 ## Reference
 

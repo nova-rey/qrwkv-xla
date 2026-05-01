@@ -1,0 +1,8 @@
+generation:
+  prompt_corpus: corpora/smoke_prompts.jsonl
+  prompt_split: validation
+  prompt_tags: ["smoke"]
+  prompt_limit: 2
+  max_new_tokens: 8
+  output_dir: eval_outputs/generation_smoke
+  tokenizer: smoke

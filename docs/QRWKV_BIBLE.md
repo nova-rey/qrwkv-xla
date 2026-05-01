@@ -179,3 +179,10 @@ in addition to hidden states. The distillation runtime can train with logits KL
 when teacher logits are available, enabling a staged path from hidden-only
 alignment into output-behavior distillation. Fake logits smoke configs keep the
 default validation path CPU-only and network-free.
+
+## Phase 14 — Generation Smoke and Tiny Evaluation Harness
+
+This phase adds the first inference-facing path. QRWKV-XLA can now load a
+logits-capable student checkpoint, encode smoke prompts with a dependency-free
+tokenizer, run short greedy generation, and write generation artifacts. This is
+a wiring and sanity check rather than a model-quality benchmark.

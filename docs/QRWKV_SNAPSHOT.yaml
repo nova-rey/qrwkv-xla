@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 13
-checkpoint: student_lm_head_logits_kl_continuation
+phase: 14
+checkpoint: generation_smoke_tiny_eval
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -42,9 +42,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add optional student LM heads, logits output, logits KL distillation, fake
-  logits smoke configs, and checkpoint continuation support so hidden-only
-  checkpoints can later continue with output-behavior distillation.
+  Add minimal logits-based generation smoke from checkpoints, including a
+  dependency-free smoke tokenizer, greedy decoding helper, generation CLI, tiny
+  eval smoke harness, output artifacts, tests, and validation pipeline coverage.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -69,3 +69,10 @@ logits_distillation:
   default_tie_embeddings: false
   fake_logits_validation: true
   hidden_to_logits_resume: supported_with_fresh_lm_head
+
+generation_smoke:
+  tokenizer: dependency_free_utf8_byte_plus_one
+  decoding: greedy_only_full_sequence_recompute
+  artifact_dir: eval_outputs/
+  gitignored: true
+  quality_claims: false

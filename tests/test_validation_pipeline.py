@@ -46,6 +46,11 @@ def test_default_command_list_includes_expected_safe_commands() -> None:
         "--resume-from checkpoints/pipeline_smoke/stage0" in command
         for command in joined
     )
+    assert any("scripts/generate_from_checkpoint.py" in command for command in joined)
+    assert any(
+        "--output-dir eval_outputs/pipeline_generation_smoke" in command
+        for command in joined
+    )
     assert any("scripts/tpu_distill_smoke.py" in command for command in joined)
 
 

@@ -225,3 +225,20 @@
 - [x] Update docs
 - [x] Update snapshot
 - [x] Append Bible entry
+## P14 — Generation Smoke + Tiny Evaluation Harness
+
+- [x] Add SmokeTokenizer
+- [x] Add greedy generation helper
+- [x] Add checkpoint-to-student loader
+- [x] Add generation artifact writer
+- [x] Add generation smoke harness
+- [x] Add generate_from_checkpoint.py
+- [x] Add eval_generation_smoke.py
+- [x] Add generation_smoke.yaml
+- [x] Add generation tests
+- [x] Update validation pipeline
+- [x] Add GENERATION_SMOKE.md
+- [x] Update docs
+- [x] Update snapshot
+- [x] Append Bible entry
+- [x] Run validation
