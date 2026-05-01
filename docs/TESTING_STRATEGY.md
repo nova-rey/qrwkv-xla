@@ -117,3 +117,9 @@ Generation smoke tests verify checkpoint loading, logits availability, greedy
 token generation, clear hidden-only checkpoint failures, CLI behavior, and local
 artifact output. They use the dependency-free smoke tokenizer and remain
 CPU-only and network-free.
+## P15 Evaluation Regression Tests
+
+P15 adds regression generation snapshots and sanity checks. These are
+wiring/regression checks, not quality benchmarks. Tests cover config loading,
+sanity summaries, checkpoint evaluation artifacts, snapshot comparison, and the
+two CLI scripts.

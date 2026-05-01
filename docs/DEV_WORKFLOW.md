@@ -150,3 +150,8 @@ be treated as expensive and optional, not part of default validation.
 Generation smoke output should not be described as quality evidence. It only
 proves that a logits-capable checkpoint can be loaded and decoded through the
 minimal generation path.
+## Evaluation Reporting
+
+When reporting generation or evaluation results, distinguish smoke, sanity, and
+regression checks from quality evaluation. Do not claim model improvement from
+P15 eval outputs alone.

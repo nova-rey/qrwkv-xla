@@ -242,3 +242,21 @@
 - [x] Update snapshot
 - [x] Append Bible entry
 - [x] Run validation
+
+## P15 — Evaluation Harness + Fixed Regression Prompts
+
+- [x] Add eval config loader
+- [x] Add regression prompt corpus
+- [x] Add eval artifact schema
+- [x] Add sanity checks
+- [x] Add checkpoint evaluation harness
+- [x] Add eval snapshot comparison
+- [x] Add evaluate_checkpoint.py
+- [x] Add compare_eval_snapshots.py
+- [x] Add eval tests
+- [x] Update validation pipeline
+- [x] Add EVALUATION_HARNESS.md
+- [x] Update docs
+- [x] Update snapshot
+- [x] Append Bible entry
+- [x] Run validation

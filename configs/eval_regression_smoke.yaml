@@ -1,0 +1,15 @@
+eval_id: regression_smoke
+prompt:
+  prompt_corpus: corpora/eval_regression_prompts.jsonl
+  prompt_split: validation
+  prompt_tags: ["eval"]
+  prompt_limit: 4
+generation:
+  max_new_tokens: 8
+  tokenizer: smoke
+  eos_token_id: 0
+sanity:
+  require_non_empty: true
+  max_repeated_token_fraction: 0.95
+  max_unknown_token_fraction: 0.95
+output_dir: eval_outputs/regression_smoke

@@ -119,3 +119,10 @@ The `qrwkv_xla.generation` package contains the minimal P14 inference path:
 logits-capable students, local generation artifact writers, and a tiny prompt
 corpus smoke harness. Hidden-only checkpoints fail before generation because
 they cannot emit logits.
+## Evaluation Harness
+
+The P15 evaluation harness sits above checkpoint loading, the dependency-free
+smoke tokenizer, greedy generation, and prompt corpora. It selects fixed
+prompts from a local JSONL corpus, writes `eval.json`, `generations.jsonl`, and
+`sanity.json`, and can compare two snapshots by prompt id. It is designed for
+regression inspection only.

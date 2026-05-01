@@ -186,3 +186,11 @@ This phase adds the first inference-facing path. QRWKV-XLA can now load a
 logits-capable student checkpoint, encode smoke prompts with a dependency-free
 tokenizer, run short greedy generation, and write generation artifacts. This is
 a wiring and sanity check rather than a model-quality benchmark.
+
+## Phase 15 — Evaluation Harness and Fixed Regression Prompts
+
+This phase adds the first repeatable generation evaluation layer. QRWKV-XLA can
+evaluate logits-capable checkpoints on fixed prompt corpora, write generation
+snapshots, run simple sanity checks, and compare snapshots across checkpoints or
+runs. These checks are regression and wiring tools rather than model-quality
+benchmarks.

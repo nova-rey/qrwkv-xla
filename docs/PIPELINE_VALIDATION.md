@@ -97,3 +97,10 @@ Default pipeline validation now produces a tiny logits-capable checkpoint and
 runs `scripts/generate_from_checkpoint.py` with a short prompt. The step writes
 local JSONL/JSON artifacts under `eval_outputs/pipeline_generation_smoke` and
 remains CPU-only, offline, and free of tokenizer/model downloads.
+
+## Evaluation Harness Step
+
+Default pipeline validation now evaluates the logits-capable smoke checkpoint
+with `scripts/evaluate_checkpoint.py` and `configs/eval_regression_smoke.yaml`.
+This step is CPU-only, offline, non-strict by default, and records sanity
+warnings without turning them into quality claims.

@@ -84,3 +84,9 @@ P14 generation smoke writes local `generations.jsonl` and `summary.json`
 artifacts under `eval_outputs/` by default. Future phases may attach generation
 outputs under run directories, but P14 keeps eval artifacts separate and
 gitignored.
+## Evaluation Snapshots
+
+Evaluation snapshots currently write under gitignored `eval_outputs/` by
+default. They can be copied under `runs/<run_id>/evals/<eval_id>/` when a run
+needs a local record of generated outputs. Full automatic run attachment is
+deferred.

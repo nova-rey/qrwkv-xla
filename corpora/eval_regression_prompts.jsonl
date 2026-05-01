@@ -1,0 +1,6 @@
+{"id":"eval_000001","metadata":{"purpose":"greeting"},"split":"validation","tags":["eval","smoke"],"text":"Hello QRWKV-XLA"}
+{"id":"eval_000002","metadata":{"purpose":"concept"},"split":"validation","tags":["eval","recurrence"],"text":"Explain recurrence briefly."}
+{"id":"eval_000003","metadata":{"purpose":"format"},"split":"validation","tags":["eval","simple-list"],"text":"List two tiny colors."}
+{"id":"eval_000004","metadata":{"purpose":"continuation"},"split":"validation","tags":["eval","sequence"],"text":"What comes after one two three?"}
+{"id":"eval_000005","metadata":{"purpose":"code"},"split":"validation","tags":["eval","code"],"text":"Write a tiny Python print call."}
+{"id":"eval_000006","metadata":{"purpose":"summary"},"split":"validation","tags":["eval","summary"],"text":"Summarize: XLA likes static shapes."}

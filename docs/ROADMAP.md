@@ -144,3 +144,8 @@ checkpoints can later continue toward output behavior.
 
 Goal: load logits-capable checkpoints and run tiny greedy generation/eval smoke
 checks without external tokenizer dependencies.
+
+## Phase 15 — Evaluation Harness + Fixed Regression Prompts
+
+Goal: add fixed generation snapshots, sanity checks, and checkpoint comparison
+tools before full benchmark/evaluation work.

@@ -7,7 +7,8 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 14: generation smoke and tiny evaluation harness on top of prompt corpus
+Phase 15: evaluation harness and fixed regression prompts on top of generation
+smoke, prompt corpus
 provenance, logits KL distillation, checkpoint/resume, XLA discipline, optional
 HF exporter, and local run tracking.
 
@@ -59,6 +60,16 @@ corpus lives at `corpora/smoke_prompts.jsonl`.
 `scripts/tpu_distill_smoke.py` runs on the available JAX backend by default and only requires TPU when `--require-tpu` is passed.
 
 Generated bundles are written under `artifacts/`, which is gitignored.
+
+Regression evaluation snapshots are documented in
+`docs/EVALUATION_HARNESS.md`:
+
+```bash
+python scripts/evaluate_checkpoint.py --checkpoint checkpoints/eval_smoke --config configs/eval_regression_smoke.yaml
+python scripts/compare_eval_snapshots.py --baseline eval_outputs/eval_a --candidate eval_outputs/eval_b
+```
+
+These commands are sanity/regression checks only, not quality benchmarks.
 
 See `docs/CI.md` for the exact CI command sequence and local mirror.
 

@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 14
-checkpoint: generation_smoke_tiny_eval
+phase: 15
+checkpoint: evaluation_harness_regression_prompts
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -42,9 +42,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add minimal logits-based generation smoke from checkpoints, including a
-  dependency-free smoke tokenizer, greedy decoding helper, generation CLI, tiny
-  eval smoke harness, output artifacts, tests, and validation pipeline coverage.
+  Add a lightweight evaluation harness with fixed regression prompts, generation
+  snapshots, simple sanity checks, checkpoint evaluation CLI, snapshot comparison
+  CLI, output artifacts, tests, and validation pipeline coverage.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -75,4 +75,15 @@ generation_smoke:
   decoding: greedy_only_full_sequence_recompute
   artifact_dir: eval_outputs/
   gitignored: true
+  quality_claims: false
+
+evaluation_harness:
+  prompt_corpus: corpora/eval_regression_prompts.jsonl
+  config: configs/eval_regression_smoke.yaml
+  artifacts:
+    - eval.json
+    - generations.jsonl
+    - sanity.json
+    - comparison.json
+  strict_default: false
   quality_claims: false

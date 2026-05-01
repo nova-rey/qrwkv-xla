@@ -229,3 +229,20 @@ packages.
 
 P14 generation may recompute the full sequence each token. Optimized recurrent
 cached-state inference is deferred until the basic generation path is validated.
+
+## D045 — Evaluation Snapshots Before Benchmarks
+
+QRWKV-XLA adds fixed generation snapshots and simple sanity checks before
+adopting full benchmark tooling. The goal is reproducible inspection and
+regression detection, not quality scoring.
+
+## D046 — Sanity Checks Are Not Quality Claims
+
+P15 sanity checks only detect basic generation problems such as empty outputs or
+extreme repetition. Passing sanity checks does not imply the model is useful,
+correct, aligned, or instruction-following.
+
+## D047 — Snapshot Comparison Reports Difference, Not Better/Worse
+
+Evaluation snapshot comparison reports whether outputs changed for fixed
+prompts. It does not judge whether the new output is better.

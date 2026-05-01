@@ -123,3 +123,9 @@ The repo includes a tiny built-in corpus:
 - no remote dataset dependency
 - no external dataset libraries
 - prompt order affects the hash
+## Evaluation Prompt Corpora
+
+P15 evaluation prompts use the same JSONL prompt corpus format and manifest
+hashing as teacher export prompt corpora. The fixed regression corpus lives at
+`corpora/eval_regression_prompts.jsonl` and is intended for repeatable
+generation snapshots, not quality benchmarking.

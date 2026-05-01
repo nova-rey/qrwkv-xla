@@ -1,0 +1,24 @@
+{
+  "corpus_id": "eval_regression_prompts",
+  "created_by": "qrwkv_xla.prompting.corpus",
+  "description": "Fixed prompt corpus for P15 regression evaluation smoke.",
+  "notes": [
+    "Regression and wiring prompts only; not a quality benchmark."
+  ],
+  "prompt_count": 6,
+  "schema_version": "0.1",
+  "sha256": "f78b3350069b44f485af83d16067dc4aed13650075fc7b59eafd044e60212c55",
+  "source_path": "corpora/eval_regression_prompts.jsonl",
+  "splits": {
+    "validation": 6
+  },
+  "tags": [
+    "code",
+    "eval",
+    "recurrence",
+    "sequence",
+    "simple-list",
+    "smoke",
+    "summary"
+  ]
+}

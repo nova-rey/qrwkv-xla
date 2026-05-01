@@ -51,6 +51,11 @@ def test_default_command_list_includes_expected_safe_commands() -> None:
         "--output-dir eval_outputs/pipeline_generation_smoke" in command
         for command in joined
     )
+    assert any("scripts/evaluate_checkpoint.py" in command for command in joined)
+    assert any("configs/eval_regression_smoke.yaml" in command for command in joined)
+    assert any(
+        "--output-dir eval_outputs/pipeline_eval_smoke" in command for command in joined
+    )
     assert any("scripts/tpu_distill_smoke.py" in command for command in joined)
 
 

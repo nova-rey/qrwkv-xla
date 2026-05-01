@@ -63,3 +63,9 @@ eval_outputs/<run>/
 ```
 
 `eval_outputs/` is gitignored.
+## Evaluation Snapshots
+
+P15 builds on generation smoke with `scripts/evaluate_checkpoint.py`, fixed
+regression prompts, sanity checks, and snapshot comparison. See
+`docs/EVALUATION_HARNESS.md`. The evaluation harness is still a wiring and
+regression layer, not a model-quality benchmark.
