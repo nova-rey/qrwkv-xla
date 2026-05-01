@@ -183,6 +183,19 @@ AdamW can be selected from config or CLI:
 python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --optimizer adamw --learning-rate 0.0003 --weight-decay 0.01
 ```
 
+Warmup-cosine scheduling is available for AdamW distillation smokes:
+
+```bash
+python scripts/export_teacher_targets.py --config configs/teacher_export_stub_logits.yaml
+python scripts/run_distill_stage.py --config configs/distill_stage0_adamw_schedule_stub.yaml --max-steps 2
+```
+
+The same schedule can be supplied from CLI:
+
+```bash
+python scripts/run_distill_stage.py --config configs/distill_stage0_logits_stub.yaml --optimizer adamw --learning-rate 0.001 --weight-decay 0.01 --lr-schedule warmup_cosine --warmup-steps 10 --total-steps 1000 --min-learning-rate 0.00001
+```
+
 Run tracking is available as an opt-in local file feature. It writes
 `run.json`, `metrics.jsonl`, `summary.json`, and, when no checkpoint output is
 provided, `runs/<run_id>/checkpoints/final`:

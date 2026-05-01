@@ -78,6 +78,12 @@ Prompt corpus coverage now includes JSONL parsing/validation, stable hashing,
 deterministic split assignment, CLI inspection/manifest/split flows, and
 teacher-export prompt-source provenance tests.
 
+## P17 Scheduler Coverage
+
+P17 adds scheduler config validation, deterministic scheduler math tests,
+distillation integration tests, resume/global-step tests, CLI override tests,
+and a scheduled AdamW validation pipeline smoke.
+
 ## Canonical Pipeline Validation
 
 The canonical whole safe path check is:

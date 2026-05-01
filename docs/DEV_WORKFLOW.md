@@ -66,6 +66,10 @@ python scripts/validate_pipeline.py --include-hf
 python scripts/validate_pipeline.py --require-tpu
 ```
 
+For non-smoke distillation runs, report schedule type, base learning rate,
+warmup steps, total steps, minimum learning rate, and whether the run resumed
+from a checkpoint step.
+
 For Phase 4 student-runtime work, the validation path must include both smoke
 training commands:
 

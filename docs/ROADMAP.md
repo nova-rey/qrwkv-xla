@@ -154,3 +154,9 @@ tools before full benchmark/evaluation work.
 
 Goal: add dependency-light SGD, Adam, and AdamW optimizer support with
 optimizer-state checkpoint/resume, config/CLI wiring, metrics, docs, and tests.
+
+## Phase 17 — Learning Rate Scheduling
+
+Goal: add constant and warmup-cosine learning rate schedules with resume-aware
+global step behavior, config/CLI support, scheduler metadata in checkpoints and
+tracked runs, tests, and validation coverage.

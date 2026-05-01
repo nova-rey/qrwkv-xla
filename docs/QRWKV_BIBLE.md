@@ -206,3 +206,10 @@ Distillation configs and CLI flags can select the optimizer and hyperparameters.
 Checkpoints now persist optimizer config and optimizer state in the existing
 JSON + NPZ format so Adam/AdamW resumes continue their moment slots. Default CI
 stays CPU-only, offline, and dependency-light.
+
+## Phase 17 — Learning Rate Scheduling
+
+This phase adds learning rate schedules to the distillation runtime. QRWKV-XLA
+now supports constant and warmup-cosine schedules, uses resume-aware global step
+counting, records scheduled learning rates in metrics, and stores schedule
+metadata in checkpoints and tracked runs.

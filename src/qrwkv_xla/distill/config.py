@@ -7,6 +7,10 @@ from typing import Any
 import yaml
 
 from qrwkv_xla.optimizers import OptimizerConfig, validate_optimizer_config
+from qrwkv_xla.schedules import (
+    LearningRateScheduleConfig,
+    validate_lr_schedule_config,
+)
 
 
 @dataclass(frozen=True)
@@ -37,6 +41,9 @@ class DistillOptimizerConfig:
             epsilon=self.epsilon,
             weight_decay=self.weight_decay,
         )
+
+
+DistillLRScheduleConfig = LearningRateScheduleConfig
 
 
 @dataclass(frozen=True)
@@ -85,6 +92,9 @@ class DistillStageConfig:
     targets_dir: Path = Path("artifacts/teacher_targets/fake_export")
     student: DistillStudentConfig = field(default_factory=DistillStudentConfig)
     optimizer: DistillOptimizerConfig = field(default_factory=DistillOptimizerConfig)
+    lr_schedule: DistillLRScheduleConfig = field(
+        default_factory=DistillLRScheduleConfig
+    )
     training: DistillTrainingConfig = field(default_factory=DistillTrainingConfig)
     losses: DistillLossConfig = field(default_factory=DistillLossConfig)
     checkpoint: DistillCheckpointConfig = field(default_factory=DistillCheckpointConfig)
@@ -112,6 +122,7 @@ def load_distill_stage_config(path: str | Path) -> DistillStageConfig:
         ),
         student=_load_student(raw_stage.get("student", {})),
         optimizer=_load_optimizer(raw_stage.get("optimizer", {})),
+        lr_schedule=_load_lr_schedule(raw_stage.get("lr_schedule", {})),
         training=_load_training(raw_stage.get("training", {})),
         losses=_load_losses(raw_stage.get("losses", {})),
         checkpoint=_load_checkpoint(raw_stage.get("checkpoint", {})),
@@ -143,6 +154,10 @@ def validate_distill_stage_config(config: DistillStageConfig) -> None:
     ):
         raise ValueError("logits_kl requires student.emit_logits=true")
     validate_optimizer_config(config.optimizer.to_optimizer_config())
+    validate_lr_schedule_config(
+        config.lr_schedule,
+        base_learning_rate=config.optimizer.learning_rate,
+    )
     if config.training.max_steps <= 0:
         raise ValueError("training.max_steps must be > 0")
     if config.training.seed < 0:
@@ -209,6 +224,18 @@ def _load_optimizer(data: Any) -> DistillOptimizerConfig:
         beta2=float(data.get("beta2", 0.999)),
         epsilon=float(data.get("epsilon", 1e-8)),
         weight_decay=float(data.get("weight_decay", 0.0)),
+    )
+
+
+def _load_lr_schedule(data: Any) -> DistillLRScheduleConfig:
+    if not isinstance(data, dict):
+        raise ValueError("distillation.lr_schedule must be a mapping")
+    total_steps = data.get("total_steps")
+    return DistillLRScheduleConfig(
+        type=str(data.get("type", "constant")),
+        warmup_steps=int(data.get("warmup_steps", 0)),
+        total_steps=None if total_steps is None else int(total_steps),
+        min_learning_rate=float(data.get("min_learning_rate", 0.0)),
     )
 
 
@@ -304,6 +331,7 @@ DistillationCheckpointConfig = DistillCheckpointConfig
 DistillationTrackingConfig = DistillTrackingConfig
 DistillationStudentConfig = DistillStudentConfig
 DistillationOptimizerConfig = DistillOptimizerConfig
+DistillationLRScheduleConfig = DistillLRScheduleConfig
 DistillationTrainingConfig = DistillTrainingConfig
 DistillationLossConfig = DistillLossConfig
 DistillationStageConfig = DistillStageConfig

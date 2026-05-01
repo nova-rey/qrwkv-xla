@@ -14,6 +14,7 @@ from qrwkv_xla.distill.config import DistillStageConfig, validate_distill_stage_
 from qrwkv_xla.distill.losses import compute_distill_loss
 from qrwkv_xla.distill.metrics import metrics_to_floats
 from qrwkv_xla.optimizers import OptimizerState, init_optimizer_state
+from qrwkv_xla.schedules import learning_rate_at_step
 from qrwkv_xla.students import create_student
 from qrwkv_xla.targets import read_manifest
 from qrwkv_xla.targets.store import manifest_path
@@ -47,6 +48,9 @@ class DistillStageResult:
     metrics_path: Path | None = None
     summary_path: Path | None = None
     notes: tuple[str, ...] = ()
+    lr_schedule_type: str = "constant"
+    initial_learning_rate: float | None = None
+    final_learning_rate: float | None = None
 
 
 @dataclass(frozen=True)
@@ -141,6 +145,14 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
             notes=resume_notes,
         )
         parent_checkpoint_manifest = asdict(loaded.manifest)
+        schedule_notes = _resume_schedule_notes(
+            checkpoint_schedule=loaded.manifest.lr_schedule,
+            current_schedule=_lr_schedule_metadata(
+                config=config,
+                step=start_step,
+            ),
+        )
+        resume_notes.extend(schedule_notes)
 
     state = TrainState(
         params=params,
@@ -185,6 +197,11 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
                 "stage": config.stage,
                 "targets_dir": config.targets_dir,
                 "optimizer": asdict(config.optimizer),
+                "lr_schedule": _lr_schedule_metadata(
+                    config=config,
+                    step=start_step,
+                    include_step=False,
+                ),
                 "training": asdict(config.training),
                 "losses": asdict(config.losses),
             },
@@ -202,12 +219,28 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
             checkpoint_overwrite = config.tracking.overwrite
 
     initial_loss: float | None = None
+    initial_learning_rate: float | None = None
+    final_learning_rate: float | None = None
     final_metrics: dict[str, float] | None = None
     with metrics_logger or _NullMetricsLogger() as active_logger:
         for step_index in range(config.training.max_steps):
             batch = shard_batches[step_index % len(shard_batches)]
+            global_step = start_step + step_index
+            scheduled_lr = learning_rate_at_step(
+                step=global_step,
+                base_learning_rate=config.optimizer.learning_rate,
+                config=config.lr_schedule,
+            )
+            if initial_learning_rate is None:
+                initial_learning_rate = scheduled_lr
+            final_learning_rate = scheduled_lr
+            state = state._replace(learning_rate=scheduled_lr)
             state, metrics = train_step(state, batch)
             float_metrics = metrics_to_floats(metrics)
+            float_metrics["learning_rate"] = scheduled_lr
+            float_metrics["base_learning_rate"] = config.optimizer.learning_rate
+            float_metrics["global_step"] = float(global_step)
+            float_metrics["local_step"] = float(step_index)
             if initial_loss is None:
                 initial_loss = float_metrics["loss"]
             final_metrics = float_metrics
@@ -217,14 +250,18 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
                     values=float_metrics,
                     phase="train",
                     extra={
-                        "local_step": step_index + 1,
+                        "local_step": step_index,
+                        "global_step": global_step,
                         "start_step": start_step,
                         "shard_index": step_index % len(shard_batches),
                         "optimizer_type": config.optimizer.type,
+                        "lr_schedule_type": config.lr_schedule.type,
                     },
                 )
 
     assert initial_loss is not None
+    assert initial_learning_rate is not None
+    assert final_learning_rate is not None
     assert final_metrics is not None
     if checkpoint_out is not None:
         save_checkpoint(
@@ -238,6 +275,10 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
             target_manifest=manifest,
             optimizer_config=asdict(config.optimizer),
             optimizer_state=state.optimizer_state,
+            lr_schedule=_lr_schedule_metadata(
+                config=config,
+                step=state.step,
+            ),
             notes=[
                 "simple JSON + NPZ checkpoint",
                 f"distillation stage {config.stage}",
@@ -264,7 +305,15 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
                 "final_hidden_mse": final_metrics.get("hidden_mse"),
                 "final_logits_kl": final_metrics.get("logits_kl"),
                 "optimizer_type": config.optimizer.type,
-                "learning_rate": config.optimizer.learning_rate,
+                "learning_rate": final_learning_rate,
+                "base_learning_rate": config.optimizer.learning_rate,
+                "initial_learning_rate": initial_learning_rate,
+                "final_learning_rate": final_learning_rate,
+                "lr_schedule": _lr_schedule_metadata(
+                    config=config,
+                    step=state.step,
+                ),
+                "lr_schedule_type": config.lr_schedule.type,
                 "checkpoint_out": checkpoint_out,
                 "resume_from": config.checkpoint.resume_from,
                 "target_bundle": dataset.bundle_dir,
@@ -292,6 +341,9 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
             run_context.paths.summary_json if run_context is not None else None
         ),
         notes=tuple(resume_notes),
+        lr_schedule_type=config.lr_schedule.type,
+        initial_learning_rate=initial_learning_rate,
+        final_learning_rate=final_learning_rate,
     )
 
 
@@ -478,6 +530,39 @@ def _merge_optimizer_slots_for_resume(
 
 def _format_param_path(path: tuple[str, ...]) -> str:
     return ".".join(path) if path else "<root>"
+
+
+def _lr_schedule_metadata(
+    *,
+    config: DistillStageConfig,
+    step: int,
+    include_step: bool = True,
+) -> dict[str, object]:
+    metadata: dict[str, object] = {
+        "type": config.lr_schedule.type,
+        "warmup_steps": config.lr_schedule.warmup_steps,
+        "total_steps": config.lr_schedule.total_steps,
+        "min_learning_rate": config.lr_schedule.min_learning_rate,
+        "base_learning_rate": config.optimizer.learning_rate,
+    }
+    if include_step:
+        metadata["step"] = int(step)
+    return metadata
+
+
+def _resume_schedule_notes(
+    *,
+    checkpoint_schedule: dict[str, object],
+    current_schedule: dict[str, object],
+) -> list[str]:
+    if not checkpoint_schedule:
+        return ["resume checkpoint has no lr_schedule metadata"]
+    comparable_checkpoint = {
+        key: checkpoint_schedule.get(key) for key in current_schedule
+    }
+    if comparable_checkpoint == current_schedule:
+        return []
+    return ["resume lr_schedule metadata differs from current config"]
 
 
 @dataclass(frozen=True)

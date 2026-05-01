@@ -45,6 +45,28 @@ def test_save_and_load_tiny_student_params(tmp_path: Path) -> None:
     np.testing.assert_allclose(loaded.params["embedding"], params["embedding"])
 
 
+def test_load_checkpoint_allows_missing_lr_schedule_metadata(tmp_path: Path) -> None:
+    checkpoint_dir = tmp_path / "checkpoints" / "old"
+    save_checkpoint(
+        checkpoint_dir,
+        {"x": np.ones((1,))},
+        student_architecture="tiny_student",
+        student_config={"vocab_size": 1, "hidden_size": 1, "num_layers": 1},
+        step=1,
+        learning_rate=0.1,
+        loss_config={"hidden_mse": {"enabled": True, "weight": 1.0}},
+        target_manifest={"hidden_size": 1, "num_layers": 1},
+    )
+    manifest_path = checkpoint_dir / "checkpoint.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest.pop("lr_schedule")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    loaded = load_checkpoint(checkpoint_dir)
+
+    assert loaded.manifest.lr_schedule == {}
+
+
 def test_save_and_load_rwkv7_reference_params(tmp_path: Path) -> None:
     checkpoint_dir = tmp_path / "checkpoints" / "rwkv7"
     student = create_student(

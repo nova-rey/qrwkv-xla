@@ -84,6 +84,13 @@ Per-step metrics include numeric `learning_rate` and `optimizer_step`. Metric
 record `extra` includes `optimizer_type`, and `summary.json` records the final
 optimizer type and learning rate.
 
+## Scheduler Metrics
+
+Tracked distillation runs record `lr_schedule` metadata in `run.json` and
+`summary.json`. Per-step metrics include `learning_rate`,
+`base_learning_rate`, `global_step`, and `local_step`; metric `extra` includes
+`lr_schedule_type`.
+
 ## Generation Outputs
 
 P14 generation smoke writes local `generations.jsonl` and `summary.json`

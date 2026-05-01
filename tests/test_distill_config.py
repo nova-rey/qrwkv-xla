@@ -63,6 +63,29 @@ def test_adam_optimizer_config_loads(tmp_path: Path) -> None:
     assert config.optimizer.beta1 == 0.8
 
 
+def test_lr_schedule_config_loads(tmp_path: Path) -> None:
+    path = tmp_path / "distill.yaml"
+    path.write_text(
+        (
+            "distillation:\n"
+            "  optimizer:\n"
+            "    learning_rate: 0.001\n"
+            "  lr_schedule:\n"
+            "    type: warmup_cosine\n"
+            "    warmup_steps: 1\n"
+            "    total_steps: 4\n"
+            "    min_learning_rate: 0.0001\n"
+        ),
+        encoding="utf-8",
+    )
+    config = load_distill_stage_config(path)
+
+    assert config.lr_schedule.type == "warmup_cosine"
+    assert config.lr_schedule.warmup_steps == 1
+    assert config.lr_schedule.total_steps == 4
+    assert config.lr_schedule.min_learning_rate == 0.0001
+
+
 def test_invalid_optimizer_raises(tmp_path: Path) -> None:
     path = tmp_path / "distill.yaml"
     path.write_text(

@@ -21,6 +21,13 @@ def main() -> None:
     parser.add_argument("--adam-beta2", type=float)
     parser.add_argument("--adam-epsilon", type=float)
     parser.add_argument("--weight-decay", type=float)
+    parser.add_argument(
+        "--lr-schedule",
+        choices=("constant", "warmup_cosine"),
+    )
+    parser.add_argument("--warmup-steps", type=int)
+    parser.add_argument("--total-steps", type=int)
+    parser.add_argument("--min-learning-rate", type=float)
     parser.add_argument("--seed", type=int)
     parser.add_argument("--checkpoint-out")
     parser.add_argument("--resume-from")
@@ -95,6 +102,30 @@ def main() -> None:
                 weight_decay=args.weight_decay
                 if args.weight_decay is not None
                 else config.optimizer.weight_decay,
+            ),
+        )
+    if (
+        args.lr_schedule is not None
+        or args.warmup_steps is not None
+        or args.total_steps is not None
+        or args.min_learning_rate is not None
+    ):
+        config = replace(
+            config,
+            lr_schedule=replace(
+                config.lr_schedule,
+                type=args.lr_schedule
+                if args.lr_schedule is not None
+                else config.lr_schedule.type,
+                warmup_steps=args.warmup_steps
+                if args.warmup_steps is not None
+                else config.lr_schedule.warmup_steps,
+                total_steps=args.total_steps
+                if args.total_steps is not None
+                else config.lr_schedule.total_steps,
+                min_learning_rate=args.min_learning_rate
+                if args.min_learning_rate is not None
+                else config.lr_schedule.min_learning_rate,
             ),
         )
     if args.seed is not None:
@@ -183,7 +214,11 @@ def main() -> None:
     print(f"emit_logits: {config.student.emit_logits}")
     print(f"tie_embeddings: {config.student.tie_embeddings}")
     print(f"optimizer: {config.optimizer.type}")
-    print(f"learning_rate: {config.optimizer.learning_rate}")
+    print(f"base_learning_rate: {config.optimizer.learning_rate}")
+    print(f"lr_schedule: {config.lr_schedule.type}")
+    print(f"initial_learning_rate: {result.initial_learning_rate}")
+    print(f"final_learning_rate: {result.final_learning_rate}")
+    print(f"learning_rate: {result.final_learning_rate}")
     print(
         "logits_kl_enabled: "
         f"{config.losses.logits_kl.enabled and config.losses.logits_kl.weight > 0}"

@@ -41,6 +41,12 @@ checkpoint saved at step 2 and resumed with `--max-steps 2` ends at step 4.
 Adam and AdamW resume their moment slots when the checkpoint contains optimizer
 state.
 
+Checkpoints also record `lr_schedule` metadata containing schedule type, warmup
+steps, total steps, minimum learning rate, base learning rate, and checkpoint
+step. Older checkpoints without this metadata still load. On resume, scheduler
+metadata is provenance rather than a hard lock; schedule changes are allowed and
+recorded as notes when detected.
+
 ## Validation
 
 Resume checks fail clearly if the checkpoint student architecture differs from

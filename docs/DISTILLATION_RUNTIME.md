@@ -137,6 +137,13 @@ optimizer state initialize fresh optimizer slots at the checkpoint step.
 The final checkpoint step is the loaded start step plus the current invocation's
 `max_steps`. Use a different output directory from the resume source unless
 overwrite is explicitly enabled.
+
+## Learning Rate Scheduling
+
+Distillation supports `constant` and `warmup_cosine` learning-rate schedules via
+`distillation.lr_schedule` or CLI flags. The runner evaluates the schedule once
+per update using the global step, applies the scheduled value to the optimizer,
+and records both base and scheduled learning rates in tracked metrics.
 ## Run tracking
 
 The distillation runner accepts an opt-in `tracking` config. When enabled, it

@@ -271,3 +271,22 @@
 - [x] Wire distillation config, runner, metrics, and CLI flags
 - [x] Add optimizer math, checkpoint/resume, integration, and CLI tests
 - [x] Add optimizer docs and update phase docs
+
+## P17 — Learning Rate Scheduling
+
+- [x] Add schedule config module
+- [x] Add constant schedule
+- [x] Add warmup+cosine schedule
+- [x] Wire scheduler into distill runner
+- [x] Add resume-aware scheduler step counting
+- [x] Add scheduler CLI flags
+- [x] Add scheduler checkpoint metadata
+- [x] Add scheduler run tracking metrics
+- [x] Add scheduled AdamW smoke config
+- [x] Add scheduler tests
+- [x] Update validation pipeline
+- [x] Add LR_SCHEDULES.md
+- [x] Update docs
+- [x] Update snapshot
+- [x] Append Bible entry
+- [x] Run validation

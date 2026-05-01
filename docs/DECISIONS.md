@@ -257,3 +257,21 @@ remain CPU-only and network-free.
 
 AdamW applies weight decay directly to parameters during the update. It does
 not fold weight decay into gradients before Adam moment updates.
+
+## D051 — Warmup-Cosine Before Advanced Schedules
+
+QRWKV-XLA implements constant and warmup-cosine learning rate schedules before
+adding more advanced scheduling strategies. Warmup-cosine matches the immediate
+needs of real distillation while keeping scheduler behavior inspectable.
+
+## D052 — Schedules Use Global Step Across Resume
+
+Learning rate schedules are evaluated using global training step, not local
+invocation step. This prevents LR warmup or decay from restarting accidentally
+when resuming from checkpoints.
+
+## D053 — Scheduler Metadata Is Provenance, Not Hard Resume Lock
+
+Checkpoints record scheduler metadata for provenance. A resumed run may
+intentionally use a different schedule, but this should be visible in run
+metadata and summaries.

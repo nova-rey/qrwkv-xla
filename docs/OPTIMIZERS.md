@@ -44,6 +44,13 @@ Validation rejects unknown optimizer types, non-positive learning rates,
 invalid beta/epsilon values, negative weight decay, and `type: adam` with
 non-zero weight decay. Use `adamw` for weight decay.
 
+## Learning Rate Schedules
+
+`optimizer.learning_rate` is the base learning rate. Distillation may apply a
+local schedule per step and pass that scheduled value to the optimizer update.
+The default schedule is `constant`, which preserves fixed learning-rate
+behavior. See `docs/LR_SCHEDULES.md`.
+
 ## AdamW Decay
 
 AdamW uses decoupled weight decay. Weight decay is applied directly to

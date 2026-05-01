@@ -99,6 +99,13 @@ with decoupled weight decay. This keeps optimizer coverage in the canonical
 CPU-only, network-free validation path while preserving SGD smoke coverage in
 other steps.
 
+## Scheduled AdamW Smoke
+
+The default pipeline also runs
+`configs/distill_stage0_adamw_schedule_stub.yaml`, which combines AdamW with a
+tiny warmup-cosine learning-rate schedule. This keeps scheduler coverage in the
+CPU-only, network-free validation path.
+
 ## Generation Smoke
 
 Default pipeline validation now produces a tiny logits-capable checkpoint and

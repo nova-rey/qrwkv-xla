@@ -104,6 +104,12 @@ by the distillation runner: SGD, Adam, and AdamW with decoupled weight decay.
 The implementation uses JAX pytrees and avoids adding Optax until optimizer
 complexity justifies a dependency.
 
+## Learning Rate Schedule Boundary
+
+The `qrwkv_xla.schedules` package contains the local scheduler surface. It
+supports only `constant` and `warmup_cosine`, has no JAX dependency, and is
+called by the distillation runner before each optimizer update.
+
 ## Local run tracking
 
 Distillation run tracking lives in `qrwkv_xla.tracking`. It is intentionally a

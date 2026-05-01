@@ -14,6 +14,7 @@ HF_TINY_CORPUS_TARGETS = "artifacts/teacher_targets/hf_tiny_corpus"
 CHECKPOINT_SMOKE = "checkpoints/pipeline_smoke/stage0"
 CHECKPOINT_SMOKE_RESUME = "checkpoints/pipeline_smoke/stage0_resume"
 CHECKPOINT_ADAMW_SMOKE = "checkpoints/pipeline_smoke/adamw"
+CHECKPOINT_SCHEDULED_ADAMW_SMOKE = "checkpoints/pipeline_smoke/adamw_schedule"
 CHECKPOINT_HIDDEN_FOR_LOGITS = "checkpoints/pipeline_hidden_only_for_logits"
 CHECKPOINT_HIDDEN_PLUS_LOGITS = "checkpoints/pipeline_hidden_plus_logits"
 EVAL_GENERATION_SMOKE = "eval_outputs/pipeline_generation_smoke"
@@ -116,6 +117,17 @@ def build_validation_commands(
             "configs/teacher_export_stub_logits.yaml",
         ),
         (sys.executable, "scripts/inspect_targets.py", FAKE_LOGITS_TARGETS),
+        (
+            sys.executable,
+            "scripts/run_distill_stage.py",
+            "--config",
+            "configs/distill_stage0_adamw_schedule_stub.yaml",
+            "--max-steps",
+            max_steps_value,
+            "--checkpoint-out",
+            CHECKPOINT_SCHEDULED_ADAMW_SMOKE,
+            "--checkpoint-overwrite",
+        ),
         (
             sys.executable,
             "scripts/train_student_smoke.py",

@@ -29,6 +29,7 @@ class CheckpointManifest:
     param_tree: dict[str, Any]
     optimizer_config: dict[str, Any] = field(default_factory=dict)
     optimizer_state: dict[str, Any] | None = None
+    lr_schedule: dict[str, Any] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
 
 
@@ -59,6 +60,7 @@ def save_checkpoint(
     target_manifest: Any,
     optimizer_config: Any | None = None,
     optimizer_state: OptimizerState | None = None,
+    lr_schedule: Any | None = None,
     notes: Sequence[str] | None = None,
     overwrite: bool = False,
     created_by: str = CREATED_BY,
@@ -111,6 +113,7 @@ def save_checkpoint(
             "optimizer_config",
         ),
         optimizer_state=optimizer_state_tree,
+        lr_schedule=_required_json_dict(_jsonable(lr_schedule or {}), "lr_schedule"),
         notes=list(notes or []),
     )
     validate_checkpoint_manifest(manifest)
@@ -177,6 +180,8 @@ def validate_checkpoint_manifest(manifest: CheckpointManifest) -> None:
         raise ValueError("checkpoint manifest param_tree must be a mapping")
     if not isinstance(manifest.optimizer_config, dict):
         raise ValueError("checkpoint manifest optimizer_config must be a mapping")
+    if not isinstance(manifest.lr_schedule, dict):
+        raise ValueError("checkpoint manifest lr_schedule must be a mapping")
     if manifest.optimizer_state is not None:
         if not isinstance(manifest.optimizer_state, dict):
             raise ValueError("checkpoint manifest optimizer_state must be a mapping")
@@ -349,6 +354,7 @@ def _parse_manifest(raw: Any) -> CheckpointManifest:
         if "optimizer_config" in raw
         else {},
         optimizer_state=raw.get("optimizer_state"),
+        lr_schedule=_required_dict(raw, "lr_schedule") if "lr_schedule" in raw else {},
         notes=_required_string_list(raw.get("notes", []), "notes"),
     )
     validate_checkpoint_manifest(manifest)

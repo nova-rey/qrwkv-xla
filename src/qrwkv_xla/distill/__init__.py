@@ -3,6 +3,7 @@
 from qrwkv_xla.distill.config import (
     DistillationCheckpointConfig,
     DistillationLossConfig,
+    DistillationLRScheduleConfig,
     DistillationOptimizerConfig,
     DistillationStageConfig,
     DistillationStudentConfig,
@@ -10,6 +11,7 @@ from qrwkv_xla.distill.config import (
     DistillationTrainingConfig,
     DistillCheckpointConfig,
     DistillLossConfig,
+    DistillLRScheduleConfig,
     DistillOptimizerConfig,
     DistillStageConfig,
     DistillStudentConfig,
@@ -51,6 +53,7 @@ def __getattr__(name: str):
 
 __all__ = [
     "DistillLossConfig",
+    "DistillLRScheduleConfig",
     "DistillCheckpointConfig",
     "DistillOptimizerConfig",
     "DistillStageConfig",
@@ -59,6 +62,7 @@ __all__ = [
     "DistillTrainingConfig",
     "DistillTrackingConfig",
     "DistillationLossConfig",
+    "DistillationLRScheduleConfig",
     "DistillationCheckpointConfig",
     "DistillationOptimizerConfig",
     "DistillationStageConfig",
