@@ -6,6 +6,8 @@ from typing import Any
 
 import yaml
 
+from qrwkv_xla.optimizers import OptimizerConfig, validate_optimizer_config
+
 
 @dataclass(frozen=True)
 class DistillStudentConfig:
@@ -21,6 +23,20 @@ class DistillStudentConfig:
 class DistillOptimizerConfig:
     type: str = "sgd"
     learning_rate: float = 1e-3
+    beta1: float = 0.9
+    beta2: float = 0.999
+    epsilon: float = 1e-8
+    weight_decay: float = 0.0
+
+    def to_optimizer_config(self) -> OptimizerConfig:
+        return OptimizerConfig(
+            type=self.type,
+            learning_rate=self.learning_rate,
+            beta1=self.beta1,
+            beta2=self.beta2,
+            epsilon=self.epsilon,
+            weight_decay=self.weight_decay,
+        )
 
 
 @dataclass(frozen=True)
@@ -126,10 +142,7 @@ def validate_distill_stage_config(config: DistillStageConfig) -> None:
         and not config.student.emit_logits
     ):
         raise ValueError("logits_kl requires student.emit_logits=true")
-    if config.optimizer.type != "sgd":
-        raise ValueError("optimizer.type must be 'sgd' for P5")
-    if config.optimizer.learning_rate <= 0:
-        raise ValueError("optimizer.learning_rate must be > 0")
+    validate_optimizer_config(config.optimizer.to_optimizer_config())
     if config.training.max_steps <= 0:
         raise ValueError("training.max_steps must be > 0")
     if config.training.seed < 0:
@@ -192,6 +205,10 @@ def _load_optimizer(data: Any) -> DistillOptimizerConfig:
     return DistillOptimizerConfig(
         type=str(data.get("type", "sgd")),
         learning_rate=float(data.get("learning_rate", 1e-3)),
+        beta1=float(data.get("beta1", 0.9)),
+        beta2=float(data.get("beta2", 0.999)),
+        epsilon=float(data.get("epsilon", 1e-8)),
+        weight_decay=float(data.get("weight_decay", 0.0)),
     )
 
 

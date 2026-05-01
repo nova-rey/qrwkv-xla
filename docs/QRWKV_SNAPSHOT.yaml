@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 15
-checkpoint: evaluation_harness_regression_prompts
+phase: 16
+checkpoint: adam_adamw_optimizer
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -42,15 +42,24 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add a lightweight evaluation harness with fixed regression prompts, generation
-  snapshots, simple sanity checks, checkpoint evaluation CLI, snapshot comparison
-  CLI, output artifacts, tests, and validation pipeline coverage.
+  Add dependency-light SGD, Adam, and AdamW optimizer support with decoupled
+  AdamW weight decay, optimizer-state checkpoint/resume, config/CLI wiring,
+  metrics, docs, and validation coverage.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
   directory: checkpoints/
   gitignored: true
   orbax_required: false
+  optimizer_state: true
+
+optimizers:
+  supported:
+    - sgd
+    - adam
+    - adamw
+  default: sgd
+  adamw_weight_decay: decoupled_all_param_leaves
 
 tracking:
   format: run.json plus metrics.jsonl plus summary.json

@@ -7,10 +7,9 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 15: evaluation harness and fixed regression prompts on top of generation
-smoke, prompt corpus
-provenance, logits KL distillation, checkpoint/resume, XLA discipline, optional
-HF exporter, and local run tracking.
+Phase 16: lightweight SGD/Adam/AdamW optimizer support on top of evaluation
+harness, generation smoke, prompt corpus provenance, logits KL distillation,
+checkpoint/resume, XLA discipline, optional HF exporter, and local run tracking.
 
 The project can define, write, read, validate, inspect, and test fake teacher
 target bundles on CPU through a reusable exporter interface. It also has an
@@ -55,7 +54,10 @@ documented in `docs/HF_TEACHER_EXPORT.md`.
 Prompt corpora are documented in `docs/PROMPT_CORPORA.md`. The checked-in smoke
 corpus lives at `corpora/smoke_prompts.jsonl`.
 
-`scripts/run_distill_stage.py` is the primary entrypoint for staged distillation. It currently supports hidden-state distillation against fake teacher bundles with `tiny_student` or `rwkv7_reference` students.
+`scripts/run_distill_stage.py` is the primary entrypoint for staged
+distillation. It currently supports hidden-state distillation against fake
+teacher bundles with `tiny_student` or `rwkv7_reference` students, and can use
+SGD, Adam, or AdamW without adding an optimizer dependency.
 
 `scripts/tpu_distill_smoke.py` runs on the available JAX backend by default and only requires TPU when `--require-tpu` is passed.
 
@@ -175,6 +177,12 @@ python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --
 python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --max-steps 2 --resume-from checkpoints/stage0 --checkpoint-out checkpoints/stage0_resume --checkpoint-overwrite
 ```
 
+AdamW can be selected from config or CLI:
+
+```bash
+python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --optimizer adamw --learning-rate 0.0003 --weight-decay 0.01
+```
+
 Run tracking is available as an opt-in local file feature. It writes
 `run.json`, `metrics.jsonl`, `summary.json`, and, when no checkpoint output is
 provided, `runs/<run_id>/checkpoints/final`:
@@ -185,8 +193,9 @@ python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --
 
 See `docs/RUN_TRACKING.md`.
 
-On resume, `--max-steps` means additional steps for that invocation. See
-`docs/CHECKPOINTING.md`.
+On resume, `--max-steps` means additional steps for that invocation. Optimizer
+state is saved and loaded with checkpoints. See `docs/CHECKPOINTING.md` and
+`docs/OPTIMIZERS.md`.
 
 Logits KL distillation uses target bundles that include teacher logits and a
 student with `emit_logits=true`:

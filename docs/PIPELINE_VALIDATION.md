@@ -46,8 +46,9 @@ CPU-only handoff validation.
 Generated bundles live under `artifacts/`, which is gitignored. They are local
 validation outputs and must not be committed.
 
-The default pipeline also runs a checkpoint save/resume smoke. Generated
-checkpoint artifacts live under `checkpoints/`, which is gitignored.
+The default pipeline also runs checkpoint save/resume smoke coverage plus a
+one-step AdamW optimizer smoke. Generated checkpoint artifacts live under
+`checkpoints/`, which is gitignored.
 
 ## CI-Safe vs Optional
 
@@ -90,6 +91,13 @@ external service.
 The default pipeline exports fake logits targets, inspects them, runs
 `configs/distill_stage0_logits_stub.yaml`, and smokes hidden-only to logits
 checkpoint continuation. This remains CPU-only and network-free.
+
+## Optimizer Smoke
+
+The default pipeline now includes a one-step `run_distill_stage.py` AdamW smoke
+with decoupled weight decay. This keeps optimizer coverage in the canonical
+CPU-only, network-free validation path while preserving SGD smoke coverage in
+other steps.
 
 ## Generation Smoke
 

@@ -246,3 +246,14 @@ correct, aligned, or instruction-following.
 
 Evaluation snapshot comparison reports whether outputs changed for fixed
 prompts. It does not judge whether the new output is better.
+
+## D048 — Optimizers Stay Dependency-Light
+
+P16 adds SGD, Adam, and AdamW directly instead of adding Optax. The local
+optimizer surface is small enough to keep in-repo for now, and default CI must
+remain CPU-only and network-free.
+
+## D049 — AdamW Uses Decoupled Weight Decay
+
+AdamW applies weight decay directly to parameters during the update. It does
+not fold weight decay into gradients before Adam moment updates.

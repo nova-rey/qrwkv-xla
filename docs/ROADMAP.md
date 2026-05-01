@@ -149,3 +149,8 @@ checks without external tokenizer dependencies.
 
 Goal: add fixed generation snapshots, sanity checks, and checkpoint comparison
 tools before full benchmark/evaluation work.
+
+## Phase 16 — Adam/AdamW Optimizer
+
+Goal: add dependency-light SGD, Adam, and AdamW optimizer support with
+optimizer-state checkpoint/resume, config/CLI wiring, metrics, docs, and tests.

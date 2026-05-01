@@ -7,3 +7,4 @@ class TrainState(NamedTuple):
     params: Any
     step: int
     learning_rate: float
+    optimizer_state: Any = None

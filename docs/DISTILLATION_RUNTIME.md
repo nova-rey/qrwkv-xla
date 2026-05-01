@@ -38,6 +38,9 @@ Supported sections:
 - `training`
 - `losses`
 
+The optimizer section supports `sgd`, `adam`, and `adamw`. SGD remains the
+default smoke optimizer.
+
 `student.hidden_size` and `student.num_layers` may be `null`. In that case the
 runner infers them from the target bundle manifest.
 
@@ -102,7 +105,9 @@ python scripts/run_distill_stage.py \
   --targets artifacts/teacher_targets/fake_export \
   --student-architecture rwkv7_reference \
   --max-steps 2 \
+  --optimizer adamw \
   --learning-rate 0.001 \
+  --weight-decay 0.01 \
   --seed 0
 ```
 
@@ -114,7 +119,6 @@ Phase 5 does **not** yet include:
 - PyTorch or Hugging Face target extraction
 - TPU sharding
 - multi-stage orchestration
-- optimizer-state checkpointing
 - production RWKV optimization
 - lm_eval integration
 - full RADLADS parity
@@ -126,6 +130,9 @@ Phase 5 does **not** yet include:
 seed. Resume loads params and the starting step from the checkpoint, validates
 architecture plus `vocab_size`, `hidden_size`, and `num_layers`, then runs
 `max_steps` additional updates.
+
+Optimizer state is saved and resumed when present. Older checkpoints without
+optimizer state initialize fresh optimizer slots at the checkpoint step.
 
 The final checkpoint step is the loaded start step plus the current invocation's
 `max_steps`. Use a different output directory from the resume source unless

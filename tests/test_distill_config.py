@@ -44,13 +44,42 @@ def test_invalid_architecture_raises(tmp_path: Path) -> None:
         load_distill_stage_config(path)
 
 
+def test_adam_optimizer_config_loads(tmp_path: Path) -> None:
+    path = tmp_path / "distill.yaml"
+    path.write_text(
+        (
+            "distillation:\n"
+            "  optimizer:\n"
+            "    type: adam\n"
+            "    learning_rate: 0.0003\n"
+            "    beta1: 0.8\n"
+        ),
+        encoding="utf-8",
+    )
+    config = load_distill_stage_config(path)
+
+    assert config.optimizer.type == "adam"
+    assert config.optimizer.learning_rate == 0.0003
+    assert config.optimizer.beta1 == 0.8
+
+
 def test_invalid_optimizer_raises(tmp_path: Path) -> None:
     path = tmp_path / "distill.yaml"
     path.write_text(
-        "distillation:\n  optimizer:\n    type: adam\n",
+        "distillation:\n  optimizer:\n    type: nope\n",
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="optimizer.type"):
+        load_distill_stage_config(path)
+
+
+def test_adam_weight_decay_raises(tmp_path: Path) -> None:
+    path = tmp_path / "distill.yaml"
+    path.write_text(
+        "distillation:\n  optimizer:\n    type: adam\n    weight_decay: 0.1\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="Use adamw"):
         load_distill_stage_config(path)
 
 

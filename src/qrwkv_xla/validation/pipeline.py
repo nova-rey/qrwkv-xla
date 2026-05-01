@@ -13,6 +13,7 @@ HF_TINY_TARGETS = "artifacts/teacher_targets/hf_tiny"
 HF_TINY_CORPUS_TARGETS = "artifacts/teacher_targets/hf_tiny_corpus"
 CHECKPOINT_SMOKE = "checkpoints/pipeline_smoke/stage0"
 CHECKPOINT_SMOKE_RESUME = "checkpoints/pipeline_smoke/stage0_resume"
+CHECKPOINT_ADAMW_SMOKE = "checkpoints/pipeline_smoke/adamw"
 CHECKPOINT_HIDDEN_FOR_LOGITS = "checkpoints/pipeline_hidden_only_for_logits"
 CHECKPOINT_HIDDEN_PLUS_LOGITS = "checkpoints/pipeline_hidden_plus_logits"
 EVAL_GENERATION_SMOKE = "eval_outputs/pipeline_generation_smoke"
@@ -174,6 +175,23 @@ def build_validation_commands(
             "1",
             "--checkpoint-out",
             CHECKPOINT_SMOKE,
+            "--checkpoint-overwrite",
+        ),
+        (
+            sys.executable,
+            "scripts/run_distill_stage.py",
+            "--config",
+            "configs/distill_stage0_stub.yaml",
+            "--max-steps",
+            "1",
+            "--optimizer",
+            "adamw",
+            "--learning-rate",
+            "0.001",
+            "--weight-decay",
+            "0.01",
+            "--checkpoint-out",
+            CHECKPOINT_ADAMW_SMOKE,
             "--checkpoint-overwrite",
         ),
         (
@@ -370,6 +388,9 @@ def build_step_name(command: tuple[str, ...]) -> str:
         )
         return f"train_student_smoke {architecture}"
     if script == "run_distill_stage":
+        optimizer = _option_value(command, "--optimizer")
+        if optimizer:
+            return f"run_distill_stage {optimizer}"
         if "--track-run" in command:
             return "run_distill_stage tracked"
         if "--resume-from" in command:

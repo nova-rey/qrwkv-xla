@@ -15,7 +15,12 @@ def main() -> None:
         choices=("tiny_student", "rwkv7_reference"),
     )
     parser.add_argument("--max-steps", type=int)
+    parser.add_argument("--optimizer", choices=("sgd", "adam", "adamw"))
     parser.add_argument("--learning-rate", type=float)
+    parser.add_argument("--adam-beta1", type=float)
+    parser.add_argument("--adam-beta2", type=float)
+    parser.add_argument("--adam-epsilon", type=float)
+    parser.add_argument("--weight-decay", type=float)
     parser.add_argument("--seed", type=int)
     parser.add_argument("--checkpoint-out")
     parser.add_argument("--resume-from")
@@ -60,10 +65,37 @@ def main() -> None:
         config = replace(
             config, training=replace(config.training, max_steps=args.max_steps)
         )
-    if args.learning_rate is not None:
+    if (
+        args.optimizer is not None
+        or args.learning_rate is not None
+        or args.adam_beta1 is not None
+        or args.adam_beta2 is not None
+        or args.adam_epsilon is not None
+        or args.weight_decay is not None
+    ):
         config = replace(
             config,
-            optimizer=replace(config.optimizer, learning_rate=args.learning_rate),
+            optimizer=replace(
+                config.optimizer,
+                type=args.optimizer
+                if args.optimizer is not None
+                else config.optimizer.type,
+                learning_rate=args.learning_rate
+                if args.learning_rate is not None
+                else config.optimizer.learning_rate,
+                beta1=args.adam_beta1
+                if args.adam_beta1 is not None
+                else config.optimizer.beta1,
+                beta2=args.adam_beta2
+                if args.adam_beta2 is not None
+                else config.optimizer.beta2,
+                epsilon=args.adam_epsilon
+                if args.adam_epsilon is not None
+                else config.optimizer.epsilon,
+                weight_decay=args.weight_decay
+                if args.weight_decay is not None
+                else config.optimizer.weight_decay,
+            ),
         )
     if args.seed is not None:
         config = replace(config, training=replace(config.training, seed=args.seed))
@@ -150,6 +182,8 @@ def main() -> None:
     print(f"student_architecture: {result.student_architecture}")
     print(f"emit_logits: {config.student.emit_logits}")
     print(f"tie_embeddings: {config.student.tie_embeddings}")
+    print(f"optimizer: {config.optimizer.type}")
+    print(f"learning_rate: {config.optimizer.learning_rate}")
     print(
         "logits_kl_enabled: "
         f"{config.losses.logits_kl.enabled and config.losses.logits_kl.weight > 0}"

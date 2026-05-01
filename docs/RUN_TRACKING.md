@@ -78,6 +78,12 @@ When logits KL is enabled, `metrics.jsonl` and `summary.json` include
 `logits_kl` / `final_logits_kl` alongside hidden loss metrics. Hidden-only runs
 continue to omit logits metrics.
 
+## Optimizer Metrics
+
+Per-step metrics include numeric `learning_rate` and `optimizer_step`. Metric
+record `extra` includes `optimizer_type`, and `summary.json` records the final
+optimizer type and learning rate.
+
 ## Generation Outputs
 
 P14 generation smoke writes local `generations.jsonl` and `summary.json`

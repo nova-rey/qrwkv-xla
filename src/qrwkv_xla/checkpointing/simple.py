@@ -8,6 +8,8 @@ from typing import Any
 
 import numpy as np
 
+from qrwkv_xla.optimizers import OptimizerState
+
 SCHEMA_VERSION = "0.1"
 CREATED_BY = "qrwkv_xla.checkpointing.simple"
 MANIFEST_NAME = "checkpoint.json"
@@ -25,6 +27,8 @@ class CheckpointManifest:
     loss_config: dict[str, Any]
     target_manifest: dict[str, Any]
     param_tree: dict[str, Any]
+    optimizer_config: dict[str, Any] = field(default_factory=dict)
+    optimizer_state: dict[str, Any] | None = None
     notes: list[str] = field(default_factory=list)
 
 
@@ -33,6 +37,7 @@ class LoadedCheckpoint:
     checkpoint_dir: Path
     manifest: CheckpointManifest
     params: Any
+    optimizer_state: OptimizerState | None = None
 
 
 def checkpoint_exists(checkpoint_dir: str | Path) -> bool:
@@ -52,6 +57,8 @@ def save_checkpoint(
     learning_rate: float,
     loss_config: Any,
     target_manifest: Any,
+    optimizer_config: Any | None = None,
+    optimizer_state: OptimizerState | None = None,
     notes: Sequence[str] | None = None,
     overwrite: bool = False,
     created_by: str = CREATED_BY,
@@ -73,6 +80,17 @@ def save_checkpoint(
     param_tree = _flatten_tree(params, arrays, ())
     if not arrays:
         raise ValueError("params must contain at least one array leaf")
+    optimizer_state_tree = None
+    if optimizer_state is not None:
+        optimizer_state_tree = {
+            "type": optimizer_state.type,
+            "step": _scalar_int(optimizer_state.step),
+            "slots_tree": _flatten_tree(
+                optimizer_state.slots,
+                arrays,
+                ("optimizer", "slots"),
+            ),
+        }
     np.savez(output_dir / PARAMS_NAME, **arrays)
 
     manifest = CheckpointManifest(
@@ -88,6 +106,11 @@ def save_checkpoint(
             "target_manifest",
         ),
         param_tree=param_tree,
+        optimizer_config=_required_json_dict(
+            _jsonable(optimizer_config or {}),
+            "optimizer_config",
+        ),
+        optimizer_state=optimizer_state_tree,
         notes=list(notes or []),
     )
     validate_checkpoint_manifest(manifest)
@@ -113,11 +136,21 @@ def load_checkpoint(checkpoint_dir: str | Path) -> LoadedCheckpoint:
         available_keys = set(archive.files)
         expected_keys: set[str] = set()
         params = _unflatten_tree(manifest.param_tree, archive, expected_keys)
+        optimizer_state = _unflatten_optimizer_state(
+            manifest.optimizer_state,
+            archive,
+            expected_keys,
+        )
         missing = expected_keys - available_keys
         if missing:
             missing_text = ", ".join(sorted(missing))
             raise ValueError(f"checkpoint params.npz is missing arrays: {missing_text}")
-    return LoadedCheckpoint(checkpoint_dir=input_dir, manifest=manifest, params=params)
+    return LoadedCheckpoint(
+        checkpoint_dir=input_dir,
+        manifest=manifest,
+        params=params,
+        optimizer_state=optimizer_state,
+    )
 
 
 def validate_checkpoint_manifest(manifest: CheckpointManifest) -> None:
@@ -142,6 +175,19 @@ def validate_checkpoint_manifest(manifest: CheckpointManifest) -> None:
         raise ValueError("checkpoint manifest target_manifest must be a mapping")
     if not isinstance(manifest.param_tree, dict):
         raise ValueError("checkpoint manifest param_tree must be a mapping")
+    if not isinstance(manifest.optimizer_config, dict):
+        raise ValueError("checkpoint manifest optimizer_config must be a mapping")
+    if manifest.optimizer_state is not None:
+        if not isinstance(manifest.optimizer_state, dict):
+            raise ValueError("checkpoint manifest optimizer_state must be a mapping")
+        if manifest.optimizer_state.get("type") not in {"sgd", "adam", "adamw"}:
+            raise ValueError("checkpoint manifest optimizer_state type is invalid")
+        if int(manifest.optimizer_state.get("step", -1)) < 0:
+            raise ValueError("checkpoint manifest optimizer_state step must be >= 0")
+        if not isinstance(manifest.optimizer_state.get("slots_tree"), dict):
+            raise ValueError(
+                "checkpoint manifest optimizer_state slots_tree must be a mapping"
+            )
     if not isinstance(manifest.notes, list) or not all(
         isinstance(note, str) for note in manifest.notes
     ):
@@ -268,6 +314,24 @@ def _unflatten_tree(node: Any, archive: Any, expected_keys: set[str]) -> Any:
     raise ValueError(f"unknown param_tree node type: {node_type!r}")
 
 
+def _unflatten_optimizer_state(
+    raw: dict[str, Any] | None,
+    archive: Any,
+    expected_keys: set[str],
+) -> OptimizerState | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ValueError("checkpoint optimizer_state must be a mapping")
+    optimizer_type = _required_str(raw, "type")
+    slots_tree = _required_dict(raw, "slots_tree")
+    return OptimizerState(
+        type=optimizer_type,
+        step=int(raw["step"]),
+        slots=_unflatten_tree(slots_tree, archive, expected_keys),
+    )
+
+
 def _parse_manifest(raw: Any) -> CheckpointManifest:
     if not isinstance(raw, dict):
         raise ValueError("checkpoint manifest must be a mapping")
@@ -281,6 +345,10 @@ def _parse_manifest(raw: Any) -> CheckpointManifest:
         loss_config=_required_dict(raw, "loss_config"),
         target_manifest=_required_dict(raw, "target_manifest"),
         param_tree=_required_dict(raw, "param_tree"),
+        optimizer_config=_required_dict(raw, "optimizer_config")
+        if "optimizer_config" in raw
+        else {},
+        optimizer_state=raw.get("optimizer_state"),
         notes=_required_string_list(raw.get("notes", []), "notes"),
     )
     validate_checkpoint_manifest(manifest)
@@ -299,6 +367,13 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, np.generic):
         return value.item()
     return value
+
+
+def _scalar_int(value: Any) -> int:
+    array = np.asarray(value)
+    if array.shape != ():
+        raise ValueError("optimizer_state step must be a scalar")
+    return int(array)
 
 
 def _required_str(raw: dict[str, Any], key: str) -> str:

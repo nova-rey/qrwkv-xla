@@ -4,10 +4,10 @@ QRWKV-XLA uses a simple local checkpoint format for the current distillation
 stage runner:
 
 - `checkpoint.json`: JSON manifest with schema, student architecture/config,
-  training step, learning rate, loss config, target manifest summary, and array
-  metadata.
-- `params.npz`: NumPy archive containing parameter arrays as `arr_000000`,
-  `arr_000001`, and so on.
+  training step, learning rate, loss config, target manifest summary,
+  optimizer config/state metadata, and array metadata.
+- `params.npz`: NumPy archive containing parameter arrays and optimizer slot
+  arrays as `arr_000000`, `arr_000001`, and so on.
 
 Checkpoint directories must live under `checkpoints/`, and `checkpoints/` is
 gitignored. The format is intended for local staged continuation and smoke
@@ -38,6 +38,8 @@ python scripts/run_distill_stage.py \
 
 On resume, `--max-steps` means additional steps for that invocation. A
 checkpoint saved at step 2 and resumed with `--max-steps 2` ends at step 4.
+Adam and AdamW resume their moment slots when the checkpoint contains optimizer
+state.
 
 ## Validation
 
@@ -54,10 +56,10 @@ must be enabled. Without overwrite this fails before training.
 
 Orbax is intentionally deferred. The current project needs a CPU-safe,
 offline, dependency-light checkpoint surface for single-process staged
-distillation. JSON plus NPZ is enough for the local hidden-state-only stage and
-keeps the artifact easy to inspect. Orbax or a richer checkpoint manager can be
-revisited after multi-device training, optimizer state, and durable release
-requirements are concrete.
+distillation. JSON plus NPZ is enough for params plus optimizer slots and keeps
+the artifact easy to inspect. Orbax or a richer checkpoint manager can be
+revisited after multi-device training and durable release requirements are
+concrete.
 
 ## Staged Continuation
 

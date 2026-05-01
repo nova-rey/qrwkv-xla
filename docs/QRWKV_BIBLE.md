@@ -194,3 +194,15 @@ evaluate logits-capable checkpoints on fixed prompt corpora, write generation
 snapshots, run simple sanity checks, and compare snapshots across checkpoints or
 runs. These checks are regression and wiring tools rather than model-quality
 benchmarks.
+
+## Phase 16 — Adam and AdamW Optimizers
+
+This phase adds an internal optimizer package with SGD, Adam, and AdamW. SGD
+remains the default smoke path. Adam uses standard bias-corrected moments, and
+AdamW uses decoupled weight decay applied to parameter leaves rather than as
+gradient L2 regularization.
+
+Distillation configs and CLI flags can select the optimizer and hyperparameters.
+Checkpoints now persist optimizer config and optimizer state in the existing
+JSON + NPZ format so Adam/AdamW resumes continue their moment slots. Default CI
+stays CPU-only, offline, and dependency-light.

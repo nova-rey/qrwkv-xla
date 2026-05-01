@@ -123,3 +123,10 @@ P15 adds regression generation snapshots and sanity checks. These are
 wiring/regression checks, not quality benchmarks. Tests cover config loading,
 sanity summaries, checkpoint evaluation artifacts, snapshot comparison, and the
 two CLI scripts.
+
+## P16 Optimizer Tests
+
+P16 adds focused optimizer tests for SGD behavior preservation, Adam bias
+correction, AdamW decoupled weight decay, config validation, optimizer-state
+checkpoint round trips, distillation integration, run metrics, and CLI
+overrides. These tests are CPU-only and require no network or new dependencies.

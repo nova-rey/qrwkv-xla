@@ -260,3 +260,14 @@
 - [x] Update snapshot
 - [x] Append Bible entry
 - [x] Run validation
+
+## P16 — Adam/AdamW Optimizer
+
+- [x] Add optimizer config/state/factory modules
+- [x] Move SGD update behind optimizer module while preserving behavior
+- [x] Add Adam with bias correction
+- [x] Add AdamW with decoupled weight decay
+- [x] Persist optimizer config/state in checkpoints
+- [x] Wire distillation config, runner, metrics, and CLI flags
+- [x] Add optimizer math, checkpoint/resume, integration, and CLI tests
+- [x] Add optimizer docs and update phase docs

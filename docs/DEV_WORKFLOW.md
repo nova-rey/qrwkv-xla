@@ -155,3 +155,9 @@ minimal generation path.
 When reporting generation or evaluation results, distinguish smoke, sanity, and
 regression checks from quality evaluation. Do not claim model improvement from
 P15 eval outputs alone.
+
+## Optimizer Changes
+
+Optimizer work should stay inside `qrwkv_xla.optimizers` plus the distillation
+runner/checkpoint boundaries. Do not add Optax or other optimizer frameworks
+until a later phase explicitly expands the dependency budget.

@@ -71,9 +71,8 @@ available under `.[dev]`. Optional tiny HF validation requires `--include-hf`;
 hard TPU validation requires `--require-tpu`.
 
 ### Checkpointing
-- **Purpose:** Save and resume JAX student params with config, step, target
-  metadata, and artifact metadata. Optimizer-state checkpointing is deferred
-  until a richer optimizer stack exists.
+- **Purpose:** Save and resume JAX student params and optimizer state with
+  config, step, target metadata, and artifact metadata.
 
 ### Evaluation
 - **Purpose:** Compare student vs teacher with loss curves, generation sanity checks, recurrent inference checks, and later `lm_eval`-style integration.
@@ -89,12 +88,21 @@ The earliest runnable configs may be tiny, but the architecture is real. Small c
 
 Distillation checkpoints are local artifacts made of `checkpoint.json` and
 `params.npz`. The manifest records student architecture/config, step, learning
-rate, loss config, target manifest metadata, and parameter array metadata. The
-NPZ file stores raw arrays without pickle or object arrays.
+rate, loss config, target manifest metadata, optimizer metadata, and parameter
+array metadata. The NPZ file stores raw arrays without pickle or object arrays.
+Optimizer slots are stored in the same NPZ archive and described by a separate
+optimizer-state tree in the manifest.
 
 This boundary is intentionally below Orbax/Flax/Equinox. The current runtime is
 single-process and dependency-light; multi-device checkpoint management remains
 future work.
+
+## Optimizer Boundary
+
+The `qrwkv_xla.optimizers` package provides the small optimizer surface needed
+by the distillation runner: SGD, Adam, and AdamW with decoupled weight decay.
+The implementation uses JAX pytrees and avoids adding Optax until optimizer
+complexity justifies a dependency.
 
 ## Local run tracking
 

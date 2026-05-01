@@ -8,6 +8,12 @@ import jax.numpy as jnp
 
 from qrwkv_xla.datasets.target_bundle import TargetBatch
 from qrwkv_xla.losses import WeightedLoss, hidden_mse_loss
+from qrwkv_xla.optimizers import (
+    OptimizerConfig,
+    init_optimizer_state,
+    optimizer_update,
+    validate_optimizer_config,
+)
 from qrwkv_xla.trainers.state import TrainState
 
 
@@ -34,8 +40,11 @@ def _default_distillation_loss(student_output: Any, batch: dict[str, jax.Array])
 def make_train_step(
     apply_fn: Callable[..., Any],
     distillation_loss: Callable[..., WeightedLoss] | None = None,
+    optimizer_config: OptimizerConfig | None = None,
 ) -> Callable[..., Any]:
     loss_builder = distillation_loss or _default_distillation_loss
+    opt_config = optimizer_config or OptimizerConfig()
+    validate_optimizer_config(opt_config)
 
     def train_step(
         state: TrainState,
@@ -53,16 +62,29 @@ def make_train_step(
         (loss, components), grads = jax.value_and_grad(loss_fn, has_aux=True)(
             state.params
         )
-        new_params = jax.tree_util.tree_map(
-            lambda param, grad: param - state.learning_rate * grad,
+        update_config = OptimizerConfig(
+            type=opt_config.type,
+            learning_rate=state.learning_rate,
+            beta1=opt_config.beta1,
+            beta2=opt_config.beta2,
+            epsilon=opt_config.epsilon,
+            weight_decay=opt_config.weight_decay,
+        )
+        optimizer_state = state.optimizer_state
+        if optimizer_state is None:
+            optimizer_state = init_optimizer_state(state.params, update_config)
+        new_params, new_optimizer_state, optimizer_metrics = optimizer_update(
             state.params,
             grads,
+            optimizer_state,
+            update_config,
         )
         new_state = TrainState(
             params=new_params,
             step=state.step + 1,
             learning_rate=state.learning_rate,
+            optimizer_state=new_optimizer_state,
         )
-        return new_state, dict(components, loss=loss)
+        return new_state, dict(components, loss=loss, **optimizer_metrics)
 
     return jax.jit(train_step)

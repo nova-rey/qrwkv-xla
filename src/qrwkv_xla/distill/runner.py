@@ -13,6 +13,7 @@ from qrwkv_xla.datasets.target_bundle import TargetBundleDataset
 from qrwkv_xla.distill.config import DistillStageConfig, validate_distill_stage_config
 from qrwkv_xla.distill.losses import compute_distill_loss
 from qrwkv_xla.distill.metrics import metrics_to_floats
+from qrwkv_xla.optimizers import OptimizerState, init_optimizer_state
 from qrwkv_xla.students import create_student
 from qrwkv_xla.targets import read_manifest
 from qrwkv_xla.targets.store import manifest_path
@@ -103,11 +104,15 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
         "tie_embeddings": config.student.tie_embeddings,
     }
 
+    optimizer_config = config.optimizer.to_optimizer_config()
     train_step = make_train_step(
-        student.apply, distillation_loss=_make_train_loss(config)
+        student.apply,
+        distillation_loss=_make_train_loss(config),
+        optimizer_config=optimizer_config,
     )
     start_step = 0
     params = student.init_params(jax.random.PRNGKey(config.training.seed))
+    optimizer_state = init_optimizer_state(params, optimizer_config)
     parent_checkpoint_manifest: dict[str, object] | None = None
     resume_notes: list[str] = []
     if config.checkpoint.resume_from is not None:
@@ -126,12 +131,22 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
             and not bool(loaded.manifest.student_config.get("emit_logits", False)),
         )
         resume_notes.extend(merge_notes)
+        optimizer_state = _optimizer_state_for_resume(
+            fresh_optimizer_state=init_optimizer_state(params, optimizer_config),
+            checkpoint_optimizer_state=loaded.optimizer_state,
+            optimizer_type=optimizer_config.type,
+            checkpoint_step=start_step,
+            allow_missing_lm_head=config.student.emit_logits
+            and not bool(loaded.manifest.student_config.get("emit_logits", False)),
+            notes=resume_notes,
+        )
         parent_checkpoint_manifest = asdict(loaded.manifest)
 
     state = TrainState(
         params=params,
         step=start_step,
         learning_rate=config.optimizer.learning_rate,
+        optimizer_state=optimizer_state,
     )
 
     shard_batches = [batch_to_jax(batch) for batch in dataset.iter_shards()]
@@ -205,6 +220,7 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
                         "local_step": step_index + 1,
                         "start_step": start_step,
                         "shard_index": step_index % len(shard_batches),
+                        "optimizer_type": config.optimizer.type,
                     },
                 )
 
@@ -220,9 +236,12 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
             learning_rate=config.optimizer.learning_rate,
             loss_config=asdict(config.losses),
             target_manifest=manifest,
+            optimizer_config=asdict(config.optimizer),
+            optimizer_state=state.optimizer_state,
             notes=[
                 "simple JSON + NPZ checkpoint",
                 f"distillation stage {config.stage}",
+                f"optimizer {config.optimizer.type}",
                 *resume_notes,
             ],
             overwrite=checkpoint_overwrite,
@@ -244,6 +263,8 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
                 "final_loss": final_metrics["loss"],
                 "final_hidden_mse": final_metrics.get("hidden_mse"),
                 "final_logits_kl": final_metrics.get("logits_kl"),
+                "optimizer_type": config.optimizer.type,
+                "learning_rate": config.optimizer.learning_rate,
                 "checkpoint_out": checkpoint_out,
                 "resume_from": config.checkpoint.resume_from,
                 "target_bundle": dataset.bundle_dir,
@@ -401,6 +422,58 @@ def _merge_param_tree(
             f"{checkpoint_array.shape} != {fresh_array.shape}"
         )
     return checkpoint_params
+
+
+def _optimizer_state_for_resume(
+    *,
+    fresh_optimizer_state: OptimizerState,
+    checkpoint_optimizer_state: OptimizerState | None,
+    optimizer_type: str,
+    checkpoint_step: int,
+    allow_missing_lm_head: bool,
+    notes: list[str],
+) -> OptimizerState:
+    if checkpoint_optimizer_state is None:
+        notes.append("initialized optimizer state during resume from older checkpoint")
+        return OptimizerState(
+            type=optimizer_type,
+            step=checkpoint_step,
+            slots=fresh_optimizer_state.slots,
+        )
+    if checkpoint_optimizer_state.type != optimizer_type:
+        raise ValueError(
+            "checkpoint optimizer type mismatch: "
+            f"{checkpoint_optimizer_state.type!r} != {optimizer_type!r}"
+        )
+    merged_slots = _merge_optimizer_slots_for_resume(
+        fresh_slots=fresh_optimizer_state.slots,
+        checkpoint_slots=checkpoint_optimizer_state.slots,
+        allow_missing_lm_head=allow_missing_lm_head,
+        notes=notes,
+    )
+    return OptimizerState(
+        type=optimizer_type,
+        step=checkpoint_optimizer_state.step,
+        slots=merged_slots,
+    )
+
+
+def _merge_optimizer_slots_for_resume(
+    *,
+    fresh_slots: Any,
+    checkpoint_slots: Any,
+    allow_missing_lm_head: bool,
+    notes: list[str],
+) -> Any:
+    if not fresh_slots:
+        return fresh_slots
+    return _merge_param_tree(
+        fresh_params=fresh_slots,
+        checkpoint_params=checkpoint_slots,
+        path=("optimizer", "slots"),
+        allow_missing_lm_head=allow_missing_lm_head,
+        notes=notes,
+    )
 
 
 def _format_param_path(path: tuple[str, ...]) -> str:
