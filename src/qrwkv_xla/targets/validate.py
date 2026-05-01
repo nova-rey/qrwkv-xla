@@ -20,6 +20,8 @@ _MANIFEST_FIELDS = {
     "dtype",
     "created_by",
     "notes",
+    "prompt_source",
+    "prompt_provenance",
 }
 
 
@@ -30,6 +32,10 @@ def manifest_from_dict(data: dict[str, Any]) -> TeacherTargetManifest:
     target_data = data.get("targets") or {}
     if not isinstance(target_data, dict):
         raise ValueError("targets must be a mapping")
+
+    prompt_source = data.get("prompt_source")
+    if prompt_source is None and "prompt_provenance" in data:
+        prompt_source = data.get("prompt_provenance")
 
     manifest = TeacherTargetManifest(
         schema_version=str(data.get("schema_version", "")),
@@ -51,6 +57,7 @@ def manifest_from_dict(data: dict[str, Any]) -> TeacherTargetManifest:
         dtype=str(data.get("dtype", "")),
         created_by=str(data.get("created_by", "teacher_exporter")),
         notes=[str(note) for note in data.get("notes", [])],
+        prompt_source=prompt_source,
         extra={
             key: value for key, value in data.items() if key not in _MANIFEST_FIELDS
         },
@@ -62,6 +69,8 @@ def manifest_from_dict(data: dict[str, Any]) -> TeacherTargetManifest:
 def manifest_to_dict(manifest: TeacherTargetManifest) -> dict[str, Any]:
     payload = asdict(manifest)
     extra = payload.pop("extra")
+    if payload.get("prompt_source") is None:
+        payload.pop("prompt_source")
     payload.update(extra)
     return payload
 
@@ -86,9 +95,33 @@ def validate_manifest(manifest: TeacherTargetManifest) -> None:
         raise ValueError("created_by must be non-empty")
     if not manifest.targets.input_ids:
         raise ValueError("targets.input_ids must currently be true")
+    if manifest.prompt_source is not None:
+        _validate_prompt_source(manifest.prompt_source)
 
 
 def _optional_str(value: Any) -> str | None:
     if value is None:
         return None
     return str(value)
+
+
+def _validate_prompt_source(value: Any) -> None:
+    if not isinstance(value, dict):
+        raise ValueError("prompt_source must be a mapping")
+    source_type = str(value.get("type", "")).strip()
+    if source_type not in {"default", "inline", "file", "corpus"}:
+        raise ValueError(
+            "prompt_source.type must be one of {default, inline, file, corpus}"
+        )
+    prompt_count = int(value.get("prompt_count", 0))
+    if prompt_count <= 0:
+        raise ValueError("prompt_source.prompt_count must be > 0")
+    if source_type == "corpus":
+        required = {"corpus_id", "corpus_sha256", "corpus_path", "prompt_ids"}
+        missing = sorted(key for key in required if key not in value)
+        if missing:
+            raise ValueError(
+                f"prompt_source missing required corpus keys: {', '.join(missing)}"
+            )
+        if not isinstance(value["prompt_ids"], list) or not value["prompt_ids"]:
+            raise ValueError("prompt_source.prompt_ids must be a non-empty list")

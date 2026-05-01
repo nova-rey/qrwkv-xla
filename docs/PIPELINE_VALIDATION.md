@@ -14,9 +14,10 @@ python scripts/validate_pipeline.py
 ```
 
 The default pipeline runs environment/runtime inspection, CPU and TPU-safe
-smokes, offline Qwen policy dry-runs, fake target export and inspection, both
-student smoke architectures, the distillation stage smoke, and the TPU-ready
-distillation smoke without requiring a TPU.
+smokes, offline Qwen policy dry-runs, prompt corpus inspection and manifest
+creation, fake target export and inspection, both student smoke architectures,
+the distillation stage smoke, and the TPU-ready distillation smoke without
+requiring a TPU.
 
 ## Optional Hugging Face Path
 
@@ -54,6 +55,14 @@ CI should run:
 
 ```bash
 python scripts/validate_pipeline.py
+```
+
+The default path now includes:
+
+```bash
+python scripts/inspect_prompt_corpus.py corpora/smoke_prompts.jsonl
+python scripts/create_prompt_manifest.py corpora/smoke_prompts.jsonl --out artifacts/prompt_manifests/smoke_prompts.manifest.json --description "Pipeline smoke corpus." --overwrite
+python scripts/export_teacher_targets.py --config configs/teacher_export_qwen_dryrun_corpus.yaml --dry-run --resolve-qwen-policy --allow-unresolved-policy
 ```
 
 CI should not pass `--include-hf` or `--require-tpu` by default. Optional HF and

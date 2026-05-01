@@ -12,6 +12,7 @@ from qrwkv_xla.targets import (
 )
 from qrwkv_xla.teacher_export.base import ExportRequest, ExportResult
 from qrwkv_xla.teacher_export.config import validate_teacher_export_config
+from qrwkv_xla.teacher_export.prompts import resolve_prompts
 
 
 class FakeTeacherExporter:
@@ -24,6 +25,7 @@ class FakeTeacherExporter:
             raise NotImplementedError(
                 "attention target export is not implemented yet for FakeTeacherExporter"
             )
+        prompts = resolve_prompts(config)
 
         manifest = TeacherTargetManifest(
             schema_version="0.1",
@@ -45,6 +47,7 @@ class FakeTeacherExporter:
             dtype=config.targets.dtype,
             created_by="FakeTeacherExporter",
             notes=["deterministic fake exporter bundle"],
+            prompt_source=prompts.metadata,
             extra={"vocab_size": config.targets.vocab_size},
         )
 

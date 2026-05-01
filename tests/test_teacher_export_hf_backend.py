@@ -158,6 +158,7 @@ def test_hf_exporter_writes_manifest_compatible_bundle(
     assert result.manifest.hidden_size == 3
     assert result.manifest.num_layers == 2
     assert result.manifest.targets.logits is True
+    assert result.manifest.prompt_source == {"type": "inline", "prompt_count": 3}
     assert result.manifest.teacher_family == "hf-causal-lm"
     assert result.manifest.teacher_model_id == "tiny-model"
     assert result.manifest.tokenizer_id == "tiny-tokenizer"

@@ -28,4 +28,5 @@ class TeacherTargetManifest:
     dtype: str
     created_by: str = "teacher_exporter"
     notes: list[str] = field(default_factory=list)
+    prompt_source: dict[str, Any] | None = None
     extra: dict[str, Any] = field(default_factory=dict)

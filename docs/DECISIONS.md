@@ -177,3 +177,21 @@ Distillation tracking writes only local files under `runs/`: `run.json`,
 `metrics.jsonl`, `summary.json`, and optionally a final checkpoint below the
 run directory. It is disabled by default. External tracking services, databases,
 and framework-specific logging stacks are not required for the baseline.
+
+## D036 — Prompt Corpora Are File-Based JSONL
+
+QRWKV-XLA uses local JSONL prompt corpora before adopting external dataset
+tooling. This keeps prompt inputs inspectable, portable, dependency-light, and
+easy to hash.
+
+## D037 — Corpus Hashes Are Part of Export Provenance
+
+Teacher target manifests record prompt corpus identity and hash when corpus
+prompts are used. This lets later runs, checkpoints, and comparisons trace back
+to the exact prompt set used for export.
+
+## D038 — Prompt Order Affects Corpus Hash
+
+P12 corpus hashes preserve record order. This is acceptable for now because
+prompt order can affect batching and export behavior, and the goal is to track
+exact export inputs rather than only unordered prompt membership.

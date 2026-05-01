@@ -1,0 +1,25 @@
+{
+  "corpus_id": "smoke_prompts",
+  "created_by": "qrwkv_xla.prompting.corpus",
+  "description": "Tiny checked-in smoke prompt corpus.",
+  "notes": [],
+  "prompt_count": 8,
+  "schema_version": "0.1",
+  "sha256": "7d88012a6576a3bbf6f60d87e149f1a463034045758b509eaa67a6b3c877b586",
+  "source_path": "corpora/smoke_prompts.jsonl",
+  "splits": {
+    "train": 6,
+    "validation": 2
+  },
+  "tags": [
+    "code",
+    "generation",
+    "greeting",
+    "jax",
+    "reasoning",
+    "recurrence",
+    "smoke",
+    "teacher",
+    "xla"
+  ]
+}

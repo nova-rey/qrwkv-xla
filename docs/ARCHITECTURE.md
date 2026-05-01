@@ -22,6 +22,10 @@ Qwen policy resolution is a local preflight layer. It maps labels such as
 `Qwen3.latest` through `configs/qwen_policy.yaml`, can dry-run without
 torch/transformers, and never performs network or API lookup.
 
+A prompt-corpus layer now sits between config and exporter runtime. It provides
+JSONL prompt records, deterministic split helpers, corpus manifests, and stable
+hashes so target bundles can record which prompt set produced them.
+
 ### Target Artifact Store
 - **Purpose:** Store input ids, masks, hidden states, logits, attention or mixer targets, metadata, tokenizer references, teacher identity, and stage info.
 

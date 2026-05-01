@@ -7,9 +7,9 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 8 prep: offline Qwen policy resolution and dry-run export preparation on
-top of the optional Hugging Face teacher exporter, with Phase 6 XLA discipline
-and TPU smoke readiness preserved.
+Phase 12: prompt corpus and export-set provenance on top of the staged
+distillation runtime, XLA discipline, optional HF exporter, checkpoint/resume,
+and local run tracking.
 
 The project can define, write, read, validate, inspect, and test fake teacher
 target bundles on CPU through a reusable exporter interface. It also has an
@@ -50,6 +50,9 @@ python scripts/validate_local.py
 The default exporter path uses the deterministic fake exporter. The optional HF
 backend is installed with `python -m pip install -e ".[dev,teacher-hf]"` and is
 documented in `docs/HF_TEACHER_EXPORT.md`.
+
+Prompt corpora are documented in `docs/PROMPT_CORPORA.md`. The checked-in smoke
+corpus lives at `corpora/smoke_prompts.jsonl`.
 
 `scripts/run_distill_stage.py` is the primary entrypoint for staged distillation. It currently supports hidden-state distillation against fake teacher bundles with `tiny_student` or `rwkv7_reference` students.
 
@@ -120,6 +123,13 @@ python scripts/inspect_targets.py artifacts/teacher_targets/hf_tiny
 This uses a tiny public model for backend validation. Qwen export is
 intentionally not the default smoke path. See `docs/QWEN_EXPORT_POLICY.md` for
 offline policy resolution and manual-only Qwen export prep.
+
+Prompt corpus examples:
+
+```bash
+python scripts/inspect_prompt_corpus.py corpora/smoke_prompts.jsonl
+python scripts/export_teacher_targets.py --config configs/teacher_export_qwen_dryrun_corpus.yaml --dry-run --resolve-qwen-policy --allow-unresolved-policy
+```
 
 ## TPU Launcher Smoke
 

@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 11
-checkpoint: local_run_tracking
+phase: 12
+checkpoint: prompt_corpus_export_set_management
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -42,8 +42,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Provide opt-in local run tracking for staged distillation while keeping the
-  default pipeline CPU-safe, offline, and dependency-light.
+  Add prompt corpus JSONL, corpus manifests, stable hashes, deterministic
+  splits, corpus inspection tools, corpus-based teacher export configs, and
+  target-manifest prompt-source provenance so teacher artifacts can be
+  reproduced and compared.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -56,3 +58,9 @@ tracking:
   directory: runs/
   gitignored: true
   enabled_by_default: false
+
+prompt_corpora:
+  format: jsonl_plus_manifest
+  directory: corpora/
+  hash: ordered_sha256
+  target_manifest_linkage: prompt_source

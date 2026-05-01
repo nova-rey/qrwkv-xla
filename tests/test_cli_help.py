@@ -21,6 +21,9 @@ ROOT = Path(__file__).resolve().parents[1]
         "tpu_distill_smoke.py",
         "smoke_tpu.py",
         "validate_pipeline.py",
+        "inspect_prompt_corpus.py",
+        "create_prompt_manifest.py",
+        "split_prompt_corpus.py",
     ],
 )
 def test_script_help(script_name: str) -> None:

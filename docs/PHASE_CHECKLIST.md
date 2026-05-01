@@ -158,6 +158,27 @@
 - [x] Add teacher export CLI dry-run policy resolution
 - [x] Keep real Qwen export out of default validation
 - [x] Keep torch/transformers out of base and dev dependencies
+
+## P12 — Prompt Corpus + Export Set Management
+
+- [x] Add prompt corpus dataclasses
+- [x] Add JSONL read/write/validate
+- [x] Add corpus hashing
+- [x] Add split helper
+- [x] Add corpus inspection CLI
+- [x] Add manifest generation CLI
+- [x] Add split CLI
+- [x] Add smoke prompt corpus
+- [x] Add teacher export corpus config fields
+- [x] Add prompt source metadata to target manifests
+- [x] Add corpus-based export configs
+- [x] Add tests
+- [x] Update validation pipeline
+- [x] Add PROMPT_CORPORA.md
+- [x] Update docs
+- [x] Update snapshot
+- [x] Append Bible entry
+- [x] Run validation
 - [x] Add offline resolver/config/CLI tests
 - [x] Update docs and snapshot
 

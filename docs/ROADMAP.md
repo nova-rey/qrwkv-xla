@@ -110,6 +110,12 @@ Current checkpoint: `pipeline_validation_harness`. This checkpoint makes
 `scripts/validate_pipeline.py` the canonical safe end-to-end validation command
 and keeps optional HF and hard TPU paths behind explicit flags.
 
+## Phase 12 — Prompt Corpus + Export Set Management
+Goal: make teacher-export inputs reproducible through prompt corpus JSONL,
+manifests, stable hashes, deterministic splits, corpus inspection tools,
+corpus-based teacher export configs, and target-manifest prompt-source
+provenance.
+
 ## Phase 10 — Checkpoint/Resume + Staged Continuation
 Goal: add local checkpoint save/resume for staged distillation without changing
 the dependency boundary.

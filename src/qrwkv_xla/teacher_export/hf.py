@@ -14,7 +14,7 @@ from qrwkv_xla.targets import (
 )
 from qrwkv_xla.teacher_export.base import ExportRequest, ExportResult
 from qrwkv_xla.teacher_export.config import validate_teacher_export_config
-from qrwkv_xla.teacher_export.prompts import resolve_prompt_texts
+from qrwkv_xla.teacher_export.prompts import resolve_prompts
 
 INSTALL_HINT = 'python -m pip install -e ".[teacher-hf]"'
 
@@ -44,8 +44,10 @@ class HFTeacherExporter:
         model = _load_model(auto_model, torch, config)
         model.eval()
 
-        prompts = resolve_prompt_texts(config)
-        shards = list(self._export_shards(torch, tokenizer, model, config, prompts))
+        prompts = resolve_prompts(config)
+        shards = list(
+            self._export_shards(torch, tokenizer, model, config, prompts.texts)
+        )
         if not shards:
             raise HFTeacherExportError("HF teacher export produced no shards")
 
@@ -73,11 +75,12 @@ class HFTeacherExporter:
             dtype="fp32",
             created_by="HFTeacherExporter",
             notes=["huggingface teacher exporter bundle"],
+            prompt_source=prompts.metadata,
             extra={
                 "exporter_backend": self.name,
                 "revision": config.teacher.revision,
                 "trust_remote_code": config.teacher.trust_remote_code,
-                "prompt_count": len(prompts),
+                "prompt_count": len(prompts.texts),
                 "teacher_dtype": config.teacher.dtype,
                 "vocab_size": config.targets.vocab_size,
             },

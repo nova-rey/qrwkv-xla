@@ -26,6 +26,11 @@ def test_default_command_list_includes_expected_safe_commands() -> None:
     assert any("scripts/smoke_tpu.py" in command for command in joined)
     assert any("scripts/resolve_qwen_policy.py" in command for command in joined)
     assert any("teacher_export_qwen_dryrun.yaml" in command for command in joined)
+    assert any("scripts/inspect_prompt_corpus.py" in command for command in joined)
+    assert any("scripts/create_prompt_manifest.py" in command for command in joined)
+    assert any(
+        "teacher_export_qwen_dryrun_corpus.yaml" in command for command in joined
+    )
     assert any("teacher_export_stub.yaml" in command for command in joined)
     assert any("scripts/inspect_targets.py" in command for command in joined)
     assert any("tiny_student" in command for command in joined)
@@ -48,6 +53,7 @@ def test_default_command_list_excludes_hf_export() -> None:
     joined = "\n".join(_joined(build_validation_commands()))
 
     assert "teacher_export_hf_tiny.yaml" not in joined
+    assert "teacher_export_hf_tiny_corpus.yaml" not in joined
     assert "artifacts/teacher_targets/hf_tiny" not in joined
 
 
@@ -55,6 +61,7 @@ def test_include_hf_adds_hf_export_inspect_and_distill() -> None:
     joined = _joined(build_validation_commands(include_hf=True))
 
     assert any("teacher_export_hf_tiny.yaml" in command for command in joined)
+    assert any("teacher_export_hf_tiny_corpus.yaml" in command for command in joined)
     assert any(
         "scripts/inspect_targets.py artifacts/teacher_targets/hf_tiny" in command
         for command in joined

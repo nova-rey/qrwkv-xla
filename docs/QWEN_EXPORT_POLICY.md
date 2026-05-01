@@ -11,6 +11,7 @@ Inspect the local policy file without installing `teacher-hf`:
 ```bash
 python scripts/resolve_qwen_policy.py Qwen3.latest --allow-unresolved
 python scripts/export_teacher_targets.py --config configs/teacher_export_qwen_dryrun.yaml --dry-run --resolve-qwen-policy --allow-unresolved-policy
+python scripts/export_teacher_targets.py --config configs/teacher_export_qwen_dryrun_corpus.yaml --dry-run --resolve-qwen-policy --allow-unresolved-policy
 ```
 
 The default policy intentionally stores `resolved_model_id: null`. A real Qwen
@@ -40,3 +41,6 @@ torch/transformers, and does not contact the network.
 `python scripts/validate_pipeline.py` includes only the offline Qwen resolver
 and Qwen export dry-run checks. It does not write a Qwen bundle or load a Qwen
 model.
+
+The corpus-backed dry-run path uses `configs/teacher_export_qwen_dryrun_corpus.yaml`
+so prompt-source metadata can be inspected without importing HF modules.

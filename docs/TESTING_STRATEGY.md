@@ -74,6 +74,10 @@ Qwen policy tests are offline only. Default validation resolves
 `Qwen3.latest` as an unresolved local label and runs the Qwen export CLI in
 `--dry-run` mode, without loading HF models or writing a Qwen bundle.
 
+Prompt corpus coverage now includes JSONL parsing/validation, stable hashing,
+deterministic split assignment, CLI inspection/manifest/split flows, and
+teacher-export prompt-source provenance tests.
+
 ## Canonical Pipeline Validation
 
 The canonical whole safe path check is:

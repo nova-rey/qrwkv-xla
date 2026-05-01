@@ -42,6 +42,27 @@ def test_manifest_round_trip() -> None:
     assert payload["targets"]["input_ids"] is True
 
 
+def test_manifest_round_trips_prompt_source() -> None:
+    payload = _valid_manifest_dict()
+    payload["prompt_source"] = {
+        "type": "corpus",
+        "corpus_id": "smoke_prompts",
+        "corpus_sha256": "def",
+        "corpus_path": "corpora/smoke_prompts.jsonl",
+        "prompt_count": 1,
+        "prompt_ids": ["smoke_000001"],
+        "prompt_split": "train",
+        "prompt_tags": ["smoke"],
+        "prompt_limit": 1,
+    }
+
+    manifest = manifest_from_dict(payload)
+    output = manifest_to_dict(manifest)
+
+    assert output["prompt_source"]["type"] == "corpus"
+    assert output["prompt_source"]["prompt_ids"] == ["smoke_000001"]
+
+
 def test_invalid_dtype_raises() -> None:
     payload = _valid_manifest_dict()
     payload["dtype"] = "int8"

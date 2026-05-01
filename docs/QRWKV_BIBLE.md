@@ -154,3 +154,20 @@ The canonical CLI flags are `--track-run`, `--run-root`, `--run-name`,
 repeatable `--run-tag`, repeatable `--run-note`, and `--run-overwrite`.
 Metadata capture for git and JAX runtime state is best effort and must not make
 training fail when unavailable.
+
+## P12 - Prompt Corpora
+
+P12 adds file-based prompt corpora as JSONL, one object per line, with canonical
+split labels `train`, `validation`, `test`, and `unspecified`. Corpus manifests
+record ordered SHA-256 hashes, record counts, split counts, and tag counts.
+Splitting is deterministic by seed and assigns at least one validation example
+for small multi-record corpora when validation is requested.
+
+Teacher export now accepts `targets.prompt_corpus` with optional split, tag, and
+limit filters. Inline/file prompts remain supported, but corpus prompts are
+mutually exclusive with those sources. Target manifests record prompt
+provenance metadata without storing full prompt texts.
+
+Default validation inspects the smoke corpus, creates its manifest, and dry-runs
+the Qwen corpus config without importing Hugging Face modules or requiring
+`teacher-hf`. The HF corpus export remains opt-in through `--include-hf`.

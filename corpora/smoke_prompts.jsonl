@@ -1,0 +1,8 @@
+{"id":"smoke_000001","metadata":{"source":"handwritten"},"split":"train","tags":["smoke","recurrence"],"text":"Explain recurrence in one sentence."}
+{"id":"smoke_000002","metadata":{"source":"handwritten"},"split":"train","tags":["smoke","jax"],"text":"What is one advantage of JAX for accelerator experiments?"}
+{"id":"smoke_000003","metadata":{"source":"handwritten"},"split":"train","tags":["smoke","greeting"],"text":"Write a short greeting from QRWKV-XLA."}
+{"id":"smoke_000004","metadata":{"source":"handwritten"},"split":"train","tags":["smoke","reasoning"],"text":"Give one tiny reason recurrent models can be memory efficient."}
+{"id":"smoke_000005","metadata":{"source":"handwritten"},"split":"train","tags":["smoke","code"],"text":"In one line, describe what a validation harness does."}
+{"id":"smoke_000006","metadata":{"source":"handwritten"},"split":"train","tags":["smoke","xla"],"text":"Why do static shapes matter for XLA compilation?"}
+{"id":"smoke_000007","metadata":{"source":"handwritten"},"split":"validation","tags":["smoke","generation"],"text":"Write a cheerful one-sentence status update about a passing smoke test."}
+{"id":"smoke_000008","metadata":{"source":"handwritten"},"split":"validation","tags":["smoke","teacher"],"text":"What does a teacher target bundle store at a high level?"}

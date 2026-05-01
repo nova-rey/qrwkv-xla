@@ -42,9 +42,12 @@ Prompts are resolved in this order:
 1. repeated `--prompt` CLI values
 2. `targets.prompt_texts` from config
 3. `--prompt-file` / `targets.prompt_file`
-4. built-in tiny defaults
+4. `targets.prompt_corpus` JSONL selection
+5. built-in tiny defaults
 
 Prompt files are read as one prompt per non-empty line.
+Prompt corpora are JSONL and are mutually exclusive with inline and prompt-file
+sources. See `docs/PROMPT_CORPORA.md`.
 
 ## Hidden state export shape
 
@@ -76,6 +79,14 @@ HF export writes the standard QRWKV target bundle layout:
 
 Each runtime prompt batch becomes one shard. The exporter ignores
 `runtime.num_shards` as a sharding plan for HF export.
+Manifests record prompt-source metadata but do not store full prompt texts.
+
+Corpus-backed HF example:
+
+```bash
+python scripts/export_teacher_targets.py --config configs/teacher_export_hf_tiny_corpus.yaml --backend hf
+python scripts/inspect_targets.py artifacts/teacher_targets/hf_tiny_corpus
+```
 
 ## Why Qwen is not default yet
 

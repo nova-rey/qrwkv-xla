@@ -28,6 +28,17 @@ def test_hf_tiny_config_loads() -> None:
     )
 
 
+def test_hf_tiny_corpus_config_loads() -> None:
+    config = load_teacher_export_config(
+        ROOT / "configs" / "teacher_export_hf_tiny_corpus.yaml"
+    )
+
+    assert config.targets.prompt_corpus == ROOT / "corpora" / "smoke_prompts.jsonl"
+    assert config.targets.prompt_split == "train"
+    assert config.targets.prompt_tags == ("smoke",)
+    assert config.targets.prompt_limit == 4
+
+
 def test_fake_config_still_loads() -> None:
     config = load_teacher_export_config(ROOT / "configs" / "teacher_export_stub.yaml")
 

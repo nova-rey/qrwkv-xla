@@ -67,3 +67,7 @@ runs/<run_id>/checkpoints/final
 Git and JAX environment metadata are best effort. Missing git, a non-git
 directory, or incomplete JAX metadata will be recorded as unavailable metadata
 instead of failing training.
+
+Tracked distillation runs should reference teacher target manifests that now, in
+turn, can reference prompt corpus metadata through `prompt_source` when corpus
+exports are used.

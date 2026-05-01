@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -39,6 +40,18 @@ def main() -> None:
         help="Prompt text for HF export; may be repeated",
     )
     parser.add_argument("--prompt-file", help="File with one HF export prompt per line")
+    parser.add_argument("--prompt-corpus", help="Prompt corpus JSONL path")
+    parser.add_argument(
+        "--prompt-split",
+        help="Prompt corpus split to select: train, validation, test, unspecified",
+    )
+    parser.add_argument(
+        "--prompt-tag",
+        action="append",
+        default=None,
+        help="Prompt corpus tag filter; may be repeated",
+    )
+    parser.add_argument("--prompt-limit", type=int, help="Maximum selected prompts")
     parser.add_argument(
         "--trust-remote-code",
         action="store_true",
@@ -66,6 +79,7 @@ def main() -> None:
         get_teacher_exporter,
         load_qwen_policy,
         load_teacher_export_config,
+        resolve_prompts,
         resolve_qwen_policy_map,
         validate_teacher_export_config,
     )
@@ -105,6 +119,14 @@ def main() -> None:
         targets = replace(targets, prompt_texts=tuple(args.prompt))
     if args.prompt_file is not None:
         targets = replace(targets, prompt_file=Path(args.prompt_file))
+    if args.prompt_corpus is not None:
+        targets = replace(targets, prompt_corpus=Path(args.prompt_corpus))
+    if args.prompt_split is not None:
+        targets = replace(targets, prompt_split=args.prompt_split)
+    if args.prompt_tag is not None:
+        targets = replace(targets, prompt_tags=tuple(args.prompt_tag))
+    if args.prompt_limit is not None:
+        targets = replace(targets, prompt_limit=args.prompt_limit)
 
     config = replace(config, teacher=teacher, targets=targets, runtime=runtime)
     validate_teacher_export_config(config)
@@ -153,7 +175,9 @@ def main() -> None:
         resolution_status = "unresolved"
 
     if args.dry_run:
+        prompts = resolve_prompts(config)
         tokenizer_id = config.teacher.tokenizer_id or config.teacher.resolved_model_id
+        prompt_source = prompts.metadata
         print("dry_run: true")
         print(f"backend: {config.runtime.exporter_backend}")
         print(f"family: {config.teacher.family}")
@@ -165,6 +189,12 @@ def main() -> None:
         print(f"device: {config.teacher.device}")
         print(f"output_dir: {config.runtime.output_dir}")
         print(f"resolution_status: {resolution_status}")
+        print(f"prompt_source_type: {prompt_source['type']}")
+        print(f"prompt_count: {prompt_source['prompt_count']}")
+        if prompt_source["type"] == "corpus":
+            print(f"corpus_id: {prompt_source['corpus_id']}")
+            print(f"corpus_sha256: {prompt_source['corpus_sha256']}")
+        print(f"prompt_source: {json.dumps(prompt_source, sort_keys=True)}")
         return
 
     exporter = get_teacher_exporter(config.runtime.exporter_backend)
@@ -180,6 +210,9 @@ def main() -> None:
     print(f"shard_count: {result.shard_count}")
     print(f"total_examples: {result.total_examples}")
     print(f"target_keys: {', '.join(summary['target_keys'])}")
+    prompt_source = getattr(result.manifest, "prompt_source", None)
+    if prompt_source is not None:
+        print(f"prompt_source: {json.dumps(prompt_source, sort_keys=True)}")
 
 
 def _should_resolve_qwen_policy(config, requested: bool) -> bool:

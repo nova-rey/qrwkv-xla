@@ -20,6 +20,8 @@ python -m ruff format --check .
 path. It is CPU-safe, offline, and uses only `.[dev]` by default. Optional HF
 validation (`--include-hf`) and hard TPU validation (`--require-tpu`) are not
 part of default CI.
+The default path also inspects the smoke prompt corpus, creates its manifest,
+and dry-runs the Qwen corpus config without importing Hugging Face modules.
 
 ## Local Mirror
 

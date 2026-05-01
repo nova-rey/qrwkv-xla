@@ -10,7 +10,14 @@ from qrwkv_xla.teacher_export.config import (
     validate_teacher_export_config,
 )
 from qrwkv_xla.teacher_export.fake import FakeTeacherExporter
-from qrwkv_xla.teacher_export.prompts import DEFAULT_TINY_PROMPTS, load_prompt_texts
+from qrwkv_xla.teacher_export.prompts import (
+    DEFAULT_TINY_PROMPTS,
+    LoadedPrompts,
+    ResolvedPrompts,
+    load_prompt_source_metadata,
+    load_prompt_texts,
+    resolve_prompts,
+)
 from qrwkv_xla.teacher_export.qwen_policy import (
     QwenPolicyEntry,
     QwenPolicyMap,
@@ -36,7 +43,11 @@ __all__ = [
     "HFTeacherExporter",
     "HFTeacherExportError",
     "DEFAULT_TINY_PROMPTS",
+    "LoadedPrompts",
+    "ResolvedPrompts",
+    "load_prompt_source_metadata",
     "load_prompt_texts",
+    "resolve_prompts",
     "QwenPolicyEntry",
     "QwenPolicyMap",
     "QwenResolution",

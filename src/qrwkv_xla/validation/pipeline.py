@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 FAKE_TARGETS = "artifacts/teacher_targets/fake_export"
 HF_TINY_TARGETS = "artifacts/teacher_targets/hf_tiny"
+HF_TINY_CORPUS_TARGETS = "artifacts/teacher_targets/hf_tiny_corpus"
 CHECKPOINT_SMOKE = "checkpoints/pipeline_smoke/stage0"
 CHECKPOINT_SMOKE_RESUME = "checkpoints/pipeline_smoke/stage0_resume"
 TRACKING_SMOKE_ROOT = "runs/pipeline_smoke"
@@ -67,6 +68,30 @@ def build_validation_commands(
             "scripts/export_teacher_targets.py",
             "--config",
             "configs/teacher_export_qwen_dryrun.yaml",
+            "--dry-run",
+            "--resolve-qwen-policy",
+            "--allow-unresolved-policy",
+        ),
+        (
+            sys.executable,
+            "scripts/inspect_prompt_corpus.py",
+            "corpora/smoke_prompts.jsonl",
+        ),
+        (
+            sys.executable,
+            "scripts/create_prompt_manifest.py",
+            "corpora/smoke_prompts.jsonl",
+            "--out",
+            "artifacts/prompt_manifests/smoke_prompts.manifest.json",
+            "--description",
+            "Pipeline smoke corpus.",
+            "--overwrite",
+        ),
+        (
+            sys.executable,
+            "scripts/export_teacher_targets.py",
+            "--config",
+            "configs/teacher_export_qwen_dryrun_corpus.yaml",
             "--dry-run",
             "--resolve-qwen-policy",
             "--allow-unresolved-policy",
@@ -157,6 +182,17 @@ def build_validation_commands(
                     "configs/teacher_export_hf_tiny.yaml",
                 ),
                 (sys.executable, "scripts/inspect_targets.py", HF_TINY_TARGETS),
+                (
+                    sys.executable,
+                    "scripts/export_teacher_targets.py",
+                    "--config",
+                    "configs/teacher_export_hf_tiny_corpus.yaml",
+                ),
+                (
+                    sys.executable,
+                    "scripts/inspect_targets.py",
+                    HF_TINY_CORPUS_TARGETS,
+                ),
                 (
                     sys.executable,
                     "scripts/run_distill_stage.py",
@@ -252,6 +288,12 @@ def build_step_name(command: tuple[str, ...]) -> str:
     if script == "inspect_targets":
         target = command[-1] if command else ""
         return f"inspect_targets {Path(target).name}" if target else script
+    if script == "inspect_prompt_corpus":
+        target = command[-1] if command else ""
+        return f"inspect_prompt_corpus {Path(target).name}" if target else script
+    if script == "create_prompt_manifest":
+        target = _value_after(command, "scripts/create_prompt_manifest.py")
+        return f"create_prompt_manifest {Path(target).name}" if target else script
     if script == "train_student_smoke":
         architecture = (
             _option_value(command, "--student-architecture") or "tiny_student"

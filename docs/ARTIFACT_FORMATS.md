@@ -21,6 +21,9 @@ A bundle directory must contain:
 
 The manifest is pretty-printed UTF-8 JSON (`indent=2`, `sort_keys=True`) using
 the validated `TeacherTargetManifest` contract.
+New manifests may include `prompt_source`, which records prompt source
+metadata without full prompt text. For corpus-backed exports this includes the
+corpus ID/hash/path plus selected prompt IDs, split, tags, and limit.
 
 Example manifest:
 

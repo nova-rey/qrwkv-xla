@@ -37,6 +37,10 @@ class ExportTargetConfig:
     vocab_size: int = 512
     prompt_texts: tuple[str, ...] = field(default_factory=tuple)
     prompt_file: Path | None = None
+    prompt_corpus: Path | None = None
+    prompt_split: str | None = None
+    prompt_tags: tuple[str, ...] = field(default_factory=tuple)
+    prompt_limit: int | None = None
     max_new_tokens: int = 0
 
 
@@ -78,6 +82,8 @@ def validate_teacher_export_config(config: TeacherExportConfig) -> None:
     _require_positive("targets.sequence_length", config.targets.sequence_length)
     _require_non_negative("targets.vocab_size", config.targets.vocab_size)
     _require_non_negative("targets.max_new_tokens", config.targets.max_new_tokens)
+    if config.targets.prompt_limit is not None:
+        _require_positive("targets.prompt_limit", config.targets.prompt_limit)
 
     if config.targets.hidden_size is not None:
         _require_positive("targets.hidden_size", config.targets.hidden_size)
@@ -112,6 +118,29 @@ def validate_teacher_export_config(config: TeacherExportConfig) -> None:
     for index, prompt in enumerate(config.targets.prompt_texts):
         if not prompt.strip():
             raise ValueError(f"targets.prompt_texts[{index}] must be non-empty")
+    for index, tag in enumerate(config.targets.prompt_tags):
+        if not tag.strip():
+            raise ValueError(f"targets.prompt_tags[{index}] must be non-empty")
+
+    if config.targets.prompt_split is not None:
+        from qrwkv_xla.prompting import canonical_split
+
+        canonical_split(config.targets.prompt_split)
+
+    if (
+        config.targets.prompt_corpus is not None
+        and not config.targets.prompt_corpus.exists()
+    ):
+        raise ValueError(
+            f"targets.prompt_corpus path does not exist: {config.targets.prompt_corpus}"
+        )
+
+    if config.targets.prompt_corpus is not None and (
+        config.targets.prompt_texts or config.targets.prompt_file is not None
+    ):
+        raise ValueError(
+            "Use either prompt_texts/prompt_file or prompt_corpus, not both."
+        )
 
     if config.runtime.exporter_backend == "fake":
         _require_positive("targets.vocab_size", config.targets.vocab_size)
@@ -136,6 +165,11 @@ def load_teacher_export_config(path: str | Path) -> TeacherExportConfig:
     prompt_file = _optional_path(targets_data.get("prompt_file"))
     if prompt_file is not None and not prompt_file.is_absolute():
         prompt_file = config_path.parent / prompt_file
+    prompt_corpus = _optional_path(targets_data.get("prompt_corpus"))
+    if prompt_corpus is not None and not prompt_corpus.is_absolute():
+        config_relative = config_path.parent / prompt_corpus
+        repo_relative = config_path.parent.parent / prompt_corpus
+        prompt_corpus = config_relative if config_relative.exists() else repo_relative
     qwen_policy_path = _optional_path(runtime_data.get("qwen_policy_path"))
     if qwen_policy_path is not None and not qwen_policy_path.is_absolute():
         config_relative = config_path.parent / qwen_policy_path
@@ -172,6 +206,10 @@ def load_teacher_export_config(path: str | Path) -> TeacherExportConfig:
             vocab_size=int(targets_data.get("vocab_size", 512)),
             prompt_texts=_string_tuple(targets_data.get("prompt_texts", ())),
             prompt_file=prompt_file,
+            prompt_corpus=prompt_corpus,
+            prompt_split=_optional_str(targets_data.get("prompt_split")),
+            prompt_tags=_string_tuple(targets_data.get("prompt_tags", ())),
+            prompt_limit=_optional_int(targets_data.get("prompt_limit"), default=None),
             max_new_tokens=int(targets_data.get("max_new_tokens", 0)),
         ),
         runtime=ExportRuntimeConfig(
