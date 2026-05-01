@@ -8,10 +8,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 FAKE_TARGETS = "artifacts/teacher_targets/fake_export"
+FAKE_LOGITS_TARGETS = "artifacts/teacher_targets/fake_export_logits"
 HF_TINY_TARGETS = "artifacts/teacher_targets/hf_tiny"
 HF_TINY_CORPUS_TARGETS = "artifacts/teacher_targets/hf_tiny_corpus"
 CHECKPOINT_SMOKE = "checkpoints/pipeline_smoke/stage0"
 CHECKPOINT_SMOKE_RESUME = "checkpoints/pipeline_smoke/stage0_resume"
+CHECKPOINT_HIDDEN_FOR_LOGITS = "checkpoints/pipeline_hidden_only_for_logits"
+CHECKPOINT_HIDDEN_PLUS_LOGITS = "checkpoints/pipeline_hidden_plus_logits"
 TRACKING_SMOKE_ROOT = "runs/pipeline_smoke"
 
 
@@ -105,6 +108,13 @@ def build_validation_commands(
         (sys.executable, "scripts/inspect_targets.py", FAKE_TARGETS),
         (
             sys.executable,
+            "scripts/export_teacher_targets.py",
+            "--config",
+            "configs/teacher_export_stub_logits.yaml",
+        ),
+        (sys.executable, "scripts/inspect_targets.py", FAKE_LOGITS_TARGETS),
+        (
+            sys.executable,
             "scripts/train_student_smoke.py",
             "--targets",
             FAKE_TARGETS,
@@ -120,6 +130,14 @@ def build_validation_commands(
             FAKE_TARGETS,
             "--student-architecture",
             "rwkv7_reference",
+            "--max-steps",
+            max_steps_value,
+        ),
+        (
+            sys.executable,
+            "scripts/run_distill_stage.py",
+            "--config",
+            "configs/distill_stage0_logits_stub.yaml",
             "--max-steps",
             max_steps_value,
         ),
@@ -167,6 +185,34 @@ def build_validation_commands(
             CHECKPOINT_SMOKE,
             "--checkpoint-out",
             CHECKPOINT_SMOKE_RESUME,
+            "--checkpoint-overwrite",
+        ),
+        (
+            sys.executable,
+            "scripts/run_distill_stage.py",
+            "--config",
+            "configs/distill_stage0_stub.yaml",
+            "--targets",
+            FAKE_TARGETS,
+            "--max-steps",
+            "1",
+            "--checkpoint-out",
+            CHECKPOINT_HIDDEN_FOR_LOGITS,
+            "--checkpoint-overwrite",
+        ),
+        (
+            sys.executable,
+            "scripts/run_distill_stage.py",
+            "--config",
+            "configs/distill_stage0_logits_stub.yaml",
+            "--targets",
+            FAKE_LOGITS_TARGETS,
+            "--max-steps",
+            "1",
+            "--resume-from",
+            CHECKPOINT_HIDDEN_FOR_LOGITS,
+            "--checkpoint-out",
+            CHECKPOINT_HIDDEN_PLUS_LOGITS,
             "--checkpoint-overwrite",
         ),
         tuple(tpu_distill_command),

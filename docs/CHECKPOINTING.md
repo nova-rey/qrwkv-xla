@@ -71,3 +71,12 @@ When distillation tracking is enabled and no `checkpoint_out` is configured, the
 runner saves the final checkpoint at `runs/<run_id>/checkpoints/final`. This
 still uses the same simple JSON + NPZ checkpoint format and preserves explicit
 checkpoint paths when provided.
+## Resuming Hidden-Only Checkpoints Into Logits Students
+
+P13 supports a controlled hidden-only to logits continuation path. If a
+checkpoint was saved with `emit_logits=false` and a later run resumes it with
+`emit_logits=true`, the runner initializes a fresh current student, merges all
+matching checkpoint parameters, and keeps fresh LM head parameters.
+
+Architecture, `vocab_size`, `hidden_size`, and `num_layers` must match. Other
+missing or unexpected parameter paths still fail clearly.

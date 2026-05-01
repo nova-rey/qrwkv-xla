@@ -208,3 +208,20 @@
 - [x] Write `run.json`, `metrics.jsonl`, and `summary.json` under `runs/`.
 - [x] Default tracked final checkpoints to `runs/<run_id>/checkpoints/final`.
 - [x] Keep tracking disabled by default and offline-only.
+
+## P13 — Student LM Head + Logits KL Continuation
+
+- [x] Add LM head module
+- [x] Add TinyStudent logits support
+- [x] Add RWKV7ReferenceStudent logits support
+- [x] Extend student factory/config
+- [x] Wire logits KL config validation
+- [x] Add fake logits export config
+- [x] Add logits distill config
+- [x] Add hidden-only -> logits continuation support
+- [x] Add LM head/student/logits KL tests
+- [x] Update validation pipeline
+- [x] Add LOGITS_DISTILLATION.md
+- [x] Update docs
+- [x] Update snapshot
+- [x] Append Bible entry

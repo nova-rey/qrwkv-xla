@@ -13,6 +13,8 @@ class DistillStudentConfig:
     vocab_size: int = 512
     hidden_size: int | None = None
     num_layers: int | None = None
+    emit_logits: bool = False
+    tie_embeddings: bool = False
 
 
 @dataclass(frozen=True)
@@ -118,6 +120,12 @@ def validate_distill_stage_config(config: DistillStageConfig) -> None:
         raise ValueError("student.hidden_size must be > 0 when provided")
     if config.student.num_layers is not None and config.student.num_layers <= 0:
         raise ValueError("student.num_layers must be > 0 when provided")
+    if (
+        config.losses.logits_kl.enabled
+        and config.losses.logits_kl.weight > 0
+        and not config.student.emit_logits
+    ):
+        raise ValueError("logits_kl requires student.emit_logits=true")
     if config.optimizer.type != "sgd":
         raise ValueError("optimizer.type must be 'sgd' for P5")
     if config.optimizer.learning_rate <= 0:
@@ -173,6 +181,8 @@ def _load_student(data: Any) -> DistillStudentConfig:
         vocab_size=int(data.get("vocab_size", 512)),
         hidden_size=_optional_int(data.get("hidden_size")),
         num_layers=_optional_int(data.get("num_layers")),
+        emit_logits=bool(data.get("emit_logits", False)),
+        tie_embeddings=bool(data.get("tie_embeddings", False)),
     )
 
 

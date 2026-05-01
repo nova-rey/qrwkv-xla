@@ -1,0 +1,22 @@
+teacher:
+  family: qwen
+  policy_label: Qwen3.latest
+  fallback_label: Qwen3.0
+  resolved_model_id: null
+  tokenizer_id: null
+
+targets:
+  sequence_length: 64
+  hidden_size: 128
+  num_layers: 2
+  dtype: fp32
+  include_logits: true
+  include_attention_targets: false
+  vocab_size: 512
+
+runtime:
+  exporter_backend: fake
+  batch_size: 2
+  num_shards: 2
+  seed: 1234
+  output_dir: artifacts/teacher_targets/fake_export_logits

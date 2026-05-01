@@ -134,3 +134,8 @@ keeps checkpointing local, CPU-safe, offline, and under `checkpoints/`.
 P11 adds opt-in local run tracking for staged distillation. The next useful
 extensions are richer evaluation summaries and cross-run comparison helpers,
 still using local artifacts under `runs/`.
+
+## Phase 13 — Student LM Head + Logits KL Continuation
+
+Goal: add student logits output and logits KL distillation so hidden-only
+checkpoints can later continue toward output behavior.

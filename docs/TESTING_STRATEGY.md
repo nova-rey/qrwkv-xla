@@ -104,3 +104,8 @@ checkpoint smoke commands. The default pipeline writes only under
 Run tracking tests cover run id/path helpers, JSON-safe conversion, JSONL metric
 append behavior, CLI flags, and distillation integration. The default validation
 pipeline includes a one-step tracked distillation smoke under `runs/`.
+## P13 Logits Tests
+
+P13 adds fake logits KL smoke tests, LM head shape tests, student logits/JIT
+tests, checkpoint LM head persistence tests, and hidden-only to logits
+continuation tests. Default tests remain CPU-only and offline-safe.

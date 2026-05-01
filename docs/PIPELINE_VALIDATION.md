@@ -83,3 +83,8 @@ The default validation pipeline includes a one-step tracked distillation run
 under `runs/pipeline_smoke`. This verifies local `run.json`, `metrics.jsonl`,
 `summary.json`, and the tracked default checkpoint path without enabling any
 external service.
+## Logits KL Smoke
+
+The default pipeline exports fake logits targets, inspects them, runs
+`configs/distill_stage0_logits_stub.yaml`, and smokes hidden-only to logits
+checkpoint continuation. This remains CPU-only and network-free.

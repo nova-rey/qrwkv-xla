@@ -71,3 +71,8 @@ instead of failing training.
 Tracked distillation runs should reference teacher target manifests that now, in
 turn, can reference prompt corpus metadata through `prompt_source` when corpus
 exports are used.
+## Logits Metrics
+
+When logits KL is enabled, `metrics.jsonl` and `summary.json` include
+`logits_kl` / `final_logits_kl` alongside hidden loss metrics. Hidden-only runs
+continue to omit logits metrics.

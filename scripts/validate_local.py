@@ -8,6 +8,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 COMMANDS = [
     [sys.executable, "-m", "compileall", "src", "scripts", "tests"],
+    [
+        sys.executable,
+        "scripts/export_teacher_targets.py",
+        "--config",
+        "configs/teacher_export_stub_logits.yaml",
+    ],
+    [
+        sys.executable,
+        "scripts/run_distill_stage.py",
+        "--config",
+        "configs/distill_stage0_logits_stub.yaml",
+        "--max-steps",
+        "2",
+    ],
     [sys.executable, "scripts/validate_pipeline.py"],
     [sys.executable, "-m", "pytest"],
     [sys.executable, "-m", "ruff", "check", "."],

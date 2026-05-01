@@ -3,8 +3,10 @@ from __future__ import annotations
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any
 
 import jax
+import numpy as np
 
 from qrwkv_xla.checkpointing import load_checkpoint, save_checkpoint
 from qrwkv_xla.datasets.target_bundle import TargetBundleDataset
@@ -43,6 +45,7 @@ class DistillStageResult:
     run_dir: Path | None = None
     metrics_path: Path | None = None
     summary_path: Path | None = None
+    notes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -55,6 +58,13 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
     validate_distill_stage_config(config)
     dataset = TargetBundleDataset.from_path(config.targets_dir)
     manifest = read_manifest(manifest_path(config.targets_dir))
+    logits_kl_enabled = (
+        config.losses.logits_kl.enabled and config.losses.logits_kl.weight > 0
+    )
+    if logits_kl_enabled and not manifest.targets.logits:
+        raise ValueError(
+            "logits_kl is enabled but teacher targets do not include logits"
+        )
 
     hidden_size = config.student.hidden_size
     if hidden_size is None:
@@ -81,12 +91,16 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
         vocab_size=config.student.vocab_size,
         hidden_size=hidden_size,
         num_layers=num_layers,
+        emit_logits=config.student.emit_logits,
+        tie_embeddings=config.student.tie_embeddings,
     )
     student_config = {
         "architecture": config.student.architecture,
         "vocab_size": config.student.vocab_size,
         "hidden_size": hidden_size,
         "num_layers": num_layers,
+        "emit_logits": config.student.emit_logits,
+        "tie_embeddings": config.student.tie_embeddings,
     }
 
     train_step = make_train_step(
@@ -95,6 +109,7 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
     start_step = 0
     params = student.init_params(jax.random.PRNGKey(config.training.seed))
     parent_checkpoint_manifest: dict[str, object] | None = None
+    resume_notes: list[str] = []
     if config.checkpoint.resume_from is not None:
         loaded = load_checkpoint(config.checkpoint.resume_from)
         _validate_resume_checkpoint(
@@ -104,7 +119,13 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
             expected_student_config=student_config,
         )
         start_step = loaded.manifest.step
-        params = loaded.params
+        params, merge_notes = _merge_checkpoint_params_for_resume(
+            fresh_params=params,
+            checkpoint_params=loaded.params,
+            allow_missing_lm_head=config.student.emit_logits
+            and not bool(loaded.manifest.student_config.get("emit_logits", False)),
+        )
+        resume_notes.extend(merge_notes)
         parent_checkpoint_manifest = asdict(loaded.manifest)
 
     state = TrainState(
@@ -156,7 +177,7 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
             student=student_config,
             checkpoint=checkpoint_metadata,
             tags=config.tracking.tags,
-            notes=config.tracking.notes,
+            notes=[*config.tracking.notes, *resume_notes],
             overwrite=config.tracking.overwrite,
         )
         write_run_metadata(run_context)
@@ -202,6 +223,7 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
             notes=[
                 "simple JSON + NPZ checkpoint",
                 f"distillation stage {config.stage}",
+                *resume_notes,
             ],
             overwrite=checkpoint_overwrite,
         )
@@ -225,6 +247,7 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
                 "checkpoint_out": checkpoint_out,
                 "resume_from": config.checkpoint.resume_from,
                 "target_bundle": dataset.bundle_dir,
+                "notes": resume_notes,
             },
         )
     return DistillStageResult(
@@ -247,6 +270,7 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
         summary_path=(
             run_context.paths.summary_json if run_context is not None else None
         ),
+        notes=tuple(resume_notes),
     )
 
 
@@ -276,7 +300,7 @@ def _validate_resume_checkpoint(
     checkpoint_student_config: dict[str, object],
     *,
     expected_architecture: str,
-    expected_student_config: dict[str, int | str],
+    expected_student_config: dict[str, bool | int | str],
 ) -> None:
     if checkpoint_architecture != expected_architecture:
         raise ValueError(
@@ -291,6 +315,96 @@ def _validate_resume_checkpoint(
                 f"checkpoint student {name} mismatch: "
                 f"{checkpoint_value!r} != {expected_value!r}"
             )
+    for name in ("emit_logits", "tie_embeddings"):
+        checkpoint_value = bool(checkpoint_student_config.get(name, False))
+        expected_value = bool(expected_student_config[name])
+        if checkpoint_value == expected_value:
+            continue
+        checkpoint_emit_logits = bool(
+            checkpoint_student_config.get("emit_logits", False)
+        )
+        expected_emit_logits = bool(expected_student_config["emit_logits"])
+        if not checkpoint_emit_logits and expected_emit_logits:
+            continue
+        raise ValueError(
+            f"checkpoint student {name} mismatch: "
+            f"{checkpoint_value!r} != {expected_value!r}"
+        )
+
+
+def _merge_checkpoint_params_for_resume(
+    *,
+    fresh_params: Any,
+    checkpoint_params: Any,
+    allow_missing_lm_head: bool,
+) -> tuple[Any, list[str]]:
+    notes: list[str] = []
+    merged = _merge_param_tree(
+        fresh_params=fresh_params,
+        checkpoint_params=checkpoint_params,
+        path=(),
+        allow_missing_lm_head=allow_missing_lm_head,
+        notes=notes,
+    )
+    return merged, notes
+
+
+def _merge_param_tree(
+    *,
+    fresh_params: Any,
+    checkpoint_params: Any,
+    path: tuple[str, ...],
+    allow_missing_lm_head: bool,
+    notes: list[str],
+) -> Any:
+    if isinstance(fresh_params, dict):
+        if not isinstance(checkpoint_params, dict):
+            raise ValueError(
+                f"checkpoint params at {_format_param_path(path)} must be a dict"
+            )
+        merged = {}
+        for key, fresh_child in fresh_params.items():
+            child_path = (*path, str(key))
+            if key in checkpoint_params:
+                merged[key] = _merge_param_tree(
+                    fresh_params=fresh_child,
+                    checkpoint_params=checkpoint_params[key],
+                    path=child_path,
+                    allow_missing_lm_head=allow_missing_lm_head,
+                    notes=notes,
+                )
+            elif allow_missing_lm_head and key in {"lm_head", "lm_head_bias"}:
+                merged[key] = fresh_child
+                notes.append(
+                    "initialized missing LM head params during hidden-only to "
+                    "logits resume"
+                )
+            else:
+                raise ValueError(
+                    "checkpoint params are missing required path "
+                    f"{_format_param_path(child_path)}"
+                )
+        extra_keys = set(checkpoint_params) - set(fresh_params)
+        if extra_keys:
+            extra = ", ".join(sorted(str(key) for key in extra_keys))
+            raise ValueError(
+                f"checkpoint params contain unexpected paths under "
+                f"{_format_param_path(path)}: {extra}"
+            )
+        return merged
+
+    fresh_array = np.asarray(fresh_params)
+    checkpoint_array = np.asarray(checkpoint_params)
+    if fresh_array.shape != checkpoint_array.shape:
+        raise ValueError(
+            f"checkpoint param {_format_param_path(path)} shape mismatch: "
+            f"{checkpoint_array.shape} != {fresh_array.shape}"
+        )
+    return checkpoint_params
+
+
+def _format_param_path(path: tuple[str, ...]) -> str:
+    return ".".join(path) if path else "<root>"
 
 
 @dataclass(frozen=True)

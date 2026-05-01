@@ -177,6 +177,24 @@ See `docs/RUN_TRACKING.md`.
 On resume, `--max-steps` means additional steps for that invocation. See
 `docs/CHECKPOINTING.md`.
 
+Logits KL distillation uses target bundles that include teacher logits and a
+student with `emit_logits=true`:
+
+```bash
+python scripts/export_teacher_targets.py --config configs/teacher_export_stub_logits.yaml
+python scripts/run_distill_stage.py --config configs/distill_stage0_logits_stub.yaml --max-steps 2
+```
+
+Hidden-only checkpoints can continue into logits KL runs. Missing LM head
+parameters are initialized during that controlled resume path:
+
+```bash
+python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --targets artifacts/teacher_targets/fake_export --max-steps 2 --checkpoint-out checkpoints/hidden_only_for_logits --checkpoint-overwrite
+python scripts/run_distill_stage.py --config configs/distill_stage0_logits_stub.yaml --targets artifacts/teacher_targets/fake_export_logits --resume-from checkpoints/hidden_only_for_logits --checkpoint-out checkpoints/hidden_plus_logits --checkpoint-overwrite --max-steps 2
+```
+
+See `docs/LOGITS_DISTILLATION.md`.
+
 ## Reference
 
 This project uses `nova-rey/radlads-TPU-adapter` as a conceptual and

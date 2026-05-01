@@ -103,3 +103,10 @@ small local-file layer around the canonical `qrwkv_xla.distill` runner:
 `run.json` captures metadata, `metrics.jsonl` records per-step metrics, and
 `summary.json` records final outcomes. It has no service dependency and remains
 disabled unless config or CLI flags enable it.
+## Student LM Head
+
+P13 adds an optional LM head to student architectures. With
+`emit_logits=false`, students preserve hidden-only behavior. With
+`emit_logits=true`, students return logits shaped `[batch, sequence, vocab]`.
+Untied LM heads are the default; tied embeddings are supported where the token
+embedding shape is `[vocab, hidden]`.

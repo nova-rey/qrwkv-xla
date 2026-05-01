@@ -171,3 +171,11 @@ provenance metadata without storing full prompt texts.
 Default validation inspects the smoke corpus, creates its manifest, and dry-runs
 the Qwen corpus config without importing Hugging Face modules or requiring
 `teacher-hf`. The HF corpus export remains opt-in through `--include-hf`.
+
+## Phase 13 — Student LM Head and Logits KL Continuation
+
+This phase gives QRWKV-XLA students an optional LM head so they can emit logits
+in addition to hidden states. The distillation runtime can train with logits KL
+when teacher logits are available, enabling a staged path from hidden-only
+alignment into output-behavior distillation. Fake logits smoke configs keep the
+default validation path CPU-only and network-free.

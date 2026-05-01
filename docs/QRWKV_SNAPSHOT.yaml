@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 12
-checkpoint: prompt_corpus_export_set_management
+phase: 13
+checkpoint: student_lm_head_logits_kl_continuation
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -42,10 +42,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add prompt corpus JSONL, corpus manifests, stable hashes, deterministic
-  splits, corpus inspection tools, corpus-based teacher export configs, and
-  target-manifest prompt-source provenance so teacher artifacts can be
-  reproduced and compared.
+  Add optional student LM heads, logits output, logits KL distillation, fake
+  logits smoke configs, and checkpoint continuation support so hidden-only
+  checkpoints can later continue with output-behavior distillation.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -64,3 +63,9 @@ prompt_corpora:
   directory: corpora/
   hash: ordered_sha256
   target_manifest_linkage: prompt_source
+
+logits_distillation:
+  student_emit_logits: optional
+  default_tie_embeddings: false
+  fake_logits_validation: true
+  hidden_to_logits_resume: supported_with_fresh_lm_head

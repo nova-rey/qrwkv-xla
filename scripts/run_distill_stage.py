@@ -26,9 +26,18 @@ def main() -> None:
     parser.add_argument("--run-tag", action="append", default=[])
     parser.add_argument("--run-note", action="append", default=[])
     parser.add_argument("--run-overwrite", action="store_true")
+    parser.add_argument("--emit-logits", action="store_true")
+    parser.add_argument("--tie-embeddings", action="store_true")
+    parser.add_argument("--enable-logits-kl", action="store_true")
+    parser.add_argument("--logits-kl-weight", type=float)
+    parser.add_argument("--hidden-mse-weight", type=float)
     args = parser.parse_args()
 
-    from qrwkv_xla.distill import load_distill_stage_config, run_distill_stage
+    from qrwkv_xla.distill import (
+        LossWeightConfig,
+        load_distill_stage_config,
+        run_distill_stage,
+    )
 
     config = load_distill_stage_config(args.config)
     if args.targets:
@@ -37,6 +46,15 @@ def main() -> None:
         config = replace(
             config,
             student=replace(config.student, architecture=args.student_architecture),
+        )
+    if args.emit_logits or args.tie_embeddings:
+        config = replace(
+            config,
+            student=replace(
+                config.student,
+                emit_logits=args.emit_logits or config.student.emit_logits,
+                tie_embeddings=args.tie_embeddings or config.student.tie_embeddings,
+            ),
         )
     if args.max_steps is not None:
         config = replace(
@@ -97,10 +115,45 @@ def main() -> None:
                 overwrite=args.run_overwrite or config.tracking.overwrite,
             ),
         )
+    if (
+        args.enable_logits_kl
+        or args.logits_kl_weight is not None
+        or args.hidden_mse_weight is not None
+    ):
+        logits_weight = (
+            args.logits_kl_weight
+            if args.logits_kl_weight is not None
+            else config.losses.logits_kl.weight
+        )
+        hidden_weight = (
+            args.hidden_mse_weight
+            if args.hidden_mse_weight is not None
+            else config.losses.hidden_mse.weight
+        )
+        config = replace(
+            config,
+            losses=replace(
+                config.losses,
+                hidden_mse=LossWeightConfig(
+                    enabled=config.losses.hidden_mse.enabled,
+                    weight=hidden_weight,
+                ),
+                logits_kl=LossWeightConfig(
+                    enabled=args.enable_logits_kl or config.losses.logits_kl.enabled,
+                    weight=logits_weight,
+                ),
+            ),
+        )
 
     result = run_distill_stage(config)
     print(f"stage: {result.stage}")
     print(f"student_architecture: {result.student_architecture}")
+    print(f"emit_logits: {config.student.emit_logits}")
+    print(f"tie_embeddings: {config.student.tie_embeddings}")
+    print(
+        "logits_kl_enabled: "
+        f"{config.losses.logits_kl.enabled and config.losses.logits_kl.weight > 0}"
+    )
     print(f"targets: {result.target_bundle}")
     print(f"steps: {result.steps}")
     print(f"start_step: {result.start_step}")

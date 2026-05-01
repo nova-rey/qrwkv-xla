@@ -6,6 +6,11 @@ import jax
 import jax.numpy as jnp
 
 from qrwkv_xla.students.base import StudentOutput
+from qrwkv_xla.students.lm_head import (
+    apply_lm_head,
+    apply_tied_lm_head,
+    init_lm_head_params,
+)
 
 
 @dataclass(frozen=True)
@@ -14,6 +19,8 @@ class RWKV7ReferenceConfig:
     hidden_size: int = 128
     num_layers: int = 2
     init_scale: float = 0.02
+    emit_logits: bool = False
+    tie_embeddings: bool = False
 
     def __post_init__(self) -> None:
         for name in ("vocab_size", "hidden_size", "num_layers"):
@@ -76,14 +83,14 @@ class RWKV7ReferenceStudent:
     config: RWKV7ReferenceConfig
 
     def init_params(self, key: jax.Array) -> dict[str, jax.Array]:
-        keys = jax.random.split(key, 8)
+        keys = jax.random.split(key, 9)
         matrix_shape = (
             self.config.num_layers,
             self.config.hidden_size,
             self.config.hidden_size,
         )
         vector_shape = (self.config.num_layers, self.config.hidden_size)
-        return {
+        params = {
             "embedding": jax.random.normal(
                 keys[0],
                 (self.config.vocab_size, self.config.hidden_size),
@@ -99,6 +106,18 @@ class RWKV7ReferenceStudent:
             "time_bias": jax.random.normal(keys[7], vector_shape)
             * self.config.init_scale,
         }
+        if self.config.emit_logits and not self.config.tie_embeddings:
+            params["lm_head"] = init_lm_head_params(
+                keys[8],
+                hidden_size=self.config.hidden_size,
+                vocab_size=self.config.vocab_size,
+                init_scale=self.config.init_scale,
+            )
+        elif self.config.emit_logits:
+            params["lm_head_bias"] = jnp.zeros(
+                (self.config.vocab_size,), dtype=jnp.float32
+            )
+        return params
 
     def apply(
         self,
@@ -127,4 +146,14 @@ class RWKV7ReferenceStudent:
             layers.append(x)
 
         hidden_states = jnp.stack(layers, axis=1)
-        return StudentOutput(hidden_states=hidden_states)
+        logits = None
+        if self.config.emit_logits:
+            if self.config.tie_embeddings:
+                logits = apply_tied_lm_head(
+                    x,
+                    params["embedding"],
+                    params.get("lm_head_bias"),
+                )
+            else:
+                logits = apply_lm_head(x, params["lm_head"])
+        return StudentOutput(hidden_states=hidden_states, logits=logits)

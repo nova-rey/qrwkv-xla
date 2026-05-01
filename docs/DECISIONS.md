@@ -195,3 +195,21 @@ to the exact prompt set used for export.
 P12 corpus hashes preserve record order. This is acceptable for now because
 prompt order can affect batching and export behavior, and the goal is to track
 exact export inputs rather than only unordered prompt membership.
+## D039 — LM Head Before Generation
+
+QRWKV-XLA adds student logits output before implementing text generation.
+Logits are first needed for output-distribution distillation through KL loss;
+autoregressive decoding can come later.
+
+## D040 — Hidden-Only Checkpoints Can Become Logits Continuation Runs
+
+The staged distillation path is hidden-state alignment first, then resumed
+continuation with logits KL once a student LM head exists. Missing LM head
+parameters may be initialized during a controlled resume from hidden-only
+checkpoints.
+
+## D041 — Tied Embeddings Are Optional
+
+Student LM heads support optional tied embeddings where practical, but untied
+LM heads remain the simple default for clear checkpoint behavior and shape
+validation.

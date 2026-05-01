@@ -137,3 +137,13 @@ creates a run directory under `runs/`, writes metadata before the training loop,
 appends per-step metrics to JSONL, and writes a final summary after checkpoint
 save. If no checkpoint output is configured, the final checkpoint defaults to
 `runs/<run_id>/checkpoints/final`.
+## Logits KL Continuation
+
+Students can opt into logits output with `student.emit_logits=true`. When
+`losses.logits_kl` is enabled with positive weight, the runner requires both a
+logits-capable student and teacher targets that include logits. Per-step
+metrics include `logits_kl` when that loss is active.
+
+Hidden-only checkpoints can be resumed into logits-enabled runs when the shared
+student config still matches. The runner initializes fresh current params,
+loads matching checkpoint params, and keeps fresh LM head params.

@@ -137,3 +137,8 @@ python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --
 ```
 
 Generated runs are ignored by git under `runs/`.
+## Logits KL Checks
+
+When enabling logits KL, confirm the teacher target bundle includes logits and
+that the student config has `emit_logits=true`. Real Qwen logits exports should
+be treated as expensive and optional, not part of default validation.

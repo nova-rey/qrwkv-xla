@@ -14,6 +14,8 @@ def create_student(
     vocab_size: int,
     hidden_size: int,
     num_layers: int,
+    emit_logits: bool = False,
+    tie_embeddings: bool = False,
 ) -> StudentModel:
     if architecture == "tiny_student":
         return TinyStudent(
@@ -21,6 +23,8 @@ def create_student(
                 vocab_size=vocab_size,
                 hidden_size=hidden_size,
                 num_layers=num_layers,
+                emit_logits=emit_logits,
+                tie_embeddings=tie_embeddings,
             )
         )
     if architecture == "rwkv7_reference":
@@ -29,6 +33,8 @@ def create_student(
                 vocab_size=vocab_size,
                 hidden_size=hidden_size,
                 num_layers=num_layers,
+                emit_logits=emit_logits,
+                tie_embeddings=tie_embeddings,
             )
         )
     raise ValueError(f"Unknown student architecture: {architecture}")
