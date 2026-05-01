@@ -91,6 +91,13 @@ Tracked distillation runs record `lr_schedule` metadata in `run.json` and
 `base_learning_rate`, `global_step`, and `local_step`; metric `extra` includes
 `lr_schedule_type`.
 
+## Gradient Clipping Metrics
+
+Tracked distillation runs record gradient clipping config in `run.json` and
+`summary.json`. Per-step metrics include `grad_global_norm`,
+`grad_clipped_global_norm`, `grad_clip_scale`, `grad_was_clipped`, and
+`max_grad_norm`.
+
 ## Generation Outputs
 
 P14 generation smoke writes local `generations.jsonl` and `summary.json`

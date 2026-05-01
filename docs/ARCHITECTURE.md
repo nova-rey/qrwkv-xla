@@ -104,6 +104,12 @@ by the distillation runner: SGD, Adam, and AdamW with decoupled weight decay.
 The implementation uses JAX pytrees and avoids adding Optax until optimizer
 complexity justifies a dependency.
 
+## Gradient Clipping Boundary
+
+The `qrwkv_xla.training` package contains dependency-light train-step utilities
+shared by the distillation path. Global norm clipping is applied before
+optimizer updates so optimizer state observes clipped gradients.
+
 ## Learning Rate Schedule Boundary
 
 The `qrwkv_xla.schedules` package contains the local scheduler surface. It

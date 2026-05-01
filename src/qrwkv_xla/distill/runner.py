@@ -51,6 +51,9 @@ class DistillStageResult:
     lr_schedule_type: str = "constant"
     initial_learning_rate: float | None = None
     final_learning_rate: float | None = None
+    final_grad_global_norm: float | None = None
+    final_grad_clipped_global_norm: float | None = None
+    final_grad_clip_scale: float | None = None
 
 
 @dataclass(frozen=True)
@@ -113,6 +116,8 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
         student.apply,
         distillation_loss=_make_train_loss(config),
         optimizer_config=optimizer_config,
+        max_grad_norm=config.gradients.max_grad_norm,
+        clip_epsilon=config.gradients.clip_epsilon,
     )
     start_step = 0
     params = student.init_params(jax.random.PRNGKey(config.training.seed))
@@ -202,6 +207,7 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
                     step=start_step,
                     include_step=False,
                 ),
+                "gradients": asdict(config.gradients),
                 "training": asdict(config.training),
                 "losses": asdict(config.losses),
             },
@@ -279,6 +285,7 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
                 config=config,
                 step=state.step,
             ),
+            gradients=asdict(config.gradients),
             notes=[
                 "simple JSON + NPZ checkpoint",
                 f"distillation stage {config.stage}",
@@ -314,6 +321,12 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
                     step=state.step,
                 ),
                 "lr_schedule_type": config.lr_schedule.type,
+                "gradients": asdict(config.gradients),
+                "final_grad_global_norm": final_metrics.get("grad_global_norm"),
+                "final_grad_clipped_global_norm": final_metrics.get(
+                    "grad_clipped_global_norm"
+                ),
+                "final_grad_clip_scale": final_metrics.get("grad_clip_scale"),
                 "checkpoint_out": checkpoint_out,
                 "resume_from": config.checkpoint.resume_from,
                 "target_bundle": dataset.bundle_dir,
@@ -344,6 +357,9 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
         lr_schedule_type=config.lr_schedule.type,
         initial_learning_rate=initial_learning_rate,
         final_learning_rate=final_learning_rate,
+        final_grad_global_norm=final_metrics.get("grad_global_norm"),
+        final_grad_clipped_global_norm=final_metrics.get("grad_clipped_global_norm"),
+        final_grad_clip_scale=final_metrics.get("grad_clip_scale"),
     )
 
 

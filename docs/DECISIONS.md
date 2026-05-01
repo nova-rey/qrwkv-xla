@@ -219,6 +219,13 @@ QRWKV-XLA implements a tiny greedy generation smoke path before adding benchmark
 or quality evaluation. The first goal is to verify checkpoint loading, logits
 availability, decoding loop behavior, and artifact writing.
 
+## D043 — Gradient Clipping Is Simple Global Norm
+
+P18 uses dependency-light global norm clipping inside the distillation train
+step. Clipping is applied after gradient computation and before optimizer
+updates. Per-layer clipping, value clipping, adaptive clipping, distributed norm
+reduction, and loss scaling remain deferred.
+
 ## D043 — SmokeTokenizer Avoids Required Tokenizer Dependencies
 
 P14 uses a dependency-free smoke tokenizer for default generation tests so CI

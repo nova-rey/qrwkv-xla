@@ -213,3 +213,12 @@ This phase adds learning rate schedules to the distillation runtime. QRWKV-XLA
 now supports constant and warmup-cosine schedules, uses resume-aware global step
 counting, records scheduled learning rates in metrics, and stores schedule
 metadata in checkpoints and tracked runs.
+
+## Phase 18 — Gradient Clipping
+
+This phase adds simple global gradient norm clipping to the distillation train
+step. The runner computes pre-clip norm, applies an optional global scale before
+the optimizer update, and logs post-clip norm, scale, clipped flag, and max norm
+per step. Checkpoints and tracked runs record gradient config metadata, and the
+validation pipeline includes a clipped AdamW smoke while preserving unclipped
+paths.

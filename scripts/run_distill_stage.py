@@ -28,6 +28,9 @@ def main() -> None:
     parser.add_argument("--warmup-steps", type=int)
     parser.add_argument("--total-steps", type=int)
     parser.add_argument("--min-learning-rate", type=float)
+    parser.add_argument("--max-grad-norm", type=float)
+    parser.add_argument("--disable-grad-clipping", action="store_true")
+    parser.add_argument("--clip-epsilon", type=float)
     parser.add_argument("--seed", type=int)
     parser.add_argument("--checkpoint-out")
     parser.add_argument("--resume-from")
@@ -46,10 +49,14 @@ def main() -> None:
     args = parser.parse_args()
 
     from qrwkv_xla.distill import (
+        DistillGradientConfig,
         LossWeightConfig,
         load_distill_stage_config,
         run_distill_stage,
     )
+
+    if args.max_grad_norm is not None and args.disable_grad_clipping:
+        parser.error("--max-grad-norm conflicts with --disable-grad-clipping")
 
     config = load_distill_stage_config(args.config)
     if args.targets:
@@ -126,6 +133,30 @@ def main() -> None:
                 min_learning_rate=args.min_learning_rate
                 if args.min_learning_rate is not None
                 else config.lr_schedule.min_learning_rate,
+            ),
+        )
+    if (
+        args.max_grad_norm is not None
+        or args.disable_grad_clipping
+        or args.clip_epsilon is not None
+    ):
+        config = replace(
+            config,
+            gradients=DistillGradientConfig(
+                max_grad_norm=(
+                    None
+                    if args.disable_grad_clipping
+                    else (
+                        args.max_grad_norm
+                        if args.max_grad_norm is not None
+                        else config.gradients.max_grad_norm
+                    )
+                ),
+                clip_epsilon=(
+                    args.clip_epsilon
+                    if args.clip_epsilon is not None
+                    else config.gradients.clip_epsilon
+                ),
             ),
         )
     if args.seed is not None:
@@ -216,6 +247,8 @@ def main() -> None:
     print(f"optimizer: {config.optimizer.type}")
     print(f"base_learning_rate: {config.optimizer.learning_rate}")
     print(f"lr_schedule: {config.lr_schedule.type}")
+    print(f"max_grad_norm: {config.gradients.max_grad_norm}")
+    print(f"clip_epsilon: {config.gradients.clip_epsilon}")
     print(f"initial_learning_rate: {result.initial_learning_rate}")
     print(f"final_learning_rate: {result.final_learning_rate}")
     print(f"learning_rate: {result.final_learning_rate}")
@@ -243,6 +276,15 @@ def main() -> None:
         print(f"final_hidden_mse: {result.final_hidden_mse:.8f}")
     if result.final_logits_kl is not None:
         print(f"final_logits_kl: {result.final_logits_kl:.8f}")
+    if result.final_grad_global_norm is not None:
+        print(f"final_grad_global_norm: {result.final_grad_global_norm:.8f}")
+    if result.final_grad_clipped_global_norm is not None:
+        print(
+            "final_grad_clipped_global_norm: "
+            f"{result.final_grad_clipped_global_norm:.8f}"
+        )
+    if result.final_grad_clip_scale is not None:
+        print(f"final_grad_clip_scale: {result.final_grad_clip_scale:.8f}")
 
 
 if __name__ == "__main__":

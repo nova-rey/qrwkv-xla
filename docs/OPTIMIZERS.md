@@ -71,3 +71,10 @@ Distillation checkpoints persist optimizer config and optimizer state in the
 existing JSON + NPZ format so resume continues Adam/AdamW moments. Older
 checkpoints without optimizer state still load; resume initializes fresh
 optimizer state at the checkpoint step and records a note.
+
+## Gradient Clipping
+
+When `distillation.gradients.max_grad_norm` is set, the distillation train step
+clips by global norm before calling the optimizer. Adam and AdamW first and
+second moments are therefore updated from clipped gradients. See
+`docs/GRADIENT_CLIPPING.md`.

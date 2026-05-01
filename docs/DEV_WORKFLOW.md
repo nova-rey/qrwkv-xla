@@ -70,6 +70,9 @@ For non-smoke distillation runs, report schedule type, base learning rate,
 warmup steps, total steps, minimum learning rate, and whether the run resumed
 from a checkpoint step.
 
+For clipped distillation runs, also report `max_grad_norm`, `clip_epsilon`, the
+final pre-clip norm, final post-clip norm, and final clip scale.
+
 For Phase 4 student-runtime work, the validation path must include both smoke
 training commands:
 
@@ -165,3 +168,9 @@ P15 eval outputs alone.
 Optimizer work should stay inside `qrwkv_xla.optimizers` plus the distillation
 runner/checkpoint boundaries. Do not add Optax or other optimizer frameworks
 until a later phase explicitly expands the dependency budget.
+
+## Gradient Clipping Changes
+
+Gradient clipping should remain global norm only unless a later phase expands
+scope. Apply clipping after gradients are computed and before optimizer updates
+so Adam/AdamW moments observe clipped gradients.

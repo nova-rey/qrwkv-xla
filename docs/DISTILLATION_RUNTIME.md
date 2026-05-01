@@ -35,6 +35,8 @@ Supported sections:
 - `targets_dir`
 - `student`
 - `optimizer`
+- `lr_schedule`
+- `gradients`
 - `training`
 - `losses`
 
@@ -144,6 +146,14 @@ Distillation supports `constant` and `warmup_cosine` learning-rate schedules via
 `distillation.lr_schedule` or CLI flags. The runner evaluates the schedule once
 per update using the global step, applies the scheduled value to the optimizer,
 and records both base and scheduled learning rates in tracked metrics.
+
+## Gradient Clipping
+
+Distillation supports optional global norm clipping via `distillation.gradients`
+or CLI flags. Clipping is applied after gradient computation and before the
+optimizer update, so Adam/AdamW moments see clipped gradients. Per-step metrics
+record pre-clip norm, post-clip norm, clip scale, whether clipping occurred, and
+the configured max norm. See `docs/GRADIENT_CLIPPING.md`.
 ## Run tracking
 
 The distillation runner accepts an opt-in `tracking` config. When enabled, it

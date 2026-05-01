@@ -136,3 +136,10 @@ P16 adds focused optimizer tests for SGD behavior preservation, Adam bias
 correction, AdamW decoupled weight decay, config validation, optimizer-state
 checkpoint round trips, distillation integration, run metrics, and CLI
 overrides. These tests are CPU-only and require no network or new dependencies.
+
+## P18 Gradient Clipping Coverage
+
+P18 adds CPU-only tests for global norm math, disabled clipping behavior,
+distillation metrics/provenance, checkpoint compatibility, CLI overrides and
+flag conflicts, plus a clipped AdamW validation pipeline smoke. The default
+pipeline still keeps at least one unclipped distillation path.

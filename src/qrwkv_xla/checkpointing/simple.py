@@ -30,6 +30,7 @@ class CheckpointManifest:
     optimizer_config: dict[str, Any] = field(default_factory=dict)
     optimizer_state: dict[str, Any] | None = None
     lr_schedule: dict[str, Any] = field(default_factory=dict)
+    gradients: dict[str, Any] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
 
 
@@ -61,6 +62,7 @@ def save_checkpoint(
     optimizer_config: Any | None = None,
     optimizer_state: OptimizerState | None = None,
     lr_schedule: Any | None = None,
+    gradients: Any | None = None,
     notes: Sequence[str] | None = None,
     overwrite: bool = False,
     created_by: str = CREATED_BY,
@@ -114,6 +116,7 @@ def save_checkpoint(
         ),
         optimizer_state=optimizer_state_tree,
         lr_schedule=_required_json_dict(_jsonable(lr_schedule or {}), "lr_schedule"),
+        gradients=_required_json_dict(_jsonable(gradients or {}), "gradients"),
         notes=list(notes or []),
     )
     validate_checkpoint_manifest(manifest)
@@ -182,6 +185,8 @@ def validate_checkpoint_manifest(manifest: CheckpointManifest) -> None:
         raise ValueError("checkpoint manifest optimizer_config must be a mapping")
     if not isinstance(manifest.lr_schedule, dict):
         raise ValueError("checkpoint manifest lr_schedule must be a mapping")
+    if not isinstance(manifest.gradients, dict):
+        raise ValueError("checkpoint manifest gradients must be a mapping")
     if manifest.optimizer_state is not None:
         if not isinstance(manifest.optimizer_state, dict):
             raise ValueError("checkpoint manifest optimizer_state must be a mapping")
@@ -355,6 +360,7 @@ def _parse_manifest(raw: Any) -> CheckpointManifest:
         else {},
         optimizer_state=raw.get("optimizer_state"),
         lr_schedule=_required_dict(raw, "lr_schedule") if "lr_schedule" in raw else {},
+        gradients=_required_dict(raw, "gradients") if "gradients" in raw else {},
         notes=_required_string_list(raw.get("notes", []), "notes"),
     )
     validate_checkpoint_manifest(manifest)

@@ -23,7 +23,8 @@ part of default CI.
 The default path also inspects the smoke prompt corpus, creates its manifest,
 dry-runs the Qwen corpus config without importing Hugging Face modules, and
 runs a tiny greedy generation smoke from a logits-capable checkpoint, and runs
-the non-strict regression evaluation harness on fixed prompts.
+the non-strict regression evaluation harness on fixed prompts. It also includes
+a clipped AdamW distillation smoke while preserving unclipped smoke paths.
 
 ## Local Mirror
 

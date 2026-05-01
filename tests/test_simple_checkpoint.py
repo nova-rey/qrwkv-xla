@@ -67,6 +67,51 @@ def test_load_checkpoint_allows_missing_lr_schedule_metadata(tmp_path: Path) -> 
     assert loaded.manifest.lr_schedule == {}
 
 
+def test_load_checkpoint_allows_missing_gradient_metadata(tmp_path: Path) -> None:
+    checkpoint_dir = tmp_path / "checkpoints" / "old_gradients"
+    save_checkpoint(
+        checkpoint_dir,
+        {"x": np.ones((1,))},
+        student_architecture="tiny_student",
+        student_config={"vocab_size": 1, "hidden_size": 1, "num_layers": 1},
+        step=1,
+        learning_rate=0.1,
+        loss_config={"hidden_mse": {"enabled": True, "weight": 1.0}},
+        target_manifest={"hidden_size": 1, "num_layers": 1},
+        gradients={"max_grad_norm": 1.0, "clip_epsilon": 1e-6},
+    )
+    manifest_path = checkpoint_dir / "checkpoint.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest.pop("gradients")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    loaded = load_checkpoint(checkpoint_dir)
+
+    assert loaded.manifest.gradients == {}
+
+
+def test_save_checkpoint_includes_gradient_metadata(tmp_path: Path) -> None:
+    checkpoint_dir = tmp_path / "checkpoints" / "gradients"
+
+    save_checkpoint(
+        checkpoint_dir,
+        {"x": np.ones((1,))},
+        student_architecture="tiny_student",
+        student_config={"vocab_size": 1, "hidden_size": 1, "num_layers": 1},
+        step=1,
+        learning_rate=0.1,
+        loss_config={"hidden_mse": {"enabled": True, "weight": 1.0}},
+        target_manifest={"hidden_size": 1, "num_layers": 1},
+        gradients={"max_grad_norm": 1.0, "clip_epsilon": 1e-6},
+    )
+    loaded = load_checkpoint(checkpoint_dir)
+
+    assert loaded.manifest.gradients == {
+        "max_grad_norm": 1.0,
+        "clip_epsilon": 1e-6,
+    }
+
+
 def test_save_and_load_rwkv7_reference_params(tmp_path: Path) -> None:
     checkpoint_dir = tmp_path / "checkpoints" / "rwkv7"
     student = create_student(

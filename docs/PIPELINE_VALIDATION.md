@@ -106,6 +106,13 @@ The default pipeline also runs
 tiny warmup-cosine learning-rate schedule. This keeps scheduler coverage in the
 CPU-only, network-free validation path.
 
+## Clipped AdamW Smoke
+
+The default pipeline also runs
+`configs/distill_stage0_adamw_clipped_stub.yaml`, which combines AdamW,
+warmup-cosine scheduling, and global norm clipping. Existing unclipped SGD and
+AdamW paths remain in the validation list.
+
 ## Generation Smoke
 
 Default pipeline validation now produces a tiny logits-capable checkpoint and

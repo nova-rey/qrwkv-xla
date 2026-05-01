@@ -59,5 +59,6 @@ extras include `lr_schedule_type`.
 
 ## Limitations
 
-P17 does not add Optax, one-cycle or polynomial schedules, per-layer learning
-rates, parameter freezing, gradient clipping, or sharded scheduler state.
+P17 did not add Optax, one-cycle or polynomial schedules, per-layer learning
+rates, parameter freezing, or sharded scheduler state. P18 adds simple global
+gradient norm clipping as a separate train-step guardrail.

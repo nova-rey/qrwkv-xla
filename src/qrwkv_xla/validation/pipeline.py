@@ -15,6 +15,7 @@ CHECKPOINT_SMOKE = "checkpoints/pipeline_smoke/stage0"
 CHECKPOINT_SMOKE_RESUME = "checkpoints/pipeline_smoke/stage0_resume"
 CHECKPOINT_ADAMW_SMOKE = "checkpoints/pipeline_smoke/adamw"
 CHECKPOINT_SCHEDULED_ADAMW_SMOKE = "checkpoints/pipeline_smoke/adamw_schedule"
+CHECKPOINT_CLIPPED_ADAMW_SMOKE = "checkpoints/pipeline_smoke/adamw_clipped"
 CHECKPOINT_HIDDEN_FOR_LOGITS = "checkpoints/pipeline_hidden_only_for_logits"
 CHECKPOINT_HIDDEN_PLUS_LOGITS = "checkpoints/pipeline_hidden_plus_logits"
 EVAL_GENERATION_SMOKE = "eval_outputs/pipeline_generation_smoke"
@@ -126,6 +127,17 @@ def build_validation_commands(
             max_steps_value,
             "--checkpoint-out",
             CHECKPOINT_SCHEDULED_ADAMW_SMOKE,
+            "--checkpoint-overwrite",
+        ),
+        (
+            sys.executable,
+            "scripts/run_distill_stage.py",
+            "--config",
+            "configs/distill_stage0_adamw_clipped_stub.yaml",
+            "--max-steps",
+            "1",
+            "--checkpoint-out",
+            CHECKPOINT_CLIPPED_ADAMW_SMOKE,
             "--checkpoint-overwrite",
         ),
         (
@@ -400,6 +412,9 @@ def build_step_name(command: tuple[str, ...]) -> str:
         )
         return f"train_student_smoke {architecture}"
     if script == "run_distill_stage":
+        config = _config_stem(command)
+        if config == "distill_stage0_adamw_clipped_stub":
+            return "run_distill_stage adamw clipped"
         optimizer = _option_value(command, "--optimizer")
         if optimizer:
             return f"run_distill_stage {optimizer}"

@@ -25,6 +25,7 @@ def test_missing_sections_use_defaults(tmp_path: Path) -> None:
     assert config.training.max_steps == 7
     assert config.losses.hidden_mse.enabled is True
     assert config.checkpoint.checkpoint_out is None
+    assert config.gradients.max_grad_norm is None
 
 
 def test_missing_top_level_distillation_key_raises(tmp_path: Path) -> None:
@@ -84,6 +85,43 @@ def test_lr_schedule_config_loads(tmp_path: Path) -> None:
     assert config.lr_schedule.warmup_steps == 1
     assert config.lr_schedule.total_steps == 4
     assert config.lr_schedule.min_learning_rate == 0.0001
+
+
+def test_gradient_config_loads(tmp_path: Path) -> None:
+    path = tmp_path / "distill.yaml"
+    path.write_text(
+        (
+            "distillation:\n"
+            "  gradients:\n"
+            "    max_grad_norm: 1.0\n"
+            "    clip_epsilon: 0.000001\n"
+        ),
+        encoding="utf-8",
+    )
+    config = load_distill_stage_config(path)
+
+    assert config.gradients.max_grad_norm == 1.0
+    assert config.gradients.clip_epsilon == 0.000001
+
+
+def test_invalid_gradient_config_raises(tmp_path: Path) -> None:
+    path = tmp_path / "distill.yaml"
+    path.write_text(
+        ("distillation:\n  gradients:\n    max_grad_norm: 0\n"),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="max_grad_norm"):
+        load_distill_stage_config(path)
+
+
+def test_invalid_clip_epsilon_raises(tmp_path: Path) -> None:
+    path = tmp_path / "distill.yaml"
+    path.write_text(
+        ("distillation:\n  gradients:\n    clip_epsilon: 0\n"),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="clip_epsilon"):
+        load_distill_stage_config(path)
 
 
 def test_invalid_optimizer_raises(tmp_path: Path) -> None:

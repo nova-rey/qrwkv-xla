@@ -37,6 +37,9 @@ def test_default_command_list_includes_expected_safe_commands() -> None:
     assert any("rwkv7_reference" in command for command in joined)
     assert any("scripts/run_distill_stage.py" in command for command in joined)
     assert any("--optimizer adamw" in command for command in joined)
+    assert any(
+        "distill_stage0_adamw_clipped_stub.yaml" in command for command in joined
+    )
     assert any("--track-run" in command for command in joined)
     assert any("--run-root runs/pipeline_smoke" in command for command in joined)
     assert any(

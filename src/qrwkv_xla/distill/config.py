@@ -47,6 +47,12 @@ DistillLRScheduleConfig = LearningRateScheduleConfig
 
 
 @dataclass(frozen=True)
+class DistillGradientConfig:
+    max_grad_norm: float | None = None
+    clip_epsilon: float = 1e-6
+
+
+@dataclass(frozen=True)
 class DistillTrainingConfig:
     max_steps: int = 5
     seed: int = 0
@@ -95,6 +101,7 @@ class DistillStageConfig:
     lr_schedule: DistillLRScheduleConfig = field(
         default_factory=DistillLRScheduleConfig
     )
+    gradients: DistillGradientConfig = field(default_factory=DistillGradientConfig)
     training: DistillTrainingConfig = field(default_factory=DistillTrainingConfig)
     losses: DistillLossConfig = field(default_factory=DistillLossConfig)
     checkpoint: DistillCheckpointConfig = field(default_factory=DistillCheckpointConfig)
@@ -123,6 +130,7 @@ def load_distill_stage_config(path: str | Path) -> DistillStageConfig:
         student=_load_student(raw_stage.get("student", {})),
         optimizer=_load_optimizer(raw_stage.get("optimizer", {})),
         lr_schedule=_load_lr_schedule(raw_stage.get("lr_schedule", {})),
+        gradients=_load_gradients(raw_stage.get("gradients", {})),
         training=_load_training(raw_stage.get("training", {})),
         losses=_load_losses(raw_stage.get("losses", {})),
         checkpoint=_load_checkpoint(raw_stage.get("checkpoint", {})),
@@ -158,6 +166,13 @@ def validate_distill_stage_config(config: DistillStageConfig) -> None:
         config.lr_schedule,
         base_learning_rate=config.optimizer.learning_rate,
     )
+    if (
+        config.gradients.max_grad_norm is not None
+        and config.gradients.max_grad_norm <= 0
+    ):
+        raise ValueError("gradients.max_grad_norm must be > 0 when provided")
+    if config.gradients.clip_epsilon <= 0:
+        raise ValueError("gradients.clip_epsilon must be > 0")
     if config.training.max_steps <= 0:
         raise ValueError("training.max_steps must be > 0")
     if config.training.seed < 0:
@@ -239,6 +254,15 @@ def _load_lr_schedule(data: Any) -> DistillLRScheduleConfig:
     )
 
 
+def _load_gradients(data: Any) -> DistillGradientConfig:
+    if not isinstance(data, dict):
+        raise ValueError("distillation.gradients must be a mapping")
+    return DistillGradientConfig(
+        max_grad_norm=_optional_float(data.get("max_grad_norm")),
+        clip_epsilon=float(data.get("clip_epsilon", 1e-6)),
+    )
+
+
 def _load_training(data: Any) -> DistillTrainingConfig:
     if not isinstance(data, dict):
         raise ValueError("distillation.training must be a mapping")
@@ -305,6 +329,12 @@ def _optional_int(value: Any) -> int | None:
     return int(value)
 
 
+def _optional_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    return float(value)
+
+
 def _optional_path(value: Any) -> Path | None:
     if value is None:
         return None
@@ -332,6 +362,7 @@ DistillationTrackingConfig = DistillTrackingConfig
 DistillationStudentConfig = DistillStudentConfig
 DistillationOptimizerConfig = DistillOptimizerConfig
 DistillationLRScheduleConfig = DistillLRScheduleConfig
+DistillationGradientConfig = DistillGradientConfig
 DistillationTrainingConfig = DistillTrainingConfig
 DistillationLossConfig = DistillLossConfig
 DistillationStageConfig = DistillStageConfig

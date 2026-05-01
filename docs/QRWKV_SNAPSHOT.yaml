@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 17
-checkpoint: learning_rate_scheduling
+phase: 18
+checkpoint: gradient_clipping
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -42,9 +42,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add constant and warmup-cosine learning rate schedules with config/CLI
-  support, resume-aware global step behavior, scheduler metadata in checkpoints,
-  scheduled LR metrics in tracked runs, tests, and validation coverage.
+  Add simple global gradient norm clipping with config/CLI support, train-step
+  integration before optimizer updates, metrics, checkpoint/run metadata, tests,
+  docs, and CPU-only validation coverage.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -67,6 +67,13 @@ lr_schedules:
     - warmup_cosine
   default: constant
   resume_step_source: checkpoint_global_step
+
+gradient_clipping:
+  type: global_norm
+  default_enabled: false
+  disabled_value: null
+  clip_epsilon_default: 0.000001
+  optimizer_moments_see: clipped_gradients
 
 tracking:
   format: run.json plus metrics.jsonl plus summary.json

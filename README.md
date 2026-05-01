@@ -7,9 +7,10 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 16: lightweight SGD/Adam/AdamW optimizer support on top of evaluation
-harness, generation smoke, prompt corpus provenance, logits KL distillation,
-checkpoint/resume, XLA discipline, optional HF exporter, and local run tracking.
+Phase 18: global gradient norm clipping on top of learning-rate scheduling,
+lightweight SGD/Adam/AdamW optimizer support, evaluation harness, generation
+smoke, prompt corpus provenance, logits KL distillation, checkpoint/resume, XLA
+discipline, optional HF exporter, and local run tracking.
 
 The project can define, write, read, validate, inspect, and test fake teacher
 target bundles on CPU through a reusable exporter interface. It also has an
@@ -57,7 +58,9 @@ corpus lives at `corpora/smoke_prompts.jsonl`.
 `scripts/run_distill_stage.py` is the primary entrypoint for staged
 distillation. It currently supports hidden-state distillation against fake
 teacher bundles with `tiny_student` or `rwkv7_reference` students, and can use
-SGD, Adam, or AdamW without adding an optimizer dependency.
+SGD, Adam, or AdamW without adding an optimizer dependency. Global gradient
+norm clipping is configured under `distillation.gradients` or with
+`--max-grad-norm`; see `docs/GRADIENT_CLIPPING.md`.
 
 `scripts/tpu_distill_smoke.py` runs on the available JAX backend by default and only requires TPU when `--require-tpu` is passed.
 

@@ -5,7 +5,8 @@ stage runner:
 
 - `checkpoint.json`: JSON manifest with schema, student architecture/config,
   training step, learning rate, loss config, target manifest summary,
-  optimizer config/state metadata, and array metadata.
+  optimizer config/state metadata, gradient clipping config metadata, and array
+  metadata.
 - `params.npz`: NumPy archive containing parameter arrays and optimizer slot
   arrays as `arr_000000`, `arr_000001`, and so on.
 
@@ -46,6 +47,10 @@ steps, total steps, minimum learning rate, base learning rate, and checkpoint
 step. Older checkpoints without this metadata still load. On resume, scheduler
 metadata is provenance rather than a hard lock; schedule changes are allowed and
 recorded as notes when detected.
+
+Checkpoints record `gradients` metadata containing `max_grad_norm` and
+`clip_epsilon` for provenance. Older checkpoints without gradient metadata
+still load, and resume uses the current run config.
 
 ## Validation
 

@@ -1,0 +1,49 @@
+distillation:
+  stage: 0
+  targets_dir: artifacts/teacher_targets/fake_export_logits
+  student:
+    architecture: rwkv7_reference
+    vocab_size: 512
+    hidden_size: null
+    num_layers: null
+    emit_logits: true
+    tie_embeddings: false
+  optimizer:
+    type: adamw
+    learning_rate: 0.001
+    beta1: 0.9
+    beta2: 0.999
+    epsilon: 0.00000001
+    weight_decay: 0.01
+  lr_schedule:
+    type: warmup_cosine
+    warmup_steps: 1
+    total_steps: 4
+    min_learning_rate: 0.0001
+  gradients:
+    max_grad_norm: 1.0
+    clip_epsilon: 0.000001
+  training:
+    max_steps: 2
+    seed: 0
+  losses:
+    hidden_mse:
+      enabled: true
+      weight: 0.5
+    logits_kl:
+      enabled: true
+      weight: 0.5
+    attention_or_mixer:
+      enabled: false
+      weight: 0.0
+  checkpoint:
+    checkpoint_out: null
+    resume_from: null
+    overwrite: false
+  tracking:
+    enabled: false
+    run_root: runs
+    run_name: null
+    overwrite: false
+    tags: []
+    notes: []

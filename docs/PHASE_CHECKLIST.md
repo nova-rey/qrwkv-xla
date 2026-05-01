@@ -290,3 +290,14 @@
 - [x] Update snapshot
 - [x] Append Bible entry
 - [x] Run validation
+
+## P18 — Gradient Clipping
+
+- [x] Add global gradient norm and clipping utilities
+- [x] Add distillation gradient config and CLI overrides
+- [x] Clip after gradient computation and before optimizer updates
+- [x] Report norm, scale, clipped flag, and max norm metrics
+- [x] Store gradient config in checkpoints and tracked runs
+- [x] Add clipped AdamW smoke config and validation coverage
+- [x] Add math, integration, CLI, checkpoint, and validation tests
+- [x] Add gradient clipping docs
