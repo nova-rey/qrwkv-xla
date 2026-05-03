@@ -1,0 +1,25 @@
+lm:
+  data:
+    tokenized_corpus: artifacts/tokenized_corpora/smoke_stage3
+    sequence_length: 16
+    batch_size: 2
+    tokenizer: smoke
+    shuffle: false
+    seed: 0
+  student:
+    architecture: tiny_student
+    vocab_size: 512
+    hidden_size: 8
+    num_layers: 2
+    emit_logits: true
+    tie_embeddings: false
+  optimizer:
+    type: sgd
+    learning_rate: 0.001
+  training:
+    stage: 3
+    max_steps: 2
+    seed: 0
+  gradients:
+    max_grad_norm: 1.0
+    clip_epsilon: 0.000001

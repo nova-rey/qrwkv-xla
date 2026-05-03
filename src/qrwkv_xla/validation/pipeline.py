@@ -22,6 +22,8 @@ CHECKPOINT_CLIPPED_ADAMW_SMOKE = "checkpoints/pipeline_smoke/adamw_clipped"
 CHECKPOINT_HIDDEN_FOR_LOGITS = "checkpoints/pipeline_hidden_only_for_logits"
 CHECKPOINT_HIDDEN_PLUS_LOGITS = "checkpoints/pipeline_hidden_plus_logits"
 CHECKPOINT_LM_STAGE3_SMOKE = "checkpoints/pipeline_smoke/lm_stage3"
+TOKENIZED_SMOKE_CORPUS = "artifacts/tokenized_corpora/pipeline_smoke_stage3"
+CHECKPOINT_LM_STAGE3_TOKENIZED_SMOKE = "checkpoints/pipeline_smoke/lm_stage3_tokenized"
 EVAL_GENERATION_SMOKE = "eval_outputs/pipeline_generation_smoke"
 EVAL_REGRESSION_SMOKE = "eval_outputs/pipeline_eval_smoke"
 TRACKING_SMOKE_ROOT = "runs/pipeline_smoke"
@@ -160,6 +162,33 @@ def build_validation_commands(
             "1",
             "--checkpoint-out",
             CHECKPOINT_LM_STAGE3_SMOKE,
+            "--checkpoint-overwrite",
+        ),
+        (
+            sys.executable,
+            "scripts/tokenize_corpus.py",
+            "corpora/smoke_prompts.jsonl",
+            "--out",
+            TOKENIZED_SMOKE_CORPUS,
+            "--prompt-split",
+            "train",
+            "--prompt-limit",
+            "2",
+            "--sequence-length",
+            "16",
+            "--overwrite",
+        ),
+        (
+            sys.executable,
+            "scripts/run_lm_stage.py",
+            "--config",
+            "configs/lm_stage3_tokenized_smoke.yaml",
+            "--tokenized-corpus",
+            TOKENIZED_SMOKE_CORPUS,
+            "--max-steps",
+            "1",
+            "--checkpoint-out",
+            CHECKPOINT_LM_STAGE3_TOKENIZED_SMOKE,
             "--checkpoint-overwrite",
         ),
         (
@@ -452,6 +481,9 @@ def build_step_name(command: tuple[str, ...]) -> str:
     if script == "create_prompt_manifest":
         target = _value_after(command, "scripts/create_prompt_manifest.py")
         return f"create_prompt_manifest {Path(target).name}" if target else script
+    if script == "tokenize_corpus":
+        target = _value_after(command, "scripts/tokenize_corpus.py")
+        return f"tokenize_corpus {Path(target).name}" if target else script
     if script == "train_student_smoke":
         architecture = (
             _option_value(command, "--student-architecture") or "tiny_student"

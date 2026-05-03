@@ -263,3 +263,16 @@ revision, and trust-remote-code fields. The LM runner uses tokenizer metadata
 for EOS appending, padding masks, and student vocab compatibility validation.
 Real HF tokenizer coverage is env-gated and skipped by default so the baseline
 test path stays CPU-only, offline, and dependency-light.
+
+## Phase 23 — Real Tokenized Data Pipeline
+
+This phase adds the first reusable tokenized-corpus artifact for Stage 3 CE
+training. Prompt JSONL can now be tokenized once into `manifest.json` plus
+`shards/*.npz`, with deterministic concat-pack semantics, tokenizer provenance,
+per-shard hashes, and static Stage 3 arrays (`input_ids`, `labels`,
+`attention_mask`, `loss_mask`).
+
+The Stage 3 LM path now accepts either raw prompt JSONL or a tokenized corpus
+artifact without making HF, network access, GPU, or TPU mandatory. Default CI
+stays on the offline `SmokeTokenizer` path while the validation pipeline gains a
+small tokenized-corpus smoke.

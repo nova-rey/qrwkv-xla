@@ -32,6 +32,10 @@ label_mask:     labels != pad_token_id
 The final batch is padded to full `batch_size` so the train step keeps static
 shapes.
 
+Phase 23 adds a reusable tokenized-corpus artifact path that stores those same
+shifted arrays ahead of time. See `docs/DATA_PIPELINE.md` for the artifact
+format and tokenize-once workflow.
+
 ## Config
 
 Stage 3 config lives under top-level `lm`:

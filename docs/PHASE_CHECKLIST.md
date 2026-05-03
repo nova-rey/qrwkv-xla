@@ -365,3 +365,15 @@
 - [x] Add offline registry/config/LM tests plus mocked HF backend tests
 - [x] Add env-gated real HF tokenizer integration test skipped by default
 - [x] Add real-tokenizer example config and tokenizer docs
+
+## P23 — Real Tokenized Data Pipeline
+
+- [x] Add tokenized corpus manifest + shard artifact format
+- [x] Store Stage 3-ready `input_ids`, `labels`, `attention_mask`, and `loss_mask`
+- [x] Record source provenance, tokenizer metadata, packing policy, shard hashes, and totals
+- [x] Add deterministic concat-pack tokenization script
+- [x] Add tokenized corpus loader validation for format, sequence length, shards, and tokenizer mismatches
+- [x] Preserve raw prompt JSONL Stage 3 support
+- [x] Add tokenized corpus config, runner, CLI, and validation coverage
+- [x] Add focused tokenized corpus, LM integration, and CLI tests
+- [x] Add data pipeline docs and append P23 Bible notes

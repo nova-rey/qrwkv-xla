@@ -29,7 +29,8 @@ from qrwkv_xla.schedules import validate_lr_schedule_config
 
 @dataclass(frozen=True)
 class LMDataConfig:
-    prompt_corpus: Path
+    prompt_corpus: Path | None = None
+    tokenized_corpus: Path | None = None
     prompt_split: str | None = "train"
     prompt_tags: tuple[str, ...] = ()
     prompt_limit: int | None = None
@@ -72,7 +73,7 @@ class LMStageConfig:
     tracking: DistillTrackingConfig = field(default_factory=DistillTrackingConfig)
 
 
-def load_lm_stage_config(path: str | Path) -> LMStageConfig:
+def load_lm_stage_config(path: str | Path, *, validate: bool = True) -> LMStageConfig:
     config_path = Path(path)
     data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     if data is None:
@@ -96,14 +97,27 @@ def load_lm_stage_config(path: str | Path) -> LMStageConfig:
         checkpoint=_load_checkpoint(raw_stage.get("checkpoint", {})),
         tracking=_load_tracking(raw_stage.get("tracking", {})),
     )
-    validate_lm_stage_config(config)
+    if validate:
+        validate_lm_stage_config(config)
     return config
 
 
 def validate_lm_stage_config(config: LMStageConfig) -> None:
-    if not config.data.prompt_corpus.exists():
+    if (config.data.prompt_corpus is None) == (config.data.tokenized_corpus is None):
+        raise ValueError(
+            "Exactly one of data.prompt_corpus or data.tokenized_corpus is required"
+        )
+    if config.data.prompt_corpus is not None and not config.data.prompt_corpus.exists():
         raise ValueError(
             f"data.prompt_corpus does not exist: {config.data.prompt_corpus}"
+        )
+    if (
+        config.data.tokenized_corpus is not None
+        and not (config.data.tokenized_corpus / "manifest.json").is_file()
+    ):
+        raise ValueError(
+            "data.tokenized_corpus must contain manifest.json: "
+            f"{config.data.tokenized_corpus}"
         )
     if config.data.sequence_length <= 1:
         raise ValueError("data.sequence_length must be > 1")
@@ -195,10 +209,13 @@ def validate_lm_stage_config(config: LMStageConfig) -> None:
 def _load_data(data: Any) -> LMDataConfig:
     if not isinstance(data, dict):
         raise ValueError("lm.data must be a mapping")
-    if "prompt_corpus" not in data:
-        raise ValueError("lm.data.prompt_corpus is required")
+    if "prompt_corpus" not in data and "tokenized_corpus" not in data:
+        raise ValueError(
+            "lm.data.prompt_corpus or lm.data.tokenized_corpus is required"
+        )
     return LMDataConfig(
-        prompt_corpus=Path(str(data["prompt_corpus"])),
+        prompt_corpus=_optional_path(data.get("prompt_corpus")),
+        tokenized_corpus=_optional_path(data.get("tokenized_corpus")),
         prompt_split=_optional_str(data.get("prompt_split", "train")),
         prompt_tags=tuple(
             _string_list(data.get("prompt_tags", []), "data.prompt_tags")

@@ -12,6 +12,7 @@ def main() -> None:
     )
     parser.add_argument("--config", default="configs/lm_stage3_smoke.yaml")
     parser.add_argument("--prompt-corpus")
+    parser.add_argument("--tokenized-corpus")
     parser.add_argument("--prompt-split")
     parser.add_argument("--prompt-tag", action="append", default=[])
     parser.add_argument("--prompt-limit", type=int)
@@ -59,9 +60,13 @@ def main() -> None:
     if args.max_grad_norm is not None and args.disable_grad_clipping:
         parser.error("--max-grad-norm conflicts with --disable-grad-clipping")
 
-    config = load_lm_stage_config(args.config)
+    config = load_lm_stage_config(args.config, validate=False)
+    if args.prompt_corpus is not None and args.tokenized_corpus is not None:
+        parser.error("--prompt-corpus conflicts with --tokenized-corpus")
+
     if (
         args.prompt_corpus is not None
+        or args.tokenized_corpus is not None
         or args.prompt_split is not None
         or args.prompt_tag
         or args.prompt_limit is not None
@@ -76,7 +81,18 @@ def main() -> None:
                 config.data,
                 prompt_corpus=Path(args.prompt_corpus)
                 if args.prompt_corpus is not None
-                else config.data.prompt_corpus,
+                else (
+                    None
+                    if args.tokenized_corpus is not None
+                    else config.data.prompt_corpus
+                ),
+                tokenized_corpus=Path(args.tokenized_corpus)
+                if args.tokenized_corpus is not None
+                else (
+                    None
+                    if args.prompt_corpus is not None
+                    else config.data.tokenized_corpus
+                ),
                 prompt_split=args.prompt_split
                 if args.prompt_split is not None
                 else config.data.prompt_split,
@@ -264,7 +280,10 @@ def main() -> None:
     print(f"lr_schedule: {config.lr_schedule.type}")
     print(f"max_grad_norm: {config.gradients.max_grad_norm}")
     print(f"clip_epsilon: {config.gradients.clip_epsilon}")
-    print(f"prompt_corpus: {result.prompt_corpus}")
+    if result.prompt_corpus is not None:
+        print(f"prompt_corpus: {result.prompt_corpus}")
+    if result.tokenized_corpus is not None:
+        print(f"tokenized_corpus: {result.tokenized_corpus}")
     tokenizer_config = normalize_tokenizer_config(config.data.tokenizer)
     print(f"tokenizer_backend: {tokenizer_config.backend}")
     if tokenizer_config.tokenizer_id is not None:

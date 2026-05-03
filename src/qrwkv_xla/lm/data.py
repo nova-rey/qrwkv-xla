@@ -5,8 +5,13 @@ from dataclasses import dataclass
 
 import jax.numpy as jnp
 
-from qrwkv_xla.generation.tokenizer import Tokenizer, create_tokenizer
+from qrwkv_xla.generation.tokenizer import (
+    Tokenizer,
+    create_tokenizer,
+    normalize_tokenizer_config,
+)
 from qrwkv_xla.lm.config import LMDataConfig
+from qrwkv_xla.lm.tokenized_corpus import load_tokenized_corpus
 from qrwkv_xla.prompting import filter_prompt_corpus, read_prompt_corpus
 
 
@@ -19,6 +24,17 @@ class LMBatch:
 
 
 def load_lm_token_sequences(config: LMDataConfig) -> list[list[int]]:
+    if config.tokenized_corpus is not None:
+        corpus = load_tokenized_corpus(
+            config.tokenized_corpus,
+            expected_sequence_length=config.sequence_length,
+            expected_tokenizer=normalize_tokenizer_config(config.tokenizer),
+        )
+        sequences = [list(sequence) for sequence in corpus.token_sequences]
+        if config.shuffle:
+            rng = random.Random(config.seed)
+            rng.shuffle(sequences)
+        return sequences
     tokenizer = load_lm_tokenizer(config)
     return load_lm_token_sequences_with_tokenizer(config, tokenizer)
 
@@ -31,6 +47,19 @@ def load_lm_token_sequences_with_tokenizer(
     config: LMDataConfig,
     tokenizer: Tokenizer,
 ) -> list[list[int]]:
+    if config.tokenized_corpus is not None:
+        corpus = load_tokenized_corpus(
+            config.tokenized_corpus,
+            expected_sequence_length=config.sequence_length,
+            expected_tokenizer=tokenizer.metadata,
+        )
+        sequences = [list(sequence) for sequence in corpus.token_sequences]
+        if config.shuffle:
+            rng = random.Random(config.seed)
+            rng.shuffle(sequences)
+        return sequences
+    if config.prompt_corpus is None:
+        raise ValueError("LM prompt_corpus is required when tokenized_corpus is absent")
     eos_token_id = tokenizer.metadata.eos_token_id
     if eos_token_id is None:
         raise ValueError("LM tokenizer must expose eos_token_id")

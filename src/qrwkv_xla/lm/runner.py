@@ -9,6 +9,7 @@ import jax
 
 from qrwkv_xla.checkpointing import load_checkpoint, save_checkpoint
 from qrwkv_xla.distill.metrics import metrics_to_floats
+from qrwkv_xla.generation import normalize_tokenizer_config
 from qrwkv_xla.lm.config import LMStageConfig, validate_lm_stage_config
 from qrwkv_xla.lm.data import (
     build_lm_batches,
@@ -16,6 +17,7 @@ from qrwkv_xla.lm.data import (
     load_lm_tokenizer,
 )
 from qrwkv_xla.lm.losses import masked_next_token_cross_entropy
+from qrwkv_xla.lm.tokenized_corpus import load_tokenized_corpus
 from qrwkv_xla.optimizers import OptimizerState, init_optimizer_state
 from qrwkv_xla.prompting import (
     build_prompt_corpus_manifest,
@@ -44,7 +46,8 @@ class LMStageResult:
     initial_loss: float
     final_loss: float
     final_ce_loss: float
-    prompt_corpus: Path
+    prompt_corpus: Path | None
+    tokenized_corpus: Path | None = None
     checkpoint_out: Path | None = None
     resume_from: Path | None = None
     start_step: int = 0
@@ -69,8 +72,21 @@ class _TrainLoss:
 
 def run_lm_stage(config: LMStageConfig) -> LMStageResult:
     validate_lm_stage_config(config)
-    tokenizer = load_lm_tokenizer(config.data)
-    tokenizer_metadata = tokenizer.metadata
+    tokenized_corpus = None
+    if config.data.tokenized_corpus is not None:
+        tokenized_corpus = load_tokenized_corpus(
+            config.data.tokenized_corpus,
+            expected_sequence_length=config.data.sequence_length,
+            expected_tokenizer=normalize_tokenizer_config(config.data.tokenizer),
+        )
+        tokenizer_metadata = tokenized_corpus.manifest.tokenizer
+        token_sequences = [
+            list(sequence) for sequence in tokenized_corpus.token_sequences
+        ]
+    else:
+        tokenizer = load_lm_tokenizer(config.data)
+        tokenizer_metadata = tokenizer.metadata
+        token_sequences = load_lm_token_sequences_with_tokenizer(config.data, tokenizer)
     if tokenizer_metadata.eos_token_id is None:
         raise ValueError("LM tokenizer must expose eos_token_id")
     if tokenizer_metadata.pad_token_id is None:
@@ -80,7 +96,11 @@ def run_lm_stage(config: LMStageConfig) -> LMStageResult:
             "student.vocab_size must match tokenizer vocab_size: "
             f"{config.student.vocab_size} != {tokenizer_metadata.vocab_size}"
         )
-    token_sequences = load_lm_token_sequences_with_tokenizer(config.data, tokenizer)
+    if config.data.shuffle:
+        import random
+
+        rng = random.Random(config.data.seed)
+        rng.shuffle(token_sequences)
     batches = [
         {
             "input_ids": batch.input_ids,
@@ -152,7 +172,7 @@ def run_lm_stage(config: LMStageConfig) -> LMStageResult:
         optimizer_state=optimizer_state,
     )
 
-    prompt_manifest = _prompt_manifest_for_config(config)
+    data_manifest = _data_manifest_for_config(config, tokenized_corpus=tokenized_corpus)
     checkpoint_out = config.checkpoint.checkpoint_out
     checkpoint_overwrite = config.checkpoint.overwrite
     run_context = None
@@ -188,6 +208,7 @@ def run_lm_stage(config: LMStageConfig) -> LMStageResult:
                 "training": asdict(config.training),
                 "losses": {"next_token_ce": {"enabled": True, "weight": 1.0}},
                 "data": asdict(config.data),
+                "data_manifest": data_manifest,
                 "tokenizer": asdict(tokenizer_metadata),
             },
             teacher_target={},
@@ -258,9 +279,11 @@ def run_lm_stage(config: LMStageConfig) -> LMStageResult:
             learning_rate=config.optimizer.learning_rate,
             loss_config={"next_token_ce": {"enabled": True, "weight": 1.0}},
             target_manifest={
-                "type": "prompt_corpus",
+                "type": "tokenized_corpus"
+                if config.data.tokenized_corpus is not None
+                else "prompt_corpus",
                 "stage": config.training.stage,
-                "manifest": asdict(prompt_manifest),
+                "manifest": data_manifest,
                 "data": asdict(config.data),
                 "tokenizer": asdict(tokenizer_metadata),
             },
@@ -308,6 +331,7 @@ def run_lm_stage(config: LMStageConfig) -> LMStageResult:
                 "checkpoint_out": checkpoint_out,
                 "resume_from": config.checkpoint.resume_from,
                 "prompt_corpus": config.data.prompt_corpus,
+                "tokenized_corpus": config.data.tokenized_corpus,
                 "notes": resume_notes,
             },
         )
@@ -320,6 +344,7 @@ def run_lm_stage(config: LMStageConfig) -> LMStageResult:
         final_loss=final_metrics["loss"],
         final_ce_loss=final_metrics["ce_loss"],
         prompt_corpus=config.data.prompt_corpus,
+        tokenized_corpus=config.data.tokenized_corpus,
         checkpoint_out=checkpoint_out,
         resume_from=config.checkpoint.resume_from,
         start_step=start_step,
@@ -357,7 +382,11 @@ def _make_train_loss():
     return loss_fn
 
 
-def _prompt_manifest_for_config(config: LMStageConfig):
+def _data_manifest_for_config(config: LMStageConfig, *, tokenized_corpus):
+    if tokenized_corpus is not None:
+        return asdict(tokenized_corpus.manifest)
+    if config.data.prompt_corpus is None:
+        raise ValueError("LM prompt_corpus is required when tokenized_corpus is absent")
     corpus = read_prompt_corpus(config.data.prompt_corpus)
     filtered = filter_prompt_corpus(
         corpus,
@@ -365,10 +394,12 @@ def _prompt_manifest_for_config(config: LMStageConfig):
         tags=config.data.prompt_tags,
         limit=config.data.prompt_limit,
     )
-    return build_prompt_corpus_manifest(
-        filtered,
-        description="Stage 3 CE prompt corpus selection.",
-        notes=["student-only next-token CE"],
+    return asdict(
+        build_prompt_corpus_manifest(
+            filtered,
+            description="Stage 3 CE prompt corpus selection.",
+            notes=["student-only next-token CE"],
+        )
     )
 
 
