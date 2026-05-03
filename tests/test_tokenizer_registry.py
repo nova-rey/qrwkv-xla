@@ -137,8 +137,7 @@ def test_hf_tokenizer_optional_integration() -> None:
                 "QRWKV_XLA_HF_TOKENIZER_ID", "Qwen/Qwen2.5-0.5B"
             ),
             "revision": "main",
-            "local_files_only": os.environ.get("QRWKV_XLA_HF_LOCAL_FILES_ONLY")
-            == "1",
+            "local_files_only": os.environ.get("QRWKV_XLA_HF_LOCAL_FILES_ONLY") == "1",
         }
     )
 
