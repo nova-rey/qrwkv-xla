@@ -41,6 +41,18 @@ Real HF attention target export is manual-only.
 - no default model downloads in CI
 - hook/module layouts are architecture-specific and may require manual adjustment
 
+## Multi-device pmap smoke
+
+Phase 21 adds a separate skip-safe Stage 1 `pmap` smoke:
+
+```bash
+python scripts/export_teacher_targets.py --config configs/teacher_export_stub_attention.yaml
+python scripts/pmap_distill_smoke.py --config configs/distill_stage1_attention_pmap_smoke.yaml
+```
+
+This keeps the normal single-device distillation runner intact while proving the
+attention/mixer loss can execute with replicated params and batch sharding.
+
 ## Current limits
 
 Not included in Phase 20:

@@ -180,6 +180,26 @@ def test_attention_or_mixer_enabled_loads(tmp_path: Path) -> None:
     assert config.losses.attention_or_mixer.weight == 1.0
 
 
+def test_distributed_config_loads(tmp_path: Path) -> None:
+    path = tmp_path / "distill.yaml"
+    path.write_text(
+        (
+            "distillation:\n"
+            "  distributed:\n"
+            "    enabled: true\n"
+            "    mode: pmap_data_parallel\n"
+            "    axis_name: data\n"
+            "    min_device_count: 2\n"
+        ),
+        encoding="utf-8",
+    )
+    config = load_distill_stage_config(path)
+    assert config.distributed.enabled is True
+    assert config.distributed.mode == "pmap_data_parallel"
+    assert config.distributed.axis_name == "data"
+    assert config.distributed.min_device_count == 2
+
+
 def test_checkpoint_config_loads(tmp_path: Path) -> None:
     path = tmp_path / "distill.yaml"
     path.write_text(

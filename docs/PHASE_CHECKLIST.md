@@ -118,6 +118,26 @@
 - [x] Add JAX/XLA runtime inspection utilities
 - [x] Add XLA static smoke helper
 - [x] Add `xla_inspect.py`
+
+## P21 — Multi-Device TPU Sharding Smoke
+
+- [x] Add distributed config
+- [x] Add device topology utilities
+- [x] Add batch sharding utilities
+- [x] Add param/state replication utilities
+- [x] Add pmean reduction helpers
+- [x] Add pmap distill smoke
+- [x] Add pmap LM smoke
+- [x] Add pmap smoke CLI scripts
+- [x] Add pmap smoke configs
+- [x] Add skip-safe tests
+- [x] Update validation pipeline
+- [x] Add DISTRIBUTED_TPU_SHARDING.md
+- [x] Update TPU smoke guide
+- [x] Update docs
+- [x] Update snapshot
+- [x] Append Bible entry
+- [ ] Run validation
 - [x] Add `tpu_distill_smoke.py`
 - [x] Improve `smoke_tpu.py`
 - [x] Add tiny TPU distill smoke config

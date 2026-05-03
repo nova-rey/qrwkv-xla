@@ -37,6 +37,23 @@ python scripts/validate_pipeline.py --require-tpu
 This passes `--require-tpu` to the TPU distillation smoke and should only be
 used in an actual TPU environment.
 
+## Multi-device pmap smoke
+
+```bash
+python scripts/export_teacher_targets.py --config configs/teacher_export_stub_attention.yaml
+python scripts/pmap_distill_smoke.py --config configs/distill_stage1_attention_pmap_smoke.yaml
+python scripts/pmap_lm_smoke.py --config configs/lm_stage3_pmap_smoke.yaml
+```
+
+Hard multi-device validation:
+
+```bash
+python scripts/pmap_distill_smoke.py \
+  --config configs/distill_stage1_attention_pmap_smoke.yaml \
+  --require-multiple-devices \
+  --min-device-count 2
+```
+
 ## Notes
 
 - CI does not require TPU.

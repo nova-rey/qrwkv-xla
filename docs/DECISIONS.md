@@ -118,10 +118,30 @@ QRWKV-XLA will validate single-device XLA/JAX runtime behavior before adding
 multi-device TPU sharding, `pjit`, or Pallas kernels.
 
 ## D023 — Hugging Face Teacher Export Is Optional
+
 The HF/PyTorch teacher exporter is available through `.[teacher-hf]` only.
 Torch and Transformers must not become base or dev dependencies, and default
 local/CI validation must continue to use fake exported targets without network,
 GPU, TPU, or Qwen smoke requirements.
+
+## D062 — Data Parallel pmap Before Model Parallelism
+
+QRWKV-XLA implements replicated-parameter data parallelism with `pmap` before
+attempting model parallelism or parameter sharding. This proves the training
+loop can use multiple TPU devices while keeping checkpoint and optimizer
+semantics simple.
+
+## D063 — Multi-Device Smoke Tests Must Be Skip-Safe
+
+Default validation must not require multiple devices. Multi-device smoke
+scripts should skip cleanly unless explicitly run with
+`--require-multiple-devices`.
+
+## D064 — P21 Checkpoints Save Unreplicated State
+
+P21 saves checkpoints from first-device/unreplicated params and optimizer
+state. Sharded checkpoint formats are deferred until parameter sharding or
+multi-host training requires them.
 
 ## D024 — Tiny HF Model Before Qwen
 P7 validates the first real teacher exporter with a tiny public Hugging Face

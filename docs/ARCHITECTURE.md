@@ -60,6 +60,17 @@ The TPU smoke path is intentionally CPU-safe by default. Real TPU validation is
 opt-in through `--require-tpu`. Sharding, `pjit`, and Pallas work remain
 deferred.
 
+### Distributed Data Parallel Smoke
+- **Current shape:** `qrwkv_xla.distributed` helpers plus standalone `pmap`
+  smoke runners for distillation and Stage 3 CE.
+- **Purpose:** prove minimal replicated-parameter, batch-sharded multi-device
+  training without requiring model sharding or multi-host coordination.
+
+P21 keeps parameters and optimizer state replicated on every device, shards the
+leading batch axis to `[device_count, per_device_batch, ...]`, averages grads
+and metrics with `lax.pmean`, and saves checkpoints from unreplicated
+first-device state.
+
 ### Pipeline Validation
 - **Current shape:** `qrwkv_xla.validation.pipeline` plus
   `scripts/validate_pipeline.py`.

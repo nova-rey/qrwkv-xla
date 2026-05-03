@@ -110,6 +110,11 @@ Current checkpoint: `pipeline_validation_harness`. This checkpoint makes
 `scripts/validate_pipeline.py` the canonical safe end-to-end validation command
 and keeps optional HF and hard TPU paths behind explicit flags.
 
+## Phase 21 — Multi-Device TPU Sharding Smoke
+
+Goal: add minimum viable data-parallel `pmap` support with replicated params,
+sharded batches, gradient averaging, and skip-safe smoke tests.
+
 ## Phase 12 — Prompt Corpus + Export Set Management
 Goal: make teacher-export inputs reproducible through prompt corpus JSONL,
 manifests, stable hashes, deterministic splits, corpus inspection tools,

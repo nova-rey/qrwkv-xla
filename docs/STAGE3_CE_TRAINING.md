@@ -66,3 +66,15 @@ checkpoint manifest records `next_token_ce` in `loss_config` and prompt-corpus
 metadata in the existing target metadata slot. Resuming uses additive
 `--max-steps`, restores optimizer state when present, and logs `ce_loss`,
 learning rate, and gradient metrics to tracking JSONL when enabled.
+
+## Multi-device pmap smoke
+
+Phase 21 adds a skip-safe data-parallel smoke path for Stage 3:
+
+```bash
+python scripts/pmap_lm_smoke.py --config configs/lm_stage3_pmap_smoke.yaml
+```
+
+This path reuses the same prompt-corpus tokenizer/batching flow, shards the
+batch over the device axis, averages gradients with `pmean`, and saves optional
+checkpoints from unreplicated first-device state.

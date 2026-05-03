@@ -40,3 +40,29 @@ lm:
 
     with pytest.raises(ValueError, match="emit_logits"):
         load_lm_stage_config(config_path)
+
+
+def test_lm_stage_config_loads_distributed_settings(tmp_path: Path) -> None:
+    config_path = tmp_path / "lm.yaml"
+    config_path.write_text(
+        """
+lm:
+  data:
+    prompt_corpus: corpora/smoke_prompts.jsonl
+    sequence_length: 8
+    batch_size: 2
+  distributed:
+    enabled: true
+    mode: pmap_data_parallel
+    axis_name: data
+    min_device_count: 2
+  training:
+    stage: 3
+    max_steps: 1
+""",
+        encoding="utf-8",
+    )
+    config = load_lm_stage_config(config_path)
+    assert config.distributed.enabled is True
+    assert config.distributed.mode == "pmap_data_parallel"
+    assert config.distributed.min_device_count == 2

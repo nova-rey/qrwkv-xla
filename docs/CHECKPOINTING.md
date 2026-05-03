@@ -52,6 +52,9 @@ Checkpoints record `gradients` metadata containing `max_grad_norm` and
 `clip_epsilon` for provenance. Older checkpoints without gradient metadata
 still load, and resume uses the current run config.
 
+P21 `pmap` smoke checkpoints unreplicate first-device params and optimizer
+state before saving. Sharded checkpoint formats remain deferred.
+
 ## Validation
 
 Resume checks fail clearly if the checkpoint student architecture differs from

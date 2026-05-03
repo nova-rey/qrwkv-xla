@@ -7,11 +7,12 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 19: student-only Stage 3 next-token CE fine-tuning on prompt corpora,
+Phase 21: student-only Stage 3 next-token CE fine-tuning on prompt corpora,
 global gradient norm clipping on top of learning-rate scheduling, lightweight
 SGD/Adam/AdamW optimizer support, evaluation harness, generation smoke, prompt
-corpus provenance, logits KL distillation, checkpoint/resume, XLA discipline,
-optional HF exporter, and local run tracking.
+corpus provenance, logits KL distillation, Stage 1 attention/mixer
+distillation, checkpoint/resume, XLA discipline, skip-safe multi-device `pmap`
+smokes, optional HF exporter, and local run tracking.
 
 The project can define, write, read, validate, inspect, and test fake teacher
 target bundles on CPU through a reusable exporter interface. It also has an
@@ -68,6 +69,23 @@ from a prompt corpus using `SmokeTokenizer`; it does not require teacher target
 bundles. See `docs/STAGE3_CE_TRAINING.md`.
 
 `scripts/tpu_distill_smoke.py` runs on the available JAX backend by default and only requires TPU when `--require-tpu` is passed.
+
+## Multi-device pmap smoke
+
+```bash
+python scripts/export_teacher_targets.py --config configs/teacher_export_stub_attention.yaml
+python scripts/pmap_distill_smoke.py --config configs/distill_stage1_attention_pmap_smoke.yaml
+python scripts/pmap_lm_smoke.py --config configs/lm_stage3_pmap_smoke.yaml
+```
+
+Hard multi-device validation:
+
+```bash
+python scripts/pmap_distill_smoke.py \
+  --config configs/distill_stage1_attention_pmap_smoke.yaml \
+  --require-multiple-devices \
+  --min-device-count 2
+```
 
 Generated bundles are written under `artifacts/`, which is gitignored.
 

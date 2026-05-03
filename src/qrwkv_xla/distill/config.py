@@ -6,6 +6,11 @@ from typing import Any
 
 import yaml
 
+from qrwkv_xla.distributed.config import (
+    DistributedConfig,
+    load_distributed_config,
+    validate_distributed_config,
+)
 from qrwkv_xla.optimizers import OptimizerConfig, validate_optimizer_config
 from qrwkv_xla.schedules import (
     LearningRateScheduleConfig,
@@ -105,6 +110,7 @@ class DistillStageConfig:
     gradients: DistillGradientConfig = field(default_factory=DistillGradientConfig)
     training: DistillTrainingConfig = field(default_factory=DistillTrainingConfig)
     losses: DistillLossConfig = field(default_factory=DistillLossConfig)
+    distributed: DistributedConfig = field(default_factory=DistributedConfig)
     checkpoint: DistillCheckpointConfig = field(default_factory=DistillCheckpointConfig)
     tracking: DistillTrackingConfig = field(default_factory=DistillTrackingConfig)
 
@@ -134,6 +140,10 @@ def load_distill_stage_config(path: str | Path) -> DistillStageConfig:
         gradients=_load_gradients(raw_stage.get("gradients", {})),
         training=_load_training(raw_stage.get("training", {})),
         losses=_load_losses(raw_stage.get("losses", {})),
+        distributed=load_distributed_config(
+            raw_stage.get("distributed"),
+            section="distillation",
+        ),
         checkpoint=_load_checkpoint(raw_stage.get("checkpoint", {})),
         tracking=_load_tracking(raw_stage.get("tracking", {})),
     )
@@ -167,6 +177,7 @@ def validate_distill_stage_config(config: DistillStageConfig) -> None:
         config.lr_schedule,
         base_learning_rate=config.optimizer.learning_rate,
     )
+    validate_distributed_config(config.distributed)
     if (
         config.gradients.max_grad_norm is not None
         and config.gradients.max_grad_norm <= 0

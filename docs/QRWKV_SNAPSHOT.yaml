@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 20
-checkpoint: stage1_attention_mixer_distillation
+phase: 21
+checkpoint: multi_device_tpu_sharding_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -42,10 +42,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add Stage 1 attention/mixer target distillation by defining attention target
-  artifacts, fake attention export, student mixer outputs, attention/mixer MSE
-  loss, fake Stage 1 validation, and optional/manual HF/Qwen attention-output
-  capture.
+  Add minimum viable multi-device data-parallel pmap support with device
+  discovery, batch sharding, replicated params/optimizer state, cross-device
+  gradient averaging, skip-safe pmap smoke CLIs, tests, and TPU
+  documentation.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays

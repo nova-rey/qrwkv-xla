@@ -98,6 +98,13 @@ Tracked distillation runs record gradient clipping config in `run.json` and
 `grad_clipped_global_norm`, `grad_clip_scale`, `grad_was_clipped`, and
 `max_grad_norm`.
 
+## Distributed metadata
+
+The Phase 21 standalone `pmap` smokes do not attempt full run-tracking parity,
+but when their results are reported they should include backend, visible device
+count, active device count, per-device batch size, and whether checkpoint state
+was unreplicated before saving.
+
 ## Generation Outputs
 
 P14 generation smoke writes local `generations.jsonl` and `summary.json`

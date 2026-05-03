@@ -241,3 +241,11 @@ export attention/mixer target vectors, expose recurrent student mixer outputs,
 and train them with layerwise MSE before hidden-state, logits, or Stage 3 CE
 training. The default validation path uses fake attention targets, while real
 HF/Qwen attention capture remains manual-only.
+
+## Phase 21 — Multi-Device TPU Sharding Smoke
+
+This phase adds QRWKV-XLA’s first multi-device training path. Parameters and
+optimizer state are replicated across devices, batches are sharded across the
+leading axis, gradients and metrics are averaged with `pmean`, and checkpoints
+are saved from unreplicated state. The goal is data-parallel smoke validation,
+not full model-parallel scaling.

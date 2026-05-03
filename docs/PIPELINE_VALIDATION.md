@@ -16,8 +16,9 @@ python scripts/validate_pipeline.py
 The default pipeline runs environment/runtime inspection, CPU and TPU-safe
 smokes, offline Qwen policy dry-runs, prompt corpus inspection and manifest
 creation, fake target export and inspection, both student smoke architectures,
-the distillation stage smoke, a Stage 3 CE prompt-corpus smoke, and the
-TPU-ready distillation smoke without requiring a TPU.
+the distillation stage smoke, skip-safe Stage 1 and Stage 3 `pmap` smokes, a
+Stage 3 CE prompt-corpus smoke, and the TPU-ready distillation smoke without
+requiring a TPU.
 
 ## Optional Hugging Face Path
 
@@ -69,6 +70,16 @@ python scripts/export_teacher_targets.py --config configs/teacher_export_qwen_dr
 CI should not pass `--include-hf` or `--require-tpu` by default. Optional HF and
 hard TPU outcomes should be reported separately from the required validation
 result.
+
+The default path also calls:
+
+```bash
+python scripts/pmap_distill_smoke.py --config configs/distill_stage1_attention_pmap_smoke.yaml --min-device-count 2
+python scripts/pmap_lm_smoke.py --config configs/lm_stage3_pmap_smoke.yaml --min-device-count 2
+```
+
+On single-device CPU these commands should print a clear skip reason and exit
+successfully.
 
 ## Troubleshooting
 

@@ -98,6 +98,10 @@ runs compileall, pipeline validation, pytest, Ruff lint, and Ruff format check.
 Optional HF validation uses `--include-hf`; hard TPU validation uses
 `--require-tpu` and is reported separately.
 
+P21 adds distributed utility tests plus skip-safe `pmap` smoke CLI tests.
+Functional multi-device `pmap` tests run only when multiple local JAX devices
+are available.
+
 ## Checkpoint/Resume Coverage
 
 P10 adds CPU-only tests for the JSON + NPZ checkpoint helper, distill

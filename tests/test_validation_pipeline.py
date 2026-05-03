@@ -36,6 +36,12 @@ def test_default_command_list_includes_expected_safe_commands() -> None:
     assert any("tiny_student" in command for command in joined)
     assert any("rwkv7_reference" in command for command in joined)
     assert any("scripts/run_distill_stage.py" in command for command in joined)
+    assert any("scripts/pmap_distill_smoke.py" in command for command in joined)
+    assert any("scripts/pmap_lm_smoke.py" in command for command in joined)
+    assert any(
+        "distill_stage1_attention_pmap_smoke.yaml" in command for command in joined
+    )
+    assert any("lm_stage3_pmap_smoke.yaml" in command for command in joined)
     assert any("--optimizer adamw" in command for command in joined)
     assert any(
         "distill_stage0_adamw_clipped_stub.yaml" in command for command in joined

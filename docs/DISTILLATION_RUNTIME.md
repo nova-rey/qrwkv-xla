@@ -39,6 +39,7 @@ Supported sections:
 - `gradients`
 - `training`
 - `losses`
+- `distributed`
 
 The optimizer section supports `sgd`, `adam`, and `adamw`. SGD remains the
 default smoke optimizer.
@@ -114,6 +115,19 @@ python scripts/run_distill_stage.py \
   --weight-decay 0.01 \
   --seed 0
 ```
+
+## Distributed data-parallel smoke
+
+Phase 21 adds a standalone `pmap` smoke path without replacing the normal
+single-device runner:
+
+```bash
+python scripts/pmap_distill_smoke.py --config configs/distill_stage1_attention_pmap_smoke.yaml
+```
+
+This path uses replicated params/optimizer state, sharded leading-axis batches,
+and `lax.pmean` gradient averaging. It is skip-safe on single-device CPU unless
+`--require-multiple-devices` is passed.
 
 ## Limitations
 

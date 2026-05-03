@@ -11,6 +11,8 @@ FAKE_TARGETS = "artifacts/teacher_targets/fake_export"
 FAKE_ATTENTION_TARGETS = "artifacts/teacher_targets/fake_attention_export"
 FAKE_LOGITS_TARGETS = "artifacts/teacher_targets/fake_export_logits"
 HF_TINY_TARGETS = "artifacts/teacher_targets/hf_tiny"
+PMAP_DISTILL_CONFIG = "configs/distill_stage1_attention_pmap_smoke.yaml"
+PMAP_LM_CONFIG = "configs/lm_stage3_pmap_smoke.yaml"
 HF_TINY_CORPUS_TARGETS = "artifacts/teacher_targets/hf_tiny_corpus"
 CHECKPOINT_SMOKE = "checkpoints/pipeline_smoke/stage0"
 CHECKPOINT_SMOKE_RESUME = "checkpoints/pipeline_smoke/stage0_resume"
@@ -187,6 +189,22 @@ def build_validation_commands(
             "configs/distill_stage1_attention_stub.yaml",
             "--max-steps",
             max_steps_value,
+        ),
+        (
+            sys.executable,
+            "scripts/pmap_distill_smoke.py",
+            "--config",
+            PMAP_DISTILL_CONFIG,
+            "--min-device-count",
+            "2",
+        ),
+        (
+            sys.executable,
+            "scripts/pmap_lm_smoke.py",
+            "--config",
+            PMAP_LM_CONFIG,
+            "--min-device-count",
+            "2",
         ),
         (
             sys.executable,
