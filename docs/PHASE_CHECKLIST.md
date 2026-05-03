@@ -377,3 +377,18 @@
 - [x] Add tokenized corpus config, runner, CLI, and validation coverage
 - [x] Add focused tokenized corpus, LM integration, and CLI tests
 - [x] Add data pipeline docs and append P23 Bible notes
+
+## P24 — RWKV7 Math Parity Audit
+
+- [x] Audit current `rwkv7_reference` math against local RADLADS reference files
+- [x] Classify current implementation as a simplified placeholder
+- [x] Document equation alignment, state update semantics, masking semantics,
+  batch semantics, JIT semantics, gradient sanity, parameter mapping risk, and
+  numerical tolerances
+- [x] Add minimal CPU-only NumPy parity harness for current JAX placeholder
+- [x] Add final-state API extension without breaking existing callers
+- [x] Add all-at-once vs token-by-token final-state equivalence test
+- [x] Add batched vs unbatched equivalence test
+- [x] Add eager vs JIT equivalence test
+- [x] Add finite-gradient and tiny optimizer-step no-NaN tests
+- [x] Preserve P22/P23 tokenizer and tokenized data paths

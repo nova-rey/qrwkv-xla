@@ -276,3 +276,21 @@ The Stage 3 LM path now accepts either raw prompt JSONL or a tokenized corpus
 artifact without making HF, network access, GPU, or TPU mandatory. Default CI
 stays on the offline `SmokeTokenizer` path while the validation pipeline gains a
 small tokenized-corpus smoke.
+
+## Phase 24 — RWKV7 Math Parity Audit
+
+This phase audits the current `rwkv7_reference` student against the local
+RADLADS RWKV7 reference checkout. The result is explicit: the current JAX
+student is a simplified placeholder, not RADLADS math parity. It keeps a
+scalar-channel `[B, H]` recurrent state and simple sigmoid decay, while RADLADS
+uses head-wise matrix WKV state, `exp(-exp(.))` decay semantics, `a`/`b`
+in-context state updates, normalized key terms, Qwen projection structure,
+RoPE, and cache semantics.
+
+P24 therefore preserves the existing CPU-only smoke role instead of pretending
+checkpoint compatibility exists. The layer now exposes an optional initial
+state and returned final state so local recurrence invariants can be tested.
+A pure NumPy harness mirrors the current placeholder recurrence, and focused
+tests cover all-at-once vs token-by-token state equivalence, batched vs
+unbatched equivalence, eager vs JIT equivalence, finite gradients, and a tiny
+optimizer-step no-NaN check.

@@ -43,8 +43,10 @@ def rwkv7_reference_layer(
     time_decay: jax.Array,
     time_bias: jax.Array,
     attention_mask: jax.Array | None = None,
+    initial_state: jax.Array | None = None,
     return_mixer: bool = False,
-) -> jax.Array | tuple[jax.Array, jax.Array]:
+    return_state: bool = False,
+) -> jax.Array | tuple[jax.Array, ...]:
     """Run one simplified RWKV7-style recurrent layer over [B,S,H] inputs."""
     x = jnp.asarray(inputs)
     if x.ndim != 3:
@@ -62,7 +64,16 @@ def rwkv7_reference_layer(
     decay = jax.nn.sigmoid(jnp.asarray(time_decay))[None, :]
     bias = jnp.asarray(time_bias)[None, :]
     xs = (jnp.swapaxes(x, 0, 1), jnp.swapaxes(mask, 0, 1))
-    initial_state = jnp.zeros((batch_size, hidden_size), dtype=x.dtype)
+    if initial_state is None:
+        recurrent_state = jnp.zeros((batch_size, hidden_size), dtype=x.dtype)
+    else:
+        recurrent_state = jnp.asarray(initial_state, dtype=x.dtype)
+        expected_shape = (batch_size, hidden_size)
+        if recurrent_state.shape != expected_shape:
+            raise ValueError(
+                f"initial_state must have shape {expected_shape}, "
+                f"got {recurrent_state.shape}"
+            )
 
     def step(state: jax.Array, item: tuple[jax.Array, jax.Array]):
         token, token_mask = item
@@ -78,11 +89,15 @@ def rwkv7_reference_layer(
         mixer = mixer * token_mask
         return next_state, (output, mixer)
 
-    _, (outputs, mixers) = jax.lax.scan(step, initial_state, xs)
+    final_state, (outputs, mixers) = jax.lax.scan(step, recurrent_state, xs)
     outputs = jnp.swapaxes(outputs, 0, 1)
     mixers = jnp.swapaxes(mixers, 0, 1)
+    if return_mixer and return_state:
+        return outputs, mixers, final_state
     if return_mixer:
         return outputs, mixers
+    if return_state:
+        return outputs, final_state
     return outputs
 
 
