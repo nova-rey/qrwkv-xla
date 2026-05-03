@@ -18,6 +18,11 @@ from qrwkv_xla.distributed.config import (
     load_distributed_config,
     validate_distributed_config,
 )
+from qrwkv_xla.generation.tokenizer import (
+    TokenizerConfig,
+    available_tokenizer_backends,
+    normalize_tokenizer_config,
+)
 from qrwkv_xla.optimizers import validate_optimizer_config
 from qrwkv_xla.schedules import validate_lr_schedule_config
 
@@ -30,7 +35,7 @@ class LMDataConfig:
     prompt_limit: int | None = None
     sequence_length: int = 64
     batch_size: int = 2
-    tokenizer: str = "smoke"
+    tokenizer: str | TokenizerConfig = "smoke"
     shuffle: bool = False
     seed: int = 0
 
@@ -104,8 +109,18 @@ def validate_lm_stage_config(config: LMStageConfig) -> None:
         raise ValueError("data.sequence_length must be > 1")
     if config.data.batch_size <= 0:
         raise ValueError("data.batch_size must be > 0")
-    if config.data.tokenizer != "smoke":
-        raise ValueError("data.tokenizer must be 'smoke'")
+    tokenizer_config = normalize_tokenizer_config(config.data.tokenizer)
+    if tokenizer_config.backend not in available_tokenizer_backends():
+        raise ValueError(
+            f"data.tokenizer backend must be one of {available_tokenizer_backends()}"
+        )
+    if tokenizer_config.backend == "hf" and not tokenizer_config.tokenizer_id:
+        raise ValueError("data.tokenizer.tokenizer_id is required for HF/Qwen")
+    if tokenizer_config.backend == "smoke" and tokenizer_config.tokenizer_id not in (
+        None,
+        "smoke",
+    ):
+        raise ValueError("data.tokenizer.tokenizer_id is not used for smoke")
     if config.data.prompt_limit is not None and config.data.prompt_limit <= 0:
         raise ValueError("data.prompt_limit must be > 0 when provided")
     if config.data.seed < 0:
@@ -114,8 +129,17 @@ def validate_lm_stage_config(config: LMStageConfig) -> None:
         raise ValueError(
             "student.architecture must be one of {'tiny_student', 'rwkv7_reference'}"
         )
-    if config.student.vocab_size < 257:
+    if config.student.vocab_size <= 0:
+        raise ValueError("student.vocab_size must be > 0")
+    if tokenizer_config.backend == "smoke" and config.student.vocab_size < 257:
         raise ValueError("student.vocab_size must be >= 257 for SmokeTokenizer")
+    if (
+        tokenizer_config.vocab_size is not None
+        and config.student.vocab_size != tokenizer_config.vocab_size
+    ):
+        raise ValueError(
+            "student.vocab_size must match tokenizer.vocab_size when provided"
+        )
     if config.student.hidden_size <= 0:
         raise ValueError("student.hidden_size must be > 0")
     if config.student.num_layers <= 0:
@@ -182,7 +206,7 @@ def _load_data(data: Any) -> LMDataConfig:
         prompt_limit=_optional_int(data.get("prompt_limit")),
         sequence_length=int(data.get("sequence_length", 64)),
         batch_size=int(data.get("batch_size", 2)),
-        tokenizer=str(data.get("tokenizer", "smoke")),
+        tokenizer=normalize_tokenizer_config(data.get("tokenizer", "smoke")),
         shuffle=bool(data.get("shuffle", False)),
         seed=int(data.get("seed", 0)),
     )

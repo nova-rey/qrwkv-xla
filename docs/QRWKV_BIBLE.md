@@ -249,3 +249,17 @@ optimizer state are replicated across devices, batches are sharded across the
 leading axis, gradients and metrics are averaged with `pmean`, and checkpoints
 are saved from unreplicated state. The goal is data-parallel smoke validation,
 not full model-parallel scaling.
+
+## Phase 22 — Real Qwen Tokenizer Integration
+
+This phase adds a tokenizer abstraction and registry while preserving
+`SmokeTokenizer` as the default offline and CI-safe backend. `smoke` remains the
+dependency-free byte tokenizer; `hf` is an optional Hugging Face tokenizer
+wrapper loaded only when requested; `qwen` is a registry alias for `hf`.
+
+Stage 3 LM data loading now goes through the registry. LM configs accept either
+`tokenizer: smoke` or a mapping with backend, tokenizer ID, vocab, EOS, PAD,
+revision, and trust-remote-code fields. The LM runner uses tokenizer metadata
+for EOS appending, padding masks, and student vocab compatibility validation.
+Real HF tokenizer coverage is env-gated and skipped by default so the baseline
+test path stays CPU-only, offline, and dependency-light.

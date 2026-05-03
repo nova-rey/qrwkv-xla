@@ -116,6 +116,13 @@ The repo includes a tiny built-in corpus:
 - `corpora/smoke_prompts.jsonl`
 - `corpora/smoke_prompts.manifest.json`
 
+## Tokenization
+
+Prompt corpora store text, not token IDs. Stage 3 LM loading routes selected
+records through the tokenizer registry. The default `smoke` backend is
+dependency-free; optional `hf`/`qwen` backends require `.[teacher-hf]` and are
+not used by default tests.
+
 ## Limitations
 
 - no tokenizer-aware packing yet

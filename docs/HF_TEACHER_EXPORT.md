@@ -104,6 +104,10 @@ Install the optional extra:
 python -m pip install -e ".[dev,teacher-hf]"
 ```
 
+The same extra enables the optional LM tokenizer registry `hf` and `qwen`
+backends. Default tests still use `SmokeTokenizer` and do not import
+transformers.
+
 ### Tokenizer has no pad token
 
 The exporter reuses `eos_token` as `pad_token` when possible. If neither exists,

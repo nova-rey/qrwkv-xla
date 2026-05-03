@@ -78,11 +78,26 @@ gradient_clipping:
 
 stage3_ce:
   mode: student_only
-  tokenizer: dependency_free_utf8_byte_plus_one
+  tokenizer: registry_default_smoke_optional_hf_qwen
   prompt_source: prompt_corpus_jsonl
   teacher_targets_required: false
   loss: masked_next_token_cross_entropy
   requires_emit_logits: true
+
+tokenizers:
+  default_backend: smoke
+  aliases:
+    qwen: hf
+  optional_backends:
+    - hf
+  optional_extra: teacher-hf
+  lm_config_forms:
+    - string
+    - mapping
+  metadata_used_for:
+    - eos_token_id
+    - pad_token_id
+    - vocab_size
 
 tracking:
   format: run.json plus metrics.jsonl plus summary.json

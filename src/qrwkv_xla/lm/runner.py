@@ -10,7 +10,11 @@ import jax
 from qrwkv_xla.checkpointing import load_checkpoint, save_checkpoint
 from qrwkv_xla.distill.metrics import metrics_to_floats
 from qrwkv_xla.lm.config import LMStageConfig, validate_lm_stage_config
-from qrwkv_xla.lm.data import build_lm_batches, load_lm_token_sequences
+from qrwkv_xla.lm.data import (
+    build_lm_batches,
+    load_lm_token_sequences_with_tokenizer,
+    load_lm_tokenizer,
+)
 from qrwkv_xla.lm.losses import masked_next_token_cross_entropy
 from qrwkv_xla.optimizers import OptimizerState, init_optimizer_state
 from qrwkv_xla.prompting import (
@@ -65,7 +69,18 @@ class _TrainLoss:
 
 def run_lm_stage(config: LMStageConfig) -> LMStageResult:
     validate_lm_stage_config(config)
-    token_sequences = load_lm_token_sequences(config.data)
+    tokenizer = load_lm_tokenizer(config.data)
+    tokenizer_metadata = tokenizer.metadata
+    if tokenizer_metadata.eos_token_id is None:
+        raise ValueError("LM tokenizer must expose eos_token_id")
+    if tokenizer_metadata.pad_token_id is None:
+        raise ValueError("LM tokenizer must expose pad_token_id")
+    if config.student.vocab_size != tokenizer_metadata.vocab_size:
+        raise ValueError(
+            "student.vocab_size must match tokenizer vocab_size: "
+            f"{config.student.vocab_size} != {tokenizer_metadata.vocab_size}"
+        )
+    token_sequences = load_lm_token_sequences_with_tokenizer(config.data, tokenizer)
     batches = [
         {
             "input_ids": batch.input_ids,
@@ -77,6 +92,8 @@ def run_lm_stage(config: LMStageConfig) -> LMStageResult:
             token_sequences,
             sequence_length=config.data.sequence_length,
             batch_size=config.data.batch_size,
+            pad_token_id=tokenizer_metadata.pad_token_id,
+            eos_token_id=tokenizer_metadata.eos_token_id,
         )
     ]
 
@@ -171,6 +188,7 @@ def run_lm_stage(config: LMStageConfig) -> LMStageResult:
                 "training": asdict(config.training),
                 "losses": {"next_token_ce": {"enabled": True, "weight": 1.0}},
                 "data": asdict(config.data),
+                "tokenizer": asdict(tokenizer_metadata),
             },
             teacher_target={},
             student=student_config,
@@ -244,6 +262,7 @@ def run_lm_stage(config: LMStageConfig) -> LMStageResult:
                 "stage": config.training.stage,
                 "manifest": asdict(prompt_manifest),
                 "data": asdict(config.data),
+                "tokenizer": asdict(tokenizer_metadata),
             },
             optimizer_config=asdict(config.optimizer),
             optimizer_state=state.optimizer_state,

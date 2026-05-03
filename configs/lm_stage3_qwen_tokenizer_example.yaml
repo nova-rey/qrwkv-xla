@@ -1,0 +1,37 @@
+lm:
+  data:
+    prompt_corpus: corpora/smoke_prompts.jsonl
+    prompt_split: train
+    prompt_tags: []
+    prompt_limit: 2
+    sequence_length: 16
+    batch_size: 1
+    tokenizer:
+      backend: qwen
+      tokenizer_id: Qwen/Qwen2.5-0.5B
+      vocab_size: 151936
+      eos_token_id: 151643
+      pad_token_id: 151643
+      revision: main
+      trust_remote_code: false
+      local_files_only: false
+      use_fast: true
+    shuffle: false
+    seed: 0
+  student:
+    architecture: tiny_student
+    vocab_size: 151936
+    hidden_size: 8
+    num_layers: 2
+    emit_logits: true
+    tie_embeddings: false
+  optimizer:
+    type: sgd
+    learning_rate: 0.001
+  training:
+    stage: 3
+    max_steps: 1
+    seed: 0
+  gradients:
+    max_grad_norm: 1.0
+    clip_epsilon: 0.000001

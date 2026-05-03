@@ -353,3 +353,15 @@
 - [x] Add tiny CPU-safe Stage 3 smoke config
 - [x] Add CE, data, runner, checkpoint resume, and CLI tests
 - [x] Add validation pipeline coverage and Stage 3 docs
+
+## P22 — Real Qwen Tokenizer Integration
+
+- [x] Add tokenizer abstraction and registry
+- [x] Preserve `SmokeTokenizer` as default offline backend
+- [x] Add optional lazy HF tokenizer wrapper and treat `qwen` as `hf`
+- [x] Normalize LM tokenizer config from string or mapping forms
+- [x] Route LM prompt-corpus tokenization through the registry
+- [x] Use tokenizer metadata for EOS, PAD, and vocab compatibility
+- [x] Add offline registry/config/LM tests plus mocked HF backend tests
+- [x] Add env-gated real HF tokenizer integration test skipped by default
+- [x] Add real-tokenizer example config and tokenizer docs

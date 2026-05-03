@@ -53,6 +53,7 @@ def main() -> None:
     args = parser.parse_args()
 
     from qrwkv_xla.distill import DistillGradientConfig
+    from qrwkv_xla.generation import normalize_tokenizer_config
     from qrwkv_xla.lm import load_lm_stage_config, run_lm_stage
 
     if args.max_grad_norm is not None and args.disable_grad_clipping:
@@ -264,6 +265,10 @@ def main() -> None:
     print(f"max_grad_norm: {config.gradients.max_grad_norm}")
     print(f"clip_epsilon: {config.gradients.clip_epsilon}")
     print(f"prompt_corpus: {result.prompt_corpus}")
+    tokenizer_config = normalize_tokenizer_config(config.data.tokenizer)
+    print(f"tokenizer_backend: {tokenizer_config.backend}")
+    if tokenizer_config.tokenizer_id is not None:
+        print(f"tokenizer_id: {tokenizer_config.tokenizer_id}")
     print(f"sequence_length: {config.data.sequence_length}")
     print(f"batch_size: {config.data.batch_size}")
     print(f"steps: {result.steps}")
@@ -296,6 +301,6 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
-    except (NotImplementedError, ValueError) as exc:
+    except (NotImplementedError, RuntimeError, ValueError) as exc:
         print(f"LM stage failed: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc

@@ -1,9 +1,9 @@
 # Stage 3 CE Training
 
 Stage 3 is student-only next-token cross-entropy fine-tuning. It reads prompt
-corpus text, tokenizes with the dependency-free `SmokeTokenizer`, runs a
-logits-capable student, and minimizes masked next-token CE. It does not read
-teacher hidden states, teacher logits, or target bundles.
+corpus text, tokenizes through the tokenizer registry, runs a logits-capable
+student, and minimizes masked next-token CE. It does not read teacher hidden
+states, teacher logits, or target bundles.
 
 ## Smoke Run
 
@@ -17,16 +17,16 @@ It is CPU-safe and network-free.
 
 ## Data Shape
 
-Each selected prompt becomes one example. Text is byte-tokenized with
-`SmokeTokenizer`, EOS/PAD token `0` is appended, sequences are truncated or
-padded to `sequence_length + 1`, and batches are shifted:
+Each selected prompt becomes one example. Text is tokenized with the configured
+backend, tokenizer EOS is appended, sequences are truncated or padded with the
+tokenizer pad ID to `sequence_length + 1`, and batches are shifted:
 
 ```text
 tokens:         [batch, sequence_length + 1]
 input_ids:      tokens[:, :-1]
 labels:         tokens[:, 1:]
-attention_mask: input_ids != 0
-label_mask:     labels != 0
+attention_mask: input_ids != pad_token_id
+label_mask:     labels != pad_token_id
 ```
 
 The final batch is padded to full `batch_size` so the train step keeps static
@@ -55,9 +55,16 @@ lm:
     max_steps: 2
 ```
 
-`emit_logits` must be true and `vocab_size` must be at least `257` for the
-smoke tokenizer. Optimizer, LR schedule, gradient clipping, checkpoint, and run
-tracking sections reuse the distillation dataclasses and CLI conventions.
+`tokenizer` may be a string (`smoke`, `hf`, or `qwen`) or a mapping with
+`backend`, `tokenizer_id`, `vocab_size`, `eos_token_id`, and `pad_token_id`.
+`qwen` is an alias for `hf`. `emit_logits` must be true and `vocab_size` must
+match tokenizer metadata when known. Optimizer, LR schedule, gradient clipping,
+checkpoint, and run tracking sections reuse the distillation dataclasses and CLI
+conventions.
+
+Real HF/Qwen tokenizers are optional and lazy-imported. Install them with
+`python -m pip install -e ".[teacher-hf]"`. The default smoke config remains
+offline and dependency-light.
 
 ## Checkpoints And Metrics
 

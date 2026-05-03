@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import jax.numpy as jnp
 
-from qrwkv_xla.generation.tokenizer import SmokeTokenizer
+from qrwkv_xla.generation.tokenizer import Tokenizer, create_tokenizer
 from qrwkv_xla.lm.config import LMDataConfig
 from qrwkv_xla.prompting import filter_prompt_corpus, read_prompt_corpus
 
@@ -19,8 +19,21 @@ class LMBatch:
 
 
 def load_lm_token_sequences(config: LMDataConfig) -> list[list[int]]:
-    if config.tokenizer != "smoke":
-        raise ValueError("Only the smoke tokenizer is supported for Stage 3")
+    tokenizer = load_lm_tokenizer(config)
+    return load_lm_token_sequences_with_tokenizer(config, tokenizer)
+
+
+def load_lm_tokenizer(config: LMDataConfig) -> Tokenizer:
+    return create_tokenizer(config.tokenizer)
+
+
+def load_lm_token_sequences_with_tokenizer(
+    config: LMDataConfig,
+    tokenizer: Tokenizer,
+) -> list[list[int]]:
+    eos_token_id = tokenizer.metadata.eos_token_id
+    if eos_token_id is None:
+        raise ValueError("LM tokenizer must expose eos_token_id")
     corpus = read_prompt_corpus(config.prompt_corpus)
     filtered = filter_prompt_corpus(
         corpus,
@@ -30,12 +43,11 @@ def load_lm_token_sequences(config: LMDataConfig) -> list[list[int]]:
     )
     if not filtered.records:
         raise ValueError("Prompt corpus selection produced no records")
-    tokenizer = SmokeTokenizer()
     sequences: list[list[int]] = []
     for record in filtered.records:
         encoded = tokenizer.encode(record.text)
-        if not encoded or encoded[-1] != tokenizer.eos_token_id:
-            encoded.append(tokenizer.eos_token_id)
+        if not encoded or encoded[-1] != eos_token_id:
+            encoded.append(eos_token_id)
         sequences.append(encoded)
     if config.shuffle:
         rng = random.Random(config.seed)

@@ -184,3 +184,10 @@ prompt corpus text, tokenizes with `SmokeTokenizer`, builds simple static
 next-token batches, requires `emit_logits=true`, and trains with masked CE while
 reusing the existing optimizer, schedule, clipping, checkpoint, and tracking
 layers.
+
+## Phase 22 — Real Qwen Tokenizer Integration
+
+Goal: keep `SmokeTokenizer` as the default offline test double while adding a
+tokenizer registry for optional real HF/Qwen tokenizers. Stage 3 LM configs now
+accept string or mapping tokenizer forms, use tokenizer metadata for EOS/PAD and
+vocab validation, and keep real-tokenizer tests opt-in.

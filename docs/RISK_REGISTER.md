@@ -17,3 +17,8 @@ Mitigation: preserve feature categories in roadmap, implement incrementally by s
 
 ## R6 — Accidental CUDA/Triton dependency creep
 Mitigation: isolate PyTorch/HF to teacher export path; student path remains JAX/XLA.
+
+## R7 — Real tokenizer dependency creep
+Mitigation: keep `smoke` as the default tokenizer, lazy-import HF tokenizers,
+gate real HF tests behind an environment variable, and require `.[teacher-hf]`
+only for optional real-tokenizer runs.

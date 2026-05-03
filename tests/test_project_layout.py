@@ -23,6 +23,7 @@ REQUIRED_PATHS = [
     ROOT / "docs" / "DISTILLATION_RUNTIME.md",
     ROOT / "docs" / "HF_TEACHER_EXPORT.md",
     ROOT / "docs" / "QWEN_EXPORT_POLICY.md",
+    ROOT / "docs" / "TOKENIZERS.md",
     ROOT / "docs" / "PROMPT_CORPORA.md",
     ROOT / "docs" / "NYX_AGENT_ENTRYPOINT.yaml",
     ROOT / "corpora" / "smoke_prompts.jsonl",
