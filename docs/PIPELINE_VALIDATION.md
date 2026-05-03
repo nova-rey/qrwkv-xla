@@ -16,8 +16,8 @@ python scripts/validate_pipeline.py
 The default pipeline runs environment/runtime inspection, CPU and TPU-safe
 smokes, offline Qwen policy dry-runs, prompt corpus inspection and manifest
 creation, fake target export and inspection, both student smoke architectures,
-the distillation stage smoke, and the TPU-ready distillation smoke without
-requiring a TPU.
+the distillation stage smoke, a Stage 3 CE prompt-corpus smoke, and the
+TPU-ready distillation smoke without requiring a TPU.
 
 ## Optional Hugging Face Path
 
@@ -112,6 +112,17 @@ The default pipeline also runs
 `configs/distill_stage0_adamw_clipped_stub.yaml`, which combines AdamW,
 warmup-cosine scheduling, and global norm clipping. Existing unclipped SGD and
 AdamW paths remain in the validation list.
+
+## Stage 3 CE Smoke
+
+The default pipeline runs:
+
+```bash
+python scripts/run_lm_stage.py --config configs/lm_stage3_smoke.yaml --max-steps 1 --checkpoint-out checkpoints/pipeline_smoke/lm_stage3 --checkpoint-overwrite
+```
+
+This validates student-only next-token CE training from `corpora/smoke_prompts.jsonl`
+without teacher target bundles or external tokenizer/dataset dependencies.
 
 ## Generation Smoke
 

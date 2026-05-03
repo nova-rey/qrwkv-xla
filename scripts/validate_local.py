@@ -49,6 +49,17 @@ COMMANDS = [
     ],
     [
         sys.executable,
+        "scripts/run_lm_stage.py",
+        "--config",
+        "configs/lm_stage3_smoke.yaml",
+        "--max-steps",
+        "1",
+        "--checkpoint-out",
+        "checkpoints/lm_stage3_smoke",
+        "--checkpoint-overwrite",
+    ],
+    [
+        sys.executable,
         "scripts/evaluate_checkpoint.py",
         "--checkpoint",
         "checkpoints/eval_smoke",

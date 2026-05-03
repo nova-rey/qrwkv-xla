@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 18
-checkpoint: gradient_clipping
+phase: 19
+checkpoint: stage3_ce_fine_tuning
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -42,9 +42,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add simple global gradient norm clipping with config/CLI support, train-step
-  integration before optimizer updates, metrics, checkpoint/run metadata, tests,
-  docs, and CPU-only validation coverage.
+  Add student-only Stage 3 next-token CE fine-tuning over prompt corpora using
+  SmokeTokenizer, with config/CLI support, checkpoint/resume, metrics, docs,
+  and CPU-only validation coverage.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -74,6 +74,14 @@ gradient_clipping:
   disabled_value: null
   clip_epsilon_default: 0.000001
   optimizer_moments_see: clipped_gradients
+
+stage3_ce:
+  mode: student_only
+  tokenizer: dependency_free_utf8_byte_plus_one
+  prompt_source: prompt_corpus_jsonl
+  teacher_targets_required: false
+  loss: masked_next_token_cross_entropy
+  requires_emit_logits: true
 
 tracking:
   format: run.json plus metrics.jsonl plus summary.json

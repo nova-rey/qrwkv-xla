@@ -301,3 +301,14 @@
 - [x] Add clipped AdamW smoke config and validation coverage
 - [x] Add math, integration, CLI, checkpoint, and validation tests
 - [x] Add gradient clipping docs
+
+## P19 — Stage 3 Cross-Entropy Fine-Tuning
+
+- [x] Add masked next-token CE loss
+- [x] Add student-only LM stage config, data batching, runner, and CLI
+- [x] Reuse prompt corpus records and `SmokeTokenizer`
+- [x] Require logits-capable students for Stage 3
+- [x] Reuse optimizer, LR schedule, gradient clipping, checkpoint, and tracking layers
+- [x] Add tiny CPU-safe Stage 3 smoke config
+- [x] Add CE, data, runner, checkpoint resume, and CLI tests
+- [x] Add validation pipeline coverage and Stage 3 docs

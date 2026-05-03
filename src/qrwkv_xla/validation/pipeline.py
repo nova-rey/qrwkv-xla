@@ -18,6 +18,7 @@ CHECKPOINT_SCHEDULED_ADAMW_SMOKE = "checkpoints/pipeline_smoke/adamw_schedule"
 CHECKPOINT_CLIPPED_ADAMW_SMOKE = "checkpoints/pipeline_smoke/adamw_clipped"
 CHECKPOINT_HIDDEN_FOR_LOGITS = "checkpoints/pipeline_hidden_only_for_logits"
 CHECKPOINT_HIDDEN_PLUS_LOGITS = "checkpoints/pipeline_hidden_plus_logits"
+CHECKPOINT_LM_STAGE3_SMOKE = "checkpoints/pipeline_smoke/lm_stage3"
 EVAL_GENERATION_SMOKE = "eval_outputs/pipeline_generation_smoke"
 EVAL_REGRESSION_SMOKE = "eval_outputs/pipeline_eval_smoke"
 TRACKING_SMOKE_ROOT = "runs/pipeline_smoke"
@@ -138,6 +139,17 @@ def build_validation_commands(
             "1",
             "--checkpoint-out",
             CHECKPOINT_CLIPPED_ADAMW_SMOKE,
+            "--checkpoint-overwrite",
+        ),
+        (
+            sys.executable,
+            "scripts/run_lm_stage.py",
+            "--config",
+            "configs/lm_stage3_smoke.yaml",
+            "--max-steps",
+            "1",
+            "--checkpoint-out",
+            CHECKPOINT_LM_STAGE3_SMOKE,
             "--checkpoint-overwrite",
         ),
         (
@@ -426,6 +438,8 @@ def build_step_name(command: tuple[str, ...]) -> str:
             return "run_distill_stage checkpoint-save"
         targets = _option_value(command, "--targets")
         return f"run_distill_stage {Path(targets).name}" if targets else script
+    if script == "run_lm_stage":
+        return "run_lm_stage stage3-ce"
     if script == "generate_from_checkpoint":
         return "generate_from_checkpoint smoke"
     if script == "evaluate_checkpoint":

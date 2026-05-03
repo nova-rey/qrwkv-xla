@@ -222,3 +222,15 @@ the optimizer update, and logs post-clip norm, scale, clipped flag, and max norm
 per step. Checkpoints and tracked runs record gradient config metadata, and the
 validation pipeline includes a clipped AdamW smoke while preserving unclipped
 paths.
+
+## Phase 19 — Stage 3 Cross-Entropy Fine-Tuning
+
+This phase adds the student-only Stage 3 language-model path. The `qrwkv_xla.lm`
+package reads prompt corpora, tokenizes with `SmokeTokenizer`, builds static
+next-token batches, and trains logits-capable students with masked CE. It does
+not require teacher hidden states, teacher logits, or target bundles.
+
+Stage 3 reuses the existing optimizer, learning-rate schedule, gradient
+clipping, simple checkpoint, and local tracking layers. Checkpoints record
+`next_token_ce` loss metadata and prompt-corpus provenance while keeping the
+default validation path CPU-only, offline, and dependency-light.

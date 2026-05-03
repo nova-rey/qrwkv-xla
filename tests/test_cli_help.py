@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
         "export_teacher_targets.py",
         "train_student_smoke.py",
         "run_distill_stage.py",
+        "run_lm_stage.py",
         "xla_inspect.py",
         "tpu_distill_smoke.py",
         "smoke_tpu.py",

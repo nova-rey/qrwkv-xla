@@ -7,10 +7,11 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 18: global gradient norm clipping on top of learning-rate scheduling,
-lightweight SGD/Adam/AdamW optimizer support, evaluation harness, generation
-smoke, prompt corpus provenance, logits KL distillation, checkpoint/resume, XLA
-discipline, optional HF exporter, and local run tracking.
+Phase 19: student-only Stage 3 next-token CE fine-tuning on prompt corpora,
+global gradient norm clipping on top of learning-rate scheduling, lightweight
+SGD/Adam/AdamW optimizer support, evaluation harness, generation smoke, prompt
+corpus provenance, logits KL distillation, checkpoint/resume, XLA discipline,
+optional HF exporter, and local run tracking.
 
 The project can define, write, read, validate, inspect, and test fake teacher
 target bundles on CPU through a reusable exporter interface. It also has an
@@ -61,6 +62,10 @@ teacher bundles with `tiny_student` or `rwkv7_reference` students, and can use
 SGD, Adam, or AdamW without adding an optimizer dependency. Global gradient
 norm clipping is configured under `distillation.gradients` or with
 `--max-grad-norm`; see `docs/GRADIENT_CLIPPING.md`.
+
+`scripts/run_lm_stage.py` runs Stage 3 student-only next-token CE fine-tuning
+from a prompt corpus using `SmokeTokenizer`; it does not require teacher target
+bundles. See `docs/STAGE3_CE_TRAINING.md`.
 
 `scripts/tpu_distill_smoke.py` runs on the available JAX backend by default and only requires TPU when `--require-tpu` is passed.
 

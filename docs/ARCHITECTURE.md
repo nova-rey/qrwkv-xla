@@ -146,3 +146,11 @@ smoke tokenizer, greedy generation, and prompt corpora. It selects fixed
 prompts from a local JSONL corpus, writes `eval.json`, `generations.jsonl`, and
 `sanity.json`, and can compare two snapshots by prompt id. It is designed for
 regression inspection only.
+
+## Stage 3 CE Fine-Tuning
+
+The `qrwkv_xla.lm` package is the student-only language-model fine-tuning path.
+It consumes prompt corpus text, tokenizes with `SmokeTokenizer`, builds static
+next-token batches, requires `emit_logits=true`, and trains with masked CE. It
+reuses the existing optimizer, schedule, gradient clipping, checkpointing, and
+tracking layers, but it intentionally does not depend on teacher target bundles.

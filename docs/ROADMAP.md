@@ -166,3 +166,11 @@ tracked runs, tests, and validation coverage.
 Goal: add simple global gradient norm clipping after gradient computation and
 before optimizer updates, with config/CLI support, metrics, checkpoint/run
 metadata, docs, tests, and CPU-only validation coverage.
+
+## Phase 19 — Stage 3 CE Fine-Tuning
+
+Goal: add the first student-only language-model fine-tuning path. Stage 3 reads
+prompt corpus text, tokenizes with `SmokeTokenizer`, builds simple static
+next-token batches, requires `emit_logits=true`, and trains with masked CE while
+reusing the existing optimizer, schedule, clipping, checkpoint, and tracking
+layers.
