@@ -4,7 +4,11 @@ import jax.numpy as jnp
 import pytest
 
 from qrwkv_xla.distill import DistillLossConfig, LossWeightConfig
-from qrwkv_xla.distill.losses import compute_distill_loss, logits_kl_loss
+from qrwkv_xla.distill.losses import (
+    compute_distill_loss,
+    logits_kl_loss,
+    masked_attention_mixer_mse,
+)
 from qrwkv_xla.students.base import StudentOutput
 
 
@@ -71,14 +75,29 @@ def test_logits_enabled_without_logits_raises() -> None:
         )
 
 
-def test_attention_or_mixer_enabled_raises() -> None:
-    with pytest.raises(ValueError, match="attention_or_mixer"):
-        compute_distill_loss(
-            student_output=StudentOutput(hidden_states=jnp.zeros((1, 1, 1, 2))),
-            teacher_hidden_states=jnp.zeros((1, 1, 1, 2)),
-            teacher_logits=None,
-            attention_mask=jnp.ones((1, 1)),
-            loss_config=DistillLossConfig(
-                attention_or_mixer=LossWeightConfig(enabled=True, weight=1.0),
-            ),
-        )
+def test_attention_mixer_loss_zero_for_equal_values() -> None:
+    loss = masked_attention_mixer_mse(
+        jnp.ones((1, 2, 3, 4)),
+        jnp.ones((1, 2, 3, 4)),
+        jnp.ones((1, 3)),
+    )
+    assert float(loss) == pytest.approx(0.0, abs=1e-6)
+
+
+def test_attention_or_mixer_enabled_returns_component() -> None:
+    breakdown = compute_distill_loss(
+        student_output=StudentOutput(
+            hidden_states=jnp.zeros((1, 1, 2, 2)),
+            mixer_outputs=jnp.zeros((1, 1, 2, 2)),
+        ),
+        teacher_hidden_states=jnp.zeros((1, 1, 2, 2)),
+        teacher_logits=None,
+        teacher_attention_targets=jnp.ones((1, 1, 2, 2)),
+        attention_mask=jnp.array([[1, 0]], dtype=jnp.int32),
+        loss_config=DistillLossConfig(
+            hidden_mse=LossWeightConfig(enabled=False, weight=0.0),
+            attention_or_mixer=LossWeightConfig(enabled=True, weight=1.0),
+        ),
+    )
+    assert breakdown.attention_or_mixer is not None
+    assert float(breakdown.attention_or_mixer) > 0.0

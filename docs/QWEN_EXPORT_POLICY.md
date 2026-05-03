@@ -44,3 +44,8 @@ model.
 
 The corpus-backed dry-run path uses `configs/teacher_export_qwen_dryrun_corpus.yaml`
 so prompt-source metadata can be inspected without importing HF modules.
+Manual Qwen attention target export now has a dedicated config:
+
+`configs/teacher_export_qwen_attention_manual.yaml`
+
+It is dry-run safe and not part of default CI.

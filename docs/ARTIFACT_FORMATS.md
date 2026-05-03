@@ -74,8 +74,10 @@ Required:
 
 Optional:
 - `logits`: `[batch, sequence_length, vocab_size]`
-- `attention_targets`: lightly validated in P1; if present, the first two dims
-  must match batch and sequence length.
+- `attention_targets`: `[batch, num_layers, sequence_length, hidden_size]`
+
+`attention_targets` stores teacher attention or mixer output vectors, not
+attention probability matrices.
 
 ## Fake target workflow
 

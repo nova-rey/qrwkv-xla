@@ -163,7 +163,7 @@ def test_all_losses_disabled_or_zero_raises(tmp_path: Path) -> None:
         load_distill_stage_config(path)
 
 
-def test_attention_or_mixer_enabled_raises(tmp_path: Path) -> None:
+def test_attention_or_mixer_enabled_loads(tmp_path: Path) -> None:
     path = tmp_path / "distill.yaml"
     path.write_text(
         (
@@ -175,8 +175,9 @@ def test_attention_or_mixer_enabled_raises(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="attention_or_mixer"):
-        load_distill_stage_config(path)
+    config = load_distill_stage_config(path)
+    assert config.losses.attention_or_mixer.enabled is True
+    assert config.losses.attention_or_mixer.weight == 1.0
 
 
 def test_checkpoint_config_loads(tmp_path: Path) -> None:

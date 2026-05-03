@@ -154,3 +154,6 @@ It consumes prompt corpus text, tokenizes with `SmokeTokenizer`, builds static
 next-token batches, requires `emit_logits=true`, and trains with masked CE. It
 reuses the existing optimizer, schedule, gradient clipping, checkpointing, and
 tracking layers, but it intentionally does not depend on teacher target bundles.
+Phase 20 adds a Stage 1 path:
+
+`teacher attention_targets [B,L,S,H] -> student mixer_outputs [B,L,S,H] -> masked mixer MSE`.

@@ -21,6 +21,7 @@ class DistillStudentConfig:
     num_layers: int | None = None
     emit_logits: bool = False
     tie_embeddings: bool = False
+    emit_mixer_outputs: bool = False
 
 
 @dataclass(frozen=True)
@@ -210,8 +211,6 @@ def validate_distill_stage_config(config: DistillStageConfig) -> None:
             raise ValueError(f"loss weight for {name} must be >= 0")
         if weight_config.enabled and weight_config.weight > 0:
             enabled_positive = True
-    if config.losses.attention_or_mixer.enabled:
-        raise ValueError("attention_or_mixer distillation is not implemented yet")
     if not enabled_positive:
         raise ValueError("at least one enabled loss must have weight > 0")
 
@@ -226,6 +225,7 @@ def _load_student(data: Any) -> DistillStudentConfig:
         num_layers=_optional_int(data.get("num_layers")),
         emit_logits=bool(data.get("emit_logits", False)),
         tie_embeddings=bool(data.get("tie_embeddings", False)),
+        emit_mixer_outputs=bool(data.get("emit_mixer_outputs", False)),
     )
 
 

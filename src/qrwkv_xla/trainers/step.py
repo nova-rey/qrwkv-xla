@@ -26,6 +26,8 @@ def batch_to_jax(batch: TargetBatch) -> dict[str, jax.Array]:
     }
     if batch.logits is not None:
         converted["logits"] = jnp.asarray(batch.logits)
+    if batch.attention_targets is not None:
+        converted["attention_targets"] = jnp.asarray(batch.attention_targets)
     return converted
 
 

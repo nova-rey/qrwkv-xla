@@ -17,6 +17,7 @@ _MANIFEST_FIELDS = {
     "hidden_size",
     "num_layers",
     "targets",
+    "target_flags",
     "dtype",
     "created_by",
     "notes",
@@ -29,7 +30,7 @@ def manifest_from_dict(data: dict[str, Any]) -> TeacherTargetManifest:
     if not isinstance(data, dict):
         raise ValueError("Manifest root must be a mapping")
 
-    target_data = data.get("targets") or {}
+    target_data = data.get("targets") or data.get("target_flags") or {}
     if not isinstance(target_data, dict):
         raise ValueError("targets must be a mapping")
 
@@ -97,6 +98,20 @@ def validate_manifest(manifest: TeacherTargetManifest) -> None:
         raise ValueError("targets.input_ids must currently be true")
     if manifest.prompt_source is not None:
         _validate_prompt_source(manifest.prompt_source)
+    attention_meta = manifest.extra.get("attention_targets")
+    if attention_meta is not None:
+        if not isinstance(attention_meta, dict):
+            raise ValueError("attention_targets manifest metadata must be a mapping")
+        shape = attention_meta.get("shape")
+        valid_shapes = (
+            "[batch,num_layers,sequence_length,hidden_size]",
+            ["batch", "num_layers", "sequence_length", "hidden_size"],
+        )
+        if shape != valid_shapes[0] and shape != valid_shapes[1]:
+            raise ValueError(
+                "attention_targets manifest metadata shape must describe "
+                "[batch,num_layers,sequence_length,hidden_size]"
+            )
 
 
 def _optional_str(value: Any) -> str | None:

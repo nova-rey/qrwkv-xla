@@ -234,3 +234,10 @@ Stage 3 reuses the existing optimizer, learning-rate schedule, gradient
 clipping, simple checkpoint, and local tracking layers. Checkpoints record
 `next_token_ce` loss metadata and prompt-corpus provenance while keeping the
 default validation path CPU-only, offline, and dependency-light.
+## Phase 20 — Stage 1 Attention/Mixer Target Distillation
+
+This phase implements the missing Stage 1 conversion path. QRWKV-XLA can now
+export attention/mixer target vectors, expose recurrent student mixer outputs,
+and train them with layerwise MSE before hidden-state, logits, or Stage 3 CE
+training. The default validation path uses fake attention targets, while real
+HF/Qwen attention capture remains manual-only.

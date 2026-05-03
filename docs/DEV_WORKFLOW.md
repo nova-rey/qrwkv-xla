@@ -174,3 +174,6 @@ until a later phase explicitly expands the dependency budget.
 Gradient clipping should remain global norm only unless a later phase expands
 scope. Apply clipping after gradients are computed and before optimizer updates
 so Adam/AdamW moments observe clipped gradients.
+For Stage 1 attention/mixer runs, report whether targets were fake or
+HF-captured, the `[B,L,S,H]` target shape, mixer output shape, the
+`attention_or_mixer` loss, and whether real HF/Qwen capture was actually run.

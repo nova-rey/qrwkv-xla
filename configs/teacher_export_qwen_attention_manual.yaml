@@ -1,0 +1,40 @@
+teacher:
+  family: qwen
+  policy_label: qwen-attention-manual
+  fallback_label: Qwen3.0
+  resolved_model_id: null
+  tokenizer_id: null
+  trust_remote_code: true
+  revision: null
+  device: cpu
+  dtype: auto
+
+targets:
+  sequence_length: 64
+  hidden_size: null
+  num_layers: null
+  dtype: fp32
+  include_logits: false
+  include_attention_targets: true
+  vocab_size: 0
+  prompt_texts: []
+  prompt_corpus: corpora/smoke_prompts.jsonl
+  prompt_split: train
+  prompt_tags: ["smoke"]
+  prompt_limit: 2
+
+attention_capture:
+  enabled: true
+  strategy: auto_qwen
+  module_names: []
+  output_index: 0
+  require_all_layers: true
+
+runtime:
+  exporter_backend: hf
+  batch_size: 1
+  num_shards: 1
+  seed: 1234
+  output_dir: artifacts/teacher_targets/qwen_attention_manual
+  require_resolved_model: true
+  qwen_policy_path: configs/qwen_policy.yaml

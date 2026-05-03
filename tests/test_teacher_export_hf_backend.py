@@ -98,7 +98,18 @@ class FakeModel:
             FakeTensor(np.full((batch, sequence_length, 3), 2.0, dtype=np.float32)),
         )
         logits = FakeTensor(np.zeros((batch, sequence_length, 7), dtype=np.float32))
-        return SimpleNamespace(hidden_states=hidden_states, logits=logits)
+        attention_outputs = (
+            FakeTensor(np.full((batch, sequence_length, 3), 3.0, dtype=np.float32)),
+            FakeTensor(np.full((batch, sequence_length, 3), 4.0, dtype=np.float32)),
+        )
+        return SimpleNamespace(
+            hidden_states=hidden_states,
+            logits=logits,
+            attention_outputs=attention_outputs,
+        )
+
+    def named_modules(self):
+        yield "", self
 
 
 def test_registry_returns_hf_exporter_without_runtime_import_error() -> None:
@@ -249,3 +260,49 @@ def test_hf_exporter_omits_logits_when_disabled(
     shard = read_shard(shard_path(result.output_dir, 0))
     assert "logits" not in shard
     assert result.manifest.targets.logits is False
+
+
+def test_hf_exporter_can_include_attention_targets(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    tokenizer = FakeTokenizer()
+    model = FakeModel()
+    auto_tokenizer = SimpleNamespace(
+        from_pretrained=lambda *_args, **_kwargs: tokenizer
+    )
+    auto_model = SimpleNamespace(from_pretrained=lambda *_args, **_kwargs: model)
+    monkeypatch.setattr(
+        hf_module,
+        "_import_hf_dependencies",
+        lambda: (FakeTorch, auto_tokenizer, auto_model),
+    )
+    config = TeacherExportConfig()
+    config = replace(
+        config,
+        teacher=replace(
+            config.teacher,
+            family="qwen",
+            resolved_model_id="tiny-model",
+        ),
+        targets=replace(
+            config.targets,
+            hidden_size=None,
+            num_layers=None,
+            include_attention_targets=True,
+            prompt_texts=("a",),
+        ),
+        runtime=replace(config.runtime, exporter_backend="hf", output_dir=tmp_path),
+        attention_capture=replace(
+            config.attention_capture,
+            enabled=True,
+            strategy="auto_qwen",
+        ),
+    )
+
+    result = HFTeacherExporter().export(
+        ExportRequest(config=config, output_dir=tmp_path)
+    )
+    shard = read_shard(shard_path(result.output_dir, 0))
+    assert shard["attention_targets"].shape == (1, 2, 64, 3)
+    assert result.manifest.targets.attention_targets is True

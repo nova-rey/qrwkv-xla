@@ -17,6 +17,7 @@ class TargetBatch:
     attention_mask: np.ndarray
     hidden_states: np.ndarray
     logits: np.ndarray | None = None
+    attention_targets: np.ndarray | None = None
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,11 @@ class TargetBundleDataset:
                 attention_mask=np.asarray(arrays["attention_mask"]),
                 hidden_states=np.asarray(arrays["hidden_states"]),
                 logits=np.asarray(arrays["logits"]) if "logits" in arrays else None,
+                attention_targets=(
+                    np.asarray(arrays["attention_targets"])
+                    if "attention_targets" in arrays
+                    else None
+                ),
             )
 
     def first_batch(self) -> TargetBatch:

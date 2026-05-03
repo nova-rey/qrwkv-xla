@@ -1,7 +1,15 @@
 """Teacher export interfaces for QRWKV-XLA."""
 
+from qrwkv_xla.teacher_export.attention_capture import (
+    AttentionCaptureError,
+    attention_outputs_from_model_output,
+    capture_module_outputs,
+    stack_attention_output_sequence,
+    validate_attention_output_array,
+)
 from qrwkv_xla.teacher_export.base import ExportRequest, ExportResult, TeacherExporter
 from qrwkv_xla.teacher_export.config import (
+    AttentionCaptureConfig,
     ExportRuntimeConfig,
     ExportTargetConfig,
     TeacherExportConfig,
@@ -31,6 +39,7 @@ from qrwkv_xla.teacher_export.registry import get_teacher_exporter
 
 __all__ = [
     "TeacherModelConfig",
+    "AttentionCaptureConfig",
     "ExportTargetConfig",
     "ExportRuntimeConfig",
     "TeacherExportConfig",
@@ -39,6 +48,7 @@ __all__ = [
     "ExportRequest",
     "ExportResult",
     "TeacherExporter",
+    "AttentionCaptureError",
     "FakeTeacherExporter",
     "HFTeacherExporter",
     "HFTeacherExportError",
@@ -56,6 +66,10 @@ __all__ = [
     "resolve_qwen_policy_map",
     "validate_qwen_policy",
     "get_teacher_exporter",
+    "attention_outputs_from_model_output",
+    "capture_module_outputs",
+    "stack_attention_output_sequence",
+    "validate_attention_output_array",
 ]
 
 

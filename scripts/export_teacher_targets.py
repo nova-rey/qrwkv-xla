@@ -71,6 +71,35 @@ def main() -> None:
         action="store_true",
         help="Include logits in the exported shards",
     )
+    parser.add_argument(
+        "--include-attention-targets",
+        action="store_true",
+        help="Include attention/mixer output targets in the exported shards",
+    )
+    parser.add_argument(
+        "--attention-capture-strategy",
+        choices=["disabled", "explicit_module_names", "auto_qwen"],
+        help="Attention capture strategy for HF teacher export.",
+    )
+    parser.add_argument(
+        "--attention-module-name",
+        action="append",
+        default=None,
+        help="Explicit module name for attention capture; may be repeated.",
+    )
+    parser.add_argument(
+        "--attention-output-index",
+        type=int,
+        help="Tuple/list output index to capture from attention modules.",
+    )
+    parser.add_argument(
+        "--allow-partial-attention-capture",
+        action="store_true",
+        help=(
+            "Allow partial/manual attention capture config by disabling "
+            "require_all_layers."
+        ),
+    )
     args = parser.parse_args()
 
     from qrwkv_xla.targets import inspect_target_bundle, validate_target_bundle
@@ -88,6 +117,7 @@ def main() -> None:
     teacher = config.teacher
     targets = config.targets
     runtime = config.runtime
+    attention_capture = config.attention_capture
 
     if args.model_id is not None:
         teacher = replace(teacher, resolved_model_id=args.model_id)
@@ -115,6 +145,30 @@ def main() -> None:
         runtime = replace(runtime, output_dir=Path(args.out))
     if args.include_logits:
         targets = replace(targets, include_logits=True)
+    if args.include_attention_targets:
+        targets = replace(targets, include_attention_targets=True)
+    if args.attention_capture_strategy is not None:
+        attention_capture = replace(
+            attention_capture,
+            enabled=args.attention_capture_strategy != "disabled",
+            strategy=args.attention_capture_strategy,
+        )
+    if args.attention_module_name is not None:
+        attention_capture = replace(
+            attention_capture,
+            module_names=tuple(args.attention_module_name),
+        )
+    if args.attention_output_index is not None:
+        attention_capture = replace(
+            attention_capture,
+            output_index=args.attention_output_index,
+        )
+    if args.allow_partial_attention_capture:
+        attention_capture = replace(attention_capture, require_all_layers=False)
+    if args.include_attention_targets and args.backend == "fake":
+        attention_capture = replace(
+            attention_capture, enabled=False, strategy="disabled"
+        )
     if args.prompt is not None:
         targets = replace(targets, prompt_texts=tuple(args.prompt))
     if args.prompt_file is not None:
@@ -128,7 +182,26 @@ def main() -> None:
     if args.prompt_limit is not None:
         targets = replace(targets, prompt_limit=args.prompt_limit)
 
-    config = replace(config, teacher=teacher, targets=targets, runtime=runtime)
+    if targets.include_attention_targets and runtime.exporter_backend == "hf":
+        if attention_capture.strategy == "disabled" and not attention_capture.enabled:
+            raise ValueError(
+                "HF attention target export requires attention capture; set "
+                "attention_capture.enabled in config or pass "
+                "--attention-capture-strategy"
+            )
+        if args.attention_capture_strategy is None and attention_capture.enabled:
+            attention_capture = replace(
+                attention_capture,
+                enabled=True,
+            )
+
+    config = replace(
+        config,
+        teacher=teacher,
+        targets=targets,
+        runtime=runtime,
+        attention_capture=attention_capture,
+    )
     validate_teacher_export_config(config)
 
     resolution_status = "not_requested"
@@ -178,6 +251,13 @@ def main() -> None:
         prompts = resolve_prompts(config)
         tokenizer_id = config.teacher.tokenizer_id or config.teacher.resolved_model_id
         prompt_source = prompts.metadata
+        attention_capture_payload = {
+            "enabled": config.attention_capture.enabled,
+            "strategy": config.attention_capture.strategy,
+            "module_names": list(config.attention_capture.module_names),
+            "output_index": config.attention_capture.output_index,
+            "require_all_layers": config.attention_capture.require_all_layers,
+        }
         print("dry_run: true")
         print(f"backend: {config.runtime.exporter_backend}")
         print(f"family: {config.teacher.family}")
@@ -191,6 +271,11 @@ def main() -> None:
         print(f"resolution_status: {resolution_status}")
         print(f"prompt_source_type: {prompt_source['type']}")
         print(f"prompt_count: {prompt_source['prompt_count']}")
+        print(f"include_attention_targets: {config.targets.include_attention_targets}")
+        print(
+            "attention_capture: "
+            f"{json.dumps(attention_capture_payload, sort_keys=True)}"
+        )
         if prompt_source["type"] == "corpus":
             print(f"corpus_id: {prompt_source['corpus_id']}")
             print(f"corpus_sha256: {prompt_source['corpus_sha256']}")

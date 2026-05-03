@@ -282,3 +282,17 @@ when resuming from checkpoints.
 Checkpoints record scheduler metadata for provenance. A resumed run may
 intentionally use a different schedule, but this should be visible in run
 metadata and summaries.
+## D059 — Stage 1 Targets Attention Output Vectors, Not Weights
+
+QRWKV-XLA targets teacher attention or mixer output vectors shaped
+`[batch, layers, sequence, hidden]` rather than attention probability matrices.
+
+## D060 — HF Attention Capture Is Manual-Only
+
+Real HF/Qwen attention-output capture depends on model-specific hook layout, so
+default CI stays fake-target based and manual capture remains opt-in.
+
+## D061 — Student Mixer Outputs Are First-Class Training Signals
+
+Students can expose per-layer mixer outputs so Stage 1 can train the recurrent
+replacement pathway directly.

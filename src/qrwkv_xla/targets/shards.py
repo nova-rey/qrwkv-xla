@@ -73,9 +73,21 @@ def validate_shard_arrays(
 
     if "attention_targets" in arrays:
         attention_targets = np.asarray(arrays["attention_targets"])
-        if attention_targets.ndim < 2:
-            raise ValueError("attention_targets must have at least 2 dimensions")
+        if attention_targets.ndim != 4:
+            raise ValueError("attention_targets must be rank 4")
         if attention_targets.shape[0] != batch_size:
             raise ValueError("attention_targets batch dimension must match input_ids")
-        if attention_targets.shape[1] != sequence_length:
+        if attention_targets.shape[1] != num_layers:
+            actual = attention_targets.shape[1]
+            raise ValueError(
+                f"attention_targets num_layers must be {num_layers}, got {actual}"
+            )
+        if attention_targets.shape[2] != sequence_length:
             raise ValueError("attention_targets sequence_length must match manifest")
+        if attention_targets.shape[3] != hidden_size:
+            actual = attention_targets.shape[3]
+            raise ValueError(
+                f"attention_targets hidden_size must be {hidden_size}, got {actual}"
+            )
+        if not np.issubdtype(attention_targets.dtype, np.floating):
+            raise ValueError("attention_targets dtype must be floating")

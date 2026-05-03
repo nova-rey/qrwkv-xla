@@ -20,6 +20,7 @@ class TinyStudentConfig:
     num_layers: int = 2
     emit_logits: bool = False
     tie_embeddings: bool = False
+    emit_mixer_outputs: bool = False
 
     def __post_init__(self) -> None:
         for name in ("vocab_size", "hidden_size", "num_layers"):
@@ -78,10 +79,11 @@ class TinyStudent:
         embeddings = jnp.asarray(params["embedding"])[token_ids]
         layer_scale = jnp.asarray(params["layer_scale"])
         layer_bias = jnp.asarray(params["layer_bias"])
-        hidden_states = jnp.tanh(
+        mixer_pre_activation = (
             embeddings[:, None, :, :] * layer_scale[None, :, None, :]
             + layer_bias[None, :, None, :]
         )
+        hidden_states = jnp.tanh(mixer_pre_activation)
         logits = None
         if self.config.emit_logits:
             final_hidden = hidden_states[:, -1, :, :]
@@ -93,4 +95,9 @@ class TinyStudent:
                 )
             else:
                 logits = apply_lm_head(final_hidden, params["lm_head"])
-        return StudentOutput(hidden_states=hidden_states, logits=logits)
+        mixer_outputs = mixer_pre_activation if self.config.emit_mixer_outputs else None
+        return StudentOutput(
+            hidden_states=hidden_states,
+            logits=logits,
+            mixer_outputs=mixer_outputs,
+        )

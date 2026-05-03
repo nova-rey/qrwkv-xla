@@ -11,15 +11,20 @@ import jax
 class StudentOutput:
     hidden_states: jax.Array
     logits: jax.Array | None = None
+    mixer_outputs: jax.Array | None = None
 
     def tree_flatten(self):
-        return (self.hidden_states, self.logits), None
+        return (self.hidden_states, self.logits, self.mixer_outputs), None
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         del aux_data
-        hidden_states, logits = children
-        return cls(hidden_states=hidden_states, logits=logits)
+        hidden_states, logits, mixer_outputs = children
+        return cls(
+            hidden_states=hidden_states,
+            logits=logits,
+            mixer_outputs=mixer_outputs,
+        )
 
 
 class StudentModel(Protocol):

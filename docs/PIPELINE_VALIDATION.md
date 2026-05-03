@@ -137,3 +137,10 @@ Default pipeline validation now evaluates the logits-capable smoke checkpoint
 with `scripts/evaluate_checkpoint.py` and `configs/eval_regression_smoke.yaml`.
 This step is CPU-only, offline, non-strict by default, and records sanity
 warnings without turning them into quality claims.
+Phase 20 adds a fake Stage 1 smoke path:
+
+```bash
+python scripts/export_teacher_targets.py --config configs/teacher_export_stub_attention.yaml
+python scripts/inspect_targets.py artifacts/teacher_targets/fake_attention_export
+python scripts/run_distill_stage.py --config configs/distill_stage1_attention_stub.yaml --max-steps 2
+```

@@ -21,11 +21,16 @@ class FakeTeacherExporter:
     def export(self, request: ExportRequest) -> ExportResult:
         config = request.config
         validate_teacher_export_config(config)
-        if config.targets.include_attention_targets:
-            raise NotImplementedError(
-                "attention target export is not implemented yet for FakeTeacherExporter"
-            )
         prompts = resolve_prompts(config)
+        attention_metadata = {}
+        if config.targets.include_attention_targets:
+            attention_metadata = {
+                "attention_targets": {
+                    "kind": "attention_output_vectors",
+                    "shape": "[batch,num_layers,sequence_length,hidden_size]",
+                    "semantic": "teacher_attention_output_vectors",
+                }
+            }
 
         manifest = TeacherTargetManifest(
             schema_version="0.1",
@@ -42,13 +47,13 @@ class FakeTeacherExporter:
                 attention_mask=True,
                 hidden_states=True,
                 logits=config.targets.include_logits,
-                attention_targets=False,
+                attention_targets=config.targets.include_attention_targets,
             ),
             dtype=config.targets.dtype,
             created_by="FakeTeacherExporter",
             notes=["deterministic fake exporter bundle"],
             prompt_source=prompts.metadata,
-            extra={"vocab_size": config.targets.vocab_size},
+            extra={"vocab_size": config.targets.vocab_size, **attention_metadata},
         )
 
         rng = np.random.default_rng(config.runtime.seed)
@@ -98,5 +103,16 @@ class FakeTeacherExporter:
                 loc=0.0,
                 scale=1.0,
                 size=(batch_size, sequence_length, config.targets.vocab_size),
+            ).astype(np.float32)
+        if config.targets.include_attention_targets:
+            arrays["attention_targets"] = rng.normal(
+                loc=0.0,
+                scale=1.0,
+                size=(
+                    batch_size,
+                    config.targets.num_layers,
+                    sequence_length,
+                    config.targets.hidden_size,
+                ),
             ).astype(np.float32)
         return arrays

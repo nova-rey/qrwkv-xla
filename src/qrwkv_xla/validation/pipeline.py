@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 FAKE_TARGETS = "artifacts/teacher_targets/fake_export"
+FAKE_ATTENTION_TARGETS = "artifacts/teacher_targets/fake_attention_export"
 FAKE_LOGITS_TARGETS = "artifacts/teacher_targets/fake_export_logits"
 HF_TINY_TARGETS = "artifacts/teacher_targets/hf_tiny"
 HF_TINY_CORPUS_TARGETS = "artifacts/teacher_targets/hf_tiny_corpus"
@@ -116,6 +117,13 @@ def build_validation_commands(
             sys.executable,
             "scripts/export_teacher_targets.py",
             "--config",
+            "configs/teacher_export_stub_attention.yaml",
+        ),
+        (sys.executable, "scripts/inspect_targets.py", FAKE_ATTENTION_TARGETS),
+        (
+            sys.executable,
+            "scripts/export_teacher_targets.py",
+            "--config",
             "configs/teacher_export_stub_logits.yaml",
         ),
         (sys.executable, "scripts/inspect_targets.py", FAKE_LOGITS_TARGETS),
@@ -169,6 +177,14 @@ def build_validation_commands(
             FAKE_TARGETS,
             "--student-architecture",
             "rwkv7_reference",
+            "--max-steps",
+            max_steps_value,
+        ),
+        (
+            sys.executable,
+            "scripts/run_distill_stage.py",
+            "--config",
+            "configs/distill_stage1_attention_stub.yaml",
             "--max-steps",
             max_steps_value,
         ),

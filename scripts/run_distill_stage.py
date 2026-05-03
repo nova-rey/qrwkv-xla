@@ -42,9 +42,17 @@ def main() -> None:
     parser.add_argument("--run-note", action="append", default=[])
     parser.add_argument("--run-overwrite", action="store_true")
     parser.add_argument("--emit-logits", action="store_true")
+    parser.add_argument("--emit-mixer-outputs", action="store_true")
     parser.add_argument("--tie-embeddings", action="store_true")
     parser.add_argument("--enable-logits-kl", action="store_true")
+    parser.add_argument(
+        "--enable-attention-mixer",
+        "--enable-attention-mixer-loss",
+        dest="enable_attention_mixer",
+        action="store_true",
+    )
     parser.add_argument("--logits-kl-weight", type=float)
+    parser.add_argument("--attention-mixer-weight", type=float)
     parser.add_argument("--hidden-mse-weight", type=float)
     args = parser.parse_args()
 
@@ -66,13 +74,16 @@ def main() -> None:
             config,
             student=replace(config.student, architecture=args.student_architecture),
         )
-    if args.emit_logits or args.tie_embeddings:
+    if args.emit_logits or args.tie_embeddings or args.emit_mixer_outputs:
         config = replace(
             config,
             student=replace(
                 config.student,
                 emit_logits=args.emit_logits or config.student.emit_logits,
                 tie_embeddings=args.tie_embeddings or config.student.tie_embeddings,
+                emit_mixer_outputs=(
+                    args.emit_mixer_outputs or config.student.emit_mixer_outputs
+                ),
             ),
         )
     if args.max_steps is not None:
@@ -211,7 +222,9 @@ def main() -> None:
         )
     if (
         args.enable_logits_kl
+        or args.enable_attention_mixer
         or args.logits_kl_weight is not None
+        or args.attention_mixer_weight is not None
         or args.hidden_mse_weight is not None
     ):
         logits_weight = (
@@ -223,6 +236,11 @@ def main() -> None:
             args.hidden_mse_weight
             if args.hidden_mse_weight is not None
             else config.losses.hidden_mse.weight
+        )
+        attention_weight = (
+            args.attention_mixer_weight
+            if args.attention_mixer_weight is not None
+            else config.losses.attention_or_mixer.weight
         )
         config = replace(
             config,
@@ -236,6 +254,13 @@ def main() -> None:
                     enabled=args.enable_logits_kl or config.losses.logits_kl.enabled,
                     weight=logits_weight,
                 ),
+                attention_or_mixer=LossWeightConfig(
+                    enabled=(
+                        args.enable_attention_mixer
+                        or config.losses.attention_or_mixer.enabled
+                    ),
+                    weight=attention_weight,
+                ),
             ),
         )
 
@@ -243,6 +268,7 @@ def main() -> None:
     print(f"stage: {result.stage}")
     print(f"student_architecture: {result.student_architecture}")
     print(f"emit_logits: {config.student.emit_logits}")
+    print(f"emit_mixer_outputs: {config.student.emit_mixer_outputs}")
     print(f"tie_embeddings: {config.student.tie_embeddings}")
     print(f"optimizer: {config.optimizer.type}")
     print(f"base_learning_rate: {config.optimizer.learning_rate}")
@@ -256,6 +282,11 @@ def main() -> None:
         "logits_kl_enabled: "
         f"{config.losses.logits_kl.enabled and config.losses.logits_kl.weight > 0}"
     )
+    attention_mixer_enabled = (
+        config.losses.attention_or_mixer.enabled
+        and config.losses.attention_or_mixer.weight > 0
+    )
+    print(f"attention_or_mixer_enabled: {attention_mixer_enabled}")
     print(f"targets: {result.target_bundle}")
     print(f"steps: {result.steps}")
     print(f"start_step: {result.start_step}")
@@ -276,6 +307,9 @@ def main() -> None:
         print(f"final_hidden_mse: {result.final_hidden_mse:.8f}")
     if result.final_logits_kl is not None:
         print(f"final_logits_kl: {result.final_logits_kl:.8f}")
+    if result.final_attention_or_mixer is not None:
+        print(f"final_attention_or_mixer: {result.final_attention_or_mixer:.8f}")
+        print(f"final_attention_or_mixer_mse: {result.final_attention_or_mixer:.8f}")
     if result.final_grad_global_norm is not None:
         print(f"final_grad_global_norm: {result.final_grad_global_norm:.8f}")
     if result.final_grad_clipped_global_norm is not None:

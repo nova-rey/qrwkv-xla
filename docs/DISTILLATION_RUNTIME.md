@@ -73,10 +73,12 @@ forcing premature logits-head work in Phase 5.
 
 ### Attention / Mixer Distillation
 
-Not implemented yet.
+Phase 20 enables `attention_or_mixer` as a masked MSE loss between:
 
-If `attention_or_mixer` is enabled, the runtime raises a clear error instead of
-silently ignoring it.
+- `student_output.mixer_outputs`
+- `teacher attention_targets`
+
+Both use `[batch, num_layers, sequence_length, hidden_size]`.
 
 ## Runner Flow
 

@@ -39,6 +39,7 @@ class DistillStageResult:
     final_loss: float
     final_hidden_mse: float | None = None
     final_logits_kl: float | None = None
+    final_attention_or_mixer: float | None = None
     target_bundle: Path | None = None
     checkpoint_out: Path | None = None
     resume_from: Path | None = None
@@ -69,9 +70,18 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
     logits_kl_enabled = (
         config.losses.logits_kl.enabled and config.losses.logits_kl.weight > 0
     )
+    attention_or_mixer_enabled = (
+        config.losses.attention_or_mixer.enabled
+        and config.losses.attention_or_mixer.weight > 0
+    )
     if logits_kl_enabled and not manifest.targets.logits:
         raise ValueError(
             "logits_kl is enabled but teacher targets do not include logits"
+        )
+    if attention_or_mixer_enabled and not manifest.targets.attention_targets:
+        raise ValueError(
+            "attention_or_mixer is enabled but teacher targets do not include "
+            "attention_targets"
         )
 
     hidden_size = config.student.hidden_size
@@ -101,6 +111,9 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
         num_layers=num_layers,
         emit_logits=config.student.emit_logits,
         tie_embeddings=config.student.tie_embeddings,
+        emit_mixer_outputs=(
+            config.student.emit_mixer_outputs or attention_or_mixer_enabled
+        ),
     )
     student_config = {
         "architecture": config.student.architecture,
@@ -109,6 +122,9 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
         "num_layers": num_layers,
         "emit_logits": config.student.emit_logits,
         "tie_embeddings": config.student.tie_embeddings,
+        "emit_mixer_outputs": (
+            config.student.emit_mixer_outputs or attention_or_mixer_enabled
+        ),
     }
 
     optimizer_config = config.optimizer.to_optimizer_config()
@@ -311,6 +327,7 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
                 "final_loss": final_metrics["loss"],
                 "final_hidden_mse": final_metrics.get("hidden_mse"),
                 "final_logits_kl": final_metrics.get("logits_kl"),
+                "final_attention_or_mixer": final_metrics.get("attention_or_mixer"),
                 "optimizer_type": config.optimizer.type,
                 "learning_rate": final_learning_rate,
                 "base_learning_rate": config.optimizer.learning_rate,
@@ -341,6 +358,7 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
         final_loss=final_metrics["loss"],
         final_hidden_mse=final_metrics.get("hidden_mse"),
         final_logits_kl=final_metrics.get("logits_kl"),
+        final_attention_or_mixer=final_metrics.get("attention_or_mixer"),
         target_bundle=dataset.bundle_dir,
         checkpoint_out=checkpoint_out,
         resume_from=config.checkpoint.resume_from,
@@ -371,6 +389,7 @@ def _make_train_loss(config: DistillStageConfig):
             teacher_logits=batch.get("logits"),
             attention_mask=batch.get("attention_mask"),
             loss_config=config.losses,
+            teacher_attention_targets=batch.get("attention_targets"),
         )
         components = {
             "loss": breakdown.total,
@@ -379,6 +398,9 @@ def _make_train_loss(config: DistillStageConfig):
             components["hidden_mse"] = breakdown.hidden_mse
         if breakdown.logits_kl is not None:
             components["logits_kl"] = breakdown.logits_kl
+        if breakdown.attention_or_mixer is not None:
+            components["attention_or_mixer"] = breakdown.attention_or_mixer
+            components["attention_or_mixer_mse"] = breakdown.attention_or_mixer
         return _TrainLoss(total=breakdown.total, components=components)
 
     return loss_fn
@@ -404,16 +426,12 @@ def _validate_resume_checkpoint(
                 f"checkpoint student {name} mismatch: "
                 f"{checkpoint_value!r} != {expected_value!r}"
             )
-    for name in ("emit_logits", "tie_embeddings"):
+    for name in ("emit_logits", "tie_embeddings", "emit_mixer_outputs"):
         checkpoint_value = bool(checkpoint_student_config.get(name, False))
         expected_value = bool(expected_student_config[name])
         if checkpoint_value == expected_value:
             continue
-        checkpoint_emit_logits = bool(
-            checkpoint_student_config.get("emit_logits", False)
-        )
-        expected_emit_logits = bool(expected_student_config["emit_logits"])
-        if not checkpoint_emit_logits and expected_emit_logits:
+        if name in {"emit_logits", "emit_mixer_outputs"} and expected_value:
             continue
         raise ValueError(
             f"checkpoint student {name} mismatch: "

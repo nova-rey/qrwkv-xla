@@ -16,6 +16,7 @@ def create_student(
     num_layers: int,
     emit_logits: bool = False,
     tie_embeddings: bool = False,
+    emit_mixer_outputs: bool = False,
 ) -> StudentModel:
     if architecture == "tiny_student":
         return TinyStudent(
@@ -25,6 +26,7 @@ def create_student(
                 num_layers=num_layers,
                 emit_logits=emit_logits,
                 tie_embeddings=tie_embeddings,
+                emit_mixer_outputs=emit_mixer_outputs,
             )
         )
     if architecture == "rwkv7_reference":
@@ -35,6 +37,7 @@ def create_student(
                 num_layers=num_layers,
                 emit_logits=emit_logits,
                 tie_embeddings=tie_embeddings,
+                emit_mixer_outputs=emit_mixer_outputs,
             )
         )
     raise ValueError(f"Unknown student architecture: {architecture}")

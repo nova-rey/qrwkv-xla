@@ -143,3 +143,5 @@ P18 adds CPU-only tests for global norm math, disabled clipping behavior,
 distillation metrics/provenance, checkpoint compatibility, CLI overrides and
 flag conflicts, plus a clipped AdamW validation pipeline smoke. The default
 pipeline still keeps at least one unclipped distillation path.
+Phase 20 adds fake attention target artifact tests, student mixer output tests,
+attention/mixer loss tests, and fake Stage 1 integration coverage.

@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 19
-checkpoint: stage3_ce_fine_tuning
+phase: 20
+checkpoint: stage1_attention_mixer_distillation
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -42,9 +42,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add student-only Stage 3 next-token CE fine-tuning over prompt corpora using
-  SmokeTokenizer, with config/CLI support, checkpoint/resume, metrics, docs,
-  and CPU-only validation coverage.
+  Add Stage 1 attention/mixer target distillation by defining attention target
+  artifacts, fake attention export, student mixer outputs, attention/mixer MSE
+  loss, fake Stage 1 validation, and optional/manual HF/Qwen attention-output
+  capture.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays

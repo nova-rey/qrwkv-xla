@@ -1,0 +1,29 @@
+teacher:
+  family: fake
+  policy_label: fake-attention-smoke
+  fallback_label: null
+  resolved_model_id: fake-teacher-attention
+  tokenizer_id: fake-tokenizer
+  trust_remote_code: false
+  revision: null
+  device: cpu
+  dtype: fp32
+
+targets:
+  sequence_length: 64
+  hidden_size: 128
+  num_layers: 2
+  dtype: fp32
+  include_logits: false
+  include_attention_targets: true
+  vocab_size: 512
+  prompt_texts:
+    - "Fake Stage 1 attention target prompt."
+    - "Second fake attention target prompt."
+
+runtime:
+  exporter_backend: fake
+  batch_size: 2
+  num_shards: 1
+  seed: 1234
+  output_dir: artifacts/teacher_targets/fake_attention_export

@@ -12,6 +12,12 @@ from qrwkv_xla.targets import (
     inspect_target_bundle,
     write_target_bundle,
 )
+from qrwkv_xla.teacher_export.attention_capture import (
+    AttentionCaptureError,
+    attention_outputs_from_model_output,
+    capture_module_outputs,
+    discover_auto_qwen_module_names,
+)
 from qrwkv_xla.teacher_export.base import ExportRequest, ExportResult
 from qrwkv_xla.teacher_export.config import validate_teacher_export_config
 from qrwkv_xla.teacher_export.prompts import resolve_prompts
@@ -29,9 +35,13 @@ class HFTeacherExporter:
     def export(self, request: ExportRequest) -> ExportResult:
         config = request.config
         validate_teacher_export_config(config)
-        if config.targets.include_attention_targets:
-            raise NotImplementedError(
-                "attention target export is not implemented yet for HFTeacherExporter"
+        if (
+            config.targets.include_attention_targets
+            and not config.attention_capture.enabled
+        ):
+            raise HFTeacherExportError(
+                "HF attention target export requires attention_capture.enabled=true "
+                "or CLI attention capture flags"
             )
         if not config.teacher.resolved_model_id:
             raise HFTeacherExportError(
@@ -70,7 +80,7 @@ class HFTeacherExporter:
                 attention_mask=True,
                 hidden_states=True,
                 logits=config.targets.include_logits,
-                attention_targets=False,
+                attention_targets=config.targets.include_attention_targets,
             ),
             dtype="fp32",
             created_by="HFTeacherExporter",
@@ -83,6 +93,14 @@ class HFTeacherExporter:
                 "prompt_count": len(prompts.texts),
                 "teacher_dtype": config.teacher.dtype,
                 "vocab_size": config.targets.vocab_size,
+                "attention_targets": {
+                    "kind": "attention_output_vectors",
+                    "shape": "[batch,num_layers,sequence_length,hidden_size]",
+                    "semantic": "teacher_attention_output_vectors",
+                    "capture": "manual_model_output_attribute",
+                }
+                if config.targets.include_attention_targets
+                else None,
             },
         )
 
@@ -119,7 +137,10 @@ class HFTeacherExporter:
                 torch=torch,
                 encoded=encoded,
                 outputs=outputs,
+                model=model,
+                attention_capture_config=config.attention_capture,
                 include_logits=config.targets.include_logits,
+                include_attention_targets=config.targets.include_attention_targets,
             )
 
 
@@ -186,7 +207,10 @@ def _outputs_to_shard(
     torch: Any,
     encoded: dict[str, Any],
     outputs: Any,
+    model: Any,
+    attention_capture_config: Any,
     include_logits: bool,
+    include_attention_targets: bool = False,
 ) -> dict[str, np.ndarray]:
     hidden_states = getattr(outputs, "hidden_states", None)
     if hidden_states is None:
@@ -206,7 +230,50 @@ def _outputs_to_shard(
         if logits is None:
             raise HFTeacherExportError("HF model did not return logits")
         shard["logits"] = _tensor_to_numpy(logits).astype(np.float32)
+    if include_attention_targets:
+        try:
+            shard["attention_targets"] = _resolve_attention_targets(
+                torch=torch,
+                model=model,
+                outputs=outputs,
+                encoded=encoded,
+                attention_capture_config=attention_capture_config,
+            )
+        except AttentionCaptureError as exc:
+            raise HFTeacherExportError(str(exc)) from exc
     return shard
+
+
+def _resolve_attention_targets(
+    *,
+    torch: Any,
+    model: Any,
+    outputs: Any,
+    encoded: dict[str, Any],
+    attention_capture_config: Any,
+) -> np.ndarray:
+    try:
+        return attention_outputs_from_model_output(outputs, torch=torch)
+    except AttentionCaptureError:
+        pass
+
+    strategy = attention_capture_config.strategy
+    if strategy == "explicit_module_names":
+        module_names = attention_capture_config.module_names
+    elif strategy == "auto_qwen":
+        module_names = discover_auto_qwen_module_names(model)
+    else:
+        raise AttentionCaptureError(
+            "attention capture is enabled but no supported strategy was configured"
+        )
+
+    return capture_module_outputs(
+        model,
+        module_names=module_names,
+        forward_fn=lambda: _run_model(model, encoded),
+        torch=torch,
+        output_index=attention_capture_config.output_index,
+    )
 
 
 def _tensor_to_numpy(tensor: Any) -> np.ndarray:

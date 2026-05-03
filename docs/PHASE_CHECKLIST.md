@@ -178,6 +178,27 @@
 - [x] Update docs
 - [x] Update snapshot
 - [x] Append Bible entry
+
+## P20 — Stage 1 Attention/Mixer Target Distillation
+
+- [x] Define attention_targets shape and semantics
+- [x] Update target shard validation/loading
+- [x] Add fake attention target export
+- [x] Add StudentOutput.mixer_outputs
+- [x] Add TinyStudent mixer outputs
+- [x] Add RWKV7ReferenceStudent mixer outputs
+- [x] Implement attention/mixer MSE loss
+- [x] Wire attention_or_mixer loss into runner
+- [x] Add fake Stage 1 configs
+- [x] Add optional/manual HF attention capture
+- [x] Add Qwen attention manual config
+- [x] Add tests
+- [x] Update validation pipeline
+- [x] Add ATTENTION_MIXER_DISTILLATION.md
+- [x] Update docs
+- [x] Update snapshot
+- [x] Append Bible entry
+- [x] Run validation
 - [x] Run validation
 - [x] Add offline resolver/config/CLI tests
 - [x] Update docs and snapshot

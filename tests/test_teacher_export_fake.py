@@ -4,7 +4,6 @@ from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 from qrwkv_xla.targets import inspect_target_bundle, read_shard, validate_target_bundle
 from qrwkv_xla.targets.store import shard_path
@@ -83,7 +82,7 @@ def test_fake_exporter_is_deterministic_for_input_ids(tmp_path: Path) -> None:
     np.testing.assert_array_equal(first_shard["input_ids"], second_shard["input_ids"])
 
 
-def test_attention_targets_not_implemented(tmp_path: Path) -> None:
+def test_fake_exporter_includes_attention_targets(tmp_path: Path) -> None:
     config = TeacherExportConfig()
     config = replace(
         config,
@@ -91,7 +90,9 @@ def test_attention_targets_not_implemented(tmp_path: Path) -> None:
         runtime=replace(config.runtime, output_dir=tmp_path / "attention_targets"),
     )
 
-    with pytest.raises(NotImplementedError, match="attention target export"):
-        FakeTeacherExporter().export(
-            ExportRequest(config=config, output_dir=config.runtime.output_dir)
-        )
+    result = FakeTeacherExporter().export(
+        ExportRequest(config=config, output_dir=config.runtime.output_dir)
+    )
+    shard = read_shard(shard_path(result.output_dir, 0))
+    assert result.manifest.targets.attention_targets is True
+    assert shard["attention_targets"].shape == (2, 2, 64, 128)

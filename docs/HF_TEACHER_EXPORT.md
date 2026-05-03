@@ -118,3 +118,8 @@ For real export runs, make sure the model is reachable or already cached.
 
 CPU export is expected to be slower than a GPU-backed inference path. P7 is
 about correctness and artifact compatibility, not performance.
+## Manual attention target capture
+
+HF attention target export is manual-only. Use `attention_capture` with either
+`auto_qwen` or explicit module names. Default CI does not download models or run
+real attention capture.

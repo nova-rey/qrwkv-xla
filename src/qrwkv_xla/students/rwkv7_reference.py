@@ -21,6 +21,7 @@ class RWKV7ReferenceConfig:
     init_scale: float = 0.02
     emit_logits: bool = False
     tie_embeddings: bool = False
+    emit_mixer_outputs: bool = False
 
     def __post_init__(self) -> None:
         for name in ("vocab_size", "hidden_size", "num_layers"):
@@ -42,7 +43,8 @@ def rwkv7_reference_layer(
     time_decay: jax.Array,
     time_bias: jax.Array,
     attention_mask: jax.Array | None = None,
-) -> jax.Array:
+    return_mixer: bool = False,
+) -> jax.Array | tuple[jax.Array, jax.Array]:
     """Run one simplified RWKV7-style recurrent layer over [B,S,H] inputs."""
     x = jnp.asarray(inputs)
     if x.ndim != 3:
@@ -70,12 +72,18 @@ def rwkv7_reference_layer(
         gate = jax.nn.sigmoid(token @ wg)
         proposed_state = decay * state + key * value
         next_state = jnp.where(token_mask > 0, proposed_state, state)
-        output = jnp.tanh(token + (receptance * next_state * gate) @ wo)
+        mixer = (receptance * next_state * gate) @ wo
+        output = jnp.tanh(token + mixer)
         output = output * token_mask
-        return next_state, output
+        mixer = mixer * token_mask
+        return next_state, (output, mixer)
 
-    _, outputs = jax.lax.scan(step, initial_state, xs)
-    return jnp.swapaxes(outputs, 0, 1)
+    _, (outputs, mixers) = jax.lax.scan(step, initial_state, xs)
+    outputs = jnp.swapaxes(outputs, 0, 1)
+    mixers = jnp.swapaxes(mixers, 0, 1)
+    if return_mixer:
+        return outputs, mixers
+    return outputs
 
 
 @dataclass(frozen=True)
@@ -131,8 +139,9 @@ class RWKV7ReferenceStudent:
 
         x = jnp.asarray(params["embedding"])[token_ids]
         layers: list[jax.Array] = []
+        mixer_layers: list[jax.Array] = []
         for layer_index in range(self.config.num_layers):
-            x = rwkv7_reference_layer(
+            x, mixer = rwkv7_reference_layer(
                 x,
                 wr=jnp.asarray(params["wr"])[layer_index],
                 wk=jnp.asarray(params["wk"])[layer_index],
@@ -142,8 +151,10 @@ class RWKV7ReferenceStudent:
                 time_decay=jnp.asarray(params["time_decay"])[layer_index],
                 time_bias=jnp.asarray(params["time_bias"])[layer_index],
                 attention_mask=attention_mask,
+                return_mixer=True,
             )
             layers.append(x)
+            mixer_layers.append(mixer)
 
         hidden_states = jnp.stack(layers, axis=1)
         logits = None
@@ -156,4 +167,11 @@ class RWKV7ReferenceStudent:
                 )
             else:
                 logits = apply_lm_head(x, params["lm_head"])
-        return StudentOutput(hidden_states=hidden_states, logits=logits)
+        mixer_outputs = (
+            jnp.stack(mixer_layers, axis=1) if self.config.emit_mixer_outputs else None
+        )
+        return StudentOutput(
+            hidden_states=hidden_states,
+            logits=logits,
+            mixer_outputs=mixer_outputs,
+        )

@@ -259,3 +259,11 @@ The reference RADLADS lineage includes RAD-RWKV6/RAD-RWKV7 components,
 Hugging Face conversion scripts, staged configs, Lightning trainer flows,
 `lm_eval` support, and inference support. QRWKV-XLA is being rebuilt around XLA
 and TPU constraints from day one instead of carrying over GPU-shaped internals.
+## Stage 1 attention / mixer smoke
+
+```bash
+python scripts/export_teacher_targets.py --config configs/teacher_export_stub_attention.yaml
+python scripts/run_distill_stage.py --config configs/distill_stage1_attention_stub.yaml --max-steps 2
+```
+
+Real HF/Qwen attention capture is manual-only and not part of default CI.

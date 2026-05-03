@@ -10,6 +10,11 @@ _ALLOWED_EXPORTER_BACKENDS = {"fake", "hf"}
 _ALLOWED_EXPORT_DTYPES = {"fp32", "fp16", "bf16"}
 _ALLOWED_TEACHER_DTYPES = {"auto", "fp32", "fp16", "bf16"}
 _ALLOWED_TEACHER_DEVICES = {"cpu", "auto"}
+_ALLOWED_ATTENTION_CAPTURE_STRATEGIES = {
+    "disabled",
+    "explicit_module_names",
+    "auto_qwen",
+}
 _MISSING = object()
 
 
@@ -56,10 +61,22 @@ class ExportRuntimeConfig:
 
 
 @dataclass(frozen=True)
+class AttentionCaptureConfig:
+    enabled: bool = False
+    strategy: str = "disabled"
+    module_names: tuple[str, ...] = field(default_factory=tuple)
+    output_index: int = 0
+    require_all_layers: bool = True
+
+
+@dataclass(frozen=True)
 class TeacherExportConfig:
     teacher: TeacherModelConfig = field(default_factory=TeacherModelConfig)
     targets: ExportTargetConfig = field(default_factory=ExportTargetConfig)
     runtime: ExportRuntimeConfig = field(default_factory=ExportRuntimeConfig)
+    attention_capture: AttentionCaptureConfig = field(
+        default_factory=AttentionCaptureConfig
+    )
 
 
 def validate_teacher_export_config(config: TeacherExportConfig) -> None:
@@ -149,6 +166,28 @@ def validate_teacher_export_config(config: TeacherExportConfig) -> None:
         if config.targets.num_layers is None:
             raise ValueError("targets.num_layers must be set for fake export")
 
+    if config.attention_capture.strategy not in _ALLOWED_ATTENTION_CAPTURE_STRATEGIES:
+        allowed = ", ".join(sorted(_ALLOWED_ATTENTION_CAPTURE_STRATEGIES))
+        raise ValueError(
+            "attention_capture.strategy must be one of "
+            f"{{{allowed}}}, got {config.attention_capture.strategy!r}"
+        )
+    if config.attention_capture.output_index < 0:
+        raise ValueError("attention_capture.output_index must be >= 0")
+    for index, module_name in enumerate(config.attention_capture.module_names):
+        if not module_name.strip():
+            raise ValueError(
+                f"attention_capture.module_names[{index}] must be non-empty"
+            )
+    if (
+        config.attention_capture.enabled
+        and config.attention_capture.strategy == "explicit_module_names"
+        and not config.attention_capture.module_names
+    ):
+        raise ValueError(
+            "attention_capture.module_names must be set for explicit_module_names"
+        )
+
 
 def load_teacher_export_config(path: str | Path) -> TeacherExportConfig:
     config_path = Path(path)
@@ -161,6 +200,7 @@ def load_teacher_export_config(path: str | Path) -> TeacherExportConfig:
     teacher_data = _mapping_section(data, "teacher")
     targets_data = _mapping_section(data, "targets")
     runtime_data = _mapping_section(data, "runtime")
+    attention_capture_data = _mapping_section(data, "attention_capture")
 
     prompt_file = _optional_path(targets_data.get("prompt_file"))
     if prompt_file is not None and not prompt_file.is_absolute():
@@ -228,6 +268,15 @@ def load_teacher_export_config(path: str | Path) -> TeacherExportConfig:
                 runtime_data.get("require_resolved_model", False)
             ),
             qwen_policy_path=qwen_policy_path,
+        ),
+        attention_capture=AttentionCaptureConfig(
+            enabled=bool(attention_capture_data.get("enabled", False)),
+            strategy=str(attention_capture_data.get("strategy", "disabled")),
+            module_names=_string_tuple(attention_capture_data.get("module_names", ())),
+            output_index=int(attention_capture_data.get("output_index", 0)),
+            require_all_layers=bool(
+                attention_capture_data.get("require_all_layers", True)
+            ),
         ),
     )
     validate_teacher_export_config(config)
