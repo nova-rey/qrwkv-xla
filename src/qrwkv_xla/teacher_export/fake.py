@@ -82,8 +82,7 @@ class FakeTeacherExporter:
             shards = list(self._make_tokenized_shards(config, rng, tokenized))
         else:
             shards = [
-                self._make_shard(config, rng)
-                for _ in range(config.runtime.num_shards)
+                self._make_shard(config, rng) for _ in range(config.runtime.num_shards)
             ]
 
         shutil.rmtree(request.output_dir, ignore_errors=True)

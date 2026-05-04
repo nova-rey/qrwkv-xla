@@ -81,13 +81,10 @@ class HFTeacherExporter:
         first_hidden = np.asarray(shards[0]["hidden_states"])
         actual_num_layers = int(first_hidden.shape[1])
         actual_hidden_size = int(first_hidden.shape[3])
-        tokenizer_id = (
-            config.teacher.tokenizer_id
-            or (
-                tokenized.manifest.tokenizer.tokenizer_id
-                if tokenized is not None
-                else config.teacher.resolved_model_id
-            )
+        tokenizer_id = config.teacher.tokenizer_id or (
+            tokenized.manifest.tokenizer.tokenizer_id
+            if tokenized is not None
+            else config.teacher.resolved_model_id
         )
         manifest = TeacherTargetManifest(
             schema_version="0.1",

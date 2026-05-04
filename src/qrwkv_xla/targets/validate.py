@@ -73,8 +73,7 @@ def manifest_from_dict(data: dict[str, Any]) -> TeacherTargetManifest:
                 arrays=tuple(str(name) for name in item.get("arrays", ())),
             )
             for item in (
-                _mapping(entry, "manifest.shards[]")
-                for entry in data.get("shards", [])
+                _mapping(entry, "manifest.shards[]") for entry in data.get("shards", [])
             )
         ),
         extra={
