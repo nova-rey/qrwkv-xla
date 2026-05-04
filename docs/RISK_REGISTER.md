@@ -22,3 +22,8 @@ Mitigation: isolate PyTorch/HF to teacher export path; student path remains JAX/
 Mitigation: keep `smoke` as the default tokenizer, lazy-import HF tokenizers,
 gate real HF tests behind an environment variable, and require `.[teacher-hf]`
 only for optional real-tokenizer runs.
+
+## R8 — Target loss masking drift
+Mitigation: target-bundle `loss_mask` is loaded into JAX training batches and
+used for token-level target loss averages; focused tests place bad target values
+behind masked positions to catch regressions.

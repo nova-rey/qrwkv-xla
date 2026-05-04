@@ -31,7 +31,12 @@ def _target_batch() -> TargetBatch:
 def test_batch_to_jax_returns_jax_arrays() -> None:
     converted = batch_to_jax(_target_batch())
 
-    assert set(converted) == {"input_ids", "attention_mask", "hidden_states"}
+    assert set(converted) == {
+        "input_ids",
+        "attention_mask",
+        "loss_mask",
+        "hidden_states",
+    }
     assert all(isinstance(value, jax.Array) for value in converted.values())
 
 

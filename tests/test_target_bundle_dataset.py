@@ -49,6 +49,7 @@ def test_target_bundle_dataset_reads_fake_export_bundle(tmp_path: Path) -> None:
     np.testing.assert_array_equal(first_batch.input_ids, shards[0].input_ids)
     assert first_batch.input_ids.shape == (2, 5)
     assert first_batch.attention_mask.shape == (2, 5)
+    assert first_batch.loss_mask.shape == (2, 5)
     assert first_batch.hidden_states.shape == (2, 3, 5, 7)
     assert first_batch.logits is not None
     assert first_batch.logits.shape == (2, 5, 17)

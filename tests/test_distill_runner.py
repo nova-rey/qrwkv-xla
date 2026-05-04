@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import replace
 from pathlib import Path
 
@@ -33,6 +34,7 @@ def test_run_stage_with_tiny_student(tmp_path: Path) -> None:
     assert result.steps == 2
     assert result.target_bundle == bundle_dir
     assert result.final_hidden_mse is not None
+    assert math.isfinite(result.final_loss)
     assert result.final_loss == pytest.approx(result.final_hidden_mse)
 
 

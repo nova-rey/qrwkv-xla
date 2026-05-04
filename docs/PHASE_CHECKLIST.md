@@ -406,3 +406,14 @@
   trust-remote-code, local-files-only, source metadata, and target flags
 - [x] Add fake export, target bundle, CLI, mocked HF backend, and optional HF tests
 - [x] Update artifact/export docs and append P25 Bible notes
+
+## P26 — Tiny Real Teacher-to-Student Distillation Proof
+
+- [x] Resolve `teacher.device: auto` to a concrete torch device before `model.to(...)`
+- [x] Carry target-bundle `loss_mask` into the JAX distillation training batch
+- [x] Use `loss_mask` for token-level hidden-state MSE, logits KL, and attention/mixer loss averaging
+- [x] Prove tiny fake teacher target bundle training produces finite loss
+- [x] Prove target-training checkpoint save and resume advance global step
+- [x] Keep optional real HF smoke env-gated and skipped by default
+- [x] Add focused device, loss-mask, target-loading, runner, and checkpoint tests
+- [x] Document the repeatable tiny local target-training and resume command path

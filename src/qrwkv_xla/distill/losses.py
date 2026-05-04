@@ -66,17 +66,20 @@ def compute_distill_loss(
     attention_mask: jax.Array | None,
     loss_config: DistillLossConfig,
     teacher_attention_targets: jax.Array | None = None,
+    loss_mask: jax.Array | None = None,
 ) -> LossBreakdown:
     total = jnp.asarray(0.0, dtype=jnp.float32)
     hidden_value: jax.Array | None = None
     logits_value: jax.Array | None = None
     attention_value: jax.Array | None = None
 
+    target_mask = loss_mask if loss_mask is not None else attention_mask
+
     if loss_config.hidden_mse.enabled and loss_config.hidden_mse.weight > 0:
         hidden_value = hidden_mse_loss(
             student_output.hidden_states,
             teacher_hidden_states,
-            attention_mask,
+            target_mask,
         )
         total = total + hidden_value * jnp.asarray(loss_config.hidden_mse.weight)
 
@@ -88,7 +91,7 @@ def compute_distill_loss(
         logits_value = logits_kl_loss(
             student_output.logits,
             teacher_logits,
-            attention_mask,
+            target_mask,
         )
         total = total + logits_value * jnp.asarray(loss_config.logits_kl.weight)
 
@@ -108,7 +111,7 @@ def compute_distill_loss(
         attention_value = masked_attention_mixer_mse(
             student_output.mixer_outputs,
             teacher_attention_targets,
-            attention_mask,
+            target_mask,
         )
         total = total + attention_value * jnp.asarray(
             loss_config.attention_or_mixer.weight

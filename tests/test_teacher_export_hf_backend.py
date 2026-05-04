@@ -40,6 +40,8 @@ class FakeTorch:
     float16 = "float16"
     bfloat16 = "bfloat16"
     float32 = "float32"
+    cuda = SimpleNamespace(is_available=lambda: False)
+    backends = SimpleNamespace(mps=SimpleNamespace(is_available=lambda: False))
 
     @staticmethod
     def stack(values: tuple[FakeTensor, ...], dim: int) -> FakeTensor:
@@ -115,6 +117,53 @@ class FakeModel:
 def test_registry_returns_hf_exporter_without_runtime_import_error() -> None:
     exporter = get_teacher_exporter("hf")
     assert exporter.name == "hf"
+
+
+def test_resolve_torch_device_keeps_cpu() -> None:
+    assert hf_module.resolve_torch_device(FakeTorch, "cpu") == "cpu"
+
+
+def test_resolve_torch_device_auto_returns_concrete_device() -> None:
+    assert hf_module.resolve_torch_device(FakeTorch, "auto") == "cpu"
+
+
+def test_hf_exporter_resolves_auto_before_model_to(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    tokenizer = FakeTokenizer()
+    model = FakeModel()
+    auto_tokenizer = SimpleNamespace(
+        from_pretrained=lambda *_args, **_kwargs: tokenizer
+    )
+    auto_model = SimpleNamespace(from_pretrained=lambda *_args, **_kwargs: model)
+    monkeypatch.setattr(
+        hf_module,
+        "_import_hf_dependencies",
+        lambda: (FakeTorch, auto_tokenizer, auto_model),
+    )
+    config = TeacherExportConfig()
+    config = replace(
+        config,
+        teacher=replace(
+            config.teacher,
+            family="hf-causal-lm",
+            resolved_model_id="tiny-model",
+            device="auto",
+        ),
+        targets=replace(
+            config.targets,
+            sequence_length=5,
+            hidden_size=None,
+            num_layers=None,
+            prompt_texts=("a",),
+        ),
+        runtime=replace(config.runtime, exporter_backend="hf", output_dir=tmp_path),
+    )
+
+    HFTeacherExporter().export(ExportRequest(config=config, output_dir=tmp_path))
+
+    assert model.device == "cpu"
 
 
 def test_hf_exporter_writes_manifest_compatible_bundle(

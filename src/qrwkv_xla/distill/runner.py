@@ -388,6 +388,7 @@ def _make_train_loss(config: DistillStageConfig):
             teacher_hidden_states=batch["hidden_states"],
             teacher_logits=batch.get("logits"),
             attention_mask=batch.get("attention_mask"),
+            loss_mask=batch.get("loss_mask"),
             loss_config=config.losses,
             teacher_attention_targets=batch.get("attention_targets"),
         )

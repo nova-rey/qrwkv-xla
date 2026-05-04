@@ -22,6 +22,7 @@ def batch_to_jax(batch: TargetBatch) -> dict[str, jax.Array]:
     converted: dict[str, jax.Array] = {
         "input_ids": jnp.asarray(batch.input_ids),
         "attention_mask": jnp.asarray(batch.attention_mask),
+        "loss_mask": jnp.asarray(batch.loss_mask),
         "hidden_states": jnp.asarray(batch.hidden_states),
     }
     if batch.logits is not None:
@@ -35,7 +36,7 @@ def _default_distillation_loss(student_output: Any, batch: dict[str, jax.Array])
     loss = hidden_mse_loss(
         student_output.hidden_states,
         batch["hidden_states"],
-        batch.get("attention_mask"),
+        batch.get("loss_mask", batch.get("attention_mask")),
     )
     return WeightedLoss(total=loss, components={"loss": loss, "hidden_mse": loss})
 

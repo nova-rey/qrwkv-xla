@@ -191,3 +191,19 @@ Goal: keep `SmokeTokenizer` as the default offline test double while adding a
 tokenizer registry for optional real HF/Qwen tokenizers. Stage 3 LM configs now
 accept string or mapping tokenizer forms, use tokenizer metadata for EOS/PAD and
 vocab validation, and keep real-tokenizer tests opt-in.
+
+## Phase 23 — Real Tokenized Data Pipeline
+
+Goal: create reusable tokenized-corpus artifacts with manifest/shard validation
+and route Stage 3 training through them without requiring real HF dependencies.
+
+## Phase 25 — Tiny Real Teacher Target Export Proof
+
+Goal: export validated teacher target bundles from fake, prompt, prompt-corpus,
+or tokenized-corpus inputs, including `loss_mask` and optional HF provenance.
+
+## Phase 26 — Tiny Real Teacher-to-Student Distillation Proof
+
+Goal: prove the existing JAX distillation runner consumes P25 target bundles
+end to end, applies `loss_mask` to token-level target losses, writes finite
+metrics/checkpoints, and resumes from target-training checkpoints locally.

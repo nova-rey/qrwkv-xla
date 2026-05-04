@@ -310,3 +310,31 @@ model provenance including revision, dtype, trust-remote-code, and
 local-files-only. Bundle loading validates the manifest, shard shapes,
 sequence length, hashes, array names, and example counts before returning
 arrays to consumers.
+
+## Phase 26 — Tiny Real Teacher-to-Student Distillation Proof
+
+This phase connects the P25 teacher target bundle artifact to the existing JAX
+student distillation runner. The proof remains tiny, CPU-safe, and offline by
+default: fake teacher targets are exported through the normal target-bundle
+writer, then `scripts/run_distill_stage.py` trains a student with hidden-state
+MSE, writes metrics, writes a checkpoint, reloads that checkpoint, and resumes
+for another step.
+
+The target-training path now carries `loss_mask` from target bundles into JAX
+batches and uses it for token-level hidden-state MSE, logits KL, and
+attention/mixer MSE averaging. `attention_mask` remains the model input mask,
+while `loss_mask` controls which target positions contribute to averaged
+distillation losses.
+
+The HF teacher exporter now resolves `teacher.device: auto` to `cuda`, `mps`, or
+`cpu` before moving the model or encoded batches. The default remains `cpu`, and
+real HF execution stays optional and env-gated so CI does not require torch,
+transformers, network access, CUDA, or MPS.
+
+Tiny local proof commands:
+
+```bash
+python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
+python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --targets artifacts/teacher_targets/fake_export --student-architecture tiny_student --max-steps 1 --checkpoint-out checkpoints/p26_tiny_first --checkpoint-overwrite --track-run --run-root runs/p26 --run-name p26_tiny_first --run-overwrite
+python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --targets artifacts/teacher_targets/fake_export --student-architecture tiny_student --max-steps 1 --resume-from checkpoints/p26_tiny_first --checkpoint-out checkpoints/p26_tiny_resume --checkpoint-overwrite --track-run --run-root runs/p26 --run-name p26_tiny_resume --run-overwrite
+```

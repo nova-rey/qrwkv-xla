@@ -49,6 +49,47 @@ def test_hidden_weight_affects_total() -> None:
     assert float(doubled.total) == pytest.approx(float(base.total) * 2)
 
 
+def test_hidden_mse_uses_loss_mask_over_attention_mask() -> None:
+    output = StudentOutput(hidden_states=jnp.zeros((1, 1, 2, 1)))
+    teacher_hidden = jnp.array([[[[1.0], [1000.0]]]])
+
+    breakdown = compute_distill_loss(
+        student_output=output,
+        teacher_hidden_states=teacher_hidden,
+        teacher_logits=None,
+        attention_mask=jnp.ones((1, 2), dtype=jnp.int32),
+        loss_mask=jnp.array([[1, 0]], dtype=jnp.int32),
+        loss_config=DistillLossConfig(
+            hidden_mse=LossWeightConfig(enabled=True, weight=1.0)
+        ),
+    )
+
+    assert float(breakdown.total) == pytest.approx(1.0)
+
+
+def test_logits_kl_uses_loss_mask_over_attention_mask() -> None:
+    student = jnp.array([[[0.0, 1.0], [1000.0, -1000.0]]])
+    teacher = jnp.array([[[0.0, 1.0], [-1000.0, 1000.0]]])
+
+    unmasked = logits_kl_loss(student[:, :1, :], teacher[:, :1, :], jnp.ones((1, 1)))
+    breakdown = compute_distill_loss(
+        student_output=StudentOutput(
+            hidden_states=jnp.zeros((1, 1, 2, 1)),
+            logits=student,
+        ),
+        teacher_hidden_states=jnp.zeros((1, 1, 2, 1)),
+        teacher_logits=teacher,
+        attention_mask=jnp.ones((1, 2), dtype=jnp.int32),
+        loss_mask=jnp.array([[1, 0]], dtype=jnp.int32),
+        loss_config=DistillLossConfig(
+            hidden_mse=LossWeightConfig(enabled=False, weight=0.0),
+            logits_kl=LossWeightConfig(enabled=True, weight=1.0),
+        ),
+    )
+
+    assert float(breakdown.total) == pytest.approx(float(unmasked), abs=1e-6)
+
+
 def test_logits_kl_near_zero_for_equal_logits() -> None:
     logits = jnp.array([[[0.0, 1.0], [2.0, -1.0]]])
     loss = logits_kl_loss(logits, logits, jnp.ones((1, 2)))

@@ -61,19 +61,24 @@ class HFTeacherExporter:
         else:
             tokenizer = _load_tokenizer_and_model(auto_tokenizer, config)
             _ensure_pad_token(tokenizer)
-        model = _load_model(auto_model, torch, config)
+        device = resolve_torch_device(torch, config.teacher.device)
+        model = _load_model(auto_model, torch, config, device=device)
         model.eval()
 
         if tokenized is not None:
             prompt_source = _tokenized_prompt_source(tokenized)
             shards = list(
-                self._export_tokenized_shards(torch, model, config, tokenized)
+                self._export_tokenized_shards(
+                    torch, model, config, tokenized, device=device
+                )
             )
         else:
             prompts = resolve_prompts(config)
             prompt_source = prompts.metadata
             shards = list(
-                self._export_shards(torch, tokenizer, model, config, prompts.texts)
+                self._export_shards(
+                    torch, tokenizer, model, config, prompts.texts, device=device
+                )
             )
         if not shards:
             raise HFTeacherExportError("HF teacher export produced no shards")
@@ -150,6 +155,8 @@ class HFTeacherExporter:
         model: Any,
         config: Any,
         prompts: Sequence[str],
+        *,
+        device: str,
     ) -> Iterator[dict[str, np.ndarray]]:
         for batch_prompts in _batched(prompts, config.runtime.batch_size):
             encoded = tokenizer(
@@ -159,7 +166,7 @@ class HFTeacherExporter:
                 max_length=config.targets.sequence_length,
                 return_tensors="pt",
             )
-            encoded = _move_batch_to_device(encoded, config.teacher.device)
+            encoded = _move_batch_to_device(encoded, device)
             with torch.no_grad():
                 outputs = _run_model(model, encoded)
             yield _outputs_to_shard(
@@ -178,6 +185,8 @@ class HFTeacherExporter:
         model: Any,
         config: Any,
         tokenized: LoadedTokenizedCorpus,
+        *,
+        device: str,
     ) -> Iterator[dict[str, np.ndarray]]:
         batch_size = config.runtime.batch_size
         for start in range(0, tokenized.input_ids.shape[0], batch_size):
@@ -186,12 +195,12 @@ class HFTeacherExporter:
                 "input_ids": _numpy_to_tensor(
                     torch,
                     np.ascontiguousarray(tokenized.input_ids[start:stop]),
-                    config.teacher.device,
+                    device,
                 ),
                 "attention_mask": _numpy_to_tensor(
                     torch,
                     np.ascontiguousarray(tokenized.attention_mask[start:stop]),
-                    config.teacher.device,
+                    device,
                 ),
             }
             with torch.no_grad():
@@ -224,6 +233,19 @@ def _import_hf_dependencies() -> tuple[Any, Any, Any]:
     return torch, AutoTokenizer, AutoModelForCausalLM
 
 
+def resolve_torch_device(torch: Any, device: str) -> str:
+    if device != "auto":
+        return device
+    cuda = getattr(torch, "cuda", None)
+    if cuda is not None and cuda.is_available():
+        return "cuda"
+    backends = getattr(torch, "backends", None)
+    mps = getattr(backends, "mps", None) if backends is not None else None
+    if mps is not None and mps.is_available():
+        return "mps"
+    return "cpu"
+
+
 def _load_tokenizer_and_model(auto_tokenizer: Any, config: Any) -> Any:
     tokenizer_id = config.teacher.tokenizer_id or config.teacher.resolved_model_id
     return auto_tokenizer.from_pretrained(
@@ -234,7 +256,7 @@ def _load_tokenizer_and_model(auto_tokenizer: Any, config: Any) -> Any:
     )
 
 
-def _load_model(auto_model: Any, torch: Any, config: Any) -> Any:
+def _load_model(auto_model: Any, torch: Any, config: Any, *, device: str) -> Any:
     model = auto_model.from_pretrained(
         config.teacher.resolved_model_id,
         revision=config.teacher.revision,
@@ -243,7 +265,7 @@ def _load_model(auto_model: Any, torch: Any, config: Any) -> Any:
         torch_dtype=_torch_dtype(torch, config.teacher.dtype),
     )
     if hasattr(model, "to"):
-        model = model.to(config.teacher.device)
+        model = model.to(device)
     return model
 
 
