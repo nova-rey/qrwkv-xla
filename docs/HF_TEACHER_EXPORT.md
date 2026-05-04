@@ -35,6 +35,11 @@ python scripts/validate_pipeline.py --include-hf
 
 This flag is intentionally outside default CI and default local validation.
 
+For cache-only validation, pass `--local-files-only` or set
+`teacher.local_files_only: true` in the export config. The flag is forwarded to
+both tokenizer and model `from_pretrained` calls and recorded in the target
+bundle manifest.
+
 ## Prompt handling
 
 Prompts are resolved in this order:
@@ -87,6 +92,18 @@ Corpus-backed HF example:
 python scripts/export_teacher_targets.py --config configs/teacher_export_hf_tiny_corpus.yaml --backend hf
 python scripts/inspect_targets.py artifacts/teacher_targets/hf_tiny_corpus
 ```
+
+Tokenized-corpus HF example:
+
+```bash
+python scripts/export_teacher_targets.py --config configs/teacher_export_hf_tiny.yaml --backend hf --tokenized-corpus artifacts/tokenized_corpora/smoke
+python scripts/inspect_targets.py artifacts/teacher_targets/hf_tiny
+```
+
+When `targets.tokenized_corpus` or `--tokenized-corpus` is used, the HF
+exporter skips tokenizer loading, reuses the corpus `input_ids`,
+`attention_mask`, and `loss_mask`, and records the tokenized corpus manifest
+metadata in `prompt_source`.
 
 ## Why Qwen is not default yet
 

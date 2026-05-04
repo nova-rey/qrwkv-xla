@@ -392,3 +392,17 @@
 - [x] Add eager vs JIT equivalence test
 - [x] Add finite-gradient and tiny optimizer-step no-NaN tests
 - [x] Preserve P22/P23 tokenizer and tokenized data paths
+
+## P25 — Tiny Real Teacher Target Export Proof
+
+- [x] Keep HF teacher export isolated behind the optional `teacher-hf` extra
+- [x] Support prompt, prompt-corpus, and tokenized-corpus teacher target export
+- [x] Preserve fake exporter as the offline deterministic test double
+- [x] Require `input_ids`, `attention_mask`, and `loss_mask` in target shards
+- [x] Record shard path, ordered SHA-256, example count, and array names in manifests
+- [x] Validate target bundle shard hashes, shapes, sequence length, and arrays
+- [x] Add loader validation for teacher target bundles
+- [x] Record HF provenance including model/tokenizer IDs, revision, dtype,
+  trust-remote-code, local-files-only, source metadata, and target flags
+- [x] Add fake export, target bundle, CLI, mocked HF backend, and optional HF tests
+- [x] Update artifact/export docs and append P25 Bible notes

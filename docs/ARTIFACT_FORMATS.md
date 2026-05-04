@@ -24,6 +24,8 @@ the validated `TeacherTargetManifest` contract.
 New manifests may include `prompt_source`, which records prompt source
 metadata without full prompt text. For corpus-backed exports this includes the
 corpus ID/hash/path plus selected prompt IDs, split, tags, and limit.
+For tokenized-corpus-backed exports this includes the tokenized corpus source,
+tokenizer, packing, totals, and shard metadata.
 
 Example manifest:
 
@@ -41,6 +43,7 @@ Example manifest:
   "targets": {
     "input_ids": true,
     "attention_mask": true,
+    "loss_mask": true,
     "hidden_states": true,
     "logits": false,
     "attention_targets": false
@@ -56,6 +59,7 @@ Example manifest:
 Each shard is a NumPy `.npz` archive. P1 supports these keys:
 - `input_ids`
 - `attention_mask`
+- `loss_mask`
 - `hidden_states`
 - `logits` (optional)
 - `attention_targets` (optional)
@@ -63,6 +67,7 @@ Each shard is a NumPy `.npz` archive. P1 supports these keys:
 Required keys for a minimal valid shard:
 - `input_ids`
 - `attention_mask`
+- `loss_mask`
 - `hidden_states`
 
 ### Shape contracts
@@ -70,6 +75,7 @@ Required keys for a minimal valid shard:
 Required:
 - `input_ids`: `[batch, sequence_length]`
 - `attention_mask`: `[batch, sequence_length]`
+- `loss_mask`: `[batch, sequence_length]`
 - `hidden_states`: `[batch, num_layers, sequence_length, hidden_size]`
 
 Optional:
@@ -98,6 +104,10 @@ PYTHONPATH=src python scripts/inspect_targets.py artifacts/teacher_targets/fake_
 Teacher exporters write bundles using the artifact store API. The fake exporter
 generates deterministic target bundles without loading a real model. The
 optional HF exporter writes the same layout using Hugging Face model outputs.
+Bundle writing records each shard's relative path, deterministic ordered array
+SHA-256, example count, and array names in the manifest. Bundle validation
+recomputes the shard hash and checks shape, sequence length, example count, and
+array-name consistency before loaders consume the bundle.
 
 ```bash
 PYTHONPATH=src python scripts/export_teacher_targets.py --config configs/teacher_export_stub.yaml
@@ -113,7 +123,9 @@ HF export keeps the same shard keys. Hidden states are stored as
 state excluded when the model returns one. Runtime prompt batches map one-to-one
 to output shards. For HF export, `manifest.json` records the actual inferred
 `hidden_size` and `num_layers` from model outputs rather than trusting config
-guesses.
+guesses. HF provenance includes model ID, tokenizer ID, revision,
+trust-remote-code, local-files-only, teacher dtype, vocab size, prompt source,
+and selected target flags.
 
 ## Notes
 

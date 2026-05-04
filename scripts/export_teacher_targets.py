@@ -41,6 +41,7 @@ def main() -> None:
     )
     parser.add_argument("--prompt-file", help="File with one HF export prompt per line")
     parser.add_argument("--prompt-corpus", help="Prompt corpus JSONL path")
+    parser.add_argument("--tokenized-corpus", help="Tokenized corpus bundle path")
     parser.add_argument(
         "--prompt-split",
         help="Prompt corpus split to select: train, validation, test, unspecified",
@@ -56,6 +57,11 @@ def main() -> None:
         "--trust-remote-code",
         action="store_true",
         help="Allow Hugging Face remote model code for HF export",
+    )
+    parser.add_argument(
+        "--local-files-only",
+        action="store_true",
+        help="Require Hugging Face model/tokenizer files to be available locally",
     )
     parser.add_argument("--revision", help="HF model/tokenizer revision")
     parser.add_argument("--device", help="Teacher device override: cpu or auto")
@@ -125,6 +131,8 @@ def main() -> None:
         teacher = replace(teacher, tokenizer_id=args.tokenizer_id)
     if args.trust_remote_code:
         teacher = replace(teacher, trust_remote_code=True)
+    if args.local_files_only:
+        teacher = replace(teacher, local_files_only=True)
     if args.revision is not None:
         teacher = replace(teacher, revision=args.revision)
     if args.device is not None:
@@ -175,6 +183,8 @@ def main() -> None:
         targets = replace(targets, prompt_file=Path(args.prompt_file))
     if args.prompt_corpus is not None:
         targets = replace(targets, prompt_corpus=Path(args.prompt_corpus))
+    if args.tokenized_corpus is not None:
+        targets = replace(targets, tokenized_corpus=Path(args.tokenized_corpus))
     if args.prompt_split is not None:
         targets = replace(targets, prompt_split=args.prompt_split)
     if args.prompt_tag is not None:
@@ -248,9 +258,28 @@ def main() -> None:
         resolution_status = "unresolved"
 
     if args.dry_run:
-        prompts = resolve_prompts(config)
+        if config.targets.tokenized_corpus is not None:
+            from dataclasses import asdict
+
+            from qrwkv_xla.lm.tokenized_corpus import load_tokenized_corpus
+
+            tokenized = load_tokenized_corpus(
+                config.targets.tokenized_corpus,
+                expected_sequence_length=config.targets.sequence_length,
+            )
+            prompt_source = {
+                "type": "tokenized_corpus",
+                "prompt_count": tokenized.manifest.source.selected_count,
+                "path": str(tokenized.root),
+                "source": asdict(tokenized.manifest.source),
+                "tokenizer": asdict(tokenized.manifest.tokenizer),
+                "packing": asdict(tokenized.manifest.packing),
+                "totals": asdict(tokenized.manifest.totals),
+            }
+        else:
+            prompts = resolve_prompts(config)
+            prompt_source = prompts.metadata
         tokenizer_id = config.teacher.tokenizer_id or config.teacher.resolved_model_id
-        prompt_source = prompts.metadata
         attention_capture_payload = {
             "enabled": config.attention_capture.enabled,
             "strategy": config.attention_capture.strategy,
@@ -265,12 +294,15 @@ def main() -> None:
         print(f"model_id: {config.teacher.resolved_model_id or '<unresolved>'}")
         print(f"tokenizer_id: {tokenizer_id or '<unresolved>'}")
         print(f"trust_remote_code: {config.teacher.trust_remote_code}")
+        print(f"local_files_only: {config.teacher.local_files_only}")
         print(f"dtype: {config.teacher.dtype}")
         print(f"device: {config.teacher.device}")
         print(f"output_dir: {config.runtime.output_dir}")
         print(f"resolution_status: {resolution_status}")
         print(f"prompt_source_type: {prompt_source['type']}")
         print(f"prompt_count: {prompt_source['prompt_count']}")
+        if config.targets.tokenized_corpus is not None:
+            print(f"tokenized_corpus: {config.targets.tokenized_corpus}")
         print(f"include_attention_targets: {config.targets.include_attention_targets}")
         print(
             "attention_capture: "

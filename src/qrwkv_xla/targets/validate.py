@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any
 
-from qrwkv_xla.targets.manifest import TargetFlags, TeacherTargetManifest
+from qrwkv_xla.targets.manifest import (
+    TargetFlags,
+    TargetShardInfo,
+    TeacherTargetManifest,
+)
 
 _ALLOWED_DTYPES = {"fp32", "bf16", "fp16"}
 _MANIFEST_FIELDS = {
@@ -23,6 +27,7 @@ _MANIFEST_FIELDS = {
     "notes",
     "prompt_source",
     "prompt_provenance",
+    "shards",
 }
 
 
@@ -51,6 +56,7 @@ def manifest_from_dict(data: dict[str, Any]) -> TeacherTargetManifest:
         targets=TargetFlags(
             input_ids=bool(target_data.get("input_ids", True)),
             attention_mask=bool(target_data.get("attention_mask", True)),
+            loss_mask=bool(target_data.get("loss_mask", True)),
             hidden_states=bool(target_data.get("hidden_states", True)),
             logits=bool(target_data.get("logits", False)),
             attention_targets=bool(target_data.get("attention_targets", False)),
@@ -59,6 +65,18 @@ def manifest_from_dict(data: dict[str, Any]) -> TeacherTargetManifest:
         created_by=str(data.get("created_by", "teacher_exporter")),
         notes=[str(note) for note in data.get("notes", [])],
         prompt_source=prompt_source,
+        shards=tuple(
+            TargetShardInfo(
+                path=str(item.get("path", "")),
+                sha256=str(item.get("sha256", "")),
+                num_examples=int(item.get("num_examples", 0)),
+                arrays=tuple(str(name) for name in item.get("arrays", ())),
+            )
+            for item in (
+                _mapping(entry, "manifest.shards[]")
+                for entry in data.get("shards", [])
+            )
+        ),
         extra={
             key: value for key, value in data.items() if key not in _MANIFEST_FIELDS
         },
@@ -96,8 +114,21 @@ def validate_manifest(manifest: TeacherTargetManifest) -> None:
         raise ValueError("created_by must be non-empty")
     if not manifest.targets.input_ids:
         raise ValueError("targets.input_ids must currently be true")
+    if not manifest.targets.attention_mask:
+        raise ValueError("targets.attention_mask must currently be true")
+    if not manifest.targets.loss_mask:
+        raise ValueError("targets.loss_mask must currently be true")
     if manifest.prompt_source is not None:
         _validate_prompt_source(manifest.prompt_source)
+    for shard in manifest.shards:
+        if not shard.path.startswith("shards/") or not shard.path.endswith(".npz"):
+            raise ValueError("manifest shard paths must be relative NPZ shard paths")
+        if len(shard.sha256) != 64:
+            raise ValueError("manifest shard sha256 must be a hex SHA-256 digest")
+        if shard.num_examples <= 0:
+            raise ValueError("manifest shard num_examples must be > 0")
+        if not shard.arrays:
+            raise ValueError("manifest shard arrays must be non-empty")
     attention_meta = manifest.extra.get("attention_targets")
     if attention_meta is not None:
         if not isinstance(attention_meta, dict):
@@ -124,9 +155,10 @@ def _validate_prompt_source(value: Any) -> None:
     if not isinstance(value, dict):
         raise ValueError("prompt_source must be a mapping")
     source_type = str(value.get("type", "")).strip()
-    if source_type not in {"default", "inline", "file", "corpus"}:
+    if source_type not in {"default", "inline", "file", "corpus", "tokenized_corpus"}:
         raise ValueError(
-            "prompt_source.type must be one of {default, inline, file, corpus}"
+            "prompt_source.type must be one of "
+            "{default, inline, file, corpus, tokenized_corpus}"
         )
     prompt_count = int(value.get("prompt_count", 0))
     if prompt_count <= 0:
@@ -140,3 +172,9 @@ def _validate_prompt_source(value: Any) -> None:
             )
         if not isinstance(value["prompt_ids"], list) or not value["prompt_ids"]:
             raise ValueError("prompt_source.prompt_ids must be a non-empty list")
+
+
+def _mapping(value: Any, name: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{name} must be a mapping")
+    return value

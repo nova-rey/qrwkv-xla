@@ -294,3 +294,19 @@ A pure NumPy harness mirrors the current placeholder recurrence, and focused
 tests cover all-at-once vs token-by-token state equivalence, batched vs
 unbatched equivalence, eager vs JIT equivalence, finite gradients, and a tiny
 optimizer-step no-NaN check.
+
+## Phase 25 — Tiny Real Teacher Target Export Proof
+
+This phase hardens the teacher target export artifact path. The fake exporter
+remains the default offline test double, while the HF exporter can produce
+target bundles from prompt text, prompt corpora, or tokenized corpus artifacts
+without making torch or transformers part of the student training path.
+
+Target bundle shards now carry `input_ids`, `attention_mask`, and `loss_mask`
+as required arrays, plus optional hidden states, logits, and attention targets.
+Manifests record per-shard relative paths, deterministic ordered SHA-256
+hashes, example counts, array names, prompt/tokenized-corpus provenance, and HF
+model provenance including revision, dtype, trust-remote-code, and
+local-files-only. Bundle loading validates the manifest, shard shapes,
+sequence length, hashes, array names, and example counts before returning
+arrays to consumers.

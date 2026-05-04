@@ -29,10 +29,12 @@ def test_export_teacher_targets_help_lists_hf_flags() -> None:
         "--prompt",
         "--prompt-file",
         "--prompt-corpus",
+        "--tokenized-corpus",
         "--prompt-split",
         "--prompt-tag",
         "--prompt-limit",
         "--trust-remote-code",
+        "--local-files-only",
         "--revision",
         "--device",
         "--dtype",
@@ -60,6 +62,7 @@ def test_cli_accepts_hf_overrides_without_real_hf(
             assert request.config.teacher.resolved_model_id == "tiny-model"
             assert request.config.teacher.tokenizer_id == "tiny-tokenizer"
             assert request.config.teacher.trust_remote_code is True
+            assert request.config.teacher.local_files_only is True
             assert request.config.teacher.revision == "test-revision"
             assert request.config.teacher.device == "cpu"
             assert request.config.teacher.dtype == "fp32"
@@ -95,6 +98,7 @@ def test_cli_accepts_hf_overrides_without_real_hf(
             "--tokenizer-id",
             "tiny-tokenizer",
             "--trust-remote-code",
+            "--local-files-only",
             "--revision",
             "test-revision",
             "--device",

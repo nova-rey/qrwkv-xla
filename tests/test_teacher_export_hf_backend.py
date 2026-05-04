@@ -123,10 +123,18 @@ def test_hf_exporter_writes_manifest_compatible_bundle(
 ) -> None:
     tokenizer = FakeTokenizer()
     model = FakeModel()
+    tokenizer_calls = []
+    model_calls = []
     auto_tokenizer = SimpleNamespace(
-        from_pretrained=lambda *_args, **_kwargs: tokenizer
+        from_pretrained=lambda *args, **kwargs: (
+            tokenizer_calls.append((args, kwargs)) or tokenizer
+        )
     )
-    auto_model = SimpleNamespace(from_pretrained=lambda *_args, **_kwargs: model)
+    auto_model = SimpleNamespace(
+        from_pretrained=lambda *args, **kwargs: (
+            model_calls.append((args, kwargs)) or model
+        )
+    )
     monkeypatch.setattr(
         hf_module,
         "_import_hf_dependencies",
@@ -142,6 +150,7 @@ def test_hf_exporter_writes_manifest_compatible_bundle(
             tokenizer_id="tiny-tokenizer",
             device="cpu",
             dtype="auto",
+            local_files_only=True,
         ),
         targets=replace(
             config.targets,
@@ -174,12 +183,16 @@ def test_hf_exporter_writes_manifest_compatible_bundle(
     assert result.manifest.teacher_model_id == "tiny-model"
     assert result.manifest.tokenizer_id == "tiny-tokenizer"
     assert result.manifest.dtype == "fp32"
+    assert result.manifest.extra["local_files_only"] is True
+    assert tokenizer_calls[0][1]["local_files_only"] is True
+    assert model_calls[0][1]["local_files_only"] is True
     assert tokenizer.pad_token == "<eos>"
     assert tokenizer.calls[0]["padding"] == "max_length"
     assert tokenizer.calls[0]["truncation"] is True
     shard = read_shard(shard_path(result.output_dir, 0))
     assert shard["input_ids"].dtype == np.int32
     assert shard["attention_mask"].dtype == np.int32
+    assert shard["loss_mask"].dtype == np.int32
     assert shard["hidden_states"].shape == (2, 2, 5, 3)
     assert shard["hidden_states"].dtype == np.float32
     assert "logits" in shard

@@ -23,6 +23,7 @@ def _target_batch() -> TargetBatch:
     return TargetBatch(
         input_ids=np.array([[1, 2, 3], [3, 2, 1]], dtype=np.int32),
         attention_mask=np.ones((2, 3), dtype=np.int32),
+        loss_mask=np.ones((2, 3), dtype=np.int32),
         hidden_states=np.zeros((2, 2, 3, 4), dtype=np.float32),
     )
 
@@ -65,6 +66,7 @@ def test_train_on_bundle_once_returns_loss_summary_only(tmp_path: Path) -> None:
             {
                 "input_ids": batch.input_ids,
                 "attention_mask": batch.attention_mask,
+                "loss_mask": batch.loss_mask,
                 "hidden_states": batch.hidden_states,
             }
         ],

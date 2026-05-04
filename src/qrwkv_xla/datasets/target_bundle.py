@@ -15,7 +15,8 @@ from qrwkv_xla.targets.store import list_shard_paths
 class TargetBatch:
     input_ids: np.ndarray
     attention_mask: np.ndarray
-    hidden_states: np.ndarray
+    loss_mask: np.ndarray
+    hidden_states: np.ndarray | None
     logits: np.ndarray | None = None
     attention_targets: np.ndarray | None = None
 
@@ -36,7 +37,12 @@ class TargetBundleDataset:
             yield TargetBatch(
                 input_ids=np.asarray(arrays["input_ids"]),
                 attention_mask=np.asarray(arrays["attention_mask"]),
-                hidden_states=np.asarray(arrays["hidden_states"]),
+                loss_mask=np.asarray(arrays["loss_mask"]),
+                hidden_states=(
+                    np.asarray(arrays["hidden_states"])
+                    if "hidden_states" in arrays
+                    else None
+                ),
                 logits=np.asarray(arrays["logits"]) if "logits" in arrays else None,
                 attention_targets=(
                     np.asarray(arrays["attention_targets"])

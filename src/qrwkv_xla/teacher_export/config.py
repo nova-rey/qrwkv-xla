@@ -26,6 +26,7 @@ class TeacherModelConfig:
     resolved_model_id: str | None = None
     tokenizer_id: str | None = None
     trust_remote_code: bool = False
+    local_files_only: bool = False
     revision: str | None = None
     device: str = "cpu"
     dtype: str = "auto"
@@ -43,6 +44,7 @@ class ExportTargetConfig:
     prompt_texts: tuple[str, ...] = field(default_factory=tuple)
     prompt_file: Path | None = None
     prompt_corpus: Path | None = None
+    tokenized_corpus: Path | None = None
     prompt_split: str | None = None
     prompt_tags: tuple[str, ...] = field(default_factory=tuple)
     prompt_limit: int | None = None
@@ -151,12 +153,28 @@ def validate_teacher_export_config(config: TeacherExportConfig) -> None:
         raise ValueError(
             f"targets.prompt_corpus path does not exist: {config.targets.prompt_corpus}"
         )
+    if (
+        config.targets.tokenized_corpus is not None
+        and not config.targets.tokenized_corpus.exists()
+    ):
+        raise ValueError(
+            "targets.tokenized_corpus path does not exist: "
+            f"{config.targets.tokenized_corpus}"
+        )
 
     if config.targets.prompt_corpus is not None and (
         config.targets.prompt_texts or config.targets.prompt_file is not None
     ):
         raise ValueError(
             "Use either prompt_texts/prompt_file or prompt_corpus, not both."
+        )
+    if config.targets.tokenized_corpus is not None and (
+        config.targets.prompt_texts
+        or config.targets.prompt_file is not None
+        or config.targets.prompt_corpus is not None
+    ):
+        raise ValueError(
+            "Use tokenized_corpus or prompt_texts/prompt_file/prompt_corpus, not both."
         )
 
     if config.runtime.exporter_backend == "fake":
@@ -210,6 +228,13 @@ def load_teacher_export_config(path: str | Path) -> TeacherExportConfig:
         config_relative = config_path.parent / prompt_corpus
         repo_relative = config_path.parent.parent / prompt_corpus
         prompt_corpus = config_relative if config_relative.exists() else repo_relative
+    tokenized_corpus = _optional_path(targets_data.get("tokenized_corpus"))
+    if tokenized_corpus is not None and not tokenized_corpus.is_absolute():
+        config_relative = config_path.parent / tokenized_corpus
+        repo_relative = config_path.parent.parent / tokenized_corpus
+        tokenized_corpus = (
+            config_relative if config_relative.exists() else repo_relative
+        )
     qwen_policy_path = _optional_path(runtime_data.get("qwen_policy_path"))
     if qwen_policy_path is not None and not qwen_policy_path.is_absolute():
         config_relative = config_path.parent / qwen_policy_path
@@ -226,6 +251,7 @@ def load_teacher_export_config(path: str | Path) -> TeacherExportConfig:
             resolved_model_id=_optional_str(teacher_data.get("resolved_model_id")),
             tokenizer_id=_optional_str(teacher_data.get("tokenizer_id")),
             trust_remote_code=bool(teacher_data.get("trust_remote_code", False)),
+            local_files_only=bool(teacher_data.get("local_files_only", False)),
             revision=_optional_str(teacher_data.get("revision")),
             device=str(teacher_data.get("device", "cpu")),
             dtype=str(teacher_data.get("dtype", "auto")),
@@ -247,6 +273,7 @@ def load_teacher_export_config(path: str | Path) -> TeacherExportConfig:
             prompt_texts=_string_tuple(targets_data.get("prompt_texts", ())),
             prompt_file=prompt_file,
             prompt_corpus=prompt_corpus,
+            tokenized_corpus=tokenized_corpus,
             prompt_split=_optional_str(targets_data.get("prompt_split")),
             prompt_tags=_string_tuple(targets_data.get("prompt_tags", ())),
             prompt_limit=_optional_int(targets_data.get("prompt_limit"), default=None),

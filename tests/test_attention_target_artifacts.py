@@ -38,6 +38,7 @@ def test_target_bundle_dataset_loads_attention_targets(
             {
                 "input_ids": np.ones((1, 3), dtype=np.int32),
                 "attention_mask": np.ones((1, 3), dtype=np.int32),
+                "loss_mask": np.ones((1, 3), dtype=np.int32),
                 "hidden_states": np.ones((1, 2, 3, 4), dtype=np.float32),
                 "attention_targets": np.ones((1, 2, 3, 4), dtype=np.float32),
             }
@@ -61,6 +62,7 @@ def test_attention_targets_rank_mismatch_fails(
                 {
                     "input_ids": np.ones((1, 3), dtype=np.int32),
                     "attention_mask": np.ones((1, 3), dtype=np.int32),
+                    "loss_mask": np.ones((1, 3), dtype=np.int32),
                     "hidden_states": np.ones((1, 2, 3, 4), dtype=np.float32),
                     "attention_targets": np.ones((1, 3, 4), dtype=np.float32),
                 }

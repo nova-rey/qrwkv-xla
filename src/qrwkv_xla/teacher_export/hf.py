@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import shutil
 from collections.abc import Iterator, Sequence
+from dataclasses import asdict
 from typing import Any
 
 import numpy as np
 
+from qrwkv_xla.lm.tokenized_corpus import LoadedTokenizedCorpus, load_tokenized_corpus
 from qrwkv_xla.targets import (
     TargetFlags,
     TeacherTargetManifest,
@@ -49,22 +51,44 @@ class HFTeacherExporter:
             )
 
         torch, auto_tokenizer, auto_model = _import_hf_dependencies()
-        tokenizer = _load_tokenizer_and_model(auto_tokenizer, config)
-        _ensure_pad_token(tokenizer)
+        tokenized = None
+        tokenizer = None
+        if config.targets.tokenized_corpus is not None:
+            tokenized = load_tokenized_corpus(
+                config.targets.tokenized_corpus,
+                expected_sequence_length=config.targets.sequence_length,
+            )
+        else:
+            tokenizer = _load_tokenizer_and_model(auto_tokenizer, config)
+            _ensure_pad_token(tokenizer)
         model = _load_model(auto_model, torch, config)
         model.eval()
 
-        prompts = resolve_prompts(config)
-        shards = list(
-            self._export_shards(torch, tokenizer, model, config, prompts.texts)
-        )
+        if tokenized is not None:
+            prompt_source = _tokenized_prompt_source(tokenized)
+            shards = list(
+                self._export_tokenized_shards(torch, model, config, tokenized)
+            )
+        else:
+            prompts = resolve_prompts(config)
+            prompt_source = prompts.metadata
+            shards = list(
+                self._export_shards(torch, tokenizer, model, config, prompts.texts)
+            )
         if not shards:
             raise HFTeacherExportError("HF teacher export produced no shards")
 
         first_hidden = np.asarray(shards[0]["hidden_states"])
         actual_num_layers = int(first_hidden.shape[1])
         actual_hidden_size = int(first_hidden.shape[3])
-        tokenizer_id = config.teacher.tokenizer_id or config.teacher.resolved_model_id
+        tokenizer_id = (
+            config.teacher.tokenizer_id
+            or (
+                tokenized.manifest.tokenizer.tokenizer_id
+                if tokenized is not None
+                else config.teacher.resolved_model_id
+            )
+        )
         manifest = TeacherTargetManifest(
             schema_version="0.1",
             teacher_family=config.teacher.family,
@@ -78,6 +102,7 @@ class HFTeacherExporter:
             targets=TargetFlags(
                 input_ids=True,
                 attention_mask=True,
+                loss_mask=True,
                 hidden_states=True,
                 logits=config.targets.include_logits,
                 attention_targets=config.targets.include_attention_targets,
@@ -85,14 +110,21 @@ class HFTeacherExporter:
             dtype="fp32",
             created_by="HFTeacherExporter",
             notes=["huggingface teacher exporter bundle"],
-            prompt_source=prompts.metadata,
+            prompt_source=prompt_source,
             extra={
                 "exporter_backend": self.name,
                 "revision": config.teacher.revision,
                 "trust_remote_code": config.teacher.trust_remote_code,
-                "prompt_count": len(prompts.texts),
+                "local_files_only": config.teacher.local_files_only,
+                "prompt_count": tokenized.manifest.totals.num_sequences
+                if tokenized is not None
+                else len(prompts.texts),
                 "teacher_dtype": config.teacher.dtype,
-                "vocab_size": config.targets.vocab_size,
+                "vocab_size": (
+                    tokenized.manifest.tokenizer.vocab_size
+                    if tokenized is not None
+                    else config.targets.vocab_size
+                ),
                 "attention_targets": {
                     "kind": "attention_output_vectors",
                     "shape": "[batch,num_layers,sequence_length,hidden_size]",
@@ -143,6 +175,45 @@ class HFTeacherExporter:
                 include_attention_targets=config.targets.include_attention_targets,
             )
 
+    def _export_tokenized_shards(
+        self,
+        torch: Any,
+        model: Any,
+        config: Any,
+        tokenized: LoadedTokenizedCorpus,
+    ) -> Iterator[dict[str, np.ndarray]]:
+        batch_size = config.runtime.batch_size
+        for start in range(0, tokenized.input_ids.shape[0], batch_size):
+            stop = min(start + batch_size, tokenized.input_ids.shape[0])
+            encoded = {
+                "input_ids": _numpy_to_tensor(
+                    torch,
+                    np.ascontiguousarray(tokenized.input_ids[start:stop]),
+                    config.teacher.device,
+                ),
+                "attention_mask": _numpy_to_tensor(
+                    torch,
+                    np.ascontiguousarray(tokenized.attention_mask[start:stop]),
+                    config.teacher.device,
+                ),
+            }
+            with torch.no_grad():
+                outputs = _run_model(model, encoded)
+            shard = _outputs_to_shard(
+                torch=torch,
+                encoded=encoded,
+                outputs=outputs,
+                model=model,
+                attention_capture_config=config.attention_capture,
+                include_logits=config.targets.include_logits,
+                include_attention_targets=config.targets.include_attention_targets,
+            )
+            shard["loss_mask"] = np.ascontiguousarray(
+                tokenized.loss_mask[start:stop],
+                dtype=np.int32,
+            )
+            yield shard
+
 
 def _import_hf_dependencies() -> tuple[Any, Any, Any]:
     try:
@@ -162,6 +233,7 @@ def _load_tokenizer_and_model(auto_tokenizer: Any, config: Any) -> Any:
         tokenizer_id,
         revision=config.teacher.revision,
         trust_remote_code=config.teacher.trust_remote_code,
+        local_files_only=config.teacher.local_files_only,
     )
 
 
@@ -170,6 +242,7 @@ def _load_model(auto_model: Any, torch: Any, config: Any) -> Any:
         config.teacher.resolved_model_id,
         revision=config.teacher.revision,
         trust_remote_code=config.teacher.trust_remote_code,
+        local_files_only=config.teacher.local_files_only,
         torch_dtype=_torch_dtype(torch, config.teacher.dtype),
     )
     if hasattr(model, "to"):
@@ -223,6 +296,7 @@ def _outputs_to_shard(
     shard = {
         "input_ids": _tensor_to_numpy(encoded["input_ids"]).astype(np.int32),
         "attention_mask": _tensor_to_numpy(encoded["attention_mask"]).astype(np.int32),
+        "loss_mask": _tensor_to_numpy(encoded["attention_mask"]).astype(np.int32),
         "hidden_states": _tensor_to_numpy(stacked_hidden).astype(np.float32),
     }
     if include_logits:
@@ -296,6 +370,29 @@ def _move_batch_to_device(encoded: Any, device: str) -> dict[str, Any]:
     }
 
 
+def _numpy_to_tensor(torch: Any, array: np.ndarray, device: str) -> Any:
+    if hasattr(torch, "as_tensor"):
+        value = torch.as_tensor(array)
+    elif hasattr(torch, "tensor"):
+        value = torch.tensor(array)
+    else:
+        raise HFTeacherExportError("torch module does not expose as_tensor or tensor")
+    return value.to(device) if hasattr(value, "to") else value
+
+
 def _batched(items: Sequence[str], batch_size: int) -> Iterator[Sequence[str]]:
     for start in range(0, len(items), batch_size):
         yield items[start : start + batch_size]
+
+
+def _tokenized_prompt_source(tokenized: LoadedTokenizedCorpus) -> dict[str, object]:
+    return {
+        "type": "tokenized_corpus",
+        "prompt_count": tokenized.manifest.source.selected_count,
+        "path": str(tokenized.root),
+        "source": asdict(tokenized.manifest.source),
+        "tokenizer": asdict(tokenized.manifest.tokenizer),
+        "packing": asdict(tokenized.manifest.packing),
+        "totals": asdict(tokenized.manifest.totals),
+        "shards": [asdict(shard) for shard in tokenized.manifest.shards],
+    }

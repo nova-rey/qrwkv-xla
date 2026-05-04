@@ -38,6 +38,7 @@ def _shard(batch_size: int = 2) -> dict[str, np.ndarray]:
     return {
         "input_ids": np.ones((batch_size, 64), dtype=np.int32),
         "attention_mask": np.ones((batch_size, 64), dtype=np.int32),
+        "loss_mask": np.ones((batch_size, 64), dtype=np.int32),
         "hidden_states": np.ones((batch_size, 2, 64, 128), dtype=np.float32),
     }
 
@@ -49,7 +50,12 @@ def test_bundle_round_trip(tmp_path: Path) -> None:
     summary = inspect_target_bundle(bundle_dir)
     assert summary["shard_count"] == 2
     assert summary["total_examples"] == 4
-    assert summary["target_keys"] == ["attention_mask", "hidden_states", "input_ids"]
+    assert summary["target_keys"] == [
+        "attention_mask",
+        "hidden_states",
+        "input_ids",
+        "loss_mask",
+    ]
 
 
 def test_missing_manifest_raises(tmp_path: Path) -> None:
@@ -83,6 +89,7 @@ def test_invalid_shard_inside_existing_bundle_raises(tmp_path: Path) -> None:
         {
             "input_ids": np.ones((2, 64), dtype=np.int32),
             "attention_mask": np.ones((2, 64), dtype=np.int32),
+            "loss_mask": np.ones((2, 64), dtype=np.int32),
             "hidden_states": np.ones((2, 2, 63, 128), dtype=np.float32),
         },
     )

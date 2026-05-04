@@ -52,6 +52,10 @@ def main() -> None:
             (args.batch_size, args.sequence_length),
             dtype=np.int32,
         )
+        loss_mask = np.ones(
+            (args.batch_size, args.sequence_length),
+            dtype=np.int32,
+        )
         hidden_states = rng.normal(
             loc=0.0,
             scale=1.0,
@@ -66,6 +70,7 @@ def main() -> None:
             {
                 "input_ids": input_ids,
                 "attention_mask": attention_mask,
+                "loss_mask": loss_mask,
                 "hidden_states": hidden_states,
             }
         )

@@ -84,3 +84,4 @@ def test_cli_include_logits_writes_logits(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
     shard = read_shard(shard_path(out_dir, 0))
     assert "logits" in shard
+    assert "loss_mask" in shard

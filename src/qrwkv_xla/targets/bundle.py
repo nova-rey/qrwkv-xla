@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
 
-from qrwkv_xla.targets.manifest import TeacherTargetManifest
-from qrwkv_xla.targets.shards import read_shard, validate_shard_arrays, write_shard
+from qrwkv_xla.targets.manifest import TargetShardInfo, TeacherTargetManifest
+from qrwkv_xla.targets.shards import (
+    hash_shard_arrays,
+    read_shard,
+    validate_shard_arrays,
+    write_shard,
+)
 from qrwkv_xla.targets.store import (
     ensure_bundle_layout,
     list_shard_paths,
@@ -20,6 +26,13 @@ from qrwkv_xla.targets.validate import (
     manifest_to_dict,
     validate_manifest,
 )
+
+
+@dataclass(frozen=True)
+class LoadedTeacherTargetBundle:
+    root: Path
+    manifest: TeacherTargetManifest
+    shards: tuple[dict[str, np.ndarray], ...]
 
 
 def write_manifest(path: str | Path, manifest: TeacherTargetManifest) -> None:
@@ -46,21 +59,38 @@ def write_target_bundle(
 ) -> None:
     bundle_path = Path(bundle_dir)
     ensure_bundle_layout(bundle_path)
-    write_manifest(manifest_path(bundle_path), manifest)
 
     wrote_any = False
+    shard_infos: list[TargetShardInfo] = []
     for index, arrays in enumerate(shards):
         validate_shard_arrays(
             arrays,
             sequence_length=manifest.sequence_length,
             hidden_size=manifest.hidden_size,
             num_layers=manifest.num_layers,
+            require_hidden_states=manifest.targets.hidden_states,
+            require_logits=manifest.targets.logits,
+            require_attention_targets=manifest.targets.attention_targets,
         )
-        write_shard(shard_path(bundle_path, index), arrays)
+        path = shard_path(bundle_path, index)
+        write_shard(path, arrays)
+        array_names = tuple(sorted(arrays))
+        shard_infos.append(
+            TargetShardInfo(
+                path=f"shards/{path.name}",
+                sha256=hash_shard_arrays(arrays),
+                num_examples=int(np.asarray(arrays["input_ids"]).shape[0]),
+                arrays=array_names,
+            )
+        )
         wrote_any = True
 
     if not wrote_any:
         raise ValueError("Target bundle must contain at least one shard")
+    write_manifest(
+        manifest_path(bundle_path),
+        replace(manifest, shards=tuple(shard_infos)),
+    )
 
 
 def inspect_target_bundle(bundle_dir: str | Path) -> dict[str, object]:
@@ -106,6 +136,10 @@ def validate_target_bundle(bundle_dir: str | Path) -> None:
     if not shard_files:
         raise ValueError("Target bundle must contain at least one shard")
 
+    manifest_shards = {bundle_path / item.path: item for item in manifest.shards}
+    if manifest.shards and set(manifest_shards) != set(shard_files):
+        raise ValueError("Target bundle manifest shard list does not match shard files")
+
     for shard_file in shard_files:
         arrays = read_shard(shard_file)
         validate_shard_arrays(
@@ -113,4 +147,49 @@ def validate_target_bundle(bundle_dir: str | Path) -> None:
             sequence_length=manifest.sequence_length,
             hidden_size=manifest.hidden_size,
             num_layers=manifest.num_layers,
+            require_hidden_states=manifest.targets.hidden_states,
+            require_logits=manifest.targets.logits,
+            require_attention_targets=manifest.targets.attention_targets,
         )
+        shard_info = manifest_shards.get(shard_file)
+        if shard_info is not None:
+            actual_hash = hash_shard_arrays(arrays)
+            if actual_hash != shard_info.sha256:
+                raise ValueError(
+                    "Target bundle shard sha256 mismatch for "
+                    f"{shard_file}: {actual_hash} != {shard_info.sha256}"
+                )
+            actual_examples = int(np.asarray(arrays["input_ids"]).shape[0])
+            if actual_examples != shard_info.num_examples:
+                raise ValueError(
+                    "Target bundle shard num_examples mismatch for "
+                    f"{shard_file}: {actual_examples} != {shard_info.num_examples}"
+                )
+            if tuple(sorted(arrays)) != tuple(sorted(shard_info.arrays)):
+                raise ValueError(
+                    "Target bundle shard arrays mismatch for "
+                    f"{shard_file}: {sorted(arrays)} != {sorted(shard_info.arrays)}"
+                )
+
+
+def load_teacher_target_bundle(
+    bundle_dir: str | Path,
+    *,
+    expected_sequence_length: int | None = None,
+) -> LoadedTeacherTargetBundle:
+    bundle_path = Path(bundle_dir)
+    validate_target_bundle(bundle_path)
+    manifest = read_manifest(manifest_path(bundle_path))
+    if (
+        expected_sequence_length is not None
+        and manifest.sequence_length != expected_sequence_length
+    ):
+        raise ValueError(
+            "Teacher target bundle sequence_length mismatch: "
+            f"{manifest.sequence_length} != {expected_sequence_length}"
+        )
+    return LoadedTeacherTargetBundle(
+        root=bundle_path,
+        manifest=manifest,
+        shards=tuple(read_shard(path) for path in list_shard_paths(bundle_path)),
+    )

@@ -12,6 +12,7 @@ def _valid_arrays() -> dict[str, np.ndarray]:
     return {
         "input_ids": np.ones((2, 64), dtype=np.int32),
         "attention_mask": np.ones((2, 64), dtype=np.int32),
+        "loss_mask": np.ones((2, 64), dtype=np.int32),
         "hidden_states": np.ones((2, 2, 64, 128), dtype=np.float32),
     }
 
@@ -27,7 +28,7 @@ def test_valid_shard_write_read_round_trip(tmp_path: Path) -> None:
 
 def test_required_keys_enforced() -> None:
     arrays = _valid_arrays()
-    arrays.pop("hidden_states")
+    arrays.pop("loss_mask")
     with pytest.raises(ValueError, match="Missing required shard keys"):
         validate_shard_arrays(arrays, sequence_length=64, hidden_size=128, num_layers=2)
 

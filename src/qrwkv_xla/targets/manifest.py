@@ -8,9 +8,18 @@ from typing import Any
 class TargetFlags:
     input_ids: bool = True
     attention_mask: bool = True
+    loss_mask: bool = True
     hidden_states: bool = True
     logits: bool = False
     attention_targets: bool = False
+
+
+@dataclass(frozen=True)
+class TargetShardInfo:
+    path: str
+    sha256: str
+    num_examples: int
+    arrays: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -29,4 +38,5 @@ class TeacherTargetManifest:
     created_by: str = "teacher_exporter"
     notes: list[str] = field(default_factory=list)
     prompt_source: dict[str, Any] | None = None
+    shards: tuple[TargetShardInfo, ...] = ()
     extra: dict[str, Any] = field(default_factory=dict)
