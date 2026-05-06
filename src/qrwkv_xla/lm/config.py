@@ -25,6 +25,7 @@ from qrwkv_xla.generation.tokenizer import (
 )
 from qrwkv_xla.optimizers import validate_optimizer_config
 from qrwkv_xla.schedules import validate_lr_schedule_config
+from qrwkv_xla.students.factory import STUDENT_ARCHITECTURES
 
 
 @dataclass(frozen=True)
@@ -47,6 +48,7 @@ class LMStudentConfig:
     vocab_size: int = 512
     hidden_size: int = 128
     num_layers: int = 2
+    num_heads: int | None = None
     emit_logits: bool = True
     tie_embeddings: bool = False
 
@@ -139,9 +141,9 @@ def validate_lm_stage_config(config: LMStageConfig) -> None:
         raise ValueError("data.prompt_limit must be > 0 when provided")
     if config.data.seed < 0:
         raise ValueError("data.seed must be >= 0")
-    if config.student.architecture not in {"tiny_student", "rwkv7_reference"}:
+    if config.student.architecture not in STUDENT_ARCHITECTURES:
         raise ValueError(
-            "student.architecture must be one of {'tiny_student', 'rwkv7_reference'}"
+            f"student.architecture must be one of {sorted(STUDENT_ARCHITECTURES)}"
         )
     if config.student.vocab_size <= 0:
         raise ValueError("student.vocab_size must be > 0")
@@ -158,6 +160,13 @@ def validate_lm_stage_config(config: LMStageConfig) -> None:
         raise ValueError("student.hidden_size must be > 0")
     if config.student.num_layers <= 0:
         raise ValueError("student.num_layers must be > 0")
+    if config.student.num_heads is not None and config.student.num_heads <= 0:
+        raise ValueError("student.num_heads must be > 0 when provided")
+    if (
+        config.student.num_heads is not None
+        and config.student.hidden_size % config.student.num_heads != 0
+    ):
+        raise ValueError("student.hidden_size must be divisible by student.num_heads")
     if not config.student.emit_logits:
         raise ValueError("Stage 3 CE training requires student.emit_logits=true")
     if config.training.stage != 3:
@@ -237,6 +246,7 @@ def _load_student(data: Any) -> LMStudentConfig:
         vocab_size=int(data.get("vocab_size", 512)),
         hidden_size=int(data.get("hidden_size", 128)),
         num_layers=int(data.get("num_layers", 2)),
+        num_heads=_optional_int(data.get("num_heads")),
         emit_logits=bool(data.get("emit_logits", True)),
         tie_embeddings=bool(data.get("tie_embeddings", False)),
     )

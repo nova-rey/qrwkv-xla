@@ -17,6 +17,15 @@ def test_distill_stage0_stub_loads() -> None:
     assert config.student.num_layers is None
 
 
+def test_distill_stage0_radlads_stub_loads() -> None:
+    config = load_distill_stage_config(
+        ROOT / "configs" / "distill_stage0_radlads_reference_stub.yaml"
+    )
+    assert config.stage == 0
+    assert config.student.architecture == "rwkv7_radlads_reference"
+    assert config.student.num_heads == 2
+
+
 def test_missing_sections_use_defaults(tmp_path: Path) -> None:
     path = tmp_path / "distill.yaml"
     path.write_text("distillation:\n  training:\n    max_steps: 7\n", encoding="utf-8")
@@ -42,6 +51,22 @@ def test_invalid_architecture_raises(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="student.architecture"):
+        load_distill_stage_config(path)
+
+
+def test_radlads_num_heads_divisibility_raises(tmp_path: Path) -> None:
+    path = tmp_path / "distill.yaml"
+    path.write_text(
+        (
+            "distillation:\n"
+            "  student:\n"
+            "    architecture: rwkv7_radlads_reference\n"
+            "    hidden_size: 7\n"
+            "    num_heads: 2\n"
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="divisible"):
         load_distill_stage_config(path)
 
 

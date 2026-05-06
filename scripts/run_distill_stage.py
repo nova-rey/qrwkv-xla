@@ -12,7 +12,11 @@ def main() -> None:
     parser.add_argument("--targets")
     parser.add_argument(
         "--student-architecture",
-        choices=("tiny_student", "rwkv7_reference"),
+        choices=(
+            "tiny_student",
+            "rwkv7_reference",
+            "rwkv7_radlads_reference",
+        ),
     )
     parser.add_argument("--max-steps", type=int)
     parser.add_argument("--optimizer", choices=("sgd", "adam", "adamw"))

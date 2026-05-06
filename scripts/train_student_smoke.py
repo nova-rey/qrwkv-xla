@@ -14,7 +14,11 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=0, help="JAX parameter seed")
     parser.add_argument(
         "--student-architecture",
-        choices=("tiny_student", "rwkv7_reference"),
+        choices=(
+            "tiny_student",
+            "rwkv7_reference",
+            "rwkv7_radlads_reference",
+        ),
         default="tiny_student",
         help="Student architecture to instantiate for the smoke train",
     )

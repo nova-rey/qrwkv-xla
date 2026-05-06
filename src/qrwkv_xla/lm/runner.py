@@ -122,6 +122,7 @@ def run_lm_stage(config: LMStageConfig) -> LMStageResult:
         vocab_size=config.student.vocab_size,
         hidden_size=config.student.hidden_size,
         num_layers=config.student.num_layers,
+        num_heads=config.student.num_heads,
         emit_logits=config.student.emit_logits,
         tie_embeddings=config.student.tie_embeddings,
     )

@@ -338,3 +338,30 @@ python scripts/export_teacher_targets.py --config configs/teacher_export_stub.ya
 python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --targets artifacts/teacher_targets/fake_export --student-architecture tiny_student --max-steps 1 --checkpoint-out checkpoints/p26_tiny_first --checkpoint-overwrite --track-run --run-root runs/p26 --run-name p26_tiny_first --run-overwrite
 python scripts/run_distill_stage.py --config configs/distill_stage0_stub.yaml --targets artifacts/teacher_targets/fake_export --student-architecture tiny_student --max-steps 1 --resume-from checkpoints/p26_tiny_first --checkpoint-out checkpoints/p26_tiny_resume --checkpoint-overwrite --track-run --run-root runs/p26 --run-name p26_tiny_resume --run-overwrite
 ```
+
+## Phase 27 — RADLADS-Aligned JAX RWKV7 Reference Math
+
+This phase adds `rwkv7_radlads_reference` as a separate student backend. It is
+not a replacement for `rwkv7_reference`: the older backend remains the stable
+tiny smoke placeholder, while the new backend is a slow, scan-based JAX
+reference for the RADLADS RWKV7 recurrence shape.
+
+The new backend is CPU-first and deliberately slow. It uses a head-wise matrix
+recurrent state with shape `[B, H, N, N]`, simple JAX projections, and a
+`jax.lax.scan` recurrence that tracks the broad RADLADS update pattern: decay,
+outer-product value/key injection, in-context update terms, and recurrent-state
+readout through receptance/query-like projections. Padding masks zero the value
+stream while still running the recurrence update, matching the RADLADS
+left-padding behavior more closely than freezing state on masked tokens.
+
+The implementation is still explicitly partial. It does **not** claim full
+RADLADS parity, Qwen block parity, RoPE parity, Triton kernel parity, grouped
+KV parity, or checkpoint weight compatibility. Those gaps are recorded in
+`docs/RWKV7_REFERENCE_AUDIT.md` so later kernel work can optimize against an
+honest reference instead of a vague placeholder.
+
+Tiny local proof command:
+
+```bash
+python scripts/run_distill_stage.py --config configs/distill_stage0_radlads_reference_stub.yaml --targets artifacts/teacher_targets/fake_export --max-steps 1 --learning-rate 0.01
+```

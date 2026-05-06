@@ -40,6 +40,11 @@ def load_student_from_checkpoint(
         vocab_size=int(student_config["vocab_size"]),
         hidden_size=int(student_config["hidden_size"]),
         num_layers=int(student_config["num_layers"]),
+        num_heads=(
+            None
+            if student_config.get("num_heads") is None
+            else int(student_config["num_heads"])
+        ),
         emit_logits=True,
         tie_embeddings=bool(student_config.get("tie_embeddings", False)),
     )

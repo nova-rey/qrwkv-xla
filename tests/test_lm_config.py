@@ -159,6 +159,63 @@ lm:
         load_lm_stage_config(config_path)
 
 
+def test_lm_stage_config_loads_radlads_reference_architecture(tmp_path: Path) -> None:
+    config_path = tmp_path / "lm.yaml"
+    config_path.write_text(
+        """
+lm:
+  data:
+    prompt_corpus: corpora/smoke_prompts.jsonl
+    sequence_length: 8
+    batch_size: 1
+  student:
+    architecture: rwkv7_radlads_reference
+    vocab_size: 512
+    hidden_size: 8
+    num_layers: 2
+    num_heads: 2
+    emit_logits: true
+  training:
+    stage: 3
+    max_steps: 1
+""",
+        encoding="utf-8",
+    )
+
+    config = load_lm_stage_config(config_path)
+    assert config.student.architecture == "rwkv7_radlads_reference"
+    assert config.student.num_heads == 2
+
+
+def test_lm_stage_config_rejects_radlads_head_divisibility_mismatch(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lm.yaml"
+    config_path.write_text(
+        """
+lm:
+  data:
+    prompt_corpus: corpora/smoke_prompts.jsonl
+    sequence_length: 8
+    batch_size: 1
+  student:
+    architecture: rwkv7_radlads_reference
+    vocab_size: 512
+    hidden_size: 7
+    num_layers: 2
+    num_heads: 2
+    emit_logits: true
+  training:
+    stage: 3
+    max_steps: 1
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="divisible"):
+        load_lm_stage_config(config_path)
+
+
 def test_lm_stage_config_loads_distributed_settings(tmp_path: Path) -> None:
     config_path = tmp_path / "lm.yaml"
     config_path.write_text(

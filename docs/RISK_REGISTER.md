@@ -27,3 +27,9 @@ only for optional real-tokenizer runs.
 Mitigation: target-bundle `loss_mask` is loaded into JAX training batches and
 used for token-level target loss averages; focused tests place bad target values
 behind masked positions to catch regressions.
+
+## R9 — RADLADS reference overclaiming
+Mitigation: keep `rwkv7_radlads_reference` separate from the existing
+`rwkv7_reference` smoke backend, document it as partial RADLADS-aligned math,
+and require explicit future parity work before claiming checkpoint or numerical
+compatibility with RADLADS torch/CUDA/Triton outputs.

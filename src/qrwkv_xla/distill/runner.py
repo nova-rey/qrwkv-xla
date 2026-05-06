@@ -109,6 +109,7 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
         vocab_size=config.student.vocab_size,
         hidden_size=hidden_size,
         num_layers=num_layers,
+        num_heads=config.student.num_heads,
         emit_logits=config.student.emit_logits,
         tie_embeddings=config.student.tie_embeddings,
         emit_mixer_outputs=(
@@ -120,6 +121,7 @@ def run_distill_stage(config: DistillStageConfig) -> DistillStageResult:
         "vocab_size": config.student.vocab_size,
         "hidden_size": hidden_size,
         "num_layers": num_layers,
+        "num_heads": config.student.num_heads,
         "emit_logits": config.student.emit_logits,
         "tie_embeddings": config.student.tie_embeddings,
         "emit_mixer_outputs": (

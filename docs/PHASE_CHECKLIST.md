@@ -417,3 +417,15 @@
 - [x] Keep optional real HF smoke env-gated and skipped by default
 - [x] Add focused device, loss-mask, target-loading, runner, and checkpoint tests
 - [x] Document the repeatable tiny local target-training and resume command path
+
+## P27 — RADLADS-Aligned JAX RWKV7 Reference Math
+
+- [x] Add a separate `rwkv7_radlads_reference` backend without mutating the placeholder
+- [x] Preserve the old `rwkv7_reference` smoke backend and its tests
+- [x] Implement head-wise matrix recurrent state with documented `[B,H,N,N]` semantics
+- [x] Add full-sequence vs token-step equivalence coverage for the new backend
+- [x] Add JIT, finite-gradient, and tiny optimizer-step coverage for the new backend
+- [x] Wire the new backend through distill and LM config/factory paths
+- [x] Add a tiny local stub config for the new backend distill path
+- [x] Prove one local distill step runs with the new backend
+- [x] Document the backend as partial RADLADS-aligned reference math, not parity

@@ -21,7 +21,11 @@ def main() -> None:
     parser.add_argument("--shuffle", action="store_true")
     parser.add_argument(
         "--student-architecture",
-        choices=("tiny_student", "rwkv7_reference"),
+        choices=(
+            "tiny_student",
+            "rwkv7_reference",
+            "rwkv7_radlads_reference",
+        ),
     )
     parser.add_argument("--vocab-size", type=int)
     parser.add_argument("--hidden-size", type=int)

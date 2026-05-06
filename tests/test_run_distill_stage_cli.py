@@ -48,6 +48,35 @@ def test_run_distill_stage_cli(tmp_path: Path) -> None:
     assert "steps: 2" in result.stdout
 
 
+def test_run_distill_stage_cli_radlads_reference(tmp_path: Path) -> None:
+    bundle_dir = _fake_bundle(tmp_path)
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--config",
+            str(ROOT / "configs" / "distill_stage0_radlads_reference_stub.yaml"),
+            "--targets",
+            str(bundle_dir),
+            "--max-steps",
+            "1",
+            "--learning-rate",
+            "0.01",
+            "--seed",
+            "0",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "rwkv7_radlads_reference" in result.stdout
+    assert "steps: 1" in result.stdout
+    assert "final_loss:" in result.stdout
+
+
 def _fake_bundle(tmp_path: Path) -> Path:
     config = TeacherExportConfig()
     config = replace(
