@@ -486,3 +486,17 @@
 - [x] Add tiny checked-in distill config for `artifacts/teacher_targets/tiny_hf_smoke`
 - [x] Document: Qwen/RADLADS-compatible slow JAX reference path, not optimized kernel parity.
 - [x] Preserve boundaries: no optimized kernels, no full RADLADS numerical parity claim, no TPU/Pallas/`pjit`/sharding/export/quality work
+
+## P33 — Tiny Qwen Reference Fixture Harness
+
+- [x] Add deterministic `rwkv7_qwen_reference` fixture generation script
+- [x] Add checked-in tiny fixture bundle under `tests/fixtures/qwen_reference/`
+- [x] Record full-sequence outputs/logits/final state
+- [x] Record stepwise outputs/logits/final state
+- [x] Record backend/config/seed/dtype/shapes/hashes/equivalence summary in manifest
+- [x] Add no-mask, interior-mask, and prefix/left-padding mask-shape cases
+- [x] Lock and document current masked-token behavior without changing semantics
+- [x] Add deterministic parameter-surface snapshot coverage
+- [x] Add `docs/RWKV7_QWEN_REFERENCE_PARAM_SURFACE.md`
+- [x] Keep default fixture generation offline and CPU-safe
+- [x] Preserve boundaries: no Pallas, TPU compilation/profiling, `pjit`, sharding, large runs, HF export, `lm_eval`, WandB, full RADLADS checkpoint compatibility, or full RADLADS numerical parity claim

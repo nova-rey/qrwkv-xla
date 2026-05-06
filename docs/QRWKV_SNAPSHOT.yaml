@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 32
-checkpoint: qwen_radlads_slow_reference_backend
+phase: 33
+checkpoint: qwen_reference_tiny_parity_fixture_harness
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,10 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add a selectable rwkv7_qwen_reference backend that establishes a
-  Qwen/RADLADS-compatible slow JAX reference target for later kernels, while
-  preserving the old placeholder and rwkv7_radlads_reference paths and avoiding
-  optimized kernels, export, sharding, pjit, TPU, or quality feature work.
+  Add deterministic tiny parity/cache fixtures for rwkv7_qwen_reference so the
+  local slow JAX reference has reproducible output/logit/state calipers before
+  later kernel or checkpoint work.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -176,6 +175,50 @@ qwen_reference_backend:
     - full_radlads_numerical_parity
     - radlads_checkpoint_compatibility
     - model_quality
+    - tpu_or_pallas_readiness
+
+qwen_reference_fixtures:
+  phase: P33
+  script: scripts/generate_qwen_reference_fixtures.py
+  checked_in_dir: tests/fixtures/qwen_reference
+  smoke_artifact_dir: artifacts/p33_qwen_reference_fixtures
+  seed: 1234
+  dtype: float32
+  config:
+    vocab_size: 32
+    hidden_size: 8
+    num_layers: 2
+    num_heads: 2
+    num_kv_heads: 1
+    sequence_length: 5
+    batch_size: 2
+  records:
+    - full_sequence_hidden_outputs
+    - full_sequence_logits
+    - full_sequence_mixer_outputs
+    - full_sequence_final_wkv_matrix_state
+    - full_sequence_final_shift_state
+    - full_sequence_next_position
+    - stepwise_hidden_outputs
+    - stepwise_logits
+    - stepwise_mixer_outputs
+    - stepwise_final_wkv_matrix_state
+    - stepwise_final_shift_state
+    - stepwise_next_position
+    - payload_hashes
+    - equivalence_summary
+    - parameter_surface_hash
+  mask_cases:
+    - no_mask
+    - interior_mask
+    - prefix_left_padding
+  masked_token_behavior: documented_current_behavior_no_semantics_change
+  claim: local slow-reference fixture/caliper coverage only
+  does_not_prove:
+    - full_radlads_numerical_parity
+    - radlads_checkpoint_compatibility
+    - radlads_pytorch_triton_cuda_parity
+    - optimized_kernel_parity
     - tpu_or_pallas_readiness
 
 generation_smoke:

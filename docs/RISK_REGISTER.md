@@ -56,3 +56,10 @@ block-compatibility gaps with a Qwen RMSNorm/MLP decoder shell, RoPE, grouped
 KV heads, shift-state cache, nested parameter surface, and focused CPU tests.
 Pallas, TPU kernels, `pjit`, sharding, export, and quality work remain
 deferred until the slow reference can catch math regressions.
+
+## R13 — Qwen reference cache or mask semantics drift silently
+Mitigation: P33 adds deterministic tiny `rwkv7_qwen_reference` fixtures with
+no-mask, interior-mask, and prefix/left-padding mask-shape cases. The manifest
+records full-vs-step output/logit/state equivalence, payload hashes, and a
+parameter-surface hash so local behavior changes are visible before kernel or
+checkpoint work builds on them.

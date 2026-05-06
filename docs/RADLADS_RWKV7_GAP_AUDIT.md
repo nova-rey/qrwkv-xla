@@ -224,13 +224,33 @@ Concrete P32 scope:
 P32 should end with a clearer statement of whether P33 can start numerical
 parity fixtures or whether more slow-reference math remains.
 
+## P33 Fixture Harness Update
+
+P33 adds a tiny deterministic fixture harness for the local
+`rwkv7_qwen_reference` backend. The checked-in bundle under
+`tests/fixtures/qwen_reference/` records full-sequence and stepwise hidden
+outputs, logits, mixer outputs, final KV matrix state, shift state, and
+`next_position` for no-mask, interior-mask, and prefix/left-padding mask-shape
+cases. The manifest records backend/config/seed/dtype/shapes, deterministic
+payload hashes, parameter-surface hashes, and max full-vs-step equivalence
+errors.
+
+This is a local caliper for the P32 slow JAX reference. It locks current
+masked-token behavior and parameter surface drift. It still does not compare
+against RADLADS PyTorch, Triton, or CUDA outputs and does not claim full
+RADLADS numerical parity or checkpoint compatibility.
+
 ## Recommended P33+ Scope
 
-- P33: tiny numerical comparison fixtures against RADLADS PyTorch for the slow
-  reference, once parameter names and block shapes are compatible.
-- P34: parameter import/export compatibility for a tiny synthetic RADLADS
+- P33: tiny deterministic local parity/cache fixtures for
+  `rwkv7_qwen_reference`, plus a parameter-surface snapshot. This is now
+  implemented as a local fixture harness, not RADLADS PyTorch parity.
+- P34: tiny numerical comparison fixtures against RADLADS PyTorch for the slow
+  reference, once parameter names and block shapes are compatible enough to
+  make the comparison meaningful.
+- P35: parameter import/export compatibility for a tiny synthetic RADLADS
   checkpoint.
-- P35+: optimized recurrence work only after slow-reference tests can catch
+- P36+: optimized recurrence work only after slow-reference tests can catch
   regressions in recurrence math, cache behavior, RoPE, grouped KV, and block
   outputs.
 - Later: Pallas/TPU, `pjit`, sharding, and export hardening.

@@ -475,3 +475,33 @@ P32 establishes the reference target that later Pallas/XLA kernels must match.
 It does not add optimized kernels, and it does not claim full RADLADS numerical
 parity, checkpoint compatibility, TPU readiness, export compatibility, large
 training readiness, or model quality.
+
+## Phase 33 — Tiny Qwen Reference Parity Fixture Harness
+
+This phase adds deterministic tiny fixtures for `rwkv7_qwen_reference` without
+changing backend semantics. The generator is
+`scripts/generate_qwen_reference_fixtures.py`; the checked-in bundle is
+`tests/fixtures/qwen_reference/`, and the same script can write local smoke
+artifacts under `artifacts/p33_qwen_reference_fixtures`.
+
+The fixture config is deliberately small: vocab size 32, hidden size 8, two
+layers, two attention heads, one KV head, batch size 2, sequence length 5, seed
+1234, `float32`, logits enabled, and mixer outputs enabled. Each case records
+full-sequence hidden outputs, logits, mixer outputs, final KV matrix state,
+shift state, and `next_position`, plus the matching stepwise outputs/logits and
+final state. The manifest records backend/config/seed/dtype/shapes, payload
+hashes, parameter-surface hashes, and full-vs-step max absolute/relative
+errors.
+
+The mask fixtures cover no mask, interior masks, and a prefix/left-padding
+shape case. P33 documents current masked-token behavior instead of changing it:
+masked tokens zero the value stream, attention output, and MLP output for that
+token, while recurrence decay/update from previous matrix state still runs,
+`shift_state` updates to the token representation, and `next_position` advances
+through masked positions. The prefix/left-padding case is a shape/current
+behavior fixture, not a claim of separate left-padding position semantics.
+
+P33 also adds `docs/RWKV7_QWEN_REFERENCE_PARAM_SURFACE.md`, which snapshots the
+tiny flattened parameter paths and shapes. This is local fixture/caliper work,
+not RADLADS PyTorch/Triton/CUDA parity, not checkpoint compatibility, and not
+kernel readiness.

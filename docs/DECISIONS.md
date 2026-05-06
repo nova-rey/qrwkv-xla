@@ -333,3 +333,11 @@ P32 adds `rwkv7_qwen_reference` as a Qwen/RADLADS-compatible slow JAX reference
 path, not optimized kernel parity. It is the reference target later Pallas/XLA
 kernels must match, but it does not claim full RADLADS numerical parity,
 checkpoint compatibility, model quality, or optimized-kernel parity.
+
+## D067 — Qwen Reference Fixtures Are Local Calipers
+
+P33 adds deterministic tiny fixtures for the local `rwkv7_qwen_reference`
+backend. The fixtures compare full-sequence and stepwise outputs/logits/cache
+state for fixed token and mask cases and snapshot the parameter surface. They
+lock current local behavior and hashes only; they do not claim RADLADS PyTorch,
+Triton, CUDA, checkpoint, TPU, or optimized-kernel parity.

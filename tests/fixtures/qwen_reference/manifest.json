@@ -1,0 +1,307 @@
+{
+  "backend": "rwkv7_qwen_reference",
+  "cases": [
+    {
+      "attention_mask": {
+        "kind": "none",
+        "present": false,
+        "shape": null
+      },
+      "description": "No attention_mask argument; all tokens active.",
+      "equivalence": {
+        "hidden_states_max_abs": 0.0,
+        "hidden_states_max_rel": 0.0,
+        "logits_max_abs": 0.0,
+        "logits_max_rel": 0.0,
+        "mixer_outputs_max_abs": 0.0,
+        "mixer_outputs_max_rel": 0.0,
+        "next_position_abs": 0.0,
+        "shift_state_max_abs": 0.0,
+        "shift_state_max_rel": 0.0,
+        "wkv_matrix_state_max_abs": 0.0,
+        "wkv_matrix_state_max_rel": 0.0
+      },
+      "input_shape": [
+        2,
+        5
+      ],
+      "name": "no_mask",
+      "payload": "no_mask.npz",
+      "payload_sha256": "afe85908dcc5446fc217fc4e6eeded75a479c1120f8b8f0bcbfb637f8202b876"
+    },
+    {
+      "attention_mask": {
+        "kind": "interior",
+        "present": true,
+        "shape": [
+          2,
+          5
+        ]
+      },
+      "description": "Interior masked tokens lock current behavior: outputs/logits are emitted after value/output/MLP masking, while position and shift state still advance.",
+      "equivalence": {
+        "hidden_states_max_abs": 0.0,
+        "hidden_states_max_rel": 0.0,
+        "logits_max_abs": 0.0,
+        "logits_max_rel": 0.0,
+        "mixer_outputs_max_abs": 0.0,
+        "mixer_outputs_max_rel": 0.0,
+        "next_position_abs": 0.0,
+        "shift_state_max_abs": 0.0,
+        "shift_state_max_rel": 0.0,
+        "wkv_matrix_state_max_abs": 0.0,
+        "wkv_matrix_state_max_rel": 0.0
+      },
+      "input_shape": [
+        2,
+        5
+      ],
+      "name": "interior_mask",
+      "payload": "interior_mask.npz",
+      "payload_sha256": "19d1d118d86e3a017cf56784117c8d8336a1710e36509f870b58a30854001d3f"
+    },
+    {
+      "attention_mask": {
+        "kind": "prefix_left_padding",
+        "present": true,
+        "shape": [
+          2,
+          5
+        ]
+      },
+      "description": "Prefix/left-padding shape fixture. Left-padding is represented only by a [B,T] mask; positions still start at zero and advance through masked tokens.",
+      "equivalence": {
+        "hidden_states_max_abs": 0.0,
+        "hidden_states_max_rel": 0.0,
+        "logits_max_abs": 0.0,
+        "logits_max_rel": 0.0,
+        "mixer_outputs_max_abs": 0.0,
+        "mixer_outputs_max_rel": 0.0,
+        "next_position_abs": 0.0,
+        "shift_state_max_abs": 0.0,
+        "shift_state_max_rel": 0.0,
+        "wkv_matrix_state_max_abs": 0.0,
+        "wkv_matrix_state_max_rel": 0.0
+      },
+      "input_shape": [
+        2,
+        5
+      ],
+      "name": "prefix_left_padding",
+      "payload": "prefix_left_padding.npz",
+      "payload_sha256": "4c798a4ab4bb202eb7b3cace88ca284681bc4fab2e98b11ace12782e3b65d794"
+    }
+  ],
+  "claim": "Tiny deterministic fixture harness for the local slow JAX reference only; not full RADLADS numerical parity.",
+  "config": {
+    "batch_size": 2,
+    "emit_logits": true,
+    "emit_mixer_outputs": true,
+    "hidden_size": 8,
+    "num_heads": 2,
+    "num_kv_heads": 1,
+    "num_layers": 2,
+    "rms_norm_eps": 1e-06,
+    "rope_theta": 10000.0,
+    "sequence_length": 5,
+    "tie_embeddings": false,
+    "vocab_size": 32
+  },
+  "dtype": "float32",
+  "fixture_version": 1,
+  "jax": {
+    "default_backend": "cpu",
+    "version": "0.10.0"
+  },
+  "masked_token_behavior": {
+    "left_padding": "Left padding is a mask shape fixture, not a separate position semantics claim; masked prefix positions still consume positions.",
+    "summary": "attention_mask is [B,T]. Masked tokens zero the value stream, attention output, and MLP output for that token. Recurrence decay/update from the previous matrix state still runs, shift_state is updated to the masked token representation, and next_position advances by sequence length."
+  },
+  "parameter_surface": {
+    "leaf_count": 19,
+    "leaves": [
+      {
+        "dtype": "float32",
+        "path": "final_layernorm.weight",
+        "sha256": "a2ce1521555b4d228d6ca524d4dab4c134cc8e714164e770521d9516df435382",
+        "shape": [
+          8
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "layers.input_layernorm.weight",
+        "sha256": "25193e0b01a0c03f754edeebe9da89a57e2f387e8fb1ae0da0ca1e8d41dea532",
+        "shape": [
+          2,
+          8
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "layers.mlp.down_proj.weight",
+        "sha256": "d74338d69db2903bc8b640bfea7f67b4c47648616853e4297d139b572089aaf4",
+        "shape": [
+          2,
+          32,
+          8
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "layers.mlp.gate_proj.weight",
+        "sha256": "4babc78d3f8d32c0804ed778177d56e2d705af778f92a0f998db98512f524379",
+        "shape": [
+          2,
+          8,
+          32
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "layers.mlp.up_proj.weight",
+        "sha256": "0a32f1db344bf3c719aad3f54a6e6900f289fa2d4381dbeb16a7effb7b18ba27",
+        "shape": [
+          2,
+          8,
+          32
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "layers.post_attention_layernorm.weight",
+        "sha256": "25193e0b01a0c03f754edeebe9da89a57e2f387e8fb1ae0da0ca1e8d41dea532",
+        "shape": [
+          2,
+          8
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "layers.self_attn.a_proj.weight",
+        "sha256": "788b91e0c3840edc88afba69559d876afe5314608e63f560019615e3ecdfb970",
+        "shape": [
+          2,
+          8,
+          8
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "layers.self_attn.b_proj.weight",
+        "sha256": "af913fbb1a9ab3286ff4010372492f57a875d5047e585e02c6da6cf732dba66f",
+        "shape": [
+          2,
+          8,
+          8
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "layers.self_attn.g_proj.weight",
+        "sha256": "2545e3d69dfd4bd741fc56b7320f2d1978e3329a418c187bb94265893583c869",
+        "shape": [
+          2,
+          8,
+          8
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "layers.self_attn.k_proj.weight",
+        "sha256": "6f41c23564099d05b36f093406afc0f7f603ead3670f122aeca42e22410f7f67",
+        "shape": [
+          2,
+          8,
+          4
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "layers.self_attn.o_proj.weight",
+        "sha256": "5bd4f8e77f0a898c29893b883a6ad36745ff01058243fa84b688b65fa09fca3d",
+        "shape": [
+          2,
+          8,
+          8
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "layers.self_attn.q_proj.weight",
+        "sha256": "d9752a6bf5865f29603b7f5bca42e748f8d4eb130eadc7c5ac4ed5ca5e3b5cfb",
+        "shape": [
+          2,
+          8,
+          8
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "layers.self_attn.time_bias",
+        "sha256": "67bffc7d916a16564ec8e1a2cf123e3511ecb7551bb8ca1c4bac042f664d8927",
+        "shape": [
+          2,
+          8
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "layers.self_attn.time_mix",
+        "sha256": "99fa99cebf8b702a928ab7716228dd8b0723bf4e08c38894ce817ce354592b3c",
+        "shape": [
+          2,
+          8
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "layers.self_attn.v_proj.weight",
+        "sha256": "47cc9f3e88b3466cfe037aa1cda1907ba0b02803f3d125b0b7bc0dd7f388cf79",
+        "shape": [
+          2,
+          8,
+          4
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "layers.self_attn.w_proj.weight",
+        "sha256": "5dc88ff916f1df26ab205c577d3cc2ccbab4c008d7b48d45bb243b8eaa813cdc",
+        "shape": [
+          2,
+          8,
+          8
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "lm_head.bias",
+        "sha256": "5ab65c65cfc3db7839a4e1e90443122f0aaa748632931ac9d4a14ea6d2129d9d",
+        "shape": [
+          32
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "lm_head.weight",
+        "sha256": "6dcdf30afda05fb0cd282a5f3d01ddd99fead9554c82149c2b12319efcd9f06b",
+        "shape": [
+          8,
+          32
+        ]
+      },
+      {
+        "dtype": "float32",
+        "path": "token_embedding.weight",
+        "sha256": "2c5817c9fd89691baa850e8e569947768b88e60e1fdfb0050cd20323436b8b8f",
+        "shape": [
+          32,
+          8
+        ]
+      }
+    ],
+    "sha256": "2bf7e4a6a651c6552e69af3d7c72a181649dacab54a5e1351756b68443e54583"
+  },
+  "seed": 1234
+}
