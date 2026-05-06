@@ -384,3 +384,25 @@ relative to the current working directory unless absolute paths are provided.
 
 The proof is intentionally narrow: no TPU, pjit, Pallas, kernel, quality,
 checkpoint parity, or numerical parity claim is added.
+
+## Phase 29 — Tiny HF Teacher Export to RADLADS Reference Resume Smoke
+
+This phase adds a checked-in tiny real-HF teacher smoke path using
+`sshleifer/tiny-gpt2`, `corpora/hf_tiny_smoke_prompts.jsonl`, and
+`configs/teacher_export_tiny_hf_smoke.yaml`. The export config is CPU-oriented,
+uses config-relative paths, and writes under
+`artifacts/teacher_targets/tiny_hf_smoke` when run from the repository root.
+
+The paired distill config is
+`configs/distill_stage0_radlads_reference_tiny_hf.yaml`. It selects
+`rwkv7_radlads_reference` with tiny-GPT2-compatible dimensions inferred from
+the target bundle: hidden size 2, two layers, one head, and vocab size 50257.
+The smoke is hidden-MSE only. The HF target bundle includes logits so the real
+target key contract is visible, but `logits_kl` is disabled and the student is
+configured with `emit_logits: false`, so logits are explicitly not consumed.
+
+Default tests remain offline-safe. They use fake/minimal HF-shaped fixtures to
+check config loading, target keys, tiny dimensions, checkpoint save, resume,
+and finite resumed loss. The live HF export-to-distill proof is still opt-in
+behind `QRWKV_RUN_HF_INTEGRATION=1` and optional `teacher-hf` dependencies.
+This remains a RADLADS-shaped JAX reference backend, not full RADLADS parity.

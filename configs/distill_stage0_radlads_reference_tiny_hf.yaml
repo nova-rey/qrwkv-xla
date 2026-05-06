@@ -1,0 +1,28 @@
+distillation:
+  stage: 0
+  targets_dir: artifacts/teacher_targets/tiny_hf_smoke
+  student:
+    architecture: rwkv7_radlads_reference
+    vocab_size: 50257
+    hidden_size: null
+    num_layers: null
+    num_heads: 1
+    emit_logits: false
+    tie_embeddings: false
+    emit_mixer_outputs: false
+  optimizer:
+    type: sgd
+    learning_rate: 0.001
+  training:
+    max_steps: 1
+    seed: 0
+  losses:
+    hidden_mse:
+      enabled: true
+      weight: 1.0
+    logits_kl:
+      enabled: false
+      weight: 0.0
+    attention_or_mixer:
+      enabled: false
+      weight: 0.0

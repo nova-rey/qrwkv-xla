@@ -439,3 +439,13 @@
 - [x] Preserve CLI path override behavior relative to cwd
 - [x] Add focused tests for RADLADS distill resume and teacher export path behavior
 - [x] Document `rwkv7_radlads_reference` as a RADLADS-shaped JAX reference backend, not full RADLADS parity.
+
+## P29 — Tiny HF Teacher Export to RADLADS Reference Resume Smoke
+
+- [x] Add tiny HF smoke prompt corpus fixture
+- [x] Add checked-in `sshleifer/tiny-gpt2` teacher export config with CPU backend and config-relative output
+- [x] Add checked-in hidden-only `rwkv7_radlads_reference` distill config for the tiny HF target bundle
+- [x] Keep logits present in the HF target bundle but explicit and unconsumed by this hidden-MSE smoke
+- [x] Add offline tests for tiny HF config loading, RADLADS tiny-HF dimensions, target keys, and resume behavior
+- [x] Keep real HF execution opt-in/env-gated so default CI has no live network dependency
+- [x] Preserve `rwkv7_radlads_reference` as a RADLADS-shaped JAX reference backend, not full RADLADS parity.

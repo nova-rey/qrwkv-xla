@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 28
-checkpoint: radlads_reference_distill_resume_and_config_relative_teacher_export
+phase: 29
+checkpoint: tiny_hf_teacher_to_radlads_reference_resume_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -54,9 +54,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Validate the RADLADS-shaped JAX reference backend through the real
-  distillation checkpoint/resume path, preserve the older placeholder backend,
-  and normalize teacher export config-relative path handling.
+  Prove the tiny real HF teacher export path can produce a target bundle for
+  the RADLADS-shaped JAX reference backend, then run a one-step distill,
+  checkpoint, resume, and finite resumed-loss smoke without making real HF
+  execution part of default CI.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays

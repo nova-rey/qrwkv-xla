@@ -23,6 +23,22 @@ The tiny smoke config uses `sshleifer/tiny-gpt2`. This is for backend
 validation only. Qwen policy labels remain documented, but Qwen is not the
 manual smoke default yet.
 
+P29 adds an even smaller checked-in real-HF smoke path for the RADLADS reference
+backend:
+
+```bash
+python scripts/export_teacher_targets.py --config configs/teacher_export_tiny_hf_smoke.yaml --backend hf
+python scripts/inspect_targets.py artifacts/teacher_targets/tiny_hf_smoke
+python scripts/run_distill_stage.py --config configs/distill_stage0_radlads_reference_tiny_hf.yaml --checkpoint-out checkpoints/p29_tiny_hf_first --checkpoint-overwrite
+python scripts/run_distill_stage.py --config configs/distill_stage0_radlads_reference_tiny_hf.yaml --resume-from checkpoints/p29_tiny_hf_first --checkpoint-out checkpoints/p29_tiny_hf_resume --checkpoint-overwrite
+```
+
+That distill config is intentionally hidden-MSE only. The tiny HF export writes
+logits so the target key contract is exercised, but `logits_kl` stays disabled
+and the `rwkv7_radlads_reference` student does not consume logits in this smoke.
+The backend remains a RADLADS-shaped JAX reference backend, not full RADLADS
+parity.
+
 For Qwen-specific policy handling, see `docs/QWEN_EXPORT_POLICY.md`.
 `Qwen3.latest` is a local policy label only; resolving it never performs a web
 lookup.

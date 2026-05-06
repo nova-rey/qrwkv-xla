@@ -39,6 +39,31 @@ def test_hf_tiny_corpus_config_loads() -> None:
     assert config.targets.prompt_limit == 4
 
 
+def test_p29_tiny_hf_smoke_config_loads_offline_safe_metadata() -> None:
+    config = load_teacher_export_config(
+        ROOT / "configs" / "teacher_export_tiny_hf_smoke.yaml"
+    )
+
+    assert config.runtime.exporter_backend == "hf"
+    assert config.runtime.output_dir == (
+        ROOT / "artifacts" / "teacher_targets" / "tiny_hf_smoke"
+    )
+    assert config.teacher.resolved_model_id == "sshleifer/tiny-gpt2"
+    assert config.teacher.tokenizer_id == "sshleifer/tiny-gpt2"
+    assert config.teacher.device == "cpu"
+    assert config.teacher.local_files_only is False
+    assert config.targets.sequence_length == 8
+    assert config.targets.hidden_size is None
+    assert config.targets.num_layers is None
+    assert config.targets.include_logits is True
+    assert config.targets.vocab_size == 50257
+    assert config.targets.prompt_corpus == (
+        ROOT / "corpora" / "hf_tiny_smoke_prompts.jsonl"
+    )
+    assert config.targets.prompt_tags == ("hf-tiny-smoke",)
+    assert config.targets.prompt_limit == 2
+
+
 def test_fake_config_still_loads() -> None:
     config = load_teacher_export_config(ROOT / "configs" / "teacher_export_stub.yaml")
 

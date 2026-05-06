@@ -54,6 +54,23 @@ def test_create_student_builds_rwkv7_radlads_reference_student() -> None:
     assert student.config.num_heads == 2
 
 
+def test_create_radlads_reference_with_tiny_gpt2_dims() -> None:
+    student = create_student(
+        "rwkv7_radlads_reference",
+        vocab_size=50257,
+        hidden_size=2,
+        num_layers=2,
+        num_heads=1,
+    )
+
+    assert isinstance(student, RWKV7RADLADSReferenceStudent)
+    assert student.config.vocab_size == 50257
+    assert student.config.hidden_size == 2
+    assert student.config.num_layers == 2
+    assert student.config.num_heads == 1
+    assert student.config.emit_logits is False
+
+
 def test_create_student_rejects_unknown_architecture() -> None:
     with pytest.raises(ValueError, match="Unknown student architecture"):
         create_student("unknown", vocab_size=11, hidden_size=7, num_layers=2)

@@ -26,6 +26,25 @@ def test_distill_stage0_radlads_stub_loads() -> None:
     assert config.student.num_heads == 2
 
 
+def test_distill_stage0_radlads_tiny_hf_config_loads_hidden_only() -> None:
+    config = load_distill_stage_config(
+        ROOT / "configs" / "distill_stage0_radlads_reference_tiny_hf.yaml"
+    )
+
+    assert config.stage == 0
+    assert config.targets_dir == Path("artifacts/teacher_targets/tiny_hf_smoke")
+    assert config.student.architecture == "rwkv7_radlads_reference"
+    assert config.student.vocab_size == 50257
+    assert config.student.hidden_size is None
+    assert config.student.num_layers is None
+    assert config.student.num_heads == 1
+    assert config.student.emit_logits is False
+    assert config.losses.hidden_mse.enabled is True
+    assert config.losses.logits_kl.enabled is False
+    assert config.losses.logits_kl.weight == 0.0
+    assert config.training.max_steps == 1
+
+
 def test_missing_sections_use_defaults(tmp_path: Path) -> None:
     path = tmp_path / "distill.yaml"
     path.write_text("distillation:\n  training:\n    max_steps: 7\n", encoding="utf-8")

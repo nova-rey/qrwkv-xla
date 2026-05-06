@@ -58,6 +58,50 @@ def test_bundle_round_trip(tmp_path: Path) -> None:
     ]
 
 
+def test_tiny_hf_target_key_contract_allows_logits_without_requiring_logits_loss(
+    tmp_path: Path,
+) -> None:
+    manifest = TeacherTargetManifest(
+        schema_version="0.1",
+        teacher_family="hf-causal-lm",
+        teacher_model_id="sshleifer/tiny-gpt2",
+        teacher_policy_label="tiny-hf-smoke-p29",
+        fallback_policy_label=None,
+        tokenizer_id="sshleifer/tiny-gpt2",
+        sequence_length=8,
+        hidden_size=2,
+        num_layers=2,
+        targets=TargetFlags(logits=True),
+        dtype="fp32",
+        created_by="test",
+        notes=[],
+        extra={"vocab_size": 50257},
+    )
+    shard = {
+        "input_ids": np.ones((2, 8), dtype=np.int32),
+        "attention_mask": np.ones((2, 8), dtype=np.int32),
+        "loss_mask": np.ones((2, 8), dtype=np.int32),
+        "hidden_states": np.ones((2, 2, 8, 2), dtype=np.float32),
+        "logits": np.ones((2, 8, 50257), dtype=np.float32),
+    }
+    bundle_dir = tmp_path / "tiny_hf_bundle"
+
+    write_target_bundle(bundle_dir, manifest, [shard])
+
+    summary = inspect_target_bundle(bundle_dir)
+    assert summary["teacher_family"] == "hf-causal-lm"
+    assert summary["teacher_model_id"] == "sshleifer/tiny-gpt2"
+    assert summary["hidden_size"] == 2
+    assert summary["num_layers"] == 2
+    assert summary["target_keys"] == [
+        "attention_mask",
+        "hidden_states",
+        "input_ids",
+        "logits",
+        "loss_mask",
+    ]
+
+
 def test_missing_manifest_raises(tmp_path: Path) -> None:
     bundle_dir = tmp_path / "missing_manifest"
     (bundle_dir / "shards").mkdir(parents=True)
