@@ -170,7 +170,7 @@ def test_qwen_reference_fixture_generation_is_deterministic(tmp_path: Path) -> N
     fresh = _read_manifest(generated)
 
     assert _manifest_without_runtime(fresh) == _manifest_without_runtime(checked_in)
-    for case in checked_in["cases"]:
+    for case in fresh["cases"]:
         generated_payload = _load_case(case, base=generated)
         assert case["payload_sha256"] == _hash_npz_payload(generated_payload)
 
@@ -192,11 +192,14 @@ def test_qwen_reference_fixture_script_smoke(tmp_path: Path) -> None:
         text=True,
     )
 
+    manifest = _read_manifest(out)
     assert "wrote 3 qwen reference fixture cases" in result.stdout
     assert (out / "manifest.json").is_file()
-    assert _manifest_without_runtime(_read_manifest(out)) == _manifest_without_runtime(
+    assert _manifest_without_runtime(manifest) == _manifest_without_runtime(
         _read_manifest(FIXTURE_DIR)
     )
+    for case in manifest["cases"]:
+        assert case["payload_sha256"] == _hash_npz_payload(_load_case(case, base=out))
 
 
 def _read_manifest(base: Path) -> dict:
@@ -211,6 +214,10 @@ def _load_case(case: dict, *, base: Path = FIXTURE_DIR) -> dict[str, np.ndarray]
 def _manifest_without_runtime(manifest: dict) -> dict:
     stable = dict(manifest)
     stable["jax"] = {"default_backend": manifest["jax"]["default_backend"]}
+    stable["cases"] = [
+        {key: value for key, value in case.items() if key != "payload_sha256"}
+        for case in manifest["cases"]
+    ]
     return stable
 
 
