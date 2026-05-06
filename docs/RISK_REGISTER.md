@@ -46,3 +46,12 @@ Mitigation: keep real tiny-GPT2 full-vocab export and logits distill execution
 behind `QRWKV_RUN_HF_INTEGRATION=1`; default tests use tiny fake logits to cover
 the same loss plumbing without requiring torch, transformers, network, cache, or
 large target arrays.
+
+## R12 — Kernel work starts before RADLADS block math is compatible
+Mitigation: P31 classifies `rwkv7_radlads_reference` as a
+RADLADS-shaped JAX reference backend, not full RADLADS parity. P32 should close
+slow-reference math and block-compatibility gaps first: Qwen RMSNorm/MLP
+decoder shell, RoPE, grouped KV heads, shift-state cache, RADLADS-named
+parameter shapes, and focused parity fixtures. Pallas, TPU kernels, `pjit`,
+sharding, export, and quality work remain deferred until the slow reference can
+catch math regressions.

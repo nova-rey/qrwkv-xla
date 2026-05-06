@@ -459,3 +459,16 @@
 - [x] Exercise `rwkv7_radlads_reference` logits loss with tiny fake logits in offline tests
 - [x] Keep live HF export, logits distill, and resume validation opt-in behind `QRWKV_RUN_HF_INTEGRATION=1`
 - [x] Preserve warning that `rwkv7_radlads_reference` is RADLADS-shaped, not full RADLADS parity
+
+## P31 — RADLADS RWKV7 Gap Audit
+
+- [x] Inspect current QRWKV-XLA RADLADS-shaped backend source
+- [x] Inspect current QRWKV-XLA placeholder RWKV7 backend, student factory, distill config, target bundle surface, configs, and tests
+- [x] Inspect local RADLADS RWKV7Qwen2 modeling, config, Triton, and CUDA references
+- [x] Add `docs/RADLADS_RWKV7_GAP_AUDIT.md`
+- [x] Classify gaps using explicit status and priority labels
+- [x] Preserve wording: RADLADS-shaped JAX reference backend, not full RADLADS parity.
+- [x] Update risk register, snapshot, checklist, and append-only Bible
+- [x] Update decisions only for the supported P32-before-kernels decision
+- [x] Recommend concrete P32 scope as math-completion and Qwen block compatibility work
+- [x] Avoid Pallas, TPU, `pjit`, sharding, export, quality, and broad code changes

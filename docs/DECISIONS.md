@@ -316,3 +316,13 @@ default CI stays fake-target based and manual capture remains opt-in.
 
 Students can expose per-layer mixer outputs so Stage 1 can train the recurrent
 replacement pathway directly.
+
+## D065 — RADLADS Math Compatibility Before Kernel Work
+
+P31 confirms that `rwkv7_radlads_reference` is still a RADLADS-shaped JAX
+reference backend, not full RADLADS parity. The next RADLADS-focused phase
+should complete slow-reference math and Qwen block compatibility before any
+Pallas, TPU kernel, `pjit`, sharding, export, or quality work. Kernel work
+should optimize against a reference that already covers state/cache semantics,
+RoPE, grouped KV heads, RADLADS parameter names, and Qwen decoder block
+structure.

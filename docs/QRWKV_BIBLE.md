@@ -424,3 +424,29 @@ distill-to-resume path is still gated by `QRWKV_RUN_HF_INTEGRATION=1` and the
 optional HF dependencies.
 
 P30 proves target-loss plumbing with tiny real HF targets; it does not prove model quality or RADLADS parity. `rwkv7_radlads_reference` remains a RADLADS-shaped JAX reference backend, not full RADLADS parity.
+
+## Phase 31 — RADLADS RWKV7 Gap Audit
+
+This phase is an audit and planning checkpoint. It inspects the current
+QRWKV-XLA `rwkv7_radlads_reference` backend, the older `rwkv7_reference`
+placeholder, the distillation and target-bundle plumbing, and the local
+RADLADS RWKV7Qwen2 source files.
+
+The audit result is blunt: QRWKV-XLA has useful recurrence-shaped JAX plumbing,
+but it does not yet have RADLADS model parity. The current backend carries
+head-wise matrix state shaped `[layers,batch,heads,head_size,head_size]`,
+projects `wr/ww/wk/wv/wa/wb/wg/wo` plus `time_bias`, applies RADLADS-style
+decay and matrix-state update shape, and proves hidden/logit loss plumbing. It
+does not implement the Qwen decoder block shell, RoPE, grouped KV heads,
+shift-state cache, RADLADS LoRA-rank parameterization, parameter mapping, or
+numerical comparison against RADLADS PyTorch/Triton/CUDA outputs.
+
+The wording remains: RADLADS-shaped JAX reference backend, not full RADLADS
+parity.
+
+The recommended P32 scope is math-completion and Qwen block compatibility before
+kernel work: add a slow JAX block-compatible target with RMSNorm, RWKV7
+attention, residuals, MLP, RoPE, grouped KV shape semantics, KV plus shift state
+contract, and RADLADS-named parameter mapping stubs. Pallas, TPU kernels,
+`pjit`, sharding, export hardening, and quality work remain deferred until the
+slow reference can catch math and cache regressions.

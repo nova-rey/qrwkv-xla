@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 29
-checkpoint: tiny_hf_teacher_to_radlads_reference_resume_smoke
+phase: 31
+checkpoint: radlads_rwkv7_gap_audit
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -54,10 +54,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Prove the tiny real HF teacher export path can produce a target bundle for
-  the RADLADS-shaped JAX reference backend, then run a one-step distill,
-  checkpoint, resume, and finite resumed-loss smoke without making real HF
-  execution part of default CI.
+  Audit the gap between QRWKV-XLA's current rwkv7_radlads_reference backend and
+  the local RADLADS RWKV7Qwen2 reference, preserve honest state documentation,
+  and recommend a concrete P32 scope without starting kernel, export, sharding,
+  pjit, or quality feature work.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -130,6 +130,28 @@ logits_distillation:
   tiny_hf_radlads_reference_logits_config: configs/distill_stage0_radlads_reference_tiny_hf_logits.yaml
   tiny_hf_live_integration: opt_in_qrwkv_run_hf_integration
   hidden_to_logits_resume: supported_with_fresh_lm_head
+
+radlads_gap_audit:
+  phase: P31
+  audit_doc: docs/RADLADS_RWKV7_GAP_AUDIT.md
+  current_backend_claim: RADLADS-shaped JAX reference backend, not full RADLADS parity.
+  current_state_shape: "[layers,batch,heads,head_size,head_size]"
+  proves:
+    - head-wise_matrix_state_shape
+    - scan_based_recurrence_smoke
+    - hidden_loss_plumbing
+    - logits_loss_plumbing
+    - checkpoint_resume_smoke
+  does_not_prove:
+    - full_radlads_parity
+    - qwen_block_parity
+    - rope_parity
+    - grouped_kv_parity
+    - shift_state_cache_parity
+    - parameter_mapping_compatibility
+    - kernel_readiness
+    - model_quality
+  recommended_p32_scope: math_completion_and_qwen_block_compatibility_before_kernel_work
 
 generation_smoke:
   tokenizer: dependency_free_utf8_byte_plus_one
