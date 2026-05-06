@@ -472,3 +472,17 @@
 - [x] Update decisions only for the supported P32-before-kernels decision
 - [x] Recommend concrete P32 scope as math-completion and Qwen block compatibility work
 - [x] Avoid Pallas, TPU, `pjit`, sharding, export, quality, and broad code changes
+
+## P32 — Qwen-Compatible RADLADS Slow Reference Backend
+
+- [x] Add selectable `rwkv7_qwen_reference` backend without deleting or mutating the old placeholder backend
+- [x] Preserve existing `rwkv7_radlads_reference` behavior and tests
+- [x] Implement Qwen decoder shell: input -> RMSNorm -> RWKV/time-mix/reference attention -> residual -> RMSNorm -> MLP -> residual
+- [x] Add slow deterministic RoPE support with CPU tests
+- [x] Add grouped KV semantics with explicit `num_heads`, `num_kv_heads`, and validated `head_size`
+- [x] Add explicit state object with `wkv_matrix_state`, `shift_state`, and `next_position`
+- [x] Add full-sequence vs stepwise output and state equivalence coverage
+- [x] Add nested Qwen/RADLADS-oriented parameter surface
+- [x] Add tiny checked-in distill config for `artifacts/teacher_targets/tiny_hf_smoke`
+- [x] Document: Qwen/RADLADS-compatible slow JAX reference path, not optimized kernel parity.
+- [x] Preserve boundaries: no optimized kernels, no full RADLADS numerical parity claim, no TPU/Pallas/`pjit`/sharding/export/quality work

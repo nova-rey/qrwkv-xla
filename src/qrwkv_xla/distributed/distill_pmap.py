@@ -113,6 +113,7 @@ def prepare_pmap_distill_smoke(
         hidden_size=hidden_size,
         num_layers=num_layers,
         num_heads=config.student.num_heads,
+        num_kv_heads=config.student.num_kv_heads,
         emit_logits=config.student.emit_logits,
         tie_embeddings=config.student.tie_embeddings,
         emit_mixer_outputs=(
@@ -125,6 +126,7 @@ def prepare_pmap_distill_smoke(
         "hidden_size": hidden_size,
         "num_layers": num_layers,
         "num_heads": config.student.num_heads,
+        "num_kv_heads": config.student.num_kv_heads,
         "emit_logits": config.student.emit_logits,
         "tie_embeddings": config.student.tie_embeddings,
         "emit_mixer_outputs": (

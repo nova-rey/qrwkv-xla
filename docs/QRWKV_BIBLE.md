@@ -450,3 +450,28 @@ attention, residuals, MLP, RoPE, grouped KV shape semantics, KV plus shift state
 contract, and RADLADS-named parameter mapping stubs. Pallas, TPU kernels,
 `pjit`, sharding, export hardening, and quality work remain deferred until the
 slow reference can catch math and cache regressions.
+
+## Phase 32 — Qwen-Compatible RADLADS Slow Reference Backend
+
+This phase adds `rwkv7_qwen_reference`, a selectable backend separate from
+`rwkv7_radlads_reference` and the older `rwkv7_reference` placeholder. The
+required scope statement is: Qwen/RADLADS-compatible slow JAX reference path,
+not optimized kernel parity.
+
+The new backend implements the highest-priority block-compatibility pieces in
+small CPU-safe JAX code: a Qwen decoder shell
+input -> RMSNorm -> RWKV/time-mix/reference attention -> residual -> RMSNorm
+-> MLP -> residual, slow deterministic RoPE, grouped KV head expansion,
+validated `num_heads`/`num_kv_heads`/`head_size`, explicit pytree state with
+`wkv_matrix_state`, `shift_state`, and `next_position`, and a nested parameter
+surface using Qwen/RADLADS-oriented names.
+
+The tiny config `configs/distill_stage0_qwen_reference_tiny_hf.yaml` targets
+`artifacts/teacher_targets/tiny_hf_smoke` with hidden-only loss and tiny-GPT2
+dimensions inferred from the target bundle. Default behavior remains
+offline-safe; live HF tests are not made mandatory.
+
+P32 establishes the reference target that later Pallas/XLA kernels must match.
+It does not add optimized kernels, and it does not claim full RADLADS numerical
+parity, checkpoint compatibility, TPU readiness, export compatibility, large
+training readiness, or model quality.

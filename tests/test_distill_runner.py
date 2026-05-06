@@ -76,6 +76,26 @@ def test_run_stage_with_rwkv7_radlads_reference(tmp_path: Path) -> None:
     assert math.isfinite(result.final_loss)
 
 
+def test_run_stage_with_rwkv7_qwen_reference(tmp_path: Path) -> None:
+    bundle_dir = _fake_bundle(tmp_path)
+    result = run_distill_stage(
+        DistillStageConfig(
+            targets_dir=bundle_dir,
+            student=DistillStudentConfig(
+                architecture="rwkv7_qwen_reference",
+                vocab_size=32,
+                num_heads=2,
+                num_kv_heads=1,
+            ),
+            training=replace(DistillStageConfig().training, max_steps=1),
+            optimizer=replace(DistillStageConfig().optimizer, learning_rate=0.01),
+        )
+    )
+    assert result.steps == 1
+    assert result.final_hidden_mse is not None
+    assert math.isfinite(result.final_loss)
+
+
 def test_run_stage_with_rwkv7_radlads_reference_logits_loss(
     tmp_path: Path,
 ) -> None:

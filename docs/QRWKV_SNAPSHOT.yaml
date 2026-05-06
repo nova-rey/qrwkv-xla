@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 31
-checkpoint: radlads_rwkv7_gap_audit
+phase: 32
+checkpoint: qwen_radlads_slow_reference_backend
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -32,6 +32,7 @@ student:
   backends:
     rwkv7_reference: placeholder_smoke_backend
     rwkv7_radlads_reference: RADLADS-shaped JAX reference backend, not full RADLADS parity.
+    rwkv7_qwen_reference: Qwen/RADLADS-compatible slow JAX reference path, not optimized kernel parity.
   target_runtime:
     - CPU debug
     - TPU smoke
@@ -54,10 +55,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Audit the gap between QRWKV-XLA's current rwkv7_radlads_reference backend and
-  the local RADLADS RWKV7Qwen2 reference, preserve honest state documentation,
-  and recommend a concrete P32 scope without starting kernel, export, sharding,
-  pjit, or quality feature work.
+  Add a selectable rwkv7_qwen_reference backend that establishes a
+  Qwen/RADLADS-compatible slow JAX reference target for later kernels, while
+  preserving the old placeholder and rwkv7_radlads_reference paths and avoiding
+  optimized kernels, export, sharding, pjit, TPU, or quality feature work.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -152,6 +153,30 @@ radlads_gap_audit:
     - kernel_readiness
     - model_quality
   recommended_p32_scope: math_completion_and_qwen_block_compatibility_before_kernel_work
+
+qwen_reference_backend:
+  phase: P32
+  backend: rwkv7_qwen_reference
+  claim: Qwen/RADLADS-compatible slow JAX reference path, not optimized kernel parity.
+  tiny_hf_distill_config: configs/distill_stage0_qwen_reference_tiny_hf.yaml
+  state_object:
+    - wkv_matrix_state
+    - shift_state
+    - next_position
+  implements:
+    - qwen_decoder_shell_rmsnorm_attention_residual_rmsnorm_mlp_residual
+    - slow_rope
+    - grouped_kv_equal_and_repeated_heads
+    - explicit_num_heads_num_kv_heads_head_size_validation
+    - full_sequence_vs_stepwise_output_and_state_equivalence
+    - nested_qwen_radlads_oriented_parameter_surface
+    - cpu_safe_jit_gradient_optimizer_and_distill_smokes
+  does_not_prove:
+    - optimized_kernel_parity
+    - full_radlads_numerical_parity
+    - radlads_checkpoint_compatibility
+    - model_quality
+    - tpu_or_pallas_readiness
 
 generation_smoke:
   tokenizer: dependency_free_utf8_byte_plus_one

@@ -49,9 +49,10 @@ large target arrays.
 
 ## R12 — Kernel work starts before RADLADS block math is compatible
 Mitigation: P31 classifies `rwkv7_radlads_reference` as a
-RADLADS-shaped JAX reference backend, not full RADLADS parity. P32 should close
-slow-reference math and block-compatibility gaps first: Qwen RMSNorm/MLP
-decoder shell, RoPE, grouped KV heads, shift-state cache, RADLADS-named
-parameter shapes, and focused parity fixtures. Pallas, TPU kernels, `pjit`,
-sharding, export, and quality work remain deferred until the slow reference can
-catch math regressions.
+RADLADS-shaped JAX reference backend, not full RADLADS parity. P32 adds
+`rwkv7_qwen_reference` as a Qwen/RADLADS-compatible slow JAX reference path,
+not optimized kernel parity. It closes the highest-priority slow-reference
+block-compatibility gaps with a Qwen RMSNorm/MLP decoder shell, RoPE, grouped
+KV heads, shift-state cache, nested parameter surface, and focused CPU tests.
+Pallas, TPU kernels, `pjit`, sharding, export, and quality work remain
+deferred until the slow reference can catch math regressions.

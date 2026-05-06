@@ -7,6 +7,14 @@ from qrwkv_xla.students.lm_head import (
     apply_tied_lm_head,
     init_lm_head_params,
 )
+from qrwkv_xla.students.rwkv7_qwen_reference import (
+    RWKV7QwenReferenceConfig,
+    RWKV7QwenReferenceState,
+    RWKV7QwenReferenceStudent,
+    rwkv7_qwen_reference_group_kv,
+    rwkv7_qwen_reference_initial_state,
+    rwkv7_qwen_reference_rope,
+)
 from qrwkv_xla.students.rwkv7_radlads_reference import (
     RWKV7RADLADSReferenceConfig,
     RWKV7RADLADSReferenceStudent,
@@ -25,6 +33,9 @@ __all__ = [
     "RWKV7ReferenceStudent",
     "RWKV7RADLADSReferenceConfig",
     "RWKV7RADLADSReferenceStudent",
+    "RWKV7QwenReferenceConfig",
+    "RWKV7QwenReferenceState",
+    "RWKV7QwenReferenceStudent",
     "StudentModel",
     "StudentOutput",
     "TinyStudent",
@@ -35,5 +46,8 @@ __all__ = [
     "init_lm_head_params",
     "rwkv7_radlads_reference_initial_state",
     "rwkv7_radlads_reference_layer",
+    "rwkv7_qwen_reference_group_kv",
+    "rwkv7_qwen_reference_initial_state",
+    "rwkv7_qwen_reference_rope",
     "rwkv7_reference_layer",
 ]

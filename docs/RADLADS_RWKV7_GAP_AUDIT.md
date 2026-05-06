@@ -1,8 +1,9 @@
 # RADLADS RWKV7 Gap Audit
 
 Phase P31 audits `rwkv7_radlads_reference` against the local RADLADS
-RWKV7Qwen2 reference. This is an audit and planning document, not an
-implementation plan for kernels.
+RWKV7Qwen2 reference. P32 adds `rwkv7_qwen_reference` as a
+Qwen/RADLADS-compatible slow JAX reference path, not optimized kernel parity.
+This is an audit and state document, not an implementation plan for kernels.
 
 ## Summary
 
@@ -12,10 +13,15 @@ normalized key direction, in-context update terms, recurrent readout, finite
 gradient coverage, logits plumbing, checkpoint resume coverage, and tiny
 teacher-target distillation smokes.
 
-It is still a RADLADS-shaped JAX reference backend, not full RADLADS parity.
-The missing work is mostly model math and block compatibility, not optimized
-kernel work. The current backend is not ready to be treated as the target for
-Pallas, TPU kernel, `pjit`, sharding, export, or quality claims.
+P32 adds `rwkv7_qwen_reference`, a selectable slow JAX backend with a
+Qwen-style decoder shell, RoPE, grouped KV semantics, explicit KV matrix plus
+shift state, and full-sequence vs stepwise state/output coverage. It
+establishes the reference target that later Pallas/XLA kernels must match.
+
+It still does not claim full RADLADS numerical parity. P32 does not add
+optimized kernels, Pallas, TPU execution, `pjit`, sharding, export, large
+training, or quality claims. The old `rwkv7_radlads_reference` backend remains
+available as the earlier RADLADS-shaped recurrence reference.
 
 Recommended P32 scope: finish the slow JAX compatibility target around the
 RADLADS attention/block contract before any kernel work. The minimum useful P32
@@ -36,6 +42,9 @@ Priority values are constrained to: `P32 must-fix before kernel`,
 
 The current `rwkv7_radlads_reference` backend lives in
 `src/qrwkv_xla/students/rwkv7_radlads_reference.py`.
+
+The P32 `rwkv7_qwen_reference` backend lives in
+`src/qrwkv_xla/students/rwkv7_qwen_reference.py`.
 
 Current implemented surface:
 
@@ -65,6 +74,31 @@ Current missing surface:
 
 The existing distill pipeline proves hidden/logit loss plumbing. It does not
 prove RADLADS parity.
+
+P32 `rwkv7_qwen_reference` implemented surface:
+
+- Student factory architecture: `rwkv7_qwen_reference`.
+- Decoder shell:
+  input -> RMSNorm -> RWKV/time-mix/reference attention -> residual -> RMSNorm
+  -> MLP -> residual.
+- Slow deterministic RoPE for even `head_size`.
+- Explicit `num_heads`, `num_kv_heads`, validated `head_size` derivation, and
+  grouped KV repeat semantics.
+- Pytree state object with `wkv_matrix_state`, `shift_state`, and
+  `next_position`.
+- Nested parameter layout using Qwen/RADLADS-oriented names such as
+  `token_embedding`, `layers.self_attn.q_proj/k_proj/v_proj/o_proj`,
+  `input_layernorm`, `post_attention_layernorm`, `mlp`, and `final_layernorm`.
+- CPU-safe tests for shapes, invalid head configs, RoPE, grouped KV,
+  full-vs-step equivalence, JIT, finite gradients, optimizer update, factory
+  selection, and one-step distill smoke.
+
+P32 remaining non-parity surface:
+
+- No RADLADS checkpoint import/export or parameter mapping claim.
+- No RADLADS LoRA-rank factorization parity.
+- No numerical comparison against RADLADS PyTorch, Triton, or CUDA outputs.
+- No optimized kernel parity.
 
 ## RADLADS Reference Summary
 

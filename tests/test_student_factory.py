@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from qrwkv_xla.students import (
+    RWKV7QwenReferenceStudent,
     RWKV7RADLADSReferenceStudent,
     RWKV7ReferenceStudent,
     TinyStudent,
@@ -69,6 +70,43 @@ def test_create_radlads_reference_with_tiny_gpt2_dims() -> None:
     assert student.config.num_layers == 2
     assert student.config.num_heads == 1
     assert student.config.emit_logits is False
+
+
+def test_create_student_builds_rwkv7_qwen_reference_student() -> None:
+    student = create_student(
+        "rwkv7_qwen_reference",
+        vocab_size=12,
+        hidden_size=8,
+        num_layers=2,
+        num_heads=2,
+        num_kv_heads=1,
+    )
+
+    assert isinstance(student, RWKV7QwenReferenceStudent)
+    assert student.config.vocab_size == 12
+    assert student.config.hidden_size == 8
+    assert student.config.num_layers == 2
+    assert student.config.num_heads == 2
+    assert student.config.effective_num_kv_heads == 1
+
+
+def test_create_student_requires_explicit_qwen_head_settings() -> None:
+    with pytest.raises(ValueError, match="requires explicit num_heads"):
+        create_student(
+            "rwkv7_qwen_reference",
+            vocab_size=12,
+            hidden_size=8,
+            num_layers=2,
+        )
+
+    with pytest.raises(ValueError, match="requires explicit num_kv_heads"):
+        create_student(
+            "rwkv7_qwen_reference",
+            vocab_size=12,
+            hidden_size=8,
+            num_layers=2,
+            num_heads=2,
+        )
 
 
 def test_create_student_rejects_unknown_architecture() -> None:

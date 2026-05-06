@@ -7,16 +7,14 @@ from pathlib import Path
 
 
 def main() -> None:
+    from qrwkv_xla.students.factory import STUDENT_ARCHITECTURES
+
     parser = argparse.ArgumentParser(description="Run a QRWKV-XLA distillation stage")
     parser.add_argument("--config", default="configs/distill_stage0_stub.yaml")
     parser.add_argument("--targets")
     parser.add_argument(
         "--student-architecture",
-        choices=(
-            "tiny_student",
-            "rwkv7_reference",
-            "rwkv7_radlads_reference",
-        ),
+        choices=tuple(sorted(STUDENT_ARCHITECTURES)),
     )
     parser.add_argument("--max-steps", type=int)
     parser.add_argument("--optimizer", choices=("sgd", "adam", "adamw"))

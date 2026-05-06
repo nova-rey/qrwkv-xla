@@ -326,3 +326,10 @@ Pallas, TPU kernel, `pjit`, sharding, export, or quality work. Kernel work
 should optimize against a reference that already covers state/cache semantics,
 RoPE, grouped KV heads, RADLADS parameter names, and Qwen decoder block
 structure.
+
+## D066 — Qwen Reference Backend Stays Slow and Non-Parity
+
+P32 adds `rwkv7_qwen_reference` as a Qwen/RADLADS-compatible slow JAX reference
+path, not optimized kernel parity. It is the reference target later Pallas/XLA
+kernels must match, but it does not claim full RADLADS numerical parity,
+checkpoint compatibility, model quality, or optimized-kernel parity.

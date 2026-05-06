@@ -26,6 +26,7 @@ class DistillStudentConfig:
     hidden_size: int | None = None
     num_layers: int | None = None
     num_heads: int | None = None
+    num_kv_heads: int | None = None
     emit_logits: bool = False
     tie_embeddings: bool = False
     emit_mixer_outputs: bool = False
@@ -170,12 +171,27 @@ def validate_distill_stage_config(config: DistillStageConfig) -> None:
         raise ValueError("student.num_layers must be > 0 when provided")
     if config.student.num_heads is not None and config.student.num_heads <= 0:
         raise ValueError("student.num_heads must be > 0 when provided")
+    if config.student.num_kv_heads is not None and config.student.num_kv_heads <= 0:
+        raise ValueError("student.num_kv_heads must be > 0 when provided")
     if (
         config.student.hidden_size is not None
         and config.student.num_heads is not None
         and config.student.hidden_size % config.student.num_heads != 0
     ):
         raise ValueError("student.hidden_size must be divisible by student.num_heads")
+    if (
+        config.student.num_heads is not None
+        and config.student.num_kv_heads is not None
+        and config.student.num_heads % config.student.num_kv_heads != 0
+    ):
+        raise ValueError("student.num_heads must be divisible by student.num_kv_heads")
+    if config.student.architecture == "rwkv7_qwen_reference":
+        if config.student.num_heads is None:
+            raise ValueError("rwkv7_qwen_reference requires explicit student.num_heads")
+        if config.student.num_kv_heads is None:
+            raise ValueError(
+                "rwkv7_qwen_reference requires explicit student.num_kv_heads"
+            )
     if (
         config.losses.logits_kl.enabled
         and config.losses.logits_kl.weight > 0
@@ -245,6 +261,7 @@ def _load_student(data: Any) -> DistillStudentConfig:
         hidden_size=_optional_int(data.get("hidden_size")),
         num_layers=_optional_int(data.get("num_layers")),
         num_heads=_optional_int(data.get("num_heads")),
+        num_kv_heads=_optional_int(data.get("num_kv_heads")),
         emit_logits=bool(data.get("emit_logits", False)),
         tie_embeddings=bool(data.get("tie_embeddings", False)),
         emit_mixer_outputs=bool(data.get("emit_mixer_outputs", False)),
