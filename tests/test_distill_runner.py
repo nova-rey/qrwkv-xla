@@ -7,8 +7,10 @@ from pathlib import Path
 import pytest
 
 from qrwkv_xla.distill import (
+    DistillLossConfig,
     DistillStageConfig,
     DistillStudentConfig,
+    LossWeightConfig,
     run_distill_stage,
 )
 from qrwkv_xla.teacher_export import (
@@ -74,6 +76,53 @@ def test_run_stage_with_rwkv7_radlads_reference(tmp_path: Path) -> None:
     assert math.isfinite(result.final_loss)
 
 
+def test_run_stage_with_rwkv7_radlads_reference_logits_loss(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _fake_bundle(tmp_path, include_logits=True)
+    result = run_distill_stage(
+        DistillStageConfig(
+            targets_dir=bundle_dir,
+            student=DistillStudentConfig(
+                architecture="rwkv7_radlads_reference",
+                vocab_size=32,
+                num_heads=2,
+                emit_logits=True,
+            ),
+            training=replace(DistillStageConfig().training, max_steps=1),
+            optimizer=replace(DistillStageConfig().optimizer, learning_rate=0.01),
+            losses=DistillLossConfig(
+                hidden_mse=LossWeightConfig(enabled=True, weight=0.5),
+                logits_kl=LossWeightConfig(enabled=True, weight=0.5),
+            ),
+        )
+    )
+    assert result.steps == 1
+    assert result.final_logits_kl is not None
+    assert math.isfinite(result.final_logits_kl)
+    assert math.isfinite(result.final_loss)
+
+
+def test_logits_loss_enabled_without_teacher_logits_raises(tmp_path: Path) -> None:
+    bundle_dir = _fake_bundle(tmp_path, include_logits=False)
+    with pytest.raises(ValueError, match="teacher targets do not include logits"):
+        run_distill_stage(
+            DistillStageConfig(
+                targets_dir=bundle_dir,
+                student=DistillStudentConfig(
+                    architecture="rwkv7_radlads_reference",
+                    vocab_size=32,
+                    num_heads=2,
+                    emit_logits=True,
+                ),
+                losses=DistillLossConfig(
+                    hidden_mse=LossWeightConfig(enabled=False, weight=0.0),
+                    logits_kl=LossWeightConfig(enabled=True, weight=1.0),
+                ),
+            )
+        )
+
+
 def test_hidden_size_mismatch_raises(tmp_path: Path) -> None:
     bundle_dir = _fake_bundle(tmp_path)
     with pytest.raises(ValueError, match="hidden_size"):
@@ -104,7 +153,7 @@ def test_num_layers_mismatch_raises(tmp_path: Path) -> None:
         )
 
 
-def _fake_bundle(tmp_path: Path) -> Path:
+def _fake_bundle(tmp_path: Path, *, include_logits: bool = False) -> Path:
     config = TeacherExportConfig()
     config = replace(
         config,
@@ -114,10 +163,11 @@ def _fake_bundle(tmp_path: Path) -> Path:
             hidden_size=4,
             num_layers=2,
             vocab_size=32,
+            include_logits=include_logits,
         ),
         runtime=replace(
             config.runtime,
-            output_dir=tmp_path / "bundle",
+            output_dir=tmp_path / ("bundle_logits" if include_logits else "bundle"),
             batch_size=2,
             num_shards=1,
         ),

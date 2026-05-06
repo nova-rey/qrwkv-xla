@@ -39,6 +39,17 @@ and the `rwkv7_radlads_reference` student does not consume logits in this smoke.
 The backend remains a RADLADS-shaped JAX reference backend, not full RADLADS
 parity.
 
+P30 adds the logits-consuming continuation smoke config:
+
+```bash
+python scripts/run_distill_stage.py --config configs/distill_stage0_radlads_reference_tiny_hf_logits.yaml --checkpoint-out checkpoints/p30_tiny_hf_logits_first --checkpoint-overwrite
+python scripts/run_distill_stage.py --config configs/distill_stage0_radlads_reference_tiny_hf_logits.yaml --resume-from checkpoints/p30_tiny_hf_logits_first --checkpoint-out checkpoints/p30_tiny_hf_logits_resume --checkpoint-overwrite
+```
+
+This config keeps the same tiny HF target bundle, sets
+`student.emit_logits: true`, and enables combined `hidden_mse` plus `logits_kl`.
+P30 proves target-loss plumbing with tiny real HF targets; it does not prove model quality or RADLADS parity. The full live export-to-logits-distill-resume test remains opt-in behind `QRWKV_RUN_HF_INTEGRATION=1`; default tests use fake tiny logits and never require network, torch, transformers, or an HF cache.
+
 For Qwen-specific policy handling, see `docs/QWEN_EXPORT_POLICY.md`.
 `Qwen3.latest` is a local policy label only; resolving it never performs a web
 lookup.
@@ -101,7 +112,9 @@ values in `manifest.json`.
 
 Logits are optional and only written when `include_logits` is enabled.
 Hidden states and logits are exported as fp32 NumPy arrays to keep the JAX-side
-consumer path simple.
+consumer path simple. The distillation runtime supports hidden-only
+`hidden_mse`, logits-only `logits_kl`, and combined hidden plus logits loss
+when the student emits logits and the target bundle includes logits.
 
 ## Manifest behavior
 

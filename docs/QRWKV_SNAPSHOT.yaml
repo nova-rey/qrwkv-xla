@@ -127,6 +127,8 @@ logits_distillation:
   student_emit_logits: optional
   default_tie_embeddings: false
   fake_logits_validation: true
+  tiny_hf_radlads_reference_logits_config: configs/distill_stage0_radlads_reference_tiny_hf_logits.yaml
+  tiny_hf_live_integration: opt_in_qrwkv_run_hf_integration
   hidden_to_logits_resume: supported_with_fresh_lm_head
 
 generation_smoke:

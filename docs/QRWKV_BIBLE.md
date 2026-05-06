@@ -406,3 +406,21 @@ check config loading, target keys, tiny dimensions, checkpoint save, resume,
 and finite resumed loss. The live HF export-to-distill proof is still opt-in
 behind `QRWKV_RUN_HF_INTEGRATION=1` and optional `teacher-hf` dependencies.
 This remains a RADLADS-shaped JAX reference backend, not full RADLADS parity.
+
+## P30 — Real HF Target Loss Hardening + Checked-In Smoke
+
+This phase keeps the P29 hidden-only path intact and adds
+`configs/distill_stage0_radlads_reference_tiny_hf_logits.yaml` for the tiny HF
+target bundle. The new config selects `rwkv7_radlads_reference` with
+`emit_logits: true` and enables a combined hidden-MSE plus `logits_kl` loss, so
+teacher logits from `sshleifer/tiny-gpt2` can be consumed by the RADLADS-shaped
+reference student in the opt-in live smoke.
+
+Default validation remains offline-safe. Focused tests cover logits config
+parsing, hidden-only config parsing, clear failure when logits KL is requested
+without teacher logits, `loss_mask` handling for logits KL, and a tiny fake
+logits run through `rwkv7_radlads_reference`. The real HF export-to-logits
+distill-to-resume path is still gated by `QRWKV_RUN_HF_INTEGRATION=1` and the
+optional HF dependencies.
+
+P30 proves target-loss plumbing with tiny real HF targets; it does not prove model quality or RADLADS parity. `rwkv7_radlads_reference` remains a RADLADS-shaped JAX reference backend, not full RADLADS parity.

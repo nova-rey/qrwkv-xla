@@ -40,3 +40,9 @@ Mitigation: only config-loaded paths changed to YAML-relative semantics; CLI
 path overrides such as `--out` remain cwd-relative, and tests cover
 config-relative inputs, config-relative output directories, absolute paths, and
 CLI override behavior.
+
+## R11 — Full-vocab logits smokes become too heavy for default CPU CI
+Mitigation: keep real tiny-GPT2 full-vocab export and logits distill execution
+behind `QRWKV_RUN_HF_INTEGRATION=1`; default tests use tiny fake logits to cover
+the same loss plumbing without requiring torch, transformers, network, cache, or
+large target arrays.

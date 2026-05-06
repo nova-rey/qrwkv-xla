@@ -449,3 +449,13 @@
 - [x] Add offline tests for tiny HF config loading, RADLADS tiny-HF dimensions, target keys, and resume behavior
 - [x] Keep real HF execution opt-in/env-gated so default CI has no live network dependency
 - [x] Preserve `rwkv7_radlads_reference` as a RADLADS-shaped JAX reference backend, not full RADLADS parity.
+
+## P30 — Real HF Target Loss Hardening + Checked-In Smoke
+
+- [x] Add checked-in logits-enabled `rwkv7_radlads_reference` tiny HF distill config
+- [x] Preserve the P29 hidden-only tiny HF distill config and parsing path
+- [x] Cover logits config parsing and clear failure when logits KL is enabled without teacher logits
+- [x] Cover `loss_mask` handling on the logits KL path
+- [x] Exercise `rwkv7_radlads_reference` logits loss with tiny fake logits in offline tests
+- [x] Keep live HF export, logits distill, and resume validation opt-in behind `QRWKV_RUN_HF_INTEGRATION=1`
+- [x] Preserve warning that `rwkv7_radlads_reference` is RADLADS-shaped, not full RADLADS parity
