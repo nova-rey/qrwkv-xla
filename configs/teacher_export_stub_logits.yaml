@@ -19,4 +19,4 @@ runtime:
   batch_size: 2
   num_shards: 2
   seed: 1234
-  output_dir: artifacts/teacher_targets/fake_export_logits
+  output_dir: ../artifacts/teacher_targets/fake_export_logits

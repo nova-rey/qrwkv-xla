@@ -77,6 +77,56 @@ runtime:
     assert load_prompt_texts(prompt_file=config.targets.prompt_file) == ["one", "two"]
 
 
+def test_config_relative_prompt_corpus_and_output_dir(tmp_path: Path) -> None:
+    config_dir = tmp_path / "configs"
+    corpus_dir = config_dir / "corpora"
+    corpus_dir.mkdir(parents=True)
+    prompt_corpus = corpus_dir / "prompts.jsonl"
+    prompt_corpus.write_text(
+        '{"id":"p0","text":"one","split":"train","tags":["smoke"]}\n',
+        encoding="utf-8",
+    )
+    config_file = config_dir / "teacher.yaml"
+    config_file.write_text(
+        """
+targets:
+  prompt_corpus: corpora/prompts.jsonl
+runtime:
+  output_dir: exports/bundle
+""",
+        encoding="utf-8",
+    )
+
+    config = load_teacher_export_config(config_file)
+
+    assert config.targets.prompt_corpus == prompt_corpus.resolve()
+    assert config.runtime.output_dir == (config_dir / "exports" / "bundle").resolve()
+
+
+def test_absolute_config_paths_stay_absolute(tmp_path: Path) -> None:
+    prompt_corpus = tmp_path / "prompts.jsonl"
+    output_dir = tmp_path / "teacher_targets" / "bundle"
+    prompt_corpus.write_text(
+        '{"id":"p0","text":"one","split":"train","tags":["smoke"]}\n',
+        encoding="utf-8",
+    )
+    config_file = tmp_path / "teacher.yaml"
+    config_file.write_text(
+        f"""
+targets:
+  prompt_corpus: {prompt_corpus}
+runtime:
+  output_dir: {output_dir}
+""",
+        encoding="utf-8",
+    )
+
+    config = load_teacher_export_config(config_file)
+
+    assert config.targets.prompt_corpus == prompt_corpus
+    assert config.runtime.output_dir == output_dir
+
+
 def test_empty_prompt_source_raises() -> None:
     with pytest.raises(ValueError, match="empty prompt list"):
         load_prompt_texts(prompt_texts=[])

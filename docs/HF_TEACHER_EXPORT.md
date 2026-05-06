@@ -35,6 +35,18 @@ python scripts/validate_pipeline.py --include-hf
 
 This flag is intentionally outside default CI and default local validation.
 
+## Config path resolution
+
+When a teacher export YAML is loaded, relative input paths such as
+`targets.prompt_file`, `targets.prompt_corpus`, `targets.tokenized_corpus`, and
+`runtime.qwen_policy_path` resolve relative to the YAML file. Explicit
+`runtime.output_dir` values in config also resolve relative to the YAML file.
+
+CLI path overrides preserve normal command-line behavior. For example, `--out`,
+`--prompt-file`, `--prompt-corpus`, `--tokenized-corpus`, and `--qwen-policy`
+remain relative to the current working directory unless an absolute path is
+provided.
+
 For cache-only validation, pass `--local-files-only` or set
 `teacher.local_files_only: true` in the export config. The flag is forwarded to
 both tokenizer and model `from_pretrained` calls and recorded in the target

@@ -18,7 +18,7 @@ targets:
   include_attention_targets: false
   vocab_size: 50257
   prompt_texts: []
-  prompt_corpus: corpora/smoke_prompts.jsonl
+  prompt_corpus: ../corpora/smoke_prompts.jsonl
   prompt_split: train
   prompt_tags:
     - smoke
@@ -29,4 +29,4 @@ runtime:
   batch_size: 2
   num_shards: 1
   seed: 1234
-  output_dir: artifacts/teacher_targets/hf_tiny_corpus
+  output_dir: ../artifacts/teacher_targets/hf_tiny_corpus

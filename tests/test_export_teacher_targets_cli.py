@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -85,3 +86,46 @@ def test_cli_include_logits_writes_logits(tmp_path: Path) -> None:
     shard = read_shard(shard_path(out_dir, 0))
     assert "logits" in shard
     assert "loss_mask" in shard
+
+
+def test_cli_out_override_remains_relative_to_cwd(tmp_path: Path) -> None:
+    config_dir = tmp_path / "configs"
+    config_dir.mkdir()
+    config = config_dir / "teacher.yaml"
+    config.write_text(
+        """
+targets:
+  sequence_length: 4
+  hidden_size: 4
+  num_layers: 1
+  vocab_size: 16
+runtime:
+  batch_size: 1
+  num_shards: 1
+  output_dir: config_relative_bundle
+""",
+        encoding="utf-8",
+    )
+
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT / "src")
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--config",
+            str(config),
+            "--out",
+            "cli_relative_bundle",
+        ],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / "cli_relative_bundle" / "manifest.json").is_file()
+    assert not (config_dir / "cli_relative_bundle").exists()
+    assert not (config_dir / "config_relative_bundle").exists()

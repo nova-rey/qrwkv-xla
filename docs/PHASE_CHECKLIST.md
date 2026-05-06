@@ -429,3 +429,13 @@
 - [x] Add a tiny local stub config for the new backend distill path
 - [x] Prove one local distill step runs with the new backend
 - [x] Document the backend as partial RADLADS-aligned reference math, not parity
+
+## P28 — RADLADS Reference Backend Validation + Teacher Export Path Cleanup
+
+- [x] Prove `rwkv7_radlads_reference` survives the real distill checkpoint write and resume path
+- [x] Keep `rwkv7_reference` placeholder smoke semantics and coverage intact
+- [x] Resolve teacher export config input paths relative to the config file
+- [x] Resolve teacher export config `runtime.output_dir` relative to the config file
+- [x] Preserve CLI path override behavior relative to cwd
+- [x] Add focused tests for RADLADS distill resume and teacher export path behavior
+- [x] Document `rwkv7_radlads_reference` as a RADLADS-shaped JAX reference backend, not full RADLADS parity.

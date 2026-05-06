@@ -25,6 +25,6 @@ runtime:
   batch_size: 1
   num_shards: 1
   seed: 1234
-  output_dir: artifacts/teacher_targets/qwen_manual_smoke
+  output_dir: ../artifacts/teacher_targets/qwen_manual_smoke
   require_resolved_model: true
-  qwen_policy_path: configs/qwen_policy.yaml
+  qwen_policy_path: qwen_policy.yaml

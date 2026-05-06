@@ -30,6 +30,13 @@ behind masked positions to catch regressions.
 
 ## R9 — RADLADS reference overclaiming
 Mitigation: keep `rwkv7_radlads_reference` separate from the existing
-`rwkv7_reference` smoke backend, document it as partial RADLADS-aligned math,
-and require explicit future parity work before claiming checkpoint or numerical
-compatibility with RADLADS torch/CUDA/Triton outputs.
+`rwkv7_reference` smoke backend, document it as a RADLADS-shaped JAX reference
+backend, not full RADLADS parity, and require explicit future parity work before
+claiming checkpoint or numerical compatibility with RADLADS torch/CUDA/Triton
+outputs.
+
+## R10 — Config-relative export paths surprise old callers
+Mitigation: only config-loaded paths changed to YAML-relative semantics; CLI
+path overrides such as `--out` remain cwd-relative, and tests cover
+config-relative inputs, config-relative output directories, absolute paths, and
+CLI override behavior.

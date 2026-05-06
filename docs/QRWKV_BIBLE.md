@@ -365,3 +365,22 @@ Tiny local proof command:
 ```bash
 python scripts/run_distill_stage.py --config configs/distill_stage0_radlads_reference_stub.yaml --targets artifacts/teacher_targets/fake_export --max-steps 1 --learning-rate 0.01
 ```
+
+## Phase 28 — RADLADS Reference Backend Validation + Teacher Export Path Cleanup
+
+This phase validates `rwkv7_radlads_reference` through the actual distillation
+trainer checkpoint boundary: the trainer writes a JSON + NPZ checkpoint, resumes
+from it, preserves the global step, and records the RADLADS backend student
+config. This is a RADLADS-shaped JAX reference backend, not full RADLADS parity.
+The older `rwkv7_reference` placeholder backend remains unchanged and continues
+to serve its smoke/offline role.
+
+Teacher export config path handling is now consistent. Relative config paths
+for prompt files, prompt corpora, tokenized corpora, Qwen policy files, and
+`runtime.output_dir` resolve relative to the YAML file that declares them.
+Command-line overrides such as `--out`, `--prompt-file`, `--prompt-corpus`,
+`--tokenized-corpus`, and `--qwen-policy` keep normal CLI semantics and remain
+relative to the current working directory unless absolute paths are provided.
+
+The proof is intentionally narrow: no TPU, pjit, Pallas, kernel, quality,
+checkpoint parity, or numerical parity claim is added.

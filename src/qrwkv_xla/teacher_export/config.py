@@ -220,28 +220,20 @@ def load_teacher_export_config(path: str | Path) -> TeacherExportConfig:
     runtime_data = _mapping_section(data, "runtime")
     attention_capture_data = _mapping_section(data, "attention_capture")
 
-    prompt_file = _optional_path(targets_data.get("prompt_file"))
-    if prompt_file is not None and not prompt_file.is_absolute():
-        prompt_file = config_path.parent / prompt_file
-    prompt_corpus = _optional_path(targets_data.get("prompt_corpus"))
-    if prompt_corpus is not None and not prompt_corpus.is_absolute():
-        config_relative = config_path.parent / prompt_corpus
-        repo_relative = config_path.parent.parent / prompt_corpus
-        prompt_corpus = config_relative if config_relative.exists() else repo_relative
-    tokenized_corpus = _optional_path(targets_data.get("tokenized_corpus"))
-    if tokenized_corpus is not None and not tokenized_corpus.is_absolute():
-        config_relative = config_path.parent / tokenized_corpus
-        repo_relative = config_path.parent.parent / tokenized_corpus
-        tokenized_corpus = (
-            config_relative if config_relative.exists() else repo_relative
-        )
-    qwen_policy_path = _optional_path(runtime_data.get("qwen_policy_path"))
-    if qwen_policy_path is not None and not qwen_policy_path.is_absolute():
-        config_relative = config_path.parent / qwen_policy_path
-        repo_relative = config_path.parent.parent / qwen_policy_path
-        qwen_policy_path = (
-            config_relative if config_relative.exists() else repo_relative
-        )
+    config_dir = config_path.resolve().parent
+    prompt_file = _config_relative_path(targets_data.get("prompt_file"), config_dir)
+    prompt_corpus = _config_relative_path(targets_data.get("prompt_corpus"), config_dir)
+    tokenized_corpus = _config_relative_path(
+        targets_data.get("tokenized_corpus"), config_dir
+    )
+    output_dir = _config_relative_path(
+        runtime_data.get("output_dir"),
+        config_dir,
+        default=Path("artifacts/teacher_targets/fake_export"),
+    )
+    qwen_policy_path = _config_relative_path(
+        runtime_data.get("qwen_policy_path"), config_dir
+    )
 
     config = TeacherExportConfig(
         teacher=TeacherModelConfig(
@@ -284,13 +276,7 @@ def load_teacher_export_config(path: str | Path) -> TeacherExportConfig:
             batch_size=int(runtime_data.get("batch_size", 2)),
             num_shards=int(runtime_data.get("num_shards", 2)),
             seed=int(runtime_data.get("seed", 1234)),
-            output_dir=Path(
-                str(
-                    runtime_data.get(
-                        "output_dir", "artifacts/teacher_targets/fake_export"
-                    )
-                )
-            ),
+            output_dir=output_dir,
             require_resolved_model=bool(
                 runtime_data.get("require_resolved_model", False)
             ),
@@ -327,6 +313,20 @@ def _optional_path(value: Any) -> Path | None:
     if value is None:
         return None
     return Path(str(value))
+
+
+def _config_relative_path(
+    value: Any,
+    config_dir: Path,
+    *,
+    default: Path | None = None,
+) -> Path | None:
+    path = _optional_path(value)
+    if path is None:
+        return default
+    if path.is_absolute():
+        return path
+    return (config_dir / path).resolve()
 
 
 def _optional_int(value: Any, *, default: int) -> int | None:

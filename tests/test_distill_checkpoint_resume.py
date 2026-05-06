@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from qrwkv_xla.checkpointing import load_checkpoint
 from qrwkv_xla.distill import (
     DistillCheckpointConfig,
     DistillStageConfig,
@@ -56,6 +57,50 @@ def test_distill_checkpoint_save_then_resume_additional_steps(tmp_path: Path) ->
     assert second.end_step == 5
     assert (second_dir / "checkpoint.json").is_file()
     assert (second_dir / "params.npz").is_file()
+
+
+def test_radlads_reference_checkpoint_save_then_resume(tmp_path: Path) -> None:
+    bundle_dir = _fake_bundle(tmp_path)
+    first_dir = tmp_path / "checkpoints" / "radlads_first"
+    second_dir = tmp_path / "checkpoints" / "radlads_second"
+    base_config = DistillStageConfig(
+        targets_dir=bundle_dir,
+        student=DistillStudentConfig(
+            architecture="rwkv7_radlads_reference",
+            vocab_size=32,
+            num_heads=2,
+        ),
+        training=replace(DistillStageConfig().training, max_steps=1),
+        optimizer=replace(DistillStageConfig().optimizer, learning_rate=0.01),
+    )
+
+    first = run_distill_stage(
+        replace(
+            base_config,
+            checkpoint=DistillCheckpointConfig(
+                checkpoint_out=first_dir,
+                overwrite=True,
+            ),
+        )
+    )
+    second = run_distill_stage(
+        replace(
+            base_config,
+            checkpoint=DistillCheckpointConfig(
+                resume_from=first_dir,
+                checkpoint_out=second_dir,
+                overwrite=True,
+            ),
+        )
+    )
+
+    loaded = load_checkpoint(second_dir)
+    assert first.start_step == 0
+    assert first.end_step == 1
+    assert second.start_step == 1
+    assert second.end_step == 2
+    assert loaded.manifest.student_architecture == "rwkv7_radlads_reference"
+    assert loaded.manifest.student_config["num_heads"] == 2
 
 
 def test_resume_architecture_mismatch_raises(tmp_path: Path) -> None:

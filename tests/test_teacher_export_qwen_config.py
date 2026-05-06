@@ -33,8 +33,9 @@ def test_qwen_small_manual_config_loads() -> None:
     )
 
     assert config.teacher.policy_label == "qwen-tiny-smoke"
-    assert config.runtime.output_dir == Path(
-        "artifacts/teacher_targets/qwen_manual_smoke"
+    assert (
+        config.runtime.output_dir
+        == ROOT / "artifacts/teacher_targets/qwen_manual_smoke"
     )
     assert config.targets.vocab_size == 0
 
