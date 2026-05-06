@@ -63,3 +63,10 @@ no-mask, interior-mask, and prefix/left-padding mask-shape cases. The manifest
 records full-vs-step output/logit/state equivalence, payload hashes, and a
 parameter-surface hash so local behavior changes are visible before kernel or
 checkpoint work builds on them.
+
+## R14 — Scale planner estimates are mistaken for runnable proof
+Mitigation: P34 labels planner output as planning-only and not hardware
+validated. The estimator reports assumptions, component memory, full-logits
+dominance warnings, conservative yes/maybe/no thresholds, and provisional TPU
+aggregate-memory caveats. It does not claim XLA peak-memory accuracy, pjit/model
+sharding support, Qwen-scale training readiness, or full RADLADS parity.

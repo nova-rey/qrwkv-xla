@@ -1,0 +1,193 @@
+status: planning_only_not_hardware_validated
+model_profile:
+  name: qwen_1_5b_candidate
+  backend: rwkv7_qwen_reference
+  vocab_size: 151936
+  hidden_size: 1536
+  num_layers: 28
+  num_heads: 12
+  num_kv_heads: 2
+  head_size: null
+  mlp_hidden_size: 8960
+  sequence_length_default: 1024
+  dtype_default: bf16
+  status: grant_candidate
+  tie_embeddings: false
+  emit_logits: false
+  notes:
+  - This is a planning estimate, not a validated runnable config.
+hardware_profile:
+  name: grant_tpu_v5e_8
+  device_kind: tpu
+  memory_gb: 128
+  device_count: 8
+  per_device_memory_gb: 16
+  dtype_preference: bf16
+  supports_bf16: true
+  supports_pjit: false
+  confidence: low
+  notes:
+  - Planning placeholder for likely grant TPU shape; validate on real grant hardware.
+training_mode:
+  name: scale_hidden_only_bf16_adamw
+  losses:
+    hidden_mse: true
+    logits_kl: false
+    ce_loss: false
+  optimizer: adamw
+  dtype: bf16
+  activation_checkpointing: true
+  gradient_accumulation: true
+  target_layers: all
+  notes:
+  - Scale planning mode with conservative activation reserve.
+selected:
+  sequence_length: 256
+  batch_size: 8
+  microbatch_size: 8
+  grad_accum_steps: 1
+  dtype: bf16
+  auto: true
+parameter_estimate:
+  total_params: 1807984128
+  embedding_params: 233373696
+  per_layer_params: 1574608896
+  mlp_params: 1156055040
+  attention_or_time_mix_params: 418467840
+  lm_head_params: 0
+  components:
+    embedding_params: 233373696
+    layer_norm_params: 87552
+    attention_or_time_mix_params: 418467840
+    mlp_params: 1156055040
+    lm_head_params: 0
+    per_layer_params: 1574608896
+  assumptions:
+  - Counts the current qrwkv_xla rwkv7_qwen_reference parameter surface.
+  - Parameter estimate is approximate and intended for conservative planning.
+  - Estimate does not claim RADLADS/HF checkpoint parity or sharding effects.
+  total_parameters: 1807984128
+memory_estimate:
+  total_bytes: 81173363814
+  components:
+    weights: 3615968256
+    gradients: 3615968256
+    optimizer_state: 21695809536
+    optimizer_first_moment: 7231936512
+    optimizer_second_moment: 7231936512
+    optimizer_fp32_master_weights: 7231936512
+    activations_estimate: 704643072
+    wkv_recurrent_state: 88080384
+    shift_state: 688128
+    teacher_hidden_targets_per_batch: 176160768
+    teacher_logits_targets_per_batch: 0
+    input_ids_and_masks: 16384
+    checkpoint_size_estimate: 10847904768
+    xla_overhead_reserve: 18732314726
+  warnings:
+  - TPU memory is treated as an aggregate planning budget; no pjit/model sharding
+    is implied.
+  assumptions:
+  - Activation memory uses a conservative batch*sequence*hidden*layers*dtype*multiplier
+    formula.
+  - Microbatch size, not full batch size, drives activation and recurrent-state peak
+    estimates.
+  - SGD uses weights plus gradients; Adam/AdamW add first and second moments and optional
+    fp32 master weights.
+  - CPU/GPU reserve defaults to 20%; TPU/XLA reserve defaults to 30%.
+  - Checkpoint size is a reference artifact estimate, not peak live memory.
+  microbatch_size: 8
+  grad_accum_steps: 1
+  total_gb: 75.5986
+  total_human: 75.60 GiB
+  components_human:
+    weights: 3.37 GiB
+    gradients: 3.37 GiB
+    optimizer_state: 20.21 GiB
+    optimizer_first_moment: 6.74 GiB
+    optimizer_second_moment: 6.74 GiB
+    optimizer_fp32_master_weights: 6.74 GiB
+    activations_estimate: 0.66 GiB
+    wkv_recurrent_state: 84.00 MiB
+    shift_state: 0.66 MiB
+    teacher_hidden_targets_per_batch: 0.16 GiB
+    teacher_logits_targets_per_batch: 0.00 MiB
+    input_ids_and_masks: 0.02 MiB
+    checkpoint_size_estimate: 10.10 GiB
+    xla_overhead_reserve: 17.45 GiB
+fit:
+  fit: maybe
+  limiting_factor: optimizer_state
+  available_memory_gb: 89.6
+  estimated_total_gb: 75.5985861774534
+  safety_margin_gb: 14.001413822546596
+  warnings:
+  - TPU memory is treated as an aggregate planning budget; no pjit/model sharding
+    is implied.
+  - Estimate is above the conservative yes threshold.
+  utilization: 0.8437342207305067
+auto_attempts:
+- batch_size: 8
+  sequence_length: 1024
+  grad_accum_steps: 1
+  fit: 'no'
+  estimated_total_gb: 78.7979
+  utilization: 0.8794404513069563
+  limiting_factor: optimizer_state
+- batch_size: 8
+  sequence_length: 512
+  grad_accum_steps: 1
+  fit: 'no'
+  estimated_total_gb: 76.665
+  utilization: 0.8556362975858585
+  limiting_factor: optimizer_state
+- batch_size: 8
+  sequence_length: 256
+  grad_accum_steps: 1
+  fit: maybe
+  estimated_total_gb: 75.5986
+  utilization: 0.8437342207305067
+  limiting_factor: optimizer_state
+recommended:
+  batch_size: 8
+  sequence_length: 256
+  microbatch_size: 8
+  grad_accum_steps: 1
+  logits_kl: false
+  fit: maybe
+recommendations:
+- Treat aggregate TPU fit as provisional until sharding/pjit exists and is profiled.
+- Candidate Qwen-scale profiles are approximate planning estimates, not validated
+  runnable configs.
+- Auto mode changed only batch/sequence; architecture was left unchanged.
+distill_config_skeleton:
+  planning_only: true
+  not_hardware_validated: true
+  distillation:
+    stage: 0
+    targets_dir: artifacts/teacher_targets/PLANNING_ONLY
+    student:
+      architecture: rwkv7_qwen_reference
+      vocab_size: 151936
+      hidden_size: 1536
+      num_layers: 28
+      num_heads: 12
+      num_kv_heads: 2
+      emit_logits: false
+      tie_embeddings: false
+    optimizer:
+      type: adamw
+      learning_rate: 0.0001
+    training:
+      max_steps: 1
+      planned_batch_size: 8
+      planned_microbatch_size: 8
+      planned_grad_accum_steps: 1
+      planned_sequence_length: 256
+    losses:
+      hidden_mse:
+        enabled: true
+        weight: 1.0
+      logits_kl:
+        enabled: false
+        weight: 0.0

@@ -505,3 +505,32 @@ P33 also adds `docs/RWKV7_QWEN_REFERENCE_PARAM_SURFACE.md`, which snapshots the
 tiny flattened parameter paths and shapes. This is local fixture/caliper work,
 not RADLADS PyTorch/Triton/CUDA parity, not checkpoint compatibility, and not
 kernel readiness.
+
+## Phase 34 — Model Scale Planner and Config Generator
+
+This phase adds `qrwkv_xla.scale_planner`, a conservative planning package for
+estimating QRWKV-XLA model scale before attempting larger training runs. It adds
+validated dataclass profiles for model shapes, hardware budgets, and training
+modes; built-in profiles cover tiny debug shapes, CPU/local probes, Colab TPU
+smokes, approximate Qwen-scale candidates, local CPUs, single GPUs, TPU
+placeholders, and hidden/logits distillation modes.
+
+The planner estimates the current `rwkv7_qwen_reference` parameter surface:
+token embeddings, Qwen/RADLADS-oriented attention projections, time parameters,
+RMSNorm weights, gated MLP weights, and optional LM head parameters. Memory is
+reported by component: weights, gradients, optimizer moments, optional fp32
+master weights, activations, recurrent WKV/shift state, hidden targets,
+full-vocab logits targets, input ids/masks, checkpoint reference size, and
+overhead reserve. The full-logits target component is explicit and warns when
+it dominates.
+
+The CLI is `scripts/plan_model_scale.py`. It prints a readable summary and can
+write YAML or JSON plans. Auto mode tries conservative batch and sequence
+reductions without changing architecture, and may recommend disabling logits KL
+when full-vocab logits targets dominate memory. It also emits a planning-only
+distill config skeleton marked as not hardware validated.
+
+P34 is not TPU profiling, not pjit/model sharding, not a Qwen-scale training
+run, not model export, and not a RADLADS parity claim. Fit classes are
+conservative estimates using roughly 60% for `yes`, 85% for `maybe`, and above
+85% for `no`.

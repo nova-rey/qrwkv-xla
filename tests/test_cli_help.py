@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
         "inspect_prompt_corpus.py",
         "create_prompt_manifest.py",
         "split_prompt_corpus.py",
+        "plan_model_scale.py",
     ],
 )
 def test_script_help(script_name: str) -> None:

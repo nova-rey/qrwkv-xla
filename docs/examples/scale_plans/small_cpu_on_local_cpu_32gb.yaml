@@ -1,0 +1,161 @@
+status: planning_only_not_hardware_validated
+model_profile:
+  name: small_cpu
+  backend: rwkv7_qwen_reference
+  vocab_size: 8192
+  hidden_size: 512
+  num_layers: 8
+  num_heads: 8
+  num_kv_heads: 2
+  head_size: null
+  mlp_hidden_size: 2048
+  sequence_length_default: 128
+  dtype_default: fp32
+  status: local_candidate
+  tie_embeddings: false
+  emit_logits: false
+  notes:
+  - CPU-oriented development estimate, not hardware validated.
+hardware_profile:
+  name: local_cpu_32gb
+  device_kind: cpu
+  memory_gb: 32
+  device_count: 1
+  per_device_memory_gb: 32
+  dtype_preference: fp32
+  supports_bf16: false
+  supports_pjit: false
+  confidence: high
+  notes: []
+training_mode:
+  name: local_hidden_adamw
+  losses:
+    hidden_mse: true
+    logits_kl: false
+    ce_loss: false
+  optimizer: adamw
+  dtype: fp32
+  activation_checkpointing: false
+  gradient_accumulation: false
+  target_layers: all
+  notes: []
+selected:
+  sequence_length: 128
+  batch_size: 1
+  microbatch_size: null
+  grad_accum_steps: 1
+  dtype: fp32
+  auto: false
+parameter_estimate:
+  total_params: 43008512
+  embedding_params: 4194304
+  per_layer_params: 38813696
+  mlp_params: 25165824
+  attention_or_time_mix_params: 13639680
+  lm_head_params: 0
+  components:
+    embedding_params: 4194304
+    layer_norm_params: 8704
+    attention_or_time_mix_params: 13639680
+    mlp_params: 25165824
+    lm_head_params: 0
+    per_layer_params: 38813696
+  assumptions:
+  - Counts the current qrwkv_xla rwkv7_qwen_reference parameter surface.
+  - Parameter estimate is approximate and intended for conservative planning.
+  - Estimate does not claim RADLADS/HF checkpoint parity or sharding effects.
+  total_parameters: 43008512
+memory_estimate:
+  total_bytes: 1469014425
+  components:
+    weights: 172034048
+    gradients: 172034048
+    optimizer_state: 344068096
+    optimizer_first_moment: 172034048
+    optimizer_second_moment: 172034048
+    optimizer_fp32_master_weights: 0
+    activations_estimate: 16777216
+    wkv_recurrent_state: 1048576
+    shift_state: 16384
+    teacher_hidden_targets_per_batch: 2097152
+    teacher_logits_targets_per_batch: 0
+    input_ids_and_masks: 1024
+    checkpoint_size_estimate: 172034048
+    xla_overhead_reserve: 244835737
+  warnings: []
+  assumptions:
+  - Activation memory uses a conservative batch*sequence*hidden*layers*dtype*multiplier
+    formula.
+  - Microbatch size, not full batch size, drives activation and recurrent-state peak
+    estimates.
+  - SGD uses weights plus gradients; Adam/AdamW add first and second moments and optional
+    fp32 master weights.
+  - CPU/GPU reserve defaults to 20%; TPU/XLA reserve defaults to 30%.
+  - Checkpoint size is a reference artifact estimate, not peak live memory.
+  microbatch_size: 1
+  grad_accum_steps: 1
+  total_gb: 1.3681
+  total_human: 1.37 GiB
+  components_human:
+    weights: 0.16 GiB
+    gradients: 0.16 GiB
+    optimizer_state: 0.32 GiB
+    optimizer_first_moment: 0.16 GiB
+    optimizer_second_moment: 0.16 GiB
+    optimizer_fp32_master_weights: 0.00 MiB
+    activations_estimate: 16.00 MiB
+    wkv_recurrent_state: 1.00 MiB
+    shift_state: 0.02 MiB
+    teacher_hidden_targets_per_batch: 2.00 MiB
+    teacher_logits_targets_per_batch: 0.00 MiB
+    input_ids_and_masks: 0.00 MiB
+    checkpoint_size_estimate: 0.16 GiB
+    xla_overhead_reserve: 0.23 GiB
+fit:
+  fit: 'yes'
+  limiting_factor: optimizer_state
+  available_memory_gb: 25.6
+  estimated_total_gb: 1.3681262964382768
+  safety_margin_gb: 24.231873703561725
+  warnings: []
+  utilization: 0.053442433454620186
+auto_attempts: []
+recommended:
+  batch_size: 1
+  sequence_length: 128
+  microbatch_size: 1
+  grad_accum_steps: 1
+  logits_kl: false
+  fit: 'yes'
+recommendations: []
+distill_config_skeleton:
+  planning_only: true
+  not_hardware_validated: true
+  distillation:
+    stage: 0
+    targets_dir: artifacts/teacher_targets/PLANNING_ONLY
+    student:
+      architecture: rwkv7_qwen_reference
+      vocab_size: 8192
+      hidden_size: 512
+      num_layers: 8
+      num_heads: 8
+      num_kv_heads: 2
+      emit_logits: false
+      tie_embeddings: false
+    optimizer:
+      type: adamw
+      learning_rate: 0.0001
+    training:
+      max_steps: 1
+      planned_batch_size: 1
+      planned_microbatch_size: 1
+      planned_grad_accum_steps: 1
+      planned_sequence_length: 128
+    losses:
+      hidden_mse:
+        enabled: true
+        weight: 1.0
+      logits_kl:
+        enabled: false
+        weight: 0.0

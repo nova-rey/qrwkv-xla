@@ -500,3 +500,22 @@
 - [x] Add `docs/RWKV7_QWEN_REFERENCE_PARAM_SURFACE.md`
 - [x] Keep default fixture generation offline and CPU-safe
 - [x] Preserve boundaries: no Pallas, TPU compilation/profiling, `pjit`, sharding, large runs, HF export, `lm_eval`, WandB, full RADLADS checkpoint compatibility, or full RADLADS numerical parity claim
+
+## P34 — Model Scale Planner and Config Generator
+
+- [x] Add `qrwkv_xla.scale_planner` package
+- [x] Add model, hardware, and training mode profile dataclasses with validation
+- [x] Add built-in model profiles from tiny debug through Qwen-scale stretch estimates
+- [x] Add built-in CPU, TPU, GPU, grant, and placeholder hardware profiles
+- [x] Add built-in smoke/local/TPU/scale training mode profiles
+- [x] Add Qwen/RADLADS reference-backend parameter estimator with documented assumptions
+- [x] Add component-level memory estimator including optimizer state, activations, recurrent state, targets, checkpoint reference, and overhead reserve
+- [x] Add explicit full-vocab logits target estimate and dominance warning
+- [x] Add conservative yes/maybe/no/unknown fit classifier
+- [x] Add `scripts/plan_model_scale.py` with readable summary and YAML/JSON output
+- [x] Add auto mode for conservative batch/sequence reductions without architecture changes
+- [x] Emit planning-only distill config skeletons
+- [x] Add `docs/SCALE_PLANNER.md`
+- [x] Add checked-in example plans under `docs/examples/scale_plans/`
+- [x] Add offline tests for profiles, estimates, CLI, and auto-plan
+- [x] Preserve boundaries: no Pallas, TPU execution/profiling, pjit/model sharding, large training, Qwen-scale export/training, student HF export, `lm_eval`, WandB, new model math, or full RADLADS parity claims

@@ -1,0 +1,394 @@
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, replace
+
+import yaml
+
+from qrwkv_xla.scale_planner.estimates import (
+    FitEstimate,
+    MemoryEstimate,
+    ParameterEstimate,
+    classify_fit,
+    estimate_qwen_reference_parameters,
+    estimate_training_memory,
+    format_bytes,
+)
+from qrwkv_xla.scale_planner.profiles import (
+    HARDWARE_PROFILES,
+    MODEL_PROFILES,
+    TRAINING_MODES,
+    HardwareProfile,
+    ModelProfile,
+    TrainingMode,
+)
+
+
+@dataclass(frozen=True)
+class ScalePlanRequest:
+    model_profile: ModelProfile
+    hardware_profile: HardwareProfile
+    training_mode: TrainingMode
+    sequence_length: int
+    batch_size: int
+    microbatch_size: int | None = None
+    grad_accum_steps: int = 1
+    dtype: str | None = None
+    auto: bool = False
+    minimum_sequence_length: int = 128
+
+
+@dataclass(frozen=True)
+class ScalePlan:
+    request: ScalePlanRequest
+    parameter_estimate: ParameterEstimate
+    memory_estimate: MemoryEstimate
+    fit: FitEstimate
+    auto_attempts: list[dict[str, object]]
+    recommendations: list[str]
+    recommended: dict[str, object]
+    distill_config_skeleton: dict[str, object]
+
+
+def make_plan(request: ScalePlanRequest) -> ScalePlan:
+    _validate_request(request)
+    return (
+        _make_auto_plan(request)
+        if request.auto
+        else _make_single_plan(request, auto_attempts=[])
+    )
+
+
+def resolve_model_profile(name: str) -> ModelProfile:
+    try:
+        return MODEL_PROFILES[name]
+    except KeyError as exc:
+        raise ValueError(f"Unknown model profile: {name}") from exc
+
+
+def resolve_hardware_profile(name: str) -> HardwareProfile:
+    try:
+        return HARDWARE_PROFILES[name]
+    except KeyError as exc:
+        raise ValueError(f"Unknown hardware profile: {name}") from exc
+
+
+def resolve_training_mode(name: str) -> TrainingMode:
+    try:
+        return TRAINING_MODES[name]
+    except KeyError as exc:
+        raise ValueError(f"Unknown training mode: {name}") from exc
+
+
+def plan_to_dict(plan: ScalePlan) -> dict[str, object]:
+    return {
+        "status": "planning_only_not_hardware_validated",
+        "model_profile": asdict(plan.request.model_profile),
+        "hardware_profile": asdict(plan.request.hardware_profile),
+        "training_mode": asdict(plan.request.training_mode),
+        "selected": {
+            "sequence_length": plan.request.sequence_length,
+            "batch_size": plan.request.batch_size,
+            "microbatch_size": plan.request.microbatch_size,
+            "grad_accum_steps": plan.request.grad_accum_steps,
+            "dtype": plan.request.dtype or plan.request.training_mode.dtype,
+            "auto": plan.request.auto,
+        },
+        "parameter_estimate": {
+            **asdict(plan.parameter_estimate),
+            "total_parameters": plan.parameter_estimate.total_params,
+        },
+        "memory_estimate": {
+            **asdict(plan.memory_estimate),
+            "total_gb": round(plan.memory_estimate.total_bytes / (1024**3), 4),
+            "total_human": format_bytes(plan.memory_estimate.total_bytes),
+            "components_human": {
+                key: format_bytes(value)
+                for key, value in plan.memory_estimate.components.items()
+            },
+        },
+        "fit": asdict(plan.fit),
+        "auto_attempts": plan.auto_attempts,
+        "recommended": plan.recommended,
+        "recommendations": plan.recommendations,
+        "distill_config_skeleton": plan.distill_config_skeleton,
+    }
+
+
+def plan_to_yaml(plan: ScalePlan) -> str:
+    return yaml.safe_dump(plan_to_dict(plan), sort_keys=False)
+
+
+def summarize_plan(plan: ScalePlan) -> str:
+    fit = plan.fit
+    lines = [
+        "QRWKV-XLA scale plan",
+        "status: planning-only estimate, not hardware validated",
+        f"model: {plan.request.model_profile.name}",
+        f"hardware: {plan.request.hardware_profile.name}",
+        f"training mode: {plan.request.training_mode.name}",
+        f"batch x sequence: {plan.request.batch_size} x {plan.request.sequence_length}",
+        f"parameters: {plan.parameter_estimate.total_params:,}",
+        (
+            "memory: "
+            f"{fit.estimated_total_gb:.2f} GiB estimated / "
+            f"{fit.available_memory_gb:.2f} GiB available "
+            f"({fit.utilization:.1%})"
+        ),
+        (
+            f"fit: {fit.fit} "
+            f"(limiting factor: {fit.limiting_factor}, "
+            f"margin: {fit.safety_margin_gb:.2f} GiB)"
+        ),
+    ]
+    if plan.auto_attempts:
+        lines.append(f"auto attempts: {len(plan.auto_attempts)}")
+    warnings = list(dict.fromkeys(plan.fit.warnings))
+    if warnings:
+        lines.append("warnings:")
+        lines.extend(f"- {warning}" for warning in warnings)
+    if plan.recommendations:
+        lines.append("recommendations:")
+        lines.extend(f"- {item}" for item in plan.recommendations)
+    return "\n".join(lines)
+
+
+def distill_config_yaml(plan: ScalePlan) -> str:
+    return (
+        "# Generated by P34 scale planner.\n"
+        "# Planning estimate only; not hardware-validated.\n"
+        + yaml.safe_dump(plan.distill_config_skeleton, sort_keys=False)
+    )
+
+
+def _make_auto_plan(request: ScalePlanRequest) -> ScalePlan:
+    best_plan: ScalePlan | None = None
+    attempts: list[dict[str, object]] = []
+    for batch_size in _candidate_batches(request.batch_size):
+        for sequence_length in _candidate_sequences(
+            request.sequence_length,
+            minimum_sequence_length=request.minimum_sequence_length,
+        ):
+            candidate = replace(
+                request,
+                batch_size=batch_size,
+                sequence_length=sequence_length,
+                auto=True,
+            )
+            if request.grad_accum_steps == 1 and batch_size < request.batch_size:
+                candidate = replace(
+                    candidate, grad_accum_steps=max(1, request.batch_size // batch_size)
+                )
+            if candidate.microbatch_size is None:
+                candidate = replace(candidate, microbatch_size=batch_size)
+            plan = _make_single_plan(candidate, auto_attempts=[])
+            attempts.append(
+                {
+                    "batch_size": batch_size,
+                    "sequence_length": sequence_length,
+                    "grad_accum_steps": plan.request.grad_accum_steps,
+                    "fit": plan.fit.fit,
+                    "estimated_total_gb": round(plan.fit.estimated_total_gb, 4),
+                    "utilization": plan.fit.utilization,
+                    "limiting_factor": plan.fit.limiting_factor,
+                }
+            )
+            best_plan = _pick_better(best_plan, plan)
+            if plan.fit.fit in {"yes", "maybe"}:
+                return _finalize_auto_plan(plan, attempts, request)
+    assert best_plan is not None
+    return _finalize_auto_plan(best_plan, attempts, request)
+
+
+def _make_single_plan(
+    request: ScalePlanRequest, *, auto_attempts: list[dict[str, object]]
+) -> ScalePlan:
+    params = estimate_qwen_reference_parameters(request.model_profile)
+    memory = estimate_training_memory(
+        request.model_profile,
+        request.hardware_profile,
+        request.training_mode,
+        sequence_length=request.sequence_length,
+        batch_size=request.batch_size,
+        microbatch_size=request.microbatch_size,
+        grad_accum_steps=request.grad_accum_steps,
+        dtype=request.dtype,
+    )
+    fit = classify_fit(memory, request.hardware_profile)
+    recommended = _recommended(request, memory, fit)
+    recommendations = _recommendations(request, memory, fit, recommended)
+    return ScalePlan(
+        request=request,
+        parameter_estimate=params,
+        memory_estimate=memory,
+        fit=fit,
+        auto_attempts=auto_attempts,
+        recommendations=recommendations,
+        recommended=recommended,
+        distill_config_skeleton=_distill_config_skeleton(request, recommended),
+    )
+
+
+def _pick_better(best_plan: ScalePlan | None, plan: ScalePlan) -> ScalePlan:
+    if best_plan is None:
+        return plan
+    if _rank(plan.fit.fit) < _rank(best_plan.fit.fit):
+        return plan
+    if (
+        _rank(plan.fit.fit) == _rank(best_plan.fit.fit)
+        and plan.fit.estimated_total_gb < best_plan.fit.estimated_total_gb
+    ):
+        return plan
+    return best_plan
+
+
+def _finalize_auto_plan(
+    plan: ScalePlan, attempts: list[dict[str, object]], original: ScalePlanRequest
+) -> ScalePlan:
+    recommendations = list(plan.recommendations)
+    if (
+        plan.request.sequence_length != original.sequence_length
+        or plan.request.batch_size != original.batch_size
+    ):
+        recommendations.append(
+            "Auto mode changed only batch/sequence; architecture was left unchanged."
+        )
+    if plan.request.grad_accum_steps > original.grad_accum_steps:
+        recommendations.append(
+            "Auto mode increased grad_accum_steps to preserve "
+            "an effective larger batch while lowering peak memory."
+        )
+    if plan.memory_estimate.components[
+        "teacher_logits_targets_per_batch"
+    ] > 0 and plan.memory_estimate.components[
+        "teacher_logits_targets_per_batch"
+    ] == max(plan.memory_estimate.components.values()):
+        recommendations.append(
+            "Auto mode still sees full logits as dominant; "
+            "prefer disabling logits KL before more scale-up."
+        )
+    return replace(
+        plan,
+        auto_attempts=attempts,
+        recommendations=list(dict.fromkeys(recommendations)),
+    )
+
+
+def _recommended(
+    request: ScalePlanRequest, memory: MemoryEstimate, fit: FitEstimate
+) -> dict[str, object]:
+    logits_dominant = (
+        memory.components["teacher_logits_targets_per_batch"]
+        == max(memory.components.values())
+        and memory.components["teacher_logits_targets_per_batch"] > 0
+    )
+    return {
+        "batch_size": request.batch_size,
+        "sequence_length": request.sequence_length,
+        "microbatch_size": memory.microbatch_size,
+        "grad_accum_steps": request.grad_accum_steps,
+        "logits_kl": False
+        if logits_dominant
+        else request.training_mode.losses.logits_kl,
+        "fit": fit.fit,
+    }
+
+
+def _recommendations(
+    request: ScalePlanRequest,
+    memory: MemoryEstimate,
+    fit: FitEstimate,
+    recommended: dict[str, object],
+) -> list[str]:
+    recommendations: list[str] = []
+    if recommended["logits_kl"] is False and request.training_mode.losses.logits_kl:
+        recommendations.append(
+            "Disable logits KL or use sampled logits before reducing architecture; "
+            "full logits dominate this plan."
+        )
+    if fit.fit == "no":
+        recommendations.append(
+            "Try --auto to reduce batch size and sequence length "
+            "without changing architecture."
+        )
+    if (
+        request.hardware_profile.device_kind == "tpu"
+        and request.hardware_profile.device_count > 1
+    ):
+        recommendations.append(
+            "Treat aggregate TPU fit as provisional until "
+            "sharding/pjit exists and is profiled."
+        )
+    if request.model_profile.name.startswith("qwen_"):
+        recommendations.append(
+            "Candidate Qwen-scale profiles are approximate planning estimates, "
+            "not validated runnable configs."
+        )
+    return recommendations
+
+
+def _distill_config_skeleton(
+    request: ScalePlanRequest, recommended: dict[str, object]
+) -> dict[str, object]:
+    mode = request.training_mode
+    return {
+        "planning_only": True,
+        "not_hardware_validated": True,
+        "distillation": {
+            "stage": 0,
+            "targets_dir": "artifacts/teacher_targets/PLANNING_ONLY",
+            "student": {
+                "architecture": request.model_profile.backend,
+                "vocab_size": request.model_profile.vocab_size,
+                "hidden_size": request.model_profile.hidden_size,
+                "num_layers": request.model_profile.num_layers,
+                "num_heads": request.model_profile.num_heads,
+                "num_kv_heads": request.model_profile.num_kv_heads,
+                "emit_logits": recommended["logits_kl"],
+                "tie_embeddings": request.model_profile.tie_embeddings,
+            },
+            "optimizer": {"type": mode.optimizer, "learning_rate": 0.0001},
+            "training": {
+                "max_steps": 1,
+                "planned_batch_size": recommended["batch_size"],
+                "planned_microbatch_size": recommended["microbatch_size"],
+                "planned_grad_accum_steps": recommended["grad_accum_steps"],
+                "planned_sequence_length": recommended["sequence_length"],
+            },
+            "losses": {
+                "hidden_mse": {"enabled": mode.losses.hidden_mse, "weight": 1.0},
+                "logits_kl": {
+                    "enabled": recommended["logits_kl"],
+                    "weight": 1.0 if recommended["logits_kl"] else 0.0,
+                },
+            },
+        },
+    }
+
+
+def _candidate_batches(start: int) -> list[int]:
+    return [value for value in (8, 4, 2, 1) if value <= max(start, 1)] or [1]
+
+
+def _candidate_sequences(target: int, *, minimum_sequence_length: int) -> list[int]:
+    minimum = max(1, minimum_sequence_length)
+    values: list[int] = []
+    for value in (target, target // 2, target // 4, minimum):
+        clipped = max(minimum, value)
+        if clipped not in values:
+            values.append(clipped)
+    return values
+
+
+def _rank(fit: str) -> int:
+    return {"yes": 0, "maybe": 1, "no": 2, "unknown": 3}.get(fit, 3)
+
+
+def _validate_request(request: ScalePlanRequest) -> None:
+    if request.sequence_length <= 0:
+        raise ValueError("sequence_length must be > 0")
+    if request.batch_size <= 0:
+        raise ValueError("batch_size must be > 0")
+    if request.minimum_sequence_length <= 0:
+        raise ValueError("minimum_sequence_length must be > 0")
+    if request.grad_accum_steps <= 0:
+        raise ValueError("grad_accum_steps must be > 0")

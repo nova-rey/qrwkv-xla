@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 33
-checkpoint: qwen_reference_tiny_parity_fixture_harness
+phase: 34
+checkpoint: model_scale_planner_and_config_estimator
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add deterministic tiny parity/cache fixtures for rwkv7_qwen_reference so the
-  local slow JAX reference has reproducible output/logit/state calipers before
-  later kernel or checkpoint work.
+  Add a conservative model scale planner for QRWKV-XLA that estimates
+  qrwkv_xla rwkv7_qwen_reference parameter counts, training memory components,
+  and fit classification without claiming hardware validation.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -220,6 +220,67 @@ qwen_reference_fixtures:
     - radlads_pytorch_triton_cuda_parity
     - optimized_kernel_parity
     - tpu_or_pallas_readiness
+
+scale_planner:
+  phase: P34
+  package: src/qrwkv_xla/scale_planner
+  cli: scripts/plan_model_scale.py
+  docs: docs/SCALE_PLANNER.md
+  example_dir: docs/examples/scale_plans
+  status: planning_only_not_hardware_validated
+  model_profiles:
+    - tiny_debug
+    - small_cpu
+    - colab_tpu_smoke
+    - qwen_0_5b_candidate
+    - qwen_1_5b_candidate
+    - qwen_7b_stretch
+  hardware_profiles:
+    - local_cpu_16gb
+    - local_cpu_32gb
+    - local_cpu_64gb
+    - colab_tpu_v2_8
+    - colab_tpu_v3_8
+    - single_l4_24gb
+    - single_a100_40gb
+    - grant_tpu_v5e_8
+    - big_budget_tpu_placeholder
+  training_modes:
+    - smoke_hidden_sgd
+    - smoke_hidden_logits_sgd
+    - local_hidden_adamw
+    - tpu_hidden_bf16_adamw
+    - tpu_hidden_logits_bf16_adamw
+    - scale_hidden_only_bf16_adamw
+    - scale_sampled_logits_bf16_adamw_placeholder
+  estimates:
+    - qwen_reference_parameter_count
+    - weights
+    - gradients
+    - optimizer_state
+    - optimizer_moments
+    - fp32_master_weights
+    - activations_estimate
+    - wkv_recurrent_state
+    - shift_state
+    - teacher_hidden_targets_per_batch
+    - teacher_logits_targets_per_batch
+    - input_ids_and_masks
+    - checkpoint_size_estimate
+    - xla_overhead_reserve
+  fit_classifier: yes_le_60_percent_maybe_le_85_percent_no_above_85_percent
+  auto_mode:
+    - batch_reductions_only
+    - sequence_reductions_only
+    - optional_grad_accum_increase
+  optional_emit_distill_config: true
+  does_not_prove:
+    - hardware_validated_fit
+    - xla_peak_memory_accuracy
+    - pjit_or_model_sharding_support
+    - qwen_scale_training_readiness
+    - full_radlads_parity
+    - impossible_hardware_fit_cancellation
 
 generation_smoke:
   tokenizer: dependency_free_utf8_byte_plus_one

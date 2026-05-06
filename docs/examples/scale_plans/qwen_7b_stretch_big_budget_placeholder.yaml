@@ -1,0 +1,287 @@
+status: planning_only_not_hardware_validated
+model_profile:
+  name: qwen_7b_stretch
+  backend: rwkv7_qwen_reference
+  vocab_size: 151936
+  hidden_size: 3584
+  num_layers: 28
+  num_heads: 28
+  num_kv_heads: 4
+  head_size: null
+  mlp_hidden_size: 18944
+  sequence_length_default: 1024
+  dtype_default: bf16
+  status: stretch_candidate
+  tie_embeddings: false
+  emit_logits: false
+  notes:
+  - This is a planning estimate, not a validated runnable config.
+hardware_profile:
+  name: big_budget_tpu_placeholder
+  device_kind: tpu
+  memory_gb: 256
+  device_count: 8
+  per_device_memory_gb: 32
+  dtype_preference: bf16
+  supports_bf16: true
+  supports_pjit: false
+  confidence: low
+  notes:
+  - Placeholder budget only; not tied to a live provisioned system.
+training_mode:
+  name: scale_hidden_only_bf16_adamw
+  losses:
+    hidden_mse: true
+    logits_kl: false
+    ce_loss: false
+  optimizer: adamw
+  dtype: bf16
+  activation_checkpointing: true
+  gradient_accumulation: true
+  target_layers: all
+  notes:
+  - Scale planning mode with conservative activation reserve.
+selected:
+  sequence_length: 128
+  batch_size: 1
+  microbatch_size: 1
+  grad_accum_steps: 8
+  dtype: bf16
+  auto: true
+parameter_estimate:
+  total_params: 8508878336
+  embedding_params: 544538624
+  per_layer_params: 7964336128
+  mlp_params: 5703204864
+  attention_or_time_mix_params: 2260930560
+  lm_head_params: 0
+  components:
+    embedding_params: 544538624
+    layer_norm_params: 204288
+    attention_or_time_mix_params: 2260930560
+    mlp_params: 5703204864
+    lm_head_params: 0
+    per_layer_params: 7964336128
+  assumptions:
+  - Counts the current qrwkv_xla rwkv7_qwen_reference parameter surface.
+  - Parameter estimate is approximate and intended for conservative planning.
+  - Estimate does not claim RADLADS/HF checkpoint parity or sharding effects.
+  total_parameters: 8508878336
+memory_estimate:
+  total_bytes: 376293067571
+  components:
+    weights: 17017756672
+    gradients: 17017756672
+    optimizer_state: 102106540032
+    optimizer_first_moment: 34035513344
+    optimizer_second_moment: 34035513344
+    optimizer_fp32_master_weights: 34035513344
+    activations_estimate: 102760448
+    wkv_recurrent_state: 25690112
+    shift_state: 200704
+    teacher_hidden_targets_per_batch: 25690112
+    teacher_logits_targets_per_batch: 0
+    input_ids_and_masks: 1024
+    checkpoint_size_estimate: 51053270016
+    xla_overhead_reserve: 86836861747
+  warnings:
+  - TPU memory is treated as an aggregate planning budget; no pjit/model sharding
+    is implied.
+  assumptions:
+  - Activation memory uses a conservative batch*sequence*hidden*layers*dtype*multiplier
+    formula.
+  - Microbatch size, not full batch size, drives activation and recurrent-state peak
+    estimates.
+  - SGD uses weights plus gradients; Adam/AdamW add first and second moments and optional
+    fp32 master weights.
+  - CPU/GPU reserve defaults to 20%; TPU/XLA reserve defaults to 30%.
+  - Checkpoint size is a reference artifact estimate, not peak live memory.
+  microbatch_size: 1
+  grad_accum_steps: 8
+  total_gb: 350.4502
+  total_human: 350.45 GiB
+  components_human:
+    weights: 15.85 GiB
+    gradients: 15.85 GiB
+    optimizer_state: 95.09 GiB
+    optimizer_first_moment: 31.70 GiB
+    optimizer_second_moment: 31.70 GiB
+    optimizer_fp32_master_weights: 31.70 GiB
+    activations_estimate: 98.00 MiB
+    wkv_recurrent_state: 24.50 MiB
+    shift_state: 0.19 MiB
+    teacher_hidden_targets_per_batch: 24.50 MiB
+    teacher_logits_targets_per_batch: 0.00 MiB
+    input_ids_and_masks: 0.00 MiB
+    checkpoint_size_estimate: 47.55 GiB
+    xla_overhead_reserve: 80.87 GiB
+fit:
+  fit: 'no'
+  limiting_factor: optimizer_state
+  available_memory_gb: 179.2
+  estimated_total_gb: 350.45022850017995
+  safety_margin_gb: -171.25022850017996
+  warnings:
+  - TPU memory is treated as an aggregate planning budget; no pjit/model sharding
+    is implied.
+  - Estimate exceeds the conservative maybe threshold.
+  utilization: 1.955637435826897
+auto_attempts:
+- batch_size: 8
+  sequence_length: 1024
+  grad_accum_steps: 1
+  fit: 'no'
+  estimated_total_gb: 360.4673
+  utilization: 2.011536493363175
+  limiting_factor: optimizer_state
+- batch_size: 8
+  sequence_length: 512
+  grad_accum_steps: 1
+  fit: 'no'
+  estimated_total_gb: 355.4907
+  utilization: 1.9837652758828233
+  limiting_factor: optimizer_state
+- batch_size: 8
+  sequence_length: 256
+  grad_accum_steps: 1
+  fit: 'no'
+  estimated_total_gb: 353.0024
+  utilization: 1.9698796671374503
+  limiting_factor: optimizer_state
+- batch_size: 8
+  sequence_length: 128
+  grad_accum_steps: 1
+  fit: 'no'
+  estimated_total_gb: 351.7583
+  utilization: 1.9629368627699608
+  limiting_factor: optimizer_state
+- batch_size: 4
+  sequence_length: 1024
+  grad_accum_steps: 2
+  fit: 'no'
+  estimated_total_gb: 355.3654
+  utilization: 1.9830655769536472
+  limiting_factor: optimizer_state
+- batch_size: 4
+  sequence_length: 512
+  grad_accum_steps: 2
+  fit: 'no'
+  estimated_total_gb: 352.8771
+  utilization: 1.9691799682134714
+  limiting_factor: optimizer_state
+- batch_size: 4
+  sequence_length: 256
+  grad_accum_steps: 2
+  fit: 'no'
+  estimated_total_gb: 351.6329
+  utilization: 1.962237163845982
+  limiting_factor: optimizer_state
+- batch_size: 4
+  sequence_length: 128
+  grad_accum_steps: 2
+  fit: 'no'
+  estimated_total_gb: 351.0108
+  utilization: 1.9587657616596388
+  limiting_factor: optimizer_state
+- batch_size: 2
+  sequence_length: 1024
+  grad_accum_steps: 4
+  fit: 'no'
+  estimated_total_gb: 352.8144
+  utilization: 1.9688301187540804
+  limiting_factor: optimizer_state
+- batch_size: 2
+  sequence_length: 512
+  grad_accum_steps: 4
+  fit: 'no'
+  estimated_total_gb: 351.5702
+  utilization: 1.961887314381394
+  limiting_factor: optimizer_state
+- batch_size: 2
+  sequence_length: 256
+  grad_accum_steps: 4
+  fit: 'no'
+  estimated_total_gb: 350.9481
+  utilization: 1.9584159121950508
+  limiting_factor: optimizer_state
+- batch_size: 2
+  sequence_length: 128
+  grad_accum_steps: 4
+  fit: 'no'
+  estimated_total_gb: 350.6371
+  utilization: 1.9566802111044777
+  limiting_factor: optimizer_state
+- batch_size: 1
+  sequence_length: 1024
+  grad_accum_steps: 8
+  fit: 'no'
+  estimated_total_gb: 351.5389
+  utilization: 1.9617123896491
+  limiting_factor: optimizer_state
+- batch_size: 1
+  sequence_length: 512
+  grad_accum_steps: 8
+  fit: 'no'
+  estimated_total_gb: 350.9168
+  utilization: 1.9582409874627567
+  limiting_factor: optimizer_state
+- batch_size: 1
+  sequence_length: 256
+  grad_accum_steps: 8
+  fit: 'no'
+  estimated_total_gb: 350.6057
+  utilization: 1.9565052863721837
+  limiting_factor: optimizer_state
+- batch_size: 1
+  sequence_length: 128
+  grad_accum_steps: 8
+  fit: 'no'
+  estimated_total_gb: 350.4502
+  utilization: 1.955637435826897
+  limiting_factor: optimizer_state
+recommended:
+  batch_size: 1
+  sequence_length: 128
+  microbatch_size: 1
+  grad_accum_steps: 8
+  logits_kl: false
+  fit: 'no'
+recommendations:
+- Try --auto to reduce batch size and sequence length without changing architecture.
+- Treat aggregate TPU fit as provisional until sharding/pjit exists and is profiled.
+- Candidate Qwen-scale profiles are approximate planning estimates, not validated
+  runnable configs.
+- Auto mode changed only batch/sequence; architecture was left unchanged.
+- Auto mode increased grad_accum_steps to preserve an effective larger batch while
+  lowering peak memory.
+distill_config_skeleton:
+  planning_only: true
+  not_hardware_validated: true
+  distillation:
+    stage: 0
+    targets_dir: artifacts/teacher_targets/PLANNING_ONLY
+    student:
+      architecture: rwkv7_qwen_reference
+      vocab_size: 151936
+      hidden_size: 3584
+      num_layers: 28
+      num_heads: 28
+      num_kv_heads: 4
+      emit_logits: false
+      tie_embeddings: false
+    optimizer:
+      type: adamw
+      learning_rate: 0.0001
+    training:
+      max_steps: 1
+      planned_batch_size: 1
+      planned_microbatch_size: 1
+      planned_grad_accum_steps: 8
+      planned_sequence_length: 128
+    losses:
+      hidden_mse:
+        enabled: true
+        weight: 1.0
+      logits_kl:
+        enabled: false
+        weight: 0.0

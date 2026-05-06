@@ -341,3 +341,11 @@ backend. The fixtures compare full-sequence and stepwise outputs/logits/cache
 state for fixed token and mask cases and snapshot the parameter surface. They
 lock current local behavior and hashes only; they do not claim RADLADS PyTorch,
 Triton, CUDA, checkpoint, TPU, or optimized-kernel parity.
+
+## D068 — Scale Planning Is Conservative and Non-Authoritative
+
+P34 adds a model scale planner to estimate parameter counts, memory components,
+and fit classes before attempting larger runs. Planner output is intentionally
+planning-only: it may guide which batch/sequence/profile to try, but it is not a
+hardware validation result and does not imply sharding, TPU readiness, Qwen-scale
+training readiness, or full RADLADS parity.
