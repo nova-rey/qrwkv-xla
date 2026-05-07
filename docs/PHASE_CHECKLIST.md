@@ -542,3 +542,19 @@
 - [x] Add Colab copy/paste docs and scope limits
 - [x] Add CPU-only tests for config expectations and harness validation helpers
 - [x] Preserve CI as CPU-only; the TPU smoke remains manual and opt-in
+
+## P37 — Colab TPU Logits-KL Smoke Harness
+
+- [x] Add checked-in logits-enabled `rwkv7_qwen_reference` Colab TPU smoke config
+- [x] Add checked-in fake teacher export config with `include_logits: true`
+- [x] Add manual `scripts/run_colab_tpu_logits_smoke.py` harness
+- [x] Reuse shared `qrwkv_xla.smoke.colab_tpu` helpers for P36 and P37
+- [x] Preserve P36 hidden-only command behavior
+- [x] Validate logits-bearing target manifest and shard arrays
+- [x] Validate checkpoint/run artifact existence
+- [x] Validate finite `loss`, `hidden_mse`, and `logits_kl`
+- [x] Validate optimizer step progression `1 -> 2`
+- [x] Keep non-TPU failure message Colab-friendly and unchanged
+- [x] Add Colab copy/paste docs and scope limits
+- [x] Add CPU-only tests for logits smoke config and validation helpers
+- [x] Preserve CI as CPU-only; the TPU logits smoke remains manual and opt-in

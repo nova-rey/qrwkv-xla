@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 36
-checkpoint: colab_tpu_smoke_harness_hardening
+phase: 37
+checkpoint: colab_tpu_logits_smoke_harness
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,7 +55,7 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Harden the manual Colab TPU smoke harness for a tiny hidden-only
+  Add a manual Colab TPU logits-KL smoke harness for a tiny
   rwkv7_qwen_reference train/resume proof without making TPU execution part of
   normal CPU CI.
 
@@ -321,6 +321,42 @@ colab_tpu_smoke:
     - multi_host_tpu
     - pallas_or_optimized_wkv7_kernels
     - radlads_checkpoint_compatibility
+
+colab_tpu_logits_smoke:
+  phase: P37
+  status: manual_opt_in
+  config: configs/distill_stage0_qwen_reference_colab_tpu_logits_smoke.yaml
+  teacher_export_config: configs/teacher_export_qwen_reference_colab_tpu_logits_smoke.yaml
+  harness: scripts/run_colab_tpu_logits_smoke.py
+  docs: docs/COLAB_TPU_LOGITS_SMOKE.md
+  target_backend: tpu
+  student_architecture: rwkv7_qwen_reference
+  loss: hidden_mse_plus_logits_kl
+  fake_targets: artifacts/teacher_targets/p37_colab_tpu_logits_smoke
+  first_checkpoint: checkpoints/p37_tpu_qwen_reference_logits_first
+  resume_checkpoint: checkpoints/p37_tpu_qwen_reference_logits_resume
+  first_run_dir: runs/p37/p37_tpu_qwen_reference_logits_first
+  resume_run_dir: runs/p37/p37_tpu_qwen_reference_logits_resume
+  result_markdown: artifacts/p37_colab_tpu_logits_smoke/P37_RESULTS.md
+  result_bundle: artifacts/p37_colab_tpu_logits_smoke/p37_results_bundle.tar.gz
+  proves:
+    - jax_tpu_backend_selected
+    - tiny_jax_matmul_sanity
+    - fake_logits_target_export
+    - target_manifest_and_shard_include_logits
+    - one_step_hidden_plus_logits_distill
+    - checkpoint_resume_one_more_step
+    - finite_final_loss_hidden_mse_and_logits_kl
+    - optimizer_step_progression_1_to_2
+  does_not_prove:
+    - qwen_scale_training
+    - model_quality
+    - real_hf_teacher_export_on_tpu
+    - pjit_or_sharding
+    - multi_host_tpu
+    - pallas_or_optimized_wkv7_kernels
+    - radlads_checkpoint_compatibility
+    - hf_student_export
 
 generation_smoke:
   tokenizer: dependency_free_utf8_byte_plus_one

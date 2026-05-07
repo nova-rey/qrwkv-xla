@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 36
-  checkpoint: colab_tpu_smoke_harness_hardening
-  title: Harden manual Colab TPU train/resume smoke harness
+  phase: 37
+  checkpoint: colab_tpu_logits_smoke_harness
+  title: Add manual Colab TPU logits-KL train/resume smoke harness
 
 workflow:
   primary_agent: Nyx
@@ -26,4 +26,4 @@ instructions:
   - Do not implement serious model logic during this foundation phase.
   - Do not introduce CUDA, Triton, flash-attention, or DeepSpeed dependencies.
   - Do not make notebooks the primary workflow.
-  - Keep P36 Colab TPU smoke manual and opt-in; normal CI remains CPU-only.
+  - Keep P36 and P37 Colab TPU smokes manual and opt-in; normal CI remains CPU-only.

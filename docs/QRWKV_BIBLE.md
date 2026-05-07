@@ -567,3 +567,30 @@ P36 remains deliberately narrow. It does not add Pallas/WKV7 optimized kernels,
 `pjit`, sharding, multi-host TPU support, real Qwen-scale training, real HF
 teacher export on TPU, logits KL on TPU, quality evaluation, WandB, or HF
 student export. Normal local and CI validation stays CPU-only.
+
+## Phase 37 — Colab TPU Logits-KL Smoke Harness
+
+This phase adds a second manual, opt-in Colab TPU smoke harness for the tiny
+`rwkv7_qwen_reference` path with logits enabled. The hidden-only P36 command
+remains unchanged as `python scripts/run_colab_tpu_smoke.py`; P37 adds
+`scripts/run_colab_tpu_logits_smoke.py`.
+
+The checked-in distill config is
+`configs/distill_stage0_qwen_reference_colab_tpu_logits_smoke.yaml`. It points
+at deterministic fake logits-bearing targets under
+`artifacts/teacher_targets/p37_colab_tpu_logits_smoke`, sets
+`student.emit_logits: true`, and enables both `hidden_mse` and `logits_kl`.
+The companion fake teacher export config is
+`configs/teacher_export_qwen_reference_colab_tpu_logits_smoke.yaml`.
+
+The shared Colab TPU smoke helpers now validate the TPU backend message,
+required target logits in the manifest and shard, required checkpoint/run
+artifacts, finite `loss`, `hidden_mse`, and `logits_kl`, and optimizer step
+progression from 1 to 2 across checkpoint resume. Successful manual runs write
+`artifacts/p37_colab_tpu_logits_smoke/P37_RESULTS.md` and
+`artifacts/p37_colab_tpu_logits_smoke/p37_results_bundle.tar.gz`.
+
+P37 remains deliberately narrow. It does not add real Qwen-scale training, real
+HF teacher export on TPU, Pallas/WKV7 optimized kernels, `pjit`, sharding,
+multi-host TPU training, quality evaluation, WandB, HF student export, or
+RADLADS parameter import/export compatibility.
