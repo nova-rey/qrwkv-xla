@@ -55,7 +55,7 @@ def test_tiny_hf_tpu_smoke_config_enables_logits_kl_qwen_reference() -> None:
     assert config.targets_dir == TINY_HF_TARGETS_DIR
     assert config.student.architecture == "rwkv7_qwen_reference"
     assert config.student.vocab_size == 50257
-    assert config.student.num_heads == 2
+    assert config.student.num_heads == 1
     assert config.student.num_kv_heads == 1
     assert config.student.emit_logits is True
     assert config.training.max_steps == 1

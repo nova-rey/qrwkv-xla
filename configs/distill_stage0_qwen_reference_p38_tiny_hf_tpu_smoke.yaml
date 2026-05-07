@@ -6,7 +6,7 @@ distillation:
     vocab_size: 50257
     hidden_size: null
     num_layers: null
-    num_heads: 2
+    num_heads: 1
     num_kv_heads: 1
     emit_logits: true
     tie_embeddings: false
