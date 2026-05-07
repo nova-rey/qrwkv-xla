@@ -558,3 +558,19 @@
 - [x] Add Colab copy/paste docs and scope limits
 - [x] Add CPU-only tests for logits smoke config and validation helpers
 - [x] Preserve CI as CPU-only; the TPU logits smoke remains manual and opt-in
+
+## P38 — Real Tiny HF Teacher Targets -> TPU Distill Smoke
+
+- [x] Add checked-in real HF export config for `sshleifer/tiny-gpt2`
+- [x] Add checked-in tiny HF `rwkv7_qwen_reference` TPU distill config
+- [x] Add manual `scripts/run_tiny_hf_tpu_smoke.py` harness
+- [x] Reuse shared `qrwkv_xla.smoke.colab_tpu` helpers for P36, P37, and P38
+- [x] Preserve P36 and P37 script behavior
+- [x] Validate real-HF target manifest and shard arrays include `input_ids`, `attention_mask`, `hidden_states`, `logits`, and `loss_mask`
+- [x] Validate P38 target shapes and basic dimensions
+- [x] Validate finite `loss`, `hidden_mse`, and `logits_kl`
+- [x] Validate optimizer/checkpoint step progression `1 -> 2`
+- [x] Keep non-TPU failure message unchanged
+- [x] Add Colab and Kaggle-friendly protocol docs
+- [x] Add CPU-only tests for P38 config, target validation, output validation, and bundle contents
+- [x] Preserve CI as CPU-only; live HF download and TPU execution remain manual and opt-in

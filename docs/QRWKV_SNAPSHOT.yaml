@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 37
-checkpoint: colab_tpu_logits_smoke_harness
+phase: 38
+checkpoint: real_tiny_hf_tpu_distill_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add a manual Colab TPU logits-KL smoke harness for a tiny
-  rwkv7_qwen_reference train/resume proof without making TPU execution part of
-  normal CPU CI.
+  Add a manual TPU smoke harness that exports real sshleifer/tiny-gpt2 HF
+  teacher targets, validates the target bundle, and runs a tiny
+  rwkv7_qwen_reference hidden+logits distill train/resume proof without making
+  TPU execution or live HF download part of normal CPU CI.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -356,6 +357,47 @@ colab_tpu_logits_smoke:
     - multi_host_tpu
     - pallas_or_optimized_wkv7_kernels
     - radlads_checkpoint_compatibility
+    - hf_student_export
+
+tiny_hf_tpu_smoke:
+  phase: P38
+  status: manual_opt_in
+  config: configs/distill_stage0_qwen_reference_p38_tiny_hf_tpu_smoke.yaml
+  teacher_export_config: configs/teacher_export_p38_tiny_hf_logits_smoke.yaml
+  harness: scripts/run_tiny_hf_tpu_smoke.py
+  docs: docs/COLAB_TPU_TINY_HF_SMOKE.md
+  target_backend: tpu
+  teacher_backend: hf
+  teacher_model_id: sshleifer/tiny-gpt2
+  student_architecture: rwkv7_qwen_reference
+  loss: hidden_mse_plus_logits_kl
+  real_hf_targets: artifacts/teacher_targets/p38_tiny_hf_logits_smoke
+  first_checkpoint: checkpoints/p38_tpu_qwen_reference_tiny_hf_first
+  resume_checkpoint: checkpoints/p38_tpu_qwen_reference_tiny_hf_resume
+  first_run_dir: runs/p38/p38_tpu_qwen_reference_tiny_hf_first
+  resume_run_dir: runs/p38/p38_tpu_qwen_reference_tiny_hf_resume
+  result_markdown: artifacts/p38_tiny_hf_tpu_smoke/P38_RESULTS.md
+  result_bundle: artifacts/p38_tiny_hf_tpu_smoke/p38_results_bundle.tar.gz
+  kaggle_protocol: docs/COLAB_TPU_TINY_HF_SMOKE.md
+  proves:
+    - jax_tpu_backend_selected
+    - tiny_jax_matmul_sanity
+    - real_tiny_hf_teacher_export
+    - required_target_arrays_input_attention_loss_hidden_logits
+    - target_shape_validation
+    - one_step_hidden_plus_logits_distill
+    - checkpoint_resume_one_more_step
+    - finite_loss_hidden_mse_and_logits_kl
+    - optimizer_checkpoint_step_progression_1_to_2
+  does_not_prove:
+    - qwen_scale_teacher_export
+    - qwen_scale_training
+    - model_quality
+    - pjit_or_sharding
+    - multi_host_tpu
+    - pallas_or_optimized_wkv7_kernels
+    - full_radlads_numerical_parity
+    - wandb_or_lm_eval
     - hf_student_export
 
 generation_smoke:

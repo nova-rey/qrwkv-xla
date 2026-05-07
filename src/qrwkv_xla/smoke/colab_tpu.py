@@ -19,12 +19,14 @@ from qrwkv_xla.distill import (
     run_distill_stage,
 )
 from qrwkv_xla.targets import read_manifest
-from qrwkv_xla.targets.shards import read_shard
+from qrwkv_xla.targets.shards import read_shard, validate_shard_arrays
 from qrwkv_xla.targets.store import list_shard_paths, manifest_path
 from qrwkv_xla.teacher_export import (
     ExportRequest,
     FakeTeacherExporter,
     TeacherExportConfig,
+    get_teacher_exporter,
+    load_teacher_export_config,
 )
 
 CONFIG_PATH = Path("configs/distill_stage0_qwen_reference_colab_tpu_smoke.yaml")
@@ -49,6 +51,21 @@ LOGITS_RESUME_CHECKPOINT = Path("checkpoints/p37_tpu_qwen_reference_logits_resum
 LOGITS_FIRST_RUN_DIR = Path("runs/p37/p37_tpu_qwen_reference_logits_first")
 LOGITS_RESUME_RUN_DIR = Path("runs/p37/p37_tpu_qwen_reference_logits_resume")
 LOGITS_RUN_ROOT = Path("runs/p37")
+TINY_HF_CONFIG_PATH = Path(
+    "configs/distill_stage0_qwen_reference_p38_tiny_hf_tpu_smoke.yaml"
+)
+TINY_HF_EXPORT_CONFIG_PATH = Path(
+    "configs/teacher_export_p38_tiny_hf_logits_smoke.yaml"
+)
+TINY_HF_TARGETS_DIR = Path("artifacts/teacher_targets/p38_tiny_hf_logits_smoke")
+TINY_HF_ARTIFACT_DIR = Path("artifacts/p38_tiny_hf_tpu_smoke")
+TINY_HF_RESULTS_MD = TINY_HF_ARTIFACT_DIR / "P38_RESULTS.md"
+TINY_HF_RESULTS_BUNDLE = TINY_HF_ARTIFACT_DIR / "p38_results_bundle.tar.gz"
+TINY_HF_FIRST_CHECKPOINT = Path("checkpoints/p38_tpu_qwen_reference_tiny_hf_first")
+TINY_HF_RESUME_CHECKPOINT = Path("checkpoints/p38_tpu_qwen_reference_tiny_hf_resume")
+TINY_HF_FIRST_RUN_DIR = Path("runs/p38/p38_tpu_qwen_reference_tiny_hf_first")
+TINY_HF_RESUME_RUN_DIR = Path("runs/p38/p38_tpu_qwen_reference_tiny_hf_resume")
+TINY_HF_RUN_ROOT = Path("runs/p38")
 
 
 class ColabTpuSmokeError(RuntimeError):
@@ -72,6 +89,8 @@ class SmokeSpec:
     resume_run_name: str
     include_logits: bool
     metric_names: tuple[str, ...]
+    export_kind: str
+    teacher_export_config_path: Path | None
     result_title: str
     result_scope: str
     result_limits: str
@@ -95,6 +114,8 @@ P36_SPEC = SmokeSpec(
     resume_run_name="p36_tpu_qwen_reference_resume",
     include_logits=False,
     metric_names=("loss", "hidden_mse"),
+    export_kind="fake",
+    teacher_export_config_path=None,
     result_title="P36 Colab TPU Smoke Results",
     result_scope=(
         "This artifact proves a tiny manual TPU hidden-MSE train/resume smoke only."
@@ -125,6 +146,8 @@ P37_LOGITS_SPEC = SmokeSpec(
     resume_run_name="p37_tpu_qwen_reference_logits_resume",
     include_logits=True,
     metric_names=("loss", "hidden_mse", "logits_kl"),
+    export_kind="fake",
+    teacher_export_config_path=None,
     result_title="P37 Colab TPU Logits-KL Smoke Results",
     result_scope=(
         "This artifact proves a tiny manual TPU hidden-MSE plus logits-KL "
@@ -138,6 +161,40 @@ P37_LOGITS_SPEC = SmokeSpec(
     tracking_tags=("p37", "colab-tpu-logits-smoke", "manual"),
     tracking_notes=(
         "P37 manual Colab TPU logits-KL smoke",
+        "tiny logits-bearing rwkv7_qwen_reference train/resume proof",
+    ),
+)
+P38_TINY_HF_SPEC = SmokeSpec(
+    phase="P38",
+    config_path=TINY_HF_CONFIG_PATH,
+    targets_dir=TINY_HF_TARGETS_DIR,
+    artifact_dir=TINY_HF_ARTIFACT_DIR,
+    results_md=TINY_HF_RESULTS_MD,
+    results_bundle=TINY_HF_RESULTS_BUNDLE,
+    first_checkpoint=TINY_HF_FIRST_CHECKPOINT,
+    resume_checkpoint=TINY_HF_RESUME_CHECKPOINT,
+    first_run_dir=TINY_HF_FIRST_RUN_DIR,
+    resume_run_dir=TINY_HF_RESUME_RUN_DIR,
+    run_root=TINY_HF_RUN_ROOT,
+    first_run_name="p38_tpu_qwen_reference_tiny_hf_first",
+    resume_run_name="p38_tpu_qwen_reference_tiny_hf_resume",
+    include_logits=True,
+    metric_names=("loss", "hidden_mse", "logits_kl"),
+    export_kind="hf",
+    teacher_export_config_path=TINY_HF_EXPORT_CONFIG_PATH,
+    result_title="P38 Real Tiny HF TPU Distill Smoke Results",
+    result_scope=(
+        "This artifact proves a tiny manual TPU distill train/resume smoke using "
+        "real sshleifer/tiny-gpt2 Hugging Face teacher targets."
+    ),
+    result_limits=(
+        "It does not prove Qwen-scale export or training, model quality, "
+        "multi-host TPU, pjit sharding, Pallas kernels, lm_eval, WandB, or HF "
+        "student export."
+    ),
+    tracking_tags=("p38", "tiny-hf-tpu-smoke", "manual"),
+    tracking_notes=(
+        "P38 manual TPU smoke with real sshleifer/tiny-gpt2 teacher targets",
         "tiny logits-bearing rwkv7_qwen_reference train/resume proof",
     ),
 )
@@ -271,6 +328,10 @@ def run_logits_smoke_pair(config_path: Path = LOGITS_CONFIG_PATH) -> SmokeResult
     return _run_distill_smoke_pair(P37_LOGITS_SPEC, config_path=config_path)
 
 
+def run_tiny_hf_smoke_pair(config_path: Path = TINY_HF_CONFIG_PATH) -> SmokeResults:
+    return _run_distill_smoke_pair(P38_TINY_HF_SPEC, config_path=config_path)
+
+
 def _run_distill_smoke_pair(spec: SmokeSpec, *, config_path: Path) -> SmokeResults:
     runtime = collect_runtime_summary(Path.cwd())
     print(format_runtime_summary(runtime))
@@ -278,9 +339,8 @@ def _run_distill_smoke_pair(spec: SmokeSpec, *, config_path: Path) -> SmokeResul
     matmul_sum = run_tiny_matmul_sanity()
     print(f"tiny_matmul_sum: {matmul_sum:.8f}")
 
-    export_fake_targets(spec.targets_dir, include_logits=spec.include_logits)
-    if spec.include_logits:
-        validate_logits_targets(spec.targets_dir)
+    export_smoke_targets(spec)
+    validate_smoke_targets(spec.targets_dir, spec=spec)
     first_artifacts, first_summary, first_metrics = _run_one_step(
         spec=spec,
         config_path=config_path,
@@ -326,6 +386,41 @@ def _run_distill_smoke_pair(spec: SmokeSpec, *, config_path: Path) -> SmokeResul
     return results
 
 
+def export_smoke_targets(spec: SmokeSpec) -> Path:
+    if spec.export_kind == "fake":
+        return export_fake_targets(spec.targets_dir, include_logits=spec.include_logits)
+    if spec.export_kind == "hf":
+        if spec.teacher_export_config_path is None:
+            raise ColabTpuSmokeError(f"{spec.phase} is missing teacher export config")
+        return export_real_hf_targets(spec.teacher_export_config_path, spec.targets_dir)
+    raise ColabTpuSmokeError(
+        f"unsupported {spec.phase} smoke export_kind: {spec.export_kind!r}"
+    )
+
+
+def export_real_hf_targets(config_path: Path, output_dir: Path) -> Path:
+    config = load_teacher_export_config(config_path)
+    if config.runtime.exporter_backend != "hf":
+        raise ColabTpuSmokeError(
+            f"real HF smoke requires runtime.exporter_backend='hf': {config_path}"
+        )
+    if config.teacher.resolved_model_id != "sshleifer/tiny-gpt2":
+        raise ColabTpuSmokeError(
+            "P38 real HF smoke must use sshleifer/tiny-gpt2, got "
+            f"{config.teacher.resolved_model_id!r}"
+        )
+    exporter = get_teacher_exporter("hf")
+    exporter.export(ExportRequest(config=config, output_dir=output_dir))
+    return output_dir
+
+
+def validate_smoke_targets(targets_dir: Path, *, spec: SmokeSpec) -> None:
+    if spec.export_kind == "hf":
+        validate_real_hf_targets(targets_dir, phase=spec.phase)
+    elif spec.include_logits:
+        validate_logits_targets(targets_dir)
+
+
 def validate_logits_targets(targets_dir: Path) -> None:
     manifest = read_manifest(manifest_path(targets_dir))
     if not manifest.targets.logits:
@@ -342,6 +437,69 @@ def validate_logits_targets(targets_dir: Path) -> None:
         raise ColabTpuSmokeError(
             f"logits smoke target shard is missing logits: {shard_paths[0]}"
         )
+
+
+def validate_real_hf_targets(targets_dir: Path, *, phase: str = "P38") -> None:
+    manifest = read_manifest(manifest_path(targets_dir))
+    if manifest.created_by != "HFTeacherExporter":
+        raise ColabTpuSmokeError(
+            f"{phase} targets must be created by HFTeacherExporter: {targets_dir}"
+        )
+    if manifest.teacher_model_id != "sshleifer/tiny-gpt2":
+        raise ColabTpuSmokeError(
+            f"{phase} targets must use sshleifer/tiny-gpt2, got "
+            f"{manifest.teacher_model_id!r}"
+        )
+    expected_flags = {
+        "input_ids": manifest.targets.input_ids,
+        "attention_mask": manifest.targets.attention_mask,
+        "loss_mask": manifest.targets.loss_mask,
+        "hidden_states": manifest.targets.hidden_states,
+        "logits": manifest.targets.logits,
+    }
+    missing_flags = [name for name, enabled in expected_flags.items() if not enabled]
+    if missing_flags:
+        raise ColabTpuSmokeError(
+            f"{phase} target manifest is missing required flags: {missing_flags}"
+        )
+    shard_paths = list_shard_paths(targets_dir)
+    if not shard_paths:
+        raise ColabTpuSmokeError(f"{phase} targets contain no shards: {targets_dir}")
+    arrays = read_shard(shard_paths[0])
+    required_arrays = (
+        "input_ids",
+        "attention_mask",
+        "loss_mask",
+        "hidden_states",
+        "logits",
+    )
+    missing_arrays = [name for name in required_arrays if name not in arrays]
+    if missing_arrays:
+        raise ColabTpuSmokeError(
+            f"{phase} target shard is missing required arrays: {missing_arrays}"
+        )
+    try:
+        validate_shard_arrays(
+            arrays,
+            sequence_length=manifest.sequence_length,
+            hidden_size=manifest.hidden_size,
+            num_layers=manifest.num_layers,
+            require_hidden_states=True,
+            require_logits=True,
+            require_attention_targets=False,
+        )
+    except ValueError as exc:
+        raise ColabTpuSmokeError(f"{phase} target shapes are invalid: {exc}") from exc
+    input_ids = arrays["input_ids"]
+    hidden_states = arrays["hidden_states"]
+    logits = arrays["logits"]
+    if int(input_ids.shape[0]) <= 0:
+        raise ColabTpuSmokeError(f"{phase} target batch dimension must be positive")
+    if int(logits.shape[2]) <= 0:
+        raise ColabTpuSmokeError(f"{phase} logits vocab dimension must be positive")
+    for name, array in (("hidden_states", hidden_states), ("logits", logits)):
+        if not math.isfinite(float(array.mean())):
+            raise ColabTpuSmokeError(f"{phase} {name} mean must be finite")
 
 
 def validate_smoke_outputs(
@@ -481,6 +639,7 @@ def write_results_bundle(path: Path, *, spec: SmokeSpec = P36_SPEC) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     bundle_inputs = [
         spec.config_path,
+        spec.teacher_export_config_path,
         spec.targets_dir / "manifest.json",
         spec.first_checkpoint / "checkpoint.json",
         spec.first_checkpoint / "params.npz",
@@ -497,7 +656,7 @@ def write_results_bundle(path: Path, *, spec: SmokeSpec = P36_SPEC) -> Path:
     shard_paths = sorted((spec.targets_dir / "shards").glob("shard_*.npz"))
     with tarfile.open(path, "w:gz") as archive:
         for item in [*bundle_inputs, *shard_paths]:
-            if item.is_file():
+            if item is not None and item.is_file():
                 archive.add(item, arcname=str(item))
     return path
 

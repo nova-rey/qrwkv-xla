@@ -594,3 +594,34 @@ P37 remains deliberately narrow. It does not add real Qwen-scale training, real
 HF teacher export on TPU, Pallas/WKV7 optimized kernels, `pjit`, sharding,
 multi-host TPU training, quality evaluation, WandB, HF student export, or
 RADLADS parameter import/export compatibility.
+
+## Phase 38 — Real Tiny HF Teacher Targets to TPU Distill Smoke
+
+This phase adds a third manual, opt-in TPU smoke. P38 keeps the P36 hidden-only
+and P37 fake-logits commands unchanged, and adds
+`scripts/run_tiny_hf_tpu_smoke.py`.
+
+The checked-in HF export config is
+`configs/teacher_export_p38_tiny_hf_logits_smoke.yaml`. It uses the existing
+HF teacher exporter path with `sshleifer/tiny-gpt2`, `include_logits: true`,
+sequence length 8, and stable output directory
+`artifacts/teacher_targets/p38_tiny_hf_logits_smoke`. The distill config is
+`configs/distill_stage0_qwen_reference_p38_tiny_hf_tpu_smoke.yaml`; it uses the
+tiny `rwkv7_qwen_reference` student with logits enabled and combines
+`hidden_mse` plus `logits_kl`.
+
+The shared Colab TPU smoke helpers now support fake-target P36/P37 specs and
+the real-HF P38 spec. P38 exports the HF target bundle, validates that the
+manifest and first shard contain `input_ids`, `attention_mask`, `loss_mask`,
+`hidden_states`, and `logits`, checks basic target dimensions against the
+manifest, runs one TPU distill step, resumes for one more step, and validates
+finite `loss`, `hidden_mse`, `logits_kl`, and optimizer/checkpoint progression
+from 1 to 2. Successful manual runs write
+`artifacts/p38_tiny_hf_tpu_smoke/P38_RESULTS.md` and
+`artifacts/p38_tiny_hf_tpu_smoke/p38_results_bundle.tar.gz`.
+
+P38 is documented for both Colab and Kaggle TPU sessions in
+`docs/COLAB_TPU_TINY_HF_SMOKE.md`. It remains deliberately narrow: no
+Qwen-scale teacher export or training, no multi-host TPU or `pjit` sharding, no
+Pallas/WKV7 optimized kernels, no model-quality claim, no WandB or lm-eval, no
+HF student export, and no full RADLADS numerical parity claim.

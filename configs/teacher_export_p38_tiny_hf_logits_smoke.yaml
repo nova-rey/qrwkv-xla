@@ -1,0 +1,30 @@
+teacher:
+  family: hf-causal-lm
+  policy_label: tiny-hf-smoke-p38
+  fallback_label: null
+  resolved_model_id: sshleifer/tiny-gpt2
+  tokenizer_id: sshleifer/tiny-gpt2
+  trust_remote_code: false
+  local_files_only: false
+  revision: null
+  device: cpu
+  dtype: auto
+
+targets:
+  sequence_length: 8
+  hidden_size: null
+  num_layers: null
+  dtype: fp32
+  include_logits: true
+  include_attention_targets: false
+  vocab_size: 50257
+  prompt_texts:
+    - "QRWKV-XLA P38 tiny HF TPU smoke"
+    - "Tiny GPT-2 teacher targets"
+
+runtime:
+  exporter_backend: hf
+  batch_size: 2
+  num_shards: 1
+  seed: 3838
+  output_dir: ../artifacts/teacher_targets/p38_tiny_hf_logits_smoke
