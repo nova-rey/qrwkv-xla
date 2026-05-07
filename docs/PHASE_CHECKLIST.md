@@ -519,3 +519,26 @@
 - [x] Add checked-in example plans under `docs/examples/scale_plans/`
 - [x] Add offline tests for profiles, estimates, CLI, and auto-plan
 - [x] Preserve boundaries: no Pallas, TPU execution/profiling, pjit/model sharding, large training, Qwen-scale export/training, student HF export, `lm_eval`, WandB, new model math, or full RADLADS parity claims
+
+## P35 — Parameter Compatibility Bridge
+
+- [ ] Not implemented in this repo state
+- [ ] Keep RADLADS checkpoint import/export compatibility as future work
+- [ ] Do not claim RADLADS checkpoint compatibility from P36 TPU smoke results
+
+## P36 — Colab TPU Smoke Harness Hardening
+
+- [x] Add checked-in hidden-only `rwkv7_qwen_reference` Colab TPU smoke config
+- [x] Add manual `scripts/run_colab_tpu_smoke.py` harness
+- [x] Print Python/JAX/backend/device/git summary
+- [x] Fail clearly when JAX is not using a TPU backend
+- [x] Run tiny JAX matmul sanity before distillation
+- [x] Export deterministic fake teacher hidden targets
+- [x] Run first one-step distill to stable P36 checkpoint/run paths
+- [x] Run resume one-step distill from the first checkpoint
+- [x] Validate checkpoint/run artifacts, finite loss metrics, and step progression `1 -> 2`
+- [x] Write `artifacts/p36_colab_tpu_smoke/P36_RESULTS.md`
+- [x] Write `artifacts/p36_colab_tpu_smoke/p36_results_bundle.tar.gz`
+- [x] Add Colab copy/paste docs and scope limits
+- [x] Add CPU-only tests for config expectations and harness validation helpers
+- [x] Preserve CI as CPU-only; the TPU smoke remains manual and opt-in

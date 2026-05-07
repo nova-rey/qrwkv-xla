@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 34
-checkpoint: model_scale_planner_and_config_estimator
+phase: 36
+checkpoint: colab_tpu_smoke_harness_hardening
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add a conservative model scale planner for QRWKV-XLA that estimates
-  qrwkv_xla rwkv7_qwen_reference parameter counts, training memory components,
-  and fit classification without claiming hardware validation.
+  Harden the manual Colab TPU smoke harness for a tiny hidden-only
+  rwkv7_qwen_reference train/resume proof without making TPU execution part of
+  normal CPU CI.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -281,6 +281,46 @@ scale_planner:
     - qwen_scale_training_readiness
     - full_radlads_parity
     - impossible_hardware_fit_cancellation
+
+parameter_compatibility_bridge:
+  phase: P35
+  status: not_implemented_in_this_repo_state
+  note: RADLADS checkpoint import/export compatibility remains future work and
+    is not proven by P36.
+
+colab_tpu_smoke:
+  phase: P36
+  status: manual_opt_in
+  config: configs/distill_stage0_qwen_reference_colab_tpu_smoke.yaml
+  harness: scripts/run_colab_tpu_smoke.py
+  docs: docs/COLAB_TPU_SMOKE.md
+  target_backend: tpu
+  student_architecture: rwkv7_qwen_reference
+  loss: hidden_mse_only
+  fake_targets: artifacts/teacher_targets/p36_colab_tpu_smoke
+  first_checkpoint: checkpoints/p36_tpu_qwen_reference_first
+  resume_checkpoint: checkpoints/p36_tpu_qwen_reference_resume
+  first_run_dir: runs/p36/p36_tpu_qwen_reference_first
+  resume_run_dir: runs/p36/p36_tpu_qwen_reference_resume
+  result_markdown: artifacts/p36_colab_tpu_smoke/P36_RESULTS.md
+  result_bundle: artifacts/p36_colab_tpu_smoke/p36_results_bundle.tar.gz
+  proves:
+    - jax_tpu_backend_selected
+    - tiny_jax_matmul_sanity
+    - fake_hidden_target_export
+    - one_step_hidden_distill
+    - checkpoint_resume_one_more_step
+    - finite_final_loss_and_hidden_mse
+    - checkpoint_step_progression_1_to_2
+  does_not_prove:
+    - qwen_scale_training
+    - model_quality
+    - logits_kl_on_tpu
+    - real_hf_teacher_export_on_tpu
+    - pjit_or_sharding
+    - multi_host_tpu
+    - pallas_or_optimized_wkv7_kernels
+    - radlads_checkpoint_compatibility
 
 generation_smoke:
   tokenizer: dependency_free_utf8_byte_plus_one

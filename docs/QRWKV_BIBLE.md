@@ -534,3 +534,36 @@ P34 is not TPU profiling, not pjit/model sharding, not a Qwen-scale training
 run, not model export, and not a RADLADS parity claim. Fit classes are
 conservative estimates using roughly 60% for `yes`, 85% for `maybe`, and above
 85% for `no`.
+
+## Phase 35 — Parameter Compatibility Bridge Status
+
+No P35 implementation is present in this repo state. The RADLADS checkpoint
+import/export compatibility bridge remains future work. P36 must not be read as
+evidence of RADLADS checkpoint compatibility; it only exercises the native
+QRWKV-XLA checkpoint/resume path for a tiny reference student.
+
+## Phase 36 — Colab TPU Smoke Harness Hardening
+
+This phase adds a manual, opt-in Colab TPU smoke harness for the tiny
+hidden-only `rwkv7_qwen_reference` path. The checked-in config is
+`configs/distill_stage0_qwen_reference_colab_tpu_smoke.yaml`, and the launcher
+is `scripts/run_colab_tpu_smoke.py`.
+
+The harness prints Python, JAX, backend, device, and git metadata; requires the
+JAX default backend to be TPU; runs a tiny JAX matmul; exports deterministic
+fake hidden teacher targets; runs one distill step to
+`checkpoints/p36_tpu_qwen_reference_first`; then resumes for one more step to
+`checkpoints/p36_tpu_qwen_reference_resume`. It normalizes run artifacts to
+stable paths under `runs/p36/`, validates required checkpoint/run files,
+validates finite `final_loss` and `final_hidden_mse`, and checks checkpoint
+step progression from 1 to 2.
+
+Successful manual runs write
+`artifacts/p36_colab_tpu_smoke/P36_RESULTS.md` and
+`artifacts/p36_colab_tpu_smoke/p36_results_bundle.tar.gz`. The Colab copy/paste
+flow and known warnings live in `docs/COLAB_TPU_SMOKE.md`.
+
+P36 remains deliberately narrow. It does not add Pallas/WKV7 optimized kernels,
+`pjit`, sharding, multi-host TPU support, real Qwen-scale training, real HF
+teacher export on TPU, logits KL on TPU, quality evaluation, WandB, or HF
+student export. Normal local and CI validation stays CPU-only.
