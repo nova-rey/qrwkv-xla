@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 44
-checkpoint: streaming_data_pipeline_dry_run
+phase: 45
+checkpoint: multiscale_model_config_dry_runs
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add a larger local/offline streaming data pipeline dry-run that reuses the
-  existing tokenized corpus and LM/trainer batch surfaces without becoming a
-  real training phase.
+  Add bounded multi-scale QRWKV model config dry-runs for 0.5B, 1.5B, and
+  7B-stretch profiles with planning reports, metadata-only shape validation,
+  checkpoint skeleton readback, and explicit non-training caveats.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -608,6 +608,53 @@ planner_tpu_smoke:
 
 generation_smoke:
   tokenizer: dependency_free_utf8_byte_plus_one
+
+multiscale_model_dry_runs:
+  phase: P45
+  status: complete
+  artifact_dir: artifacts/scale/p45_multiscale_dry_run
+  docs: docs/MULTISCALE_MODEL_DRY_RUNS.md
+  config_script: scripts/generate_multiscale_configs.py
+  dry_run_script: scripts/run_multiscale_shape_dry_run.py
+  model_profiles:
+    - qrwkv_qwen_0_5b_candidate
+    - qrwkv_qwen_1_5b_candidate
+    - qrwkv_qwen_7b_stretch
+  hardware_profiles:
+    - local_cpu_debug
+    - kaggle_tpu_v5e_8
+    - colab_tpu_v2_or_v3
+    - grant_tpu_v5e_8
+    - grant_tpu_v5e_32
+    - grant_tpu_v5e_64
+  outputs:
+    - P45_RESULTS.md
+    - P45_SCALE_PLAN_REPORT.md
+    - scale_plan_report.json
+    - fit_matrix.json
+    - configs/*.yaml
+    - dry_runs/*/metadata_dry_run.json
+    - checkpoint_skeletons/*/checkpoint_manifest.json
+    - checkpoint_skeletons/*/model_config.yaml
+    - checkpoint_skeletons/*/checkpoint_metadata.json
+  safe_init_policy:
+    default: metadata_only
+    materialize_large_profiles: blocked_without_explicit_override
+  proves:
+    - config_generation
+    - planner_validation
+    - component_fit_reporting
+    - metadata_only_shape_dry_runs
+    - checkpoint_skeleton_write_and_readback
+  does_not_prove:
+    - real_training
+    - pjit_or_sharding
+    - distributed_execution
+    - pallas_kernels
+    - wandb
+    - measured_full_scale_memory
+    - qwen_teacher_target_generation
+    - one_device_7b_training
   decoding: greedy_only_full_sequence_recompute
   artifact_dir: eval_outputs/
   gitignored: true

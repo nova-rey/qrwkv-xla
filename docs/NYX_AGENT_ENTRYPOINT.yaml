@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 44
-  checkpoint: streaming_data_pipeline_dry_run
-  title: Add local streaming data pipeline dry-run
+  phase: 45
+  checkpoint: multiscale_model_config_dry_runs
+  title: Add multi-scale model config dry-runs
 
 workflow:
   primary_agent: Nyx
@@ -32,3 +32,4 @@ instructions:
   - Keep P42 official lm_eval execution deferred; default eval smoke is local token-id toy scoring only.
   - Keep P43 WKV7 fixture work limited to the slow recurrence/state core; Pallas remains an unsupported placeholder.
   - Keep P44 streaming data work local/offline and bounded; it is not a real training phase or quality claim.
+  - Keep P45 multi-scale dry-runs metadata-first; do not claim real training, pjit/sharding, full-scale measured memory, or one-device 7B training.

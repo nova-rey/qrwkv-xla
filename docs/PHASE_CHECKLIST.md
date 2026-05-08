@@ -663,3 +663,20 @@
 - [x] Add `tests/test_streaming_data_pipeline.py`
 - [x] Add `docs/STREAMING_DATA_PIPELINE.md`
 - [x] Preserve scope: no cloud ingest, distributed input, `pjit`/sharding, Pallas, WandB, long training, or quality claims
+
+## P45 — Multi-Scale Model Config Dry-Runs
+
+- [x] Add explicit QRWKV 0.5B, 1.5B, and 7B-stretch planning profiles
+- [x] Add P45 hardware planning profiles for local CPU, Colab/Kaggle TPU, and grant TPU slices
+- [x] Add `scripts/generate_multiscale_configs.py` with `--out`, `--profiles`, `--hardware`, and `--overwrite`
+- [x] Add `scripts/run_multiscale_shape_dry_run.py` with `--scale-plan`, `--metadata-only`, profile selection, and safe init policy
+- [x] Write artifacts under `artifacts/scale/p45_multiscale_dry_run`
+- [x] Write `P45_RESULTS.md`, `P45_SCALE_PLAN_REPORT.md`, `scale_plan_report.json`, and `fit_matrix.json`
+- [x] Generate per-profile config YAML files under `configs/`
+- [x] Generate per-profile metadata dry-run JSON under `dry_runs/*/metadata_dry_run.json`
+- [x] Generate checkpoint skeleton manifest/config/metadata bundles and validate readback
+- [x] Include parameter, optimizer, activation/sequence, target/logits, checkpoint, and total fit components
+- [x] Include explicit validation status and warnings for model shapes and parameter bands
+- [x] Add `tests/test_multiscale_config_dry_runs.py`
+- [x] Add `docs/MULTISCALE_MODEL_DRY_RUNS.md`
+- [x] Preserve scope: no real training, `pjit`/sharding, distributed execution, Pallas kernels, WandB, measured full-scale memory, Qwen0.5B teacher target generation, or one-device 7B claims

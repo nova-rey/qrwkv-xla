@@ -787,3 +787,32 @@ P44 is not a real training phase. It proves larger/streaming dry-run plumbing
 only. It does not prove full-scale throughput, real training quality, cloud or
 distributed ingest, `pjit`/sharding, Pallas, WandB, or Qwen0.5B-scale target
 generation.
+
+## Phase 45 — QRWKV-XLA Multi-Scale Model Config Dry-Runs
+
+This phase adds a bounded multi-scale planning and metadata dry-run surface for
+explicit QRWKV student profiles: `qrwkv_qwen_0_5b_candidate`,
+`qrwkv_qwen_1_5b_candidate`, and `qrwkv_qwen_7b_stretch`. The hardware matrix
+covers local CPU debug, Colab/Kaggle TPU planning profiles, and grant TPU v5e
+8/32/64-device planning slices.
+
+`scripts/generate_multiscale_configs.py` writes the planning artifacts under
+`artifacts/scale/p45_multiscale_dry_run`: `scale_plan_report.json`,
+`fit_matrix.json`, `P45_SCALE_PLAN_REPORT.md`, `P45_RESULTS.md`, and
+`configs/*.yaml`. The fit matrix records component estimates for parameter
+memory, optimizer memory, activation/sequence memory, hidden/logits target
+memory, checkpoint memory, overhead reserve, and total memory, with explicit
+fit classification and memory interpretation.
+
+`scripts/run_multiscale_shape_dry_run.py` consumes the scale plan and keeps the
+default path metadata-only. It writes one `metadata_dry_run.json` per profile,
+plus a checkpoint skeleton bundle per profile containing
+`checkpoint_manifest.json`, `model_config.yaml`, and
+`checkpoint_metadata.json`. The dry-run validates model shapes, parameter bands,
+safe init policy, and checkpoint skeleton readback without allocating full large
+model arrays.
+
+P45 is not a real training phase. It does not implement or prove pjit/sharding,
+distributed execution, Pallas kernels, WandB, full-scale measured memory,
+Qwen0.5B teacher target generation, official benchmarks, or one-device 7B
+training.

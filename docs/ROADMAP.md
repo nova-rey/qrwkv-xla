@@ -254,3 +254,19 @@ iteration, optional seeded shuffle, resume cursor replay, attention/loss masks,
 and bounded token accounting. It is not a real training phase and does not
 prove full-scale throughput, real training quality, cloud or distributed input,
 sharding, Pallas, WandB, or Qwen-scale target generation.
+
+## Phase 45 — Multi-Scale Model Config Dry-Runs
+
+Goal: generate bounded planning configs and metadata-only dry-run artifacts for
+QRWKV 0.5B, 1.5B, and 7B-stretch model profiles across local/TPU planning
+hardware profiles.
+
+Current checkpoint: `multiscale_model_config_dry_runs`. This checkpoint writes
+`P45_RESULTS.md`, `P45_SCALE_PLAN_REPORT.md`, `scale_plan_report.json`,
+`fit_matrix.json`, per-profile config YAML files, per-profile metadata dry-run
+JSON, and checkpoint skeleton manifest/config/metadata bundles under
+`artifacts/scale/p45_multiscale_dry_run`. It validates model shapes and
+parameter bands, reports component memory estimates and fit classification, and
+keeps full large-model init blocked by default. It does not prove real training,
+pjit/sharding, distributed execution, Pallas kernels, WandB, measured full-scale
+memory, Qwen teacher target generation, or one-device 7B training.

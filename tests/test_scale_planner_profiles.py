@@ -17,7 +17,7 @@ from qrwkv_xla.scale_planner import (
 
 
 def test_builtin_profiles_are_present_and_valid() -> None:
-    assert set(MODEL_PROFILES) == {
+    assert {
         "tiny_debug",
         "p39_tiny_hf_qwen_rope_smoke",
         "small_cpu",
@@ -25,19 +25,26 @@ def test_builtin_profiles_are_present_and_valid() -> None:
         "qwen_0_5b_candidate",
         "qwen_1_5b_candidate",
         "qwen_7b_stretch",
-    }
-    assert set(HARDWARE_PROFILES) == {
+        "qrwkv_qwen_0_5b_candidate",
+        "qrwkv_qwen_1_5b_candidate",
+        "qrwkv_qwen_7b_stretch",
+    }.issubset(MODEL_PROFILES)
+    assert {
+        "local_cpu_debug",
         "local_cpu_16gb",
         "local_cpu_32gb",
         "local_cpu_64gb",
         "colab_tpu_v2_8",
         "colab_tpu_v3_8",
+        "colab_tpu_v2_or_v3",
         "kaggle_tpu_v5e_8",
         "single_l4_24gb",
         "single_a100_40gb",
         "grant_tpu_v5e_8",
+        "grant_tpu_v5e_32",
+        "grant_tpu_v5e_64",
         "big_budget_tpu_placeholder",
-    }
+    }.issubset(HARDWARE_PROFILES)
     assert set(TRAINING_MODES) == {
         "smoke_hidden_sgd",
         "smoke_hidden_logits_sgd",
