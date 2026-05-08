@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 42
-checkpoint: lm_eval_toy_exported_student_smoke
+phase: 43
+checkpoint: wkv7_correctness_fixture_harness
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add a tiny CPU/local lm_eval-style continuation scoring smoke over the P41
-  exported-student artifact path, with deterministic toy fixtures, explicit
-  artifacts, and honest scope limits.
+  Add a tiny CPU/local WKV7 correctness fixture harness around the extracted
+  slow recurrence/state core, with deterministic artifacts, reference candidate
+  comparison, and an explicit unsupported Pallas placeholder.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -111,6 +111,33 @@ lm_eval_smoke:
     - production_hf_model_class
     - qwen_scale_evaluation
     - model_quality
+
+wkv7_correctness_fixtures:
+  phase: P43
+  schema: qrwkv_xla.wkv7_correctness.v1
+  module: qrwkv_xla.kernels
+  fixture_script: scripts/generate_wkv7_correctness_fixtures.py
+  compare_script: scripts/compare_wkv7_correctness_fixtures.py
+  artifact_dir: artifacts/kernels/p43_wkv7_correctness
+  candidates:
+    reference: current slow JAX WKV7 recurrence/state core
+    pallas: unsupported placeholder
+  files:
+    - manifest.json
+    - P43_WKV7_FIXTURE_SUMMARY.md
+    - comparison_report.json
+    - P43_WKV7_COMPARISON_REPORT.md
+    - cases/*/inputs.npz
+    - cases/*/expected.npz
+  proves:
+    - deterministic_tiny_reference_core_fixtures
+    - full_scan_stepwise_equivalence
+    - reference_candidate_fixture_comparison
+  does_not_prove:
+    - optimized_pallas_kernel_correctness
+    - tpu_performance
+    - full_radlads_or_qwen_block_parity
+    - qwen_scale_execution
 
 optimizers:
   supported:

@@ -228,3 +228,15 @@ Current checkpoint: `lm_eval_toy_exported_student_smoke`. This checkpoint writes
 `artifacts/eval/p42_lm_eval_smoke`. Official `lm_eval` task execution remains
 deferred and optional; P42 does not claim benchmark quality, Qwen-scale eval, a
 production HF model class, training, sharding, or optimized kernels.
+
+## Phase 43 — WKV7 Correctness Fixture Harness
+
+Goal: add deterministic tiny correctness fixtures for the extracted WKV7
+recurrence/state core before implementing optimized kernels.
+
+Current checkpoint: `wkv7_correctness_fixture_harness`. This checkpoint writes
+fixtures under `artifacts/kernels/p43_wkv7_correctness`, compares the
+`reference` candidate, records full-scan versus stepwise equivalence, and keeps
+`pallas` as an explicit unsupported placeholder. It does not add TPU
+benchmarking, optimized Pallas kernels, full Qwen/RADLADS parity, or scale
+execution.

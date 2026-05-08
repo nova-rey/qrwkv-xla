@@ -634,3 +634,16 @@
 - [x] Add optional `eval` extra without changing default dependencies
 - [x] Explicitly defer official `lm_eval` execution while documenting the toy harness scope
 - [x] Preserve scope: no meaningful benchmark, Qwen-scale eval, production HF model class, training, pjit/sharding, Pallas/WKV kernels, WandB, or unrelated cleanup
+
+## P43 — QRWKV-XLA WKV7 / Pallas Correctness Fixture Harness
+
+- [x] Add `qrwkv_xla.kernels` WKV7 fixture, comparison, and candidate modules
+- [x] Add deterministic tiny WKV7 recurrence/state core cases
+- [x] Add fixture generation and comparison scripts
+- [x] Write P43 artifact manifest, summary, comparison report, and case NPZs
+- [x] Include reference candidate support
+- [x] Include unsupported Pallas placeholder
+- [x] Report full-scan versus stepwise equivalence
+- [x] Add CPU-only fixture tests
+- [x] Add WKV7 correctness fixture docs
+- [x] Update snapshot, roadmap, entrypoint, and append-only Bible

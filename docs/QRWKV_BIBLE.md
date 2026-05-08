@@ -732,3 +732,26 @@ manual future integration, but the default smoke does not import official
 `lm_eval`, does not touch the network, and does not run large task suites. This
 phase makes no benchmark, Qwen-scale, production HF model class, training,
 pjit/sharding, Pallas/WKV kernel, or model-quality claim.
+
+## Phase 43 — QRWKV-XLA WKV7 / Pallas Correctness Fixture Harness
+
+This phase adds the deterministic correctness cage for future optimized WKV7
+kernel work. The new `qrwkv_xla.kernels` package generates tiny offline fixtures
+for the extracted WKV7 recurrence/state core, records manifest metadata and
+hashes, compares candidate implementations against the saved expected outputs
+and next-state tensors, and reports explicit statuses for pass/fail,
+unsupported, missing fixture payloads, shape/dtype mismatches, non-finite
+values, and candidate execution errors.
+
+The canonical artifact directory is `artifacts/kernels/p43_wkv7_correctness`.
+It contains `manifest.json`, `P43_WKV7_FIXTURE_SUMMARY.md`,
+`comparison_report.json`, `P43_WKV7_COMPARISON_REPORT.md`, and per-case
+`inputs.npz` / `expected.npz` payloads. The fixture set covers six deterministic
+cases including no-mask, masked, prefix-padding/reset-style, explicit non-zero
+state, stepwise-vs-full-scan, and extreme-but-finite decay scenarios.
+
+P43 proves only correctness-harness plumbing for the recurrence core. It does
+not implement an optimized Pallas kernel, does not benchmark TPU performance,
+does not prove full RADLADS numerical parity, and does not claim training or
+model-quality improvements. Its job is to provide the gate future WKV7 kernels
+must pass before speed work is trusted.
