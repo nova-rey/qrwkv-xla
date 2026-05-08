@@ -270,3 +270,17 @@ parameter bands, reports component memory estimates and fit classification, and
 keeps full large-model init blocked by default. It does not prove real training,
 pjit/sharding, distributed execution, Pallas kernels, WandB, measured full-scale
 memory, Qwen teacher target generation, or one-device 7B training.
+
+## Phase 46 — Tiny pjit / Sharding Compile Smoke
+
+Goal: add a bounded pjit/jit-with-shardings compile smoke that creates a named
+JAX mesh, applies an explicit data-parallel sharding policy, and verifies a
+finite tiny forward/loss/update path.
+
+Current checkpoint: `pjit_sharding_compile_smoke`. This checkpoint writes
+`P46_RESULTS.md` and `pjit_sharding_smoke_report.json` under
+`artifacts/p46_pjit_sharding_smoke`. It records backend/platform/device/mesh
+metadata, compile API, policy metadata, finite loss, update status, and honest
+single-device fallback. It does not prove large-model sharding, throughput,
+production sharded checkpointing, multi-host training, Pallas kernels, Qwen
+scale training, or that P45 large profiles are trainable.

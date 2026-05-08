@@ -816,3 +816,23 @@ P45 is not a real training phase. It does not implement or prove pjit/sharding,
 distributed execution, Pallas kernels, WandB, full-scale measured memory,
 Qwen0.5B teacher target generation, official benchmarks, or one-device 7B
 training.
+
+## Phase 46 — Tiny pjit / Sharding Compile Smoke
+
+This phase adds the first explicit sharding-aware compile entrypoint for
+QRWKV-XLA. The new `qrwkv_xla.sharding` package creates a named JAX mesh,
+records backend/platform/device metadata, exposes a minimal
+`data_parallel_single_axis` policy, and runs a tiny forward/loss/update smoke
+through either `jax.jit(..., in_shardings=..., out_shardings=...)` or
+`jax.experimental.pjit.pjit` when requested.
+
+The canonical artifact directory is `artifacts/p46_pjit_sharding_smoke`. The
+smoke writes `P46_RESULTS.md` and `pjit_sharding_smoke_report.json` with
+created-at time, compile API, policy, batch/sequence shape, finite loss,
+step/update status, mesh metadata, honest single-device fallback details, and
+explicit limitations.
+
+P46 proves tiny sharding compile plumbing only. It does not prove large-model
+sharding, real training throughput, production sharded checkpointing,
+0.5B/1.5B/7B training feasibility, or multi-device TPU behavior unless a real
+multi-device TPU run is performed later.

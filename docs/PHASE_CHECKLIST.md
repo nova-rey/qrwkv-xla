@@ -680,3 +680,18 @@
 - [x] Add `tests/test_multiscale_config_dry_runs.py`
 - [x] Add `docs/MULTISCALE_MODEL_DRY_RUNS.md`
 - [x] Preserve scope: no real training, `pjit`/sharding, distributed execution, Pallas kernels, WandB, measured full-scale memory, Qwen0.5B teacher target generation, or one-device 7B claims
+
+## P46 — Tiny pjit / Sharding Compile Smoke
+
+- [x] Add `qrwkv_xla.sharding` package
+- [x] Add mesh creation helpers with single-device fallback metadata
+- [x] Add clean `require_multi_device` failure behavior
+- [x] Add `data_parallel_single_axis` policy metadata and explicit shardings
+- [x] Add tiny sharding-aware forward/loss/update compile smoke
+- [x] Add `scripts/run_pjit_sharding_smoke.py`
+- [x] Write `P46_RESULTS.md` and `pjit_sharding_smoke_report.json`
+- [x] Add `tests/test_pjit_sharding_smoke.py`
+- [x] Add `docs/PJIT_SHARDING_SMOKE.md`
+- [x] Update snapshot, roadmap, phase checklist, and agent entrypoint
+- [x] Append Bible entry
+- [x] Run required P46 validation commands

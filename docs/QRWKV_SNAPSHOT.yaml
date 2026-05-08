@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 45
-checkpoint: multiscale_model_config_dry_runs
+phase: 46
+checkpoint: pjit_sharding_compile_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add bounded multi-scale QRWKV model config dry-runs for 0.5B, 1.5B, and
-  7B-stretch profiles with planning reports, metadata-only shape validation,
-  checkpoint skeleton readback, and explicit non-training caveats.
+  Add a tiny pjit/jit-with-shardings compile smoke that creates a named JAX
+  mesh, applies an explicit data-parallel sharding policy, verifies a finite
+  tiny forward/loss/update path, and reports honest single-device fallback.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -180,6 +180,43 @@ streaming_data_pipeline:
     - pallas
     - wandb
     - qwen_scale_target_generation
+
+pjit_sharding_smoke:
+  phase: P46
+  mode: tiny_pjit_sharding_compile_smoke
+  module: qrwkv_xla.sharding
+  smoke_script: scripts/run_pjit_sharding_smoke.py
+  artifact_dir: artifacts/p46_pjit_sharding_smoke
+  policy: data_parallel_single_axis
+  files:
+    - pjit_sharding_smoke_report.json
+    - P46_RESULTS.md
+  records:
+    - backend
+    - platform
+    - device_count
+    - local_device_count
+    - device_kinds
+    - mesh_shape
+    - mesh_axis_names
+    - multi_device
+    - fallback_reason
+    - compile_api
+  proves:
+    - named_mesh_creation
+    - explicit_data_parallel_batch_sharding_annotation
+    - tiny_compile_forward_loss_path
+    - tiny_update_smoke
+    - finite_loss
+    - honest_single_device_fallback_reporting
+  does_not_prove:
+    - large_model_sharding
+    - throughput
+    - production_sharded_checkpointing
+    - multi_host_training
+    - full_distributed_optimizer_state_strategy
+    - pallas_wkv7_kernels
+    - qwen_scale_training
 
 optimizers:
   supported:

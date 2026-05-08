@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 45
-  checkpoint: multiscale_model_config_dry_runs
-  title: Add multi-scale model config dry-runs
+  phase: 46
+  checkpoint: pjit_sharding_compile_smoke
+  title: Add tiny pjit / sharding compile smoke
 
 workflow:
   primary_agent: Nyx
@@ -33,3 +33,4 @@ instructions:
   - Keep P43 WKV7 fixture work limited to the slow recurrence/state core; Pallas remains an unsupported placeholder.
   - Keep P44 streaming data work local/offline and bounded; it is not a real training phase or quality claim.
   - Keep P45 multi-scale dry-runs metadata-first; do not claim real training, pjit/sharding, full-scale measured memory, or one-device 7B training.
+  - Keep P46 as a tiny compile smoke only; report single-device fallback honestly and do not claim large-model sharding, throughput, or production sharded checkpointing.
