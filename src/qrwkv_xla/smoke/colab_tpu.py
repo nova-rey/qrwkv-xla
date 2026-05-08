@@ -11,12 +11,25 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from qrwkv_xla.checkpointing import load_checkpoint
 from qrwkv_xla.distill import (
     DistillCheckpointConfig,
     DistillTrackingConfig,
     load_distill_stage_config,
     run_distill_stage,
+)
+from qrwkv_xla.scale_planner import (
+    ScalePlan,
+    ScalePlanRequest,
+    distill_config_yaml,
+    make_plan,
+    plan_to_dict,
+    plan_to_yaml,
+    resolve_hardware_profile,
+    resolve_model_profile,
+    resolve_training_mode,
 )
 from qrwkv_xla.targets import read_manifest
 from qrwkv_xla.targets.shards import read_shard, validate_shard_arrays
@@ -66,6 +79,22 @@ TINY_HF_RESUME_CHECKPOINT = Path("checkpoints/p38_tpu_qwen_reference_tiny_hf_res
 TINY_HF_FIRST_RUN_DIR = Path("runs/p38/p38_tpu_qwen_reference_tiny_hf_first")
 TINY_HF_RESUME_RUN_DIR = Path("runs/p38/p38_tpu_qwen_reference_tiny_hf_resume")
 TINY_HF_RUN_ROOT = Path("runs/p38")
+P39_ARTIFACT_DIR = Path("artifacts/p39_planner_tpu_smoke")
+P39_SCALE_PLAN_YAML = P39_ARTIFACT_DIR / "scale_plan.yaml"
+P39_SCALE_PLAN_JSON = P39_ARTIFACT_DIR / "scale_plan.json"
+P39_GENERATED_DISTILL_CONFIG_PATH = P39_ARTIFACT_DIR / "generated_distill.yaml"
+P39_GENERATED_TEACHER_EXPORT_CONFIG_PATH = P39_ARTIFACT_DIR / "teacher_export.yaml"
+P39_TARGETS_DIR = Path("artifacts/teacher_targets/p39_tiny_hf_logits_smoke")
+P39_RESULTS_MD = P39_ARTIFACT_DIR / "P39_RESULTS.md"
+P39_RESULTS_BUNDLE = P39_ARTIFACT_DIR / "p39_results_bundle.tar.gz"
+P39_FIRST_CHECKPOINT = Path("checkpoints/p39_planner_tpu_smoke_first")
+P39_RESUME_CHECKPOINT = Path("checkpoints/p39_planner_tpu_smoke_resume")
+P39_FIRST_RUN_DIR = Path("runs/p39/p39_planner_tpu_smoke_first")
+P39_RESUME_RUN_DIR = Path("runs/p39/p39_planner_tpu_smoke_resume")
+P39_RUN_ROOT = Path("runs/p39")
+P39_MODEL_PROFILE = "p39_tiny_hf_qwen_rope_smoke"
+P39_HARDWARE_PROFILE = "kaggle_tpu_v5e_8"
+P39_TRAINING_MODE = "smoke_hidden_logits_sgd"
 
 
 class ColabTpuSmokeError(RuntimeError):
@@ -196,6 +225,40 @@ P38_TINY_HF_SPEC = SmokeSpec(
     tracking_notes=(
         "P38 manual TPU smoke with real sshleifer/tiny-gpt2 teacher targets",
         "tiny logits-bearing rwkv7_qwen_reference train/resume proof",
+    ),
+)
+P39_PLANNER_TPU_SPEC = SmokeSpec(
+    phase="P39",
+    config_path=P39_GENERATED_DISTILL_CONFIG_PATH,
+    targets_dir=P39_TARGETS_DIR,
+    artifact_dir=P39_ARTIFACT_DIR,
+    results_md=P39_RESULTS_MD,
+    results_bundle=P39_RESULTS_BUNDLE,
+    first_checkpoint=P39_FIRST_CHECKPOINT,
+    resume_checkpoint=P39_RESUME_CHECKPOINT,
+    first_run_dir=P39_FIRST_RUN_DIR,
+    resume_run_dir=P39_RESUME_RUN_DIR,
+    run_root=P39_RUN_ROOT,
+    first_run_name="p39_planner_tpu_smoke_first",
+    resume_run_name="p39_planner_tpu_smoke_resume",
+    include_logits=True,
+    metric_names=("loss", "hidden_mse", "logits_kl"),
+    export_kind="hf",
+    teacher_export_config_path=P39_GENERATED_TEACHER_EXPORT_CONFIG_PATH,
+    result_title="P39 Planner-Generated TPU Smoke Results",
+    result_scope=(
+        "This artifact proves the P39 scale planner can generate the tiny TPU "
+        "smoke config and that the generated config runs one-step first/resume "
+        "distillation on a real TPU with sshleifer/tiny-gpt2 teacher targets."
+    ),
+    result_limits=(
+        "It does not prove Qwen-scale fit, long training, pjit sharding, "
+        "multi-host TPU, Pallas kernels, lm_eval, WandB, or HF student export."
+    ),
+    tracking_tags=("p39", "planner-tpu-smoke", "tiny-hf", "manual"),
+    tracking_notes=(
+        "P39 planner-generated TPU smoke",
+        "tiny RoPE-valid rwkv7_qwen_reference train/resume proof",
     ),
 )
 
@@ -332,6 +395,28 @@ def run_tiny_hf_smoke_pair(config_path: Path = TINY_HF_CONFIG_PATH) -> SmokeResu
     return _run_distill_smoke_pair(P38_TINY_HF_SPEC, config_path=config_path)
 
 
+def run_planner_tpu_smoke(
+    config_path: Path = P39_GENERATED_DISTILL_CONFIG_PATH,
+) -> SmokeResults:
+    runtime = collect_runtime_summary(Path.cwd())
+    print(format_runtime_summary(runtime))
+    assert_tpu_backend(runtime)
+    matmul_sum = run_tiny_matmul_sanity()
+    print(f"tiny_matmul_sum: {matmul_sum:.8f}")
+
+    plan = write_p39_planner_artifacts()
+    validate_p39_plan_fit(plan)
+    print(
+        f"planner_fit: {plan.fit.fit} ({plan.fit.estimated_total_gb:.4f} GiB estimated)"
+    )
+    return _run_prepared_smoke_pair(
+        P39_PLANNER_TPU_SPEC,
+        config_path=config_path,
+        runtime=runtime,
+        matmul_sum=matmul_sum,
+    )
+
+
 def _run_distill_smoke_pair(spec: SmokeSpec, *, config_path: Path) -> SmokeResults:
     runtime = collect_runtime_summary(Path.cwd())
     print(format_runtime_summary(runtime))
@@ -339,6 +424,21 @@ def _run_distill_smoke_pair(spec: SmokeSpec, *, config_path: Path) -> SmokeResul
     matmul_sum = run_tiny_matmul_sanity()
     print(f"tiny_matmul_sum: {matmul_sum:.8f}")
 
+    return _run_prepared_smoke_pair(
+        spec,
+        config_path=config_path,
+        runtime=runtime,
+        matmul_sum=matmul_sum,
+    )
+
+
+def _run_prepared_smoke_pair(
+    spec: SmokeSpec,
+    *,
+    config_path: Path,
+    runtime: RuntimeSummary,
+    matmul_sum: float,
+) -> SmokeResults:
     export_smoke_targets(spec)
     validate_smoke_targets(spec.targets_dir, spec=spec)
     first_artifacts, first_summary, first_metrics = _run_one_step(
@@ -384,6 +484,132 @@ def _run_distill_smoke_pair(spec: SmokeSpec, *, config_path: Path) -> SmokeResul
     write_results_markdown(results, spec.results_md, spec=spec)
     write_results_bundle(spec.results_bundle, spec=spec)
     return results
+
+
+def make_p39_plan() -> ScalePlan:
+    request = ScalePlanRequest(
+        model_profile=resolve_model_profile(P39_MODEL_PROFILE),
+        hardware_profile=resolve_hardware_profile(P39_HARDWARE_PROFILE),
+        training_mode=resolve_training_mode(P39_TRAINING_MODE),
+        sequence_length=8,
+        batch_size=2,
+        microbatch_size=2,
+        grad_accum_steps=1,
+        dtype="fp32",
+        auto=False,
+        minimum_sequence_length=8,
+    )
+    return make_plan(request)
+
+
+def write_p39_planner_artifacts() -> ScalePlan:
+    plan = make_p39_plan()
+    P39_ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+    P39_SCALE_PLAN_YAML.write_text(plan_to_yaml(plan), encoding="utf-8")
+    P39_SCALE_PLAN_JSON.write_text(
+        json.dumps(plan_to_dict(plan), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    P39_GENERATED_DISTILL_CONFIG_PATH.write_text(
+        _p39_distill_config_yaml(plan),
+        encoding="utf-8",
+    )
+    P39_GENERATED_TEACHER_EXPORT_CONFIG_PATH.write_text(
+        _p39_teacher_export_config_yaml(),
+        encoding="utf-8",
+    )
+    return plan
+
+
+def validate_p39_plan_fit(plan: ScalePlan) -> None:
+    if plan.fit.fit not in {"yes", "maybe"}:
+        raise ColabTpuSmokeError(
+            f"P39 planner fit must be yes/maybe for tiny profile, got {plan.fit.fit!r}"
+        )
+
+
+def _p39_distill_config_yaml(plan: ScalePlan) -> str:
+    payload = yaml.safe_load(distill_config_yaml(plan))
+    if not isinstance(payload, dict):
+        raise ColabTpuSmokeError("P39 generated distill config is not a mapping")
+    distillation = payload.get("distillation")
+    if not isinstance(distillation, dict):
+        raise ColabTpuSmokeError("P39 generated distill config missing distillation")
+    distillation["targets_dir"] = str(P39_TARGETS_DIR)
+    student = distillation.get("student")
+    if not isinstance(student, dict):
+        raise ColabTpuSmokeError("P39 generated distill config missing student")
+    student["emit_logits"] = True
+    distillation["optimizer"] = {"type": "sgd", "learning_rate": 0.001}
+    distillation["training"] = {
+        "max_steps": 1,
+        "seed": 0,
+        "planned_batch_size": plan.request.batch_size,
+        "planned_microbatch_size": plan.request.microbatch_size,
+        "planned_grad_accum_steps": plan.request.grad_accum_steps,
+        "planned_sequence_length": plan.request.sequence_length,
+    }
+    distillation["planner"] = {
+        "phase": "P39",
+        "model_profile": P39_MODEL_PROFILE,
+        "hardware_profile": P39_HARDWARE_PROFILE,
+        "training_mode": P39_TRAINING_MODE,
+        "fit": plan.fit.fit,
+        "planner_recommended_logits_kl": plan.recommended["logits_kl"],
+        "validated_tiny_execution_logits_kl": True,
+        "source": str(P39_SCALE_PLAN_JSON),
+    }
+    losses = distillation.get("losses")
+    if not isinstance(losses, dict):
+        raise ColabTpuSmokeError("P39 generated distill config missing losses")
+    losses["logits_kl"] = {"enabled": True, "weight": 1.0}
+    return (
+        "# Generated by P39 planner TPU smoke.\n"
+        "# Tiny validated execution path only; not a Qwen-scale proof.\n"
+        + yaml.safe_dump(payload, sort_keys=False)
+    )
+
+
+def _p39_teacher_export_config_yaml() -> str:
+    payload = {
+        "teacher": {
+            "family": "hf-causal-lm",
+            "policy_label": "tiny-hf-smoke-p39",
+            "fallback_label": None,
+            "resolved_model_id": "sshleifer/tiny-gpt2",
+            "tokenizer_id": "sshleifer/tiny-gpt2",
+            "trust_remote_code": False,
+            "local_files_only": False,
+            "revision": None,
+            "device": "cpu",
+            "dtype": "auto",
+        },
+        "targets": {
+            "sequence_length": 8,
+            "hidden_size": None,
+            "num_layers": None,
+            "dtype": "fp32",
+            "include_logits": True,
+            "include_attention_targets": False,
+            "vocab_size": 50257,
+            "prompt_texts": [
+                "QRWKV-XLA P39 planner TPU smoke",
+                "Tiny GPT-2 planner-generated teacher targets",
+            ],
+        },
+        "runtime": {
+            "exporter_backend": "hf",
+            "batch_size": 2,
+            "num_shards": 1,
+            "seed": 3939,
+            "output_dir": "../teacher_targets/p39_tiny_hf_logits_smoke",
+        },
+    }
+    return (
+        "# Generated by P39 planner TPU smoke.\n"
+        "# Real tiny HF target export for sshleifer/tiny-gpt2.\n"
+        + yaml.safe_dump(payload, sort_keys=False)
+    )
 
 
 def export_smoke_targets(spec: SmokeSpec) -> Path:
@@ -597,22 +823,26 @@ def write_results_markdown(
     spec: SmokeSpec = P36_SPEC,
 ) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    text = "\n".join(
+    lines = [
+        f"# {spec.result_title}",
+        "",
+        spec.result_scope,
+        spec.result_limits,
+        "",
+        "## Runtime",
+        "",
+        f"- Python: {results.runtime.python}",
+        f"- JAX: {results.runtime.jax_version}",
+        f"- Backend: {results.runtime.default_backend}",
+        f"- Git commit: {results.runtime.git_commit}",
+        f"- Git dirty: {results.runtime.git_dirty}",
+        f"- Tiny matmul sum: {results.matmul_sum:.8f}",
+        "",
+    ]
+    if spec.phase == "P39":
+        lines.extend(_p39_results_metadata_lines())
+    lines.extend(
         [
-            f"# {spec.result_title}",
-            "",
-            spec.result_scope,
-            spec.result_limits,
-            "",
-            "## Runtime",
-            "",
-            f"- Python: {results.runtime.python}",
-            f"- JAX: {results.runtime.jax_version}",
-            f"- Backend: {results.runtime.default_backend}",
-            f"- Git commit: {results.runtime.git_commit}",
-            f"- Git dirty: {results.runtime.git_dirty}",
-            f"- Tiny matmul sum: {results.matmul_sum:.8f}",
-            "",
             "## Distill",
             "",
             _format_summary(
@@ -631,6 +861,7 @@ def write_results_markdown(
             "",
         ]
     )
+    text = "\n".join(lines)
     path.write_text(text, encoding="utf-8")
     return path
 
@@ -653,12 +884,60 @@ def write_results_bundle(path: Path, *, spec: SmokeSpec = P36_SPEC) -> Path:
         spec.resume_run_dir / "summary.json",
         spec.results_md,
     ]
+    if spec.phase == "P39":
+        bundle_inputs.extend(
+            [
+                P39_SCALE_PLAN_YAML,
+                P39_SCALE_PLAN_JSON,
+                P39_GENERATED_DISTILL_CONFIG_PATH,
+                P39_GENERATED_TEACHER_EXPORT_CONFIG_PATH,
+            ]
+        )
     shard_paths = sorted((spec.targets_dir / "shards").glob("shard_*.npz"))
     with tarfile.open(path, "w:gz") as archive:
         for item in [*bundle_inputs, *shard_paths]:
             if item is not None and item.is_file():
                 archive.add(item, arcname=str(item))
     return path
+
+
+def _p39_results_metadata_lines() -> list[str]:
+    lines = [
+        "## Planner",
+        "",
+        f"- Model profile: {P39_MODEL_PROFILE}",
+        f"- Hardware profile: {P39_HARDWARE_PROFILE}",
+        f"- Training mode: {P39_TRAINING_MODE}",
+        f"- Scale plan YAML: {P39_SCALE_PLAN_YAML}",
+        f"- Scale plan JSON: {P39_SCALE_PLAN_JSON}",
+        f"- Generated distill config: {P39_GENERATED_DISTILL_CONFIG_PATH}",
+        (
+            "- Teacher export config: generated at "
+            f"{P39_GENERATED_TEACHER_EXPORT_CONFIG_PATH}"
+        ),
+        "- Export config source: generated, not reused from P38",
+    ]
+    if P39_SCALE_PLAN_JSON.is_file():
+        payload = json.loads(P39_SCALE_PLAN_JSON.read_text(encoding="utf-8"))
+        fit = payload.get("fit", {})
+        selected = payload.get("selected", {})
+        if isinstance(fit, dict):
+            lines.extend(
+                [
+                    f"- Planner fit: {fit.get('fit')}",
+                    f"- Estimated total GiB: {fit.get('estimated_total_gb')}",
+                    f"- Planner utilization: {fit.get('utilization')}",
+                ]
+            )
+        if isinstance(selected, dict):
+            lines.extend(
+                [
+                    f"- Planned batch size: {selected.get('batch_size')}",
+                    f"- Planned sequence length: {selected.get('sequence_length')}",
+                ]
+            )
+    lines.append("")
+    return lines
 
 
 def _run_one_step(

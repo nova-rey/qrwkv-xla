@@ -574,3 +574,22 @@
 - [x] Add Colab and Kaggle-friendly protocol docs
 - [x] Add CPU-only tests for P38 config, target validation, output validation, and bundle contents
 - [x] Preserve CI as CPU-only; live HF download and TPU execution remain manual and opt-in
+
+## P39 — QRWKV-XLA Scale Planner Generated TPU Smoke
+
+- [x] Add RoPE-valid tiny HF planner profile for `rwkv7_qwen_reference`
+- [x] Add Kaggle TPU v5e hardware planning profile
+- [x] Generate P39 planner outputs under `artifacts/p39_planner_tpu_smoke/`
+- [x] Generate P39 distill config from the planner output
+- [x] Generate P39 real tiny HF teacher export config
+- [x] Add manual `scripts/run_planner_tpu_smoke.py` harness
+- [x] Reuse shared TPU smoke helpers for target, metric, checkpoint, and bundle validation
+- [x] Preserve P36, P37, and P38 script behavior
+- [x] Validate planner fit is `yes` or `maybe` for the tiny profile
+- [x] Validate real-HF target manifest and shard arrays include masks, hidden states, and logits
+- [x] Validate finite `loss`, `hidden_mse`, and `logits_kl`
+- [x] Validate optimizer/checkpoint step progression `1 -> 2`
+- [x] Keep non-TPU failure message unchanged
+- [x] Add Colab and Kaggle copy-paste docs with caveats
+- [x] Add CPU-only tests for the P39 harness and generated planner artifacts
+- [x] Preserve CI as CPU-only; live HF download and TPU execution remain manual and opt-in

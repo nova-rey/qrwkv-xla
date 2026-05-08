@@ -625,3 +625,35 @@ P38 is documented for both Colab and Kaggle TPU sessions in
 Qwen-scale teacher export or training, no multi-host TPU or `pjit` sharding, no
 Pallas/WKV7 optimized kernels, no model-quality claim, no WandB or lm-eval, no
 HF student export, and no full RADLADS numerical parity claim.
+
+## Phase 39 — Planner-Generated Tiny HF TPU Smoke
+
+This phase connects the scale planner to the real tiny HF TPU smoke path. It
+adds the RoPE-valid planner profile `p39_tiny_hf_qwen_rope_smoke`, shaped for
+`sshleifer/tiny-gpt2` targets and the current `rwkv7_qwen_reference` backend:
+vocab size 50257, hidden size 2, two layers, one query head, one KV head, and
+head size 2. It also adds the `kaggle_tpu_v5e_8` hardware profile as an
+aggregate TPU v5e planning budget.
+
+The generated planner outputs live under
+`artifacts/p39_planner_tpu_smoke/`: `scale_plan.yaml`, `scale_plan.json`,
+`generated_distill.yaml`, and `teacher_export.yaml`. The teacher export config
+is generated for P39 rather than reused from P38; it still uses the same real
+tiny HF model family, `sshleifer/tiny-gpt2`, and writes targets to
+`artifacts/teacher_targets/p39_tiny_hf_logits_smoke`.
+
+The manual launcher is `scripts/run_planner_tpu_smoke.py`. It prints runtime
+metadata, requires the existing exact TPU backend check, runs a tiny JAX
+matmul, regenerates the P39 planner artifacts, validates that the tiny plan fit
+is `yes` or `maybe`, exports real HF targets with hidden states and logits,
+validates required target keys, runs one TPU distill step, resumes for one more
+step, validates finite `loss`, `hidden_mse`, and `logits_kl`, and checks
+optimizer/checkpoint step progression from 1 to 2. Successful manual runs write
+`artifacts/p39_planner_tpu_smoke/P39_RESULTS.md` and
+`artifacts/p39_planner_tpu_smoke/p39_results_bundle.tar.gz`.
+
+P39 is documented in `docs/COLAB_TPU_PLANNER_SMOKE.md` and
+`docs/KAGGLE_TPU_PLANNER_SMOKE.md`. Planner fit remains planning-only except
+for the tiny validated execution path. P39 does not add Qwen-scale or long
+training, pjit/sharding/multi-host TPU, Pallas kernels, lm-eval, WandB, or HF
+student export.

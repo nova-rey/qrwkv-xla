@@ -19,6 +19,7 @@ from qrwkv_xla.scale_planner import (
 def test_builtin_profiles_are_present_and_valid() -> None:
     assert set(MODEL_PROFILES) == {
         "tiny_debug",
+        "p39_tiny_hf_qwen_rope_smoke",
         "small_cpu",
         "colab_tpu_smoke",
         "qwen_0_5b_candidate",
@@ -31,6 +32,7 @@ def test_builtin_profiles_are_present_and_valid() -> None:
         "local_cpu_64gb",
         "colab_tpu_v2_8",
         "colab_tpu_v3_8",
+        "kaggle_tpu_v5e_8",
         "single_l4_24gb",
         "single_a100_40gb",
         "grant_tpu_v5e_8",

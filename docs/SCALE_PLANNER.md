@@ -203,3 +203,15 @@ Checked-in example plans live under `docs/examples/scale_plans/`:
 - `qwen_0_5b_on_colab_tpu_v3_hidden_only.yaml`
 - `qwen_1_5b_on_grant_tpu_v5e_hidden_only.yaml`
 - `qwen_7b_stretch_big_budget_placeholder.yaml`
+
+## P39 tiny TPU smoke profile
+
+P39 adds `p39_tiny_hf_qwen_rope_smoke`, a deliberately tiny
+`rwkv7_qwen_reference` profile shaped for `sshleifer/tiny-gpt2` target bundles.
+It uses hidden size 2, one head, and one KV head so the RoPE head size is 2 and
+valid. The matching hardware profile is `kaggle_tpu_v5e_8`.
+
+The generated P39 plan files live under
+`artifacts/p39_planner_tpu_smoke/`. They are still planning artifacts; P39 only
+validates execution for the tiny smoke path driven by
+`scripts/run_planner_tpu_smoke.py`.

@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 38
-checkpoint: real_tiny_hf_tpu_distill_smoke
+phase: 39
+checkpoint: planner_generated_tiny_hf_tpu_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,10 +55,11 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add a manual TPU smoke harness that exports real sshleifer/tiny-gpt2 HF
-  teacher targets, validates the target bundle, and runs a tiny
-  rwkv7_qwen_reference hidden+logits distill train/resume proof without making
-  TPU execution or live HF download part of normal CPU CI.
+  Add a manual TPU smoke harness that generates a tiny RoPE-valid scale plan,
+  writes planner-derived distill/export configs, exports real sshleifer/tiny-gpt2
+  HF teacher targets, and runs a tiny rwkv7_qwen_reference hidden+logits
+  distill train/resume proof without making TPU execution or live HF download
+  part of normal CPU CI.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -231,6 +232,7 @@ scale_planner:
   status: planning_only_not_hardware_validated
   model_profiles:
     - tiny_debug
+    - p39_tiny_hf_qwen_rope_smoke
     - small_cpu
     - colab_tpu_smoke
     - qwen_0_5b_candidate
@@ -242,6 +244,7 @@ scale_planner:
     - local_cpu_64gb
     - colab_tpu_v2_8
     - colab_tpu_v3_8
+    - kaggle_tpu_v5e_8
     - single_l4_24gb
     - single_a100_40gb
     - grant_tpu_v5e_8
@@ -397,6 +400,62 @@ tiny_hf_tpu_smoke:
     - multi_host_tpu
     - pallas_or_optimized_wkv7_kernels
     - full_radlads_numerical_parity
+    - wandb_or_lm_eval
+    - hf_student_export
+
+planner_tpu_smoke:
+  phase: P39
+  status: manual_opt_in
+  model_profile: p39_tiny_hf_qwen_rope_smoke
+  hardware_profile: kaggle_tpu_v5e_8
+  training_mode: smoke_hidden_logits_sgd
+  scale_plan_yaml: artifacts/p39_planner_tpu_smoke/scale_plan.yaml
+  scale_plan_json: artifacts/p39_planner_tpu_smoke/scale_plan.json
+  generated_distill_config: artifacts/p39_planner_tpu_smoke/generated_distill.yaml
+  generated_teacher_export_config: artifacts/p39_planner_tpu_smoke/teacher_export.yaml
+  export_config_source: generated_not_reused_from_p38
+  harness: scripts/run_planner_tpu_smoke.py
+  docs:
+    colab: docs/COLAB_TPU_PLANNER_SMOKE.md
+    kaggle: docs/KAGGLE_TPU_PLANNER_SMOKE.md
+  target_backend: tpu
+  teacher_backend: hf
+  teacher_model_id: sshleifer/tiny-gpt2
+  student_architecture: rwkv7_qwen_reference
+  student_shape:
+    vocab_size: 50257
+    hidden_size: 2
+    num_layers: 2
+    num_heads: 1
+    num_kv_heads: 1
+    rope_valid_head_size: 2
+  loss: hidden_mse_plus_logits_kl
+  real_hf_targets: artifacts/teacher_targets/p39_tiny_hf_logits_smoke
+  first_checkpoint: checkpoints/p39_planner_tpu_smoke_first
+  resume_checkpoint: checkpoints/p39_planner_tpu_smoke_resume
+  first_run_dir: runs/p39/p39_planner_tpu_smoke_first
+  resume_run_dir: runs/p39/p39_planner_tpu_smoke_resume
+  result_markdown: artifacts/p39_planner_tpu_smoke/P39_RESULTS.md
+  result_bundle: artifacts/p39_planner_tpu_smoke/p39_results_bundle.tar.gz
+  proves:
+    - jax_tpu_backend_selected
+    - tiny_jax_matmul_sanity
+    - p39_planner_artifacts_generated
+    - tiny_plan_fit_yes_or_maybe
+    - real_tiny_hf_teacher_export
+    - required_target_arrays_input_attention_loss_hidden_logits
+    - one_step_hidden_plus_logits_distill
+    - checkpoint_resume_one_more_step
+    - finite_loss_hidden_mse_and_logits_kl
+    - optimizer_checkpoint_step_progression_1_to_2
+  does_not_prove:
+    - qwen_scale_teacher_export
+    - qwen_scale_training
+    - planner_fit_beyond_tiny_execution_path
+    - model_quality
+    - pjit_or_sharding
+    - multi_host_tpu
+    - pallas_or_optimized_wkv7_kernels
     - wandb_or_lm_eval
     - hf_student_export
 
