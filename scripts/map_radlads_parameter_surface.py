@@ -10,7 +10,7 @@ DEFAULT_OUT = Path("artifacts/parity/radlads_source_bridge")
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Write the P40 RADLADS-to-QRWKV parameter surface map."
+        description="Write the RADLADS-to-QRWKV parameter surface map."
     )
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT)
     args = parser.parse_args()

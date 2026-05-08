@@ -299,3 +299,21 @@ metadata, exact smoke config, required training metrics, local artifact hashes,
 and optional WandB handoff when explicitly requested. It does not require WandB
 for normal development or CI and does not prove real training, production
 dashboards, sweeps, online logging, official benchmarks, or model quality.
+
+## Phase 48 — RADLADS LoRA Rank Math Surface
+
+Goal: complete the slow-reference RADLADS low-rank math surface for the
+Qwen/RADLADS reference backend while preserving legacy defaults.
+
+Current checkpoint: `radlads_lora_rank_math_surface`. This checkpoint adds
+explicit flags for low-rank decay, low-rank ICLR, value residual mixing,
+balance-state terms, attention group norm, and an overall
+`radlads_compatible_math` mode. It adds source-shaped parameter leaves for
+`w0/w1/w2`, `a0/a1/a2`, `v0/v1/v2`, `k_k/k_a/r_k`, and `ln_x`, plus a P48
+smoke that writes `P48_RESULTS.md`, `lora_rank_math_report.json`,
+`P48_PARAMETER_SURFACE_MAP.md`, and `parameter_surface_map.json` under
+`artifacts/p48_radlads_lora_rank_math`.
+
+P48 is CPU/offline slow-reference work only. It does not claim full RADLADS
+numerical parity, fitted conversion, optimized WKV/Pallas kernels, TPU
+performance, Qwen-scale execution, or active `r_k` residual math.

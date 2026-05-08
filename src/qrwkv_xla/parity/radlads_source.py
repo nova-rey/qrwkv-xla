@@ -181,24 +181,26 @@ def build_parameter_surface_map() -> dict[str, Any]:
         _row("lm_head.weight", "lm_head.weight", "direct_role_if_logits_untied"),
         _row(
             "layers.*.self_attn.w0/w1/w2",
-            "layers.self_attn.w_proj.weight + time_bias",
-            "unsupported",
-            "RADLADS low-rank decay is not represented by QRWKV dense "
-            "projection without a fitted conversion.",
+            "layers.self_attn.w0/w1/w2",
+            "represented_flagged_math",
+            "P48 adds source-shaped low-rank decay leaves and the audited "
+            "w0 + (tanh(xw @ w1) @ w2).float() slow path behind explicit "
+            "RADLADS-compatible config flags.",
         ),
         _row(
             "layers.*.self_attn.a0/a1/a2",
-            "layers.self_attn.a_proj.weight",
-            "unsupported",
-            "RADLADS low-rank ICLR path is not represented by QRWKV dense "
-            "projection without a fitted conversion.",
+            "layers.self_attn.a0/a1/a2",
+            "represented_flagged_math",
+            "P48 adds source-shaped low-rank ICLR leaves and the audited "
+            "sigmoid(a0 + (xa @ a1) @ a2) slow path behind explicit flags.",
         ),
         _row(
             "layers.*.self_attn.v0/v1/v2",
-            None,
-            "unsupported",
-            "Value residual mix against v_first is absent in QRWKV-XLA "
-            "current behavior.",
+            "layers.self_attn.v0/v1/v2",
+            "represented_flagged_math",
+            "P48 threads layer-0 v_first through the slow reference and applies "
+            "the audited value residual mix for later layers behind explicit "
+            "flags.",
         ),
         _row(
             "layers.*.self_attn.gate or g1/g2",
@@ -208,17 +210,18 @@ def build_parameter_surface_map() -> dict[str, Any]:
         ),
         _row(
             "layers.*.self_attn.k_k/k_a/r_k",
-            None,
-            "unsupported",
-            "Balance-state and residual key terms are not present in current "
-            "QRWKV parameters.",
+            "layers.self_attn.k_k/k_a/r_k",
+            "partially_represented_flagged_math",
+            "k_k and k_a participate in the source-backed balance-state branch "
+            "behind explicit flags. r_k is represented as a parameter surface "
+            "only because the inspected RADLADS residual line is commented out.",
         ),
         _row(
             "layers.*.self_attn.ln_x",
-            None,
-            "unsupported",
-            "RADLADS optional attention group norm is not implemented in the "
-            "current slow reference.",
+            "layers.self_attn.ln_x.weight/bias",
+            "represented_flagged_math",
+            "P48 adds optional attention head group norm using ln_x weight/bias "
+            "behind explicit flags; legacy mode keeps the previous output path.",
         ),
     ]
     counts: dict[str, int] = {}

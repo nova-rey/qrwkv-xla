@@ -62,6 +62,16 @@ class RWKV7QwenReferenceConfig:
     emit_logits: bool = False
     tie_embeddings: bool = False
     emit_mixer_outputs: bool = False
+    radlads_compatible_math: bool = False
+    radlads_low_rank_decay: bool = False
+    radlads_low_rank_iclr: bool = False
+    radlads_value_residual_mix: bool = False
+    radlads_balance_state_terms: bool = False
+    radlads_attention_group_norm: bool = False
+    radlads_balance_state: bool = False
+    lora_rank_decay: int | None = None
+    lora_rank_iclr: int | None = None
+    lora_rank_value_residual_mix: int | None = None
 
     def __post_init__(self) -> None:
         for name in ("vocab_size", "hidden_size", "num_layers", "num_heads"):
@@ -98,6 +108,19 @@ class RWKV7QwenReferenceConfig:
             raise ValueError(f"rope_theta must be > 0, got {self.rope_theta}")
         if self.rms_norm_eps <= 0.0:
             raise ValueError(f"rms_norm_eps must be > 0, got {self.rms_norm_eps}")
+        for name in (
+            "lora_rank_decay",
+            "lora_rank_iclr",
+            "lora_rank_value_residual_mix",
+        ):
+            value = getattr(self, name)
+            if value is not None and value <= 0:
+                raise ValueError(f"{name} must be > 0 when provided")
+        if self.radlads_balance_state and not self.use_radlads_balance_state_terms:
+            raise ValueError(
+                "radlads_balance_state requires radlads_balance_state_terms "
+                "or radlads_compatible_math"
+            )
 
     @property
     def effective_num_kv_heads(self) -> int:
@@ -116,6 +139,54 @@ class RWKV7QwenReferenceConfig:
         if self.intermediate_size is None:
             return self.hidden_size * 4
         return self.intermediate_size
+
+    @property
+    def use_radlads_low_rank_decay(self) -> bool:
+        return self.radlads_compatible_math or self.radlads_low_rank_decay
+
+    @property
+    def use_radlads_low_rank_iclr(self) -> bool:
+        return self.radlads_compatible_math or self.radlads_low_rank_iclr
+
+    @property
+    def use_radlads_value_residual_mix(self) -> bool:
+        return self.radlads_compatible_math or self.radlads_value_residual_mix
+
+    @property
+    def use_radlads_balance_state_terms(self) -> bool:
+        return self.radlads_compatible_math or self.radlads_balance_state_terms
+
+    @property
+    def use_radlads_attention_group_norm(self) -> bool:
+        return self.radlads_attention_group_norm
+
+    @property
+    def use_radlads_attention_output_scale(self) -> bool:
+        return self.radlads_compatible_math or self.radlads_attention_group_norm
+
+    @property
+    def effective_lora_rank_decay(self) -> int:
+        return self.lora_rank_decay or _radlads_lora_rank(
+            self.hidden_size,
+            exponent=0.5,
+            multiplier=1.8,
+        )
+
+    @property
+    def effective_lora_rank_iclr(self) -> int:
+        return self.lora_rank_iclr or _radlads_lora_rank(
+            self.hidden_size,
+            exponent=0.5,
+            multiplier=1.8,
+        )
+
+    @property
+    def effective_lora_rank_value_residual_mix(self) -> int:
+        return self.lora_rank_value_residual_mix or _radlads_lora_rank(
+            self.hidden_size,
+            exponent=0.5,
+            multiplier=1.3,
+        )
 
 
 def rwkv7_qwen_reference_initial_state(
@@ -199,10 +270,168 @@ class RWKV7QwenReferenceStudent:
 
     def init_params(self, key: jax.Array) -> dict[str, object]:
         keys = jax.random.split(key, 20)
+        extra_keys = jax.random.split(keys[15], 12)
         layer_count = self.config.num_layers
         hidden = self.config.hidden_size
         kv_hidden = self.config.kv_hidden_size
         intermediate = self.config.effective_intermediate_size
+        rank_decay = self.config.effective_lora_rank_decay
+        rank_iclr = self.config.effective_lora_rank_iclr
+        rank_value = self.config.effective_lora_rank_value_residual_mix
+        self_attn: dict[str, object] = {
+            "q_proj": {
+                "weight": _normal(
+                    keys[1],
+                    (layer_count, hidden, hidden),
+                    self.config.init_scale,
+                ),
+            },
+            "k_proj": {
+                "weight": _normal(
+                    keys[2],
+                    (layer_count, hidden, kv_hidden),
+                    self.config.init_scale,
+                ),
+            },
+            "v_proj": {
+                "weight": _normal(
+                    keys[3],
+                    (layer_count, hidden, kv_hidden),
+                    self.config.init_scale,
+                ),
+            },
+            "w_proj": {
+                "weight": _normal(
+                    keys[4],
+                    (layer_count, hidden, hidden),
+                    self.config.init_scale,
+                ),
+            },
+            "a_proj": {
+                "weight": _normal(
+                    keys[5],
+                    (layer_count, hidden, hidden),
+                    self.config.init_scale,
+                ),
+            },
+            "b_proj": {
+                "weight": _normal(
+                    keys[6],
+                    (layer_count, hidden, hidden),
+                    self.config.init_scale,
+                ),
+            },
+            "g_proj": {
+                "weight": _normal(
+                    keys[7],
+                    (layer_count, hidden, hidden),
+                    self.config.init_scale,
+                ),
+            },
+            "o_proj": {
+                "weight": _normal(
+                    keys[8],
+                    (layer_count, hidden, hidden),
+                    self.config.init_scale,
+                ),
+            },
+            "time_bias": _normal(
+                keys[9],
+                (layer_count, hidden),
+                self.config.init_scale,
+            ),
+            "time_mix": _normal(
+                keys[10],
+                (layer_count, hidden),
+                self.config.init_scale,
+            ),
+        }
+        if self.config.use_radlads_low_rank_decay:
+            self_attn.update(
+                {
+                    "w0": _normal(
+                        extra_keys[0],
+                        (layer_count, hidden),
+                        self.config.init_scale,
+                    ),
+                    "w1": _normal(
+                        extra_keys[1],
+                        (layer_count, hidden, rank_decay),
+                        self.config.init_scale,
+                    ),
+                    "w2": _normal(
+                        extra_keys[2],
+                        (layer_count, rank_decay, hidden),
+                        self.config.init_scale,
+                    ),
+                }
+            )
+        if self.config.use_radlads_low_rank_iclr:
+            self_attn.update(
+                {
+                    "a0": _normal(
+                        extra_keys[3],
+                        (layer_count, hidden),
+                        self.config.init_scale,
+                    ),
+                    "a1": _normal(
+                        extra_keys[4],
+                        (layer_count, hidden, rank_iclr),
+                        self.config.init_scale,
+                    ),
+                    "a2": _normal(
+                        extra_keys[5],
+                        (layer_count, rank_iclr, hidden),
+                        self.config.init_scale,
+                    ),
+                }
+            )
+        if self.config.use_radlads_value_residual_mix:
+            self_attn.update(
+                {
+                    "v0": _normal(
+                        extra_keys[6],
+                        (layer_count, hidden),
+                        self.config.init_scale,
+                    ),
+                    "v1": _normal(
+                        extra_keys[7],
+                        (layer_count, hidden, rank_value),
+                        self.config.init_scale,
+                    ),
+                    "v2": _normal(
+                        extra_keys[8],
+                        (layer_count, rank_value, hidden),
+                        self.config.init_scale,
+                    ),
+                }
+            )
+        if self.config.use_radlads_balance_state_terms:
+            self_attn.update(
+                {
+                    "k_k": _normal(
+                        extra_keys[9],
+                        (layer_count, hidden),
+                        self.config.init_scale,
+                    ),
+                    "k_a": _normal(
+                        extra_keys[10],
+                        (layer_count, hidden),
+                        self.config.init_scale,
+                    ),
+                    "r_k": _normal(
+                        extra_keys[11],
+                        (layer_count, self.config.num_heads, self.config.head_size),
+                        self.config.init_scale,
+                    ),
+                }
+            )
+        if self.config.use_radlads_attention_group_norm:
+            self_attn["ln_x"] = {
+                "weight": jnp.ones((layer_count, hidden), dtype=jnp.float32),
+                "bias": jnp.zeros((layer_count, hidden), dtype=jnp.float32),
+            }
+
         params: dict[str, object] = {
             "token_embedding": {
                 "weight": jax.random.normal(keys[0], (self.config.vocab_size, hidden))
@@ -213,74 +442,7 @@ class RWKV7QwenReferenceStudent:
                 "post_attention_layernorm": {
                     "weight": jnp.ones((layer_count, hidden)),
                 },
-                "self_attn": {
-                    "q_proj": {
-                        "weight": _normal(
-                            keys[1],
-                            (layer_count, hidden, hidden),
-                            self.config.init_scale,
-                        ),
-                    },
-                    "k_proj": {
-                        "weight": _normal(
-                            keys[2],
-                            (layer_count, hidden, kv_hidden),
-                            self.config.init_scale,
-                        ),
-                    },
-                    "v_proj": {
-                        "weight": _normal(
-                            keys[3],
-                            (layer_count, hidden, kv_hidden),
-                            self.config.init_scale,
-                        ),
-                    },
-                    "w_proj": {
-                        "weight": _normal(
-                            keys[4],
-                            (layer_count, hidden, hidden),
-                            self.config.init_scale,
-                        ),
-                    },
-                    "a_proj": {
-                        "weight": _normal(
-                            keys[5],
-                            (layer_count, hidden, hidden),
-                            self.config.init_scale,
-                        ),
-                    },
-                    "b_proj": {
-                        "weight": _normal(
-                            keys[6],
-                            (layer_count, hidden, hidden),
-                            self.config.init_scale,
-                        ),
-                    },
-                    "g_proj": {
-                        "weight": _normal(
-                            keys[7],
-                            (layer_count, hidden, hidden),
-                            self.config.init_scale,
-                        ),
-                    },
-                    "o_proj": {
-                        "weight": _normal(
-                            keys[8],
-                            (layer_count, hidden, hidden),
-                            self.config.init_scale,
-                        ),
-                    },
-                    "time_bias": _normal(
-                        keys[9],
-                        (layer_count, hidden),
-                        self.config.init_scale,
-                    ),
-                    "time_mix": _normal(
-                        keys[10],
-                        (layer_count, hidden),
-                        self.config.init_scale,
-                    ),
-                },
+                "self_attn": self_attn,
                 "mlp": {
                     "gate_proj": {
                         "weight": _normal(
@@ -370,8 +532,9 @@ class RWKV7QwenReferenceStudent:
         mixer_layers: list[jax.Array] = []
         wkv_states: list[jax.Array] = []
         shift_states: list[jax.Array] = []
+        v_first = None
         for layer_index in range(self.config.num_layers):
-            x, mixer, layer_wkv, layer_shift = self._layer(
+            x, mixer, layer_wkv, layer_shift, v_first = self._layer(
                 x,
                 mask=mask,
                 positions=positions,
@@ -379,6 +542,7 @@ class RWKV7QwenReferenceStudent:
                 layer_index=layer_index,
                 initial_wkv=state.wkv_matrix_state[layer_index],
                 initial_shift=state.shift_state[layer_index],
+                v_first=v_first,
             )
             hidden_layers.append(x)
             mixer_layers.append(mixer)
@@ -481,13 +645,14 @@ class RWKV7QwenReferenceStudent:
         layer_index: int,
         initial_wkv: jax.Array,
         initial_shift: jax.Array,
-    ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array]:
+        v_first: jax.Array | None,
+    ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array | None]:
         attn_input = _rms_norm(
             x,
             params["input_layernorm"]["weight"][layer_index],  # type: ignore[index]
             self.config.rms_norm_eps,
         )
-        attn_out, final_wkv, final_shift = self._attention(
+        attn_out, final_wkv, final_shift, next_v_first = self._attention(
             attn_input,
             mask=mask,
             positions=positions,
@@ -495,6 +660,7 @@ class RWKV7QwenReferenceStudent:
             layer_index=layer_index,
             initial_wkv=initial_wkv,
             initial_shift=initial_shift,
+            v_first=v_first,
         )
         residual = x + attn_out
         mlp_input = _rms_norm(
@@ -508,7 +674,7 @@ class RWKV7QwenReferenceStudent:
             layer_index=layer_index,
         )
         mlp_out = mlp_out * mask
-        return residual + mlp_out, attn_out, final_wkv, final_shift
+        return residual + mlp_out, attn_out, final_wkv, final_shift, next_v_first
 
     def _attention(
         self,
@@ -520,7 +686,8 @@ class RWKV7QwenReferenceStudent:
         layer_index: int,
         initial_wkv: jax.Array,
         initial_shift: jax.Array,
-    ) -> tuple[jax.Array, jax.Array, jax.Array]:
+        v_first: jax.Array | None,
+    ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array | None]:
         batch_size, _sequence_length, hidden = x.shape
         head_size = self.config.head_size
         num_heads = self.config.num_heads
@@ -539,46 +706,118 @@ class RWKV7QwenReferenceStudent:
             weight = params[f"{name}_proj"]["weight"][layer_index]  # type: ignore[index]
             return (token @ weight).reshape(batch_size, heads, head_size)
 
+        def low_rank(token: jax.Array, prefix: str) -> jax.Array:
+            base = jnp.asarray(params[f"{prefix}0"])[layer_index]
+            down = jnp.asarray(params[f"{prefix}1"])[layer_index]
+            up = jnp.asarray(params[f"{prefix}2"])[layer_index]
+            return base[None, :] + (jnp.tanh(token @ down) @ up).astype(jnp.float32)
+
+        if (
+            self.config.use_radlads_value_residual_mix
+            and layer_index > 0
+            and v_first is None
+        ):
+            raise ValueError("v_first is required for RADLADS value residual mixing")
+        v_first_scan = (
+            jnp.swapaxes(v_first, 0, 1)
+            if v_first is not None
+            else jnp.zeros((x.shape[1], batch_size, hidden), dtype=x.dtype)
+        )
+        xs = xs + (v_first_scan,)
+
         def step(carry, item):
             prev_wkv, prev_shift = carry
-            token, token_mask, position = item
+            token, token_mask, position, token_v_first = item
             mixed = token + time_mix * (prev_shift - token)
-            q = project(mixed, "q", num_heads)
-            k = project(mixed, "k", num_kv_heads)
-            v = project(mixed, "v", num_kv_heads)
+            projection_token = token if self.config.radlads_compatible_math else mixed
+            q = project(projection_token, "q", num_heads)
+            k = project(projection_token, "k", num_kv_heads)
+            v = project(projection_token, "v", num_kv_heads)
             q = rwkv7_qwen_reference_rope(q, position, theta=self.config.rope_theta)
             k = rwkv7_qwen_reference_rope(k, position, theta=self.config.rope_theta)
             k = rwkv7_qwen_reference_group_kv(k, num_heads=num_heads)
             v = rwkv7_qwen_reference_group_kv(v, num_heads=num_heads)
+            v_flat = v.reshape(batch_size, hidden)
+            next_v_first = v_flat
+            if self.config.use_radlads_value_residual_mix and layer_index > 0:
+                v_mix = jax.nn.sigmoid(low_rank(token, "v"))
+                v_flat = v_flat + (token_v_first - v_flat) * v_mix
+                v = v_flat.reshape(batch_size, num_heads, head_size)
             token_mask_state = token_mask.reshape(batch_size, 1, 1)
             v = v * token_mask_state
-            w = project(mixed, "w", num_heads) + time_bias[None, :, :]
-            a = jax.nn.sigmoid(project(mixed, "a", num_heads))
+            if self.config.use_radlads_low_rank_decay:
+                w = low_rank(token, "w").reshape(batch_size, num_heads, head_size)
+            else:
+                w = project(mixed, "w", num_heads) + time_bias[None, :, :]
+            if self.config.use_radlads_low_rank_iclr:
+                a = jax.nn.sigmoid(low_rank(token, "a")).reshape(
+                    batch_size,
+                    num_heads,
+                    head_size,
+                )
+            else:
+                a = jax.nn.sigmoid(project(mixed, "a", num_heads))
             b = project(mixed, "b", num_heads)
-            gate = jax.nn.sigmoid(project(mixed, "g", num_heads))
+            gate = jax.nn.sigmoid(project(projection_token, "g", num_heads))
 
-            kk = k / jnp.maximum(
-                jnp.linalg.norm(k, axis=-1, keepdims=True),
-                jnp.asarray(1e-6, dtype=k.dtype),
-            )
-            log_w = -jnp.exp(jnp.asarray(-0.5, dtype=w.dtype)) * jax.nn.sigmoid(w)
+            if self.config.use_radlads_balance_state_terms:
+                if self.config.radlads_balance_state:
+                    kk = _l2_normalize(k)
+                else:
+                    k_k = jnp.asarray(params["k_k"])[layer_index].reshape(
+                        num_heads,
+                        head_size,
+                    )
+                    k_a = jnp.asarray(params["k_a"])[layer_index].reshape(
+                        num_heads,
+                        head_size,
+                    )
+                    kk = _l2_normalize(k * k_k[None, :, :])
+                    k = k * (1.0 + (a - 1.0) * k_a[None, :, :])
+            else:
+                kk = _l2_normalize(k)
+            if self.config.use_radlads_low_rank_decay:
+                log_neglog_w = -0.5 - jax.nn.softplus(-w)
+                log_w = -jnp.exp(log_neglog_w.astype(jnp.float32))
+            else:
+                log_w = -jnp.exp(jnp.asarray(-0.5, dtype=w.dtype)) * jax.nn.sigmoid(w)
             decay = jnp.exp(log_w)
+            if (
+                self.config.use_radlads_balance_state_terms
+                and self.config.radlads_balance_state
+            ):
+                k = k * (1.0 - decay + a)
             vk = jnp.einsum("bhi,bhj->bhij", v, k)
             ab = jnp.einsum("bhi,bhj->bhij", -kk, kk * a + b)
             next_wkv = prev_wkv * decay[:, :, None, :] + prev_wkv @ ab + vk
 
-            mixed_heads = jnp.einsum("bhij,bhj->bhi", next_wkv, q) * gate
+            mixed_heads = jnp.einsum("bhij,bhj->bhi", next_wkv, q)
             projected = mixed_heads.reshape(batch_size, hidden)
+            if self.config.use_radlads_attention_group_norm:
+                ln_x = params["ln_x"]  # type: ignore[index]
+                projected = _head_group_norm(
+                    projected,
+                    weight=jnp.asarray(ln_x["weight"])[layer_index],
+                    bias=jnp.asarray(ln_x["bias"])[layer_index],
+                    num_heads=num_heads,
+                    head_size=head_size,
+                )
+            elif self.config.use_radlads_attention_output_scale:
+                projected = projected * (head_size**-0.5)
+            projected = projected * gate.reshape(batch_size, hidden)
             out_weight = params["o_proj"]["weight"][layer_index]  # type: ignore[index]
             out = (projected @ out_weight) * token_mask
-            return (next_wkv, token), out
+            return (next_wkv, token), (out, next_v_first)
 
-        (final_wkv, final_shift), outputs = jax.lax.scan(
+        (final_wkv, final_shift), (outputs, v_first_outputs) = jax.lax.scan(
             step,
             (jnp.asarray(initial_wkv, dtype=jnp.float32), jnp.asarray(initial_shift)),
             xs,
         )
-        return jnp.swapaxes(outputs, 0, 1), final_wkv, final_shift
+        next_v_first = (
+            jnp.swapaxes(v_first_outputs, 0, 1) if layer_index == 0 else v_first
+        )
+        return jnp.swapaxes(outputs, 0, 1), final_wkv, final_shift, next_v_first
 
     def _mlp(
         self,
@@ -595,6 +834,40 @@ class RWKV7QwenReferenceStudent:
 
 def _normal(key: jax.Array, shape: tuple[int, ...], scale: float) -> jax.Array:
     return jax.random.normal(key, shape) * scale
+
+
+def _radlads_lora_rank(
+    hidden_size: int,
+    *,
+    exponent: float,
+    multiplier: float,
+) -> int:
+    return max(1, round(hidden_size**exponent * multiplier / 32)) * 32
+
+
+def _l2_normalize(x: jax.Array) -> jax.Array:
+    return x / jnp.maximum(
+        jnp.linalg.norm(x, axis=-1, keepdims=True),
+        jnp.asarray(1e-6, dtype=x.dtype),
+    )
+
+
+def _head_group_norm(
+    x: jax.Array,
+    *,
+    weight: jax.Array,
+    bias: jax.Array,
+    num_heads: int,
+    head_size: int,
+) -> jax.Array:
+    values = jnp.asarray(x, dtype=jnp.float32).reshape(x.shape[0], num_heads, head_size)
+    mean = jnp.mean(values, axis=-1, keepdims=True)
+    variance = jnp.mean((values - mean) ** 2, axis=-1, keepdims=True)
+    normalized = (values - mean) * jax.lax.rsqrt(
+        variance + jnp.asarray(head_size * 1e-5, dtype=jnp.float32)
+    )
+    flat = normalized.reshape(x.shape)
+    return (flat * weight[None, :] + bias[None, :]).astype(x.dtype)
 
 
 def _rms_norm(x: jax.Array, weight: jax.Array, eps: float) -> jax.Array:

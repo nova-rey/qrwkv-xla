@@ -710,3 +710,21 @@
 - [x] Add `docs/EXPERIMENT_TRACKING.md`
 - [x] Update snapshot, roadmap, phase checklist, and agent entrypoint
 - [x] Append Bible entry
+
+## P48 — RADLADS LoRA Rank Math Surface
+
+- [x] Add explicit RADLADS-compatible math flags to `RWKV7QwenReferenceConfig`
+- [x] Add source-shaped `w0/w1/w2`, `a0/a1/a2`, `v0/v1/v2`, `k_k/k_a/r_k`, and `ln_x` parameter leaves
+- [x] Keep legacy/default slow-reference behavior gated off by default
+- [x] Implement audited low-rank decay and ICLR formulas behind flags
+- [x] Thread `v_first` for flagged value residual mixing
+- [x] Add flagged balance-state terms and optional attention head group norm
+- [x] Keep `r_k` represented but inactive because the inspected source line is commented out
+- [x] Add `scripts/run_radlads_lora_rank_math_smoke.py`
+- [x] Write P48 smoke/report artifacts under `artifacts/p48_radlads_lora_rank_math`
+- [x] Update RADLADS parameter-surface map statuses and caveats
+- [x] Add `tests/test_radlads_lora_rank_math.py`
+- [x] Add `docs/RADLADS_LORA_RANK_MATH.md`
+- [x] Add `docs/RADLADS_LORA_RANK_MATH_AUDIT.md`
+- [x] Update snapshot, roadmap, phase checklist, and agent entrypoint
+- [x] Append Bible entry

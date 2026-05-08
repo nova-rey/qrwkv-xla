@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 47
-checkpoint: experiment_tracking_smoke
+phase: 48
+checkpoint: radlads_lora_rank_math_surface
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,10 +55,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add a bounded experiment tracking smoke that extends the existing local
-  tracking package with a local source-of-truth tracker, an optional import-safe
-  WandB adapter, run metadata, exact config capture, metric logging, artifact
-  manifests, and JSON/Markdown reports.
+  Complete the bounded RADLADS LoRA-rank math surface in the slow
+  rwkv7_qwen_reference backend with explicit compatibility flags, source-shaped
+  parameter leaves, honest r_k deferral, focused tests, and CPU/offline smoke
+  reports.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -701,6 +701,41 @@ planner_tpu_smoke:
     - pallas_or_optimized_wkv7_kernels
     - wandb_or_lm_eval
     - hf_student_export
+
+radlads_lora_rank_math_surface:
+  phase: P48
+  status: complete
+  backend: rwkv7_qwen_reference
+  docs:
+    - docs/RADLADS_LORA_RANK_MATH.md
+    - docs/RADLADS_LORA_RANK_MATH_AUDIT.md
+  smoke_script: scripts/run_radlads_lora_rank_math_smoke.py
+  artifact_dir: artifacts/p48_radlads_lora_rank_math
+  outputs:
+    - P48_RESULTS.md
+    - lora_rank_math_report.json
+    - P48_PARAMETER_SURFACE_MAP.md
+    - parameter_surface_map.json
+  config_flags:
+    - radlads_compatible_math
+    - radlads_low_rank_decay
+    - radlads_low_rank_iclr
+    - radlads_value_residual_mix
+    - radlads_balance_state_terms
+    - radlads_attention_group_norm
+    - radlads_balance_state
+  represented_surfaces:
+    - w0/w1/w2
+    - a0/a1/a2
+    - v0/v1/v2
+    - k_k/k_a/r_k
+    - ln_x.weight/bias
+  caveats:
+    - legacy_defaults_remain_off
+    - r_k_parameter_represented_but_inactive_source_line_commented_out
+    - slow_reference_only
+    - no_full_radlads_numerical_parity_claim
+    - no_optimized_kernel_or_tpu_performance_claim
 
 generation_smoke:
   tokenizer: dependency_free_utf8_byte_plus_one

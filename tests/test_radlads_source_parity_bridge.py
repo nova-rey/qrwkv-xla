@@ -117,14 +117,17 @@ def test_report_writing(tmp_path: Path) -> None:
     assert "tiny_no_mask" in report_md
 
 
-def test_parameter_mapping_report_marks_unsupported_surfaces(tmp_path: Path) -> None:
+def test_parameter_mapping_report_marks_p48_surfaces(tmp_path: Path) -> None:
     report = write_parameter_surface_map_reports(tmp_path)
 
     assert report == build_parameter_surface_map()
-    assert report["counts"]["unsupported"] >= 6
+    assert report["counts"]["unsupported"] >= 1
     rows = {row["radlads"]: row for row in report["mappings"]}
     assert rows["layers.*.self_attn.q_proj.weight"]["status"].startswith("direct")
-    assert rows["layers.*.self_attn.w0/w1/w2"]["status"] == "unsupported"
+    assert rows["layers.*.self_attn.w0/w1/w2"]["status"] == ("represented_flagged_math")
+    assert rows["layers.*.self_attn.k_k/k_a/r_k"]["status"] == (
+        "partially_represented_flagged_math"
+    )
     assert (tmp_path / "parameter_surface_map.json").is_file()
     assert "w0/w1/w2" in (tmp_path / "P40_PARAMETER_SURFACE_MAP.md").read_text(
         encoding="utf-8"

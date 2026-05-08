@@ -862,3 +862,38 @@ P47 does not require WandB credentials or network access for normal development
 or CI. It does not prove real Qwen0.5B training, long-running training,
 multi-host tracking, production dashboard design, sweeps/MLOps, model quality,
 or official benchmark reporting.
+
+## Phase 48 — RADLADS LoRA Rank Math Surface
+
+P48 completes a bounded slow-reference math-surface pass for the
+`rwkv7_qwen_reference` backend. It adds explicit config gates for low-rank
+RADLADS decay, low-rank ICLR, value residual mixing, balance-state terms,
+attention head group norm, and an overall `radlads_compatible_math` mode. The
+legacy/default path remains disabled for these branches unless the new flags are
+selected.
+
+The new represented parameter leaves are `w0/w1/w2`, `a0/a1/a2`, `v0/v1/v2`,
+`k_k/k_a/r_k`, and `ln_x.weight/bias`. The implemented formulas are sourced
+from `/home/nyx/.openclaw/workspace/_refs/RADLADS/rwkv7qwen2/modeling_rwkv7qwen2.py`:
+low-rank decay uses `w0 + (tanh(xw @ w1) @ w2).float()`, low-rank ICLR uses
+`sigmoid(a0 + (xa @ a1) @ a2)`, later layers can mix values against layer-0
+`v_first`, balance-state terms use the source `kk/k/k_a/k_k` branches, and
+optional attention group norm uses `eps=head_dim * 1e-5`.
+
+`r_k` is represented honestly as a parameter surface only. The inspected
+RADLADS source has the residual line using `r_k` commented out, so P48 does not
+activate that math or claim it as active parity.
+
+The canonical smoke command is:
+
+```bash
+python scripts/run_radlads_lora_rank_math_smoke.py
+```
+
+The canonical artifact directory is `artifacts/p48_radlads_lora_rank_math/` and
+contains `P48_RESULTS.md`, `lora_rank_math_report.json`,
+`P48_PARAMETER_SURFACE_MAP.md`, and `parameter_surface_map.json`.
+
+P48 remains CPU/offline slow-reference work. It does not prove full RADLADS
+numerical parity, fitted checkpoint conversion, Pallas or optimized WKV kernels,
+TPU performance, Qwen-scale execution, or model quality.
