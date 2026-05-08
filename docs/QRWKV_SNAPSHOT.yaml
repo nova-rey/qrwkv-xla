@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 39
-checkpoint: planner_generated_tiny_hf_tpu_smoke
+phase: 40
+checkpoint: radlads_source_parity_fixture_bridge
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,11 +55,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add a manual TPU smoke harness that generates a tiny RoPE-valid scale plan,
-  writes planner-derived distill/export configs, exports real sshleifer/tiny-gpt2
-  HF teacher targets, and runs a tiny rwkv7_qwen_reference hidden+logits
-  distill train/resume proof without making TPU execution or live HF download
-  part of normal CPU CI.
+  Add a canonical RADLADS source parity fixture bridge with deterministic tiny
+  cases, source fixture import, offline comparison reports, and an explicit
+  parameter surface map while keeping checked-in default payloads honest as
+  unsupported QRWKV current-behavior-only fixtures.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -218,9 +217,43 @@ qwen_reference_fixtures:
   claim: local slow-reference fixture/caliper coverage only
   does_not_prove:
     - full_radlads_numerical_parity
+
+radlads_source_parity_bridge:
+  phase: P40
+  schema: radlads_source_parity.v1
+  checked_in_dir: tests/fixtures/radlads_source_parity
+  artifact_dir: artifacts/parity/radlads_source_bridge
+  import_script: scripts/import_radlads_source_fixtures.py
+  compare_script: scripts/compare_radlads_source_fixtures.py
+  parameter_map_script: scripts/map_radlads_parameter_surface.py
+  docs: docs/RADLADS_SOURCE_PARITY_BRIDGE.md
+  tiny_cases:
+    - tiny_no_mask
+    - tiny_attention_mask
+    - tiny_prefix_padding_or_left_padding
+  checked_in_payload_claim: unsupported_qrwkv_current_behavior_only_not_radlads_outputs
+  reports:
+    - parity_report.json
+    - P40_PARITY_REPORT.md
+    - parameter_surface_map.json
+    - P40_PARAMETER_SURFACE_MAP.md
+  source_checkout:
+    path: /home/nyx/.openclaw/workspace/_refs/RADLADS
+    branch: radlads
+    head: 1b362eb
+  unsupported_parameter_surfaces:
+    - low_rank_decay_w0_w1_w2
+    - low_rank_iclr_a0_a1_a2
+    - value_residual_mix_v0_v1_v2
+    - gate_variants_gate_or_g1_g2
+    - balance_state_terms_k_k_k_a_r_k
+    - optional_attention_group_norm_ln_x
+  does_not_prove:
+    - full_radlads_numerical_parity
     - radlads_checkpoint_compatibility
-    - radlads_pytorch_triton_cuda_parity
     - optimized_kernel_parity
+    - live_radlads_execution_in_ci
+    - radlads_pytorch_triton_cuda_parity
     - tpu_or_pallas_readiness
 
 scale_planner:

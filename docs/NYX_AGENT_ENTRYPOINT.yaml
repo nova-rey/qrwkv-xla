@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 39
-  checkpoint: planner_generated_tiny_hf_tpu_smoke
-  title: Add planner-generated TPU smoke harness
+  phase: 40
+  checkpoint: radlads_source_parity_fixture_bridge
+  title: Add RADLADS source parity fixture bridge
 
 workflow:
   primary_agent: Nyx
@@ -27,3 +27,4 @@ instructions:
   - Do not introduce CUDA, Triton, flash-attention, or DeepSpeed dependencies.
   - Do not make notebooks the primary workflow.
   - Keep P36, P37, P38, and P39 TPU smokes manual and opt-in; normal CI remains CPU-only.
+  - Keep P40 RADLADS source fixture import manual/offline-safe; do not invent RADLADS outputs.

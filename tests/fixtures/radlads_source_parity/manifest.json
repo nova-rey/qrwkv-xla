@@ -1,0 +1,94 @@
+{
+  "backend": "rwkv7_qwen_reference",
+  "cases": [
+    {
+      "attention_mask": {
+        "kind": "none",
+        "present": false,
+        "shape": null
+      },
+      "comparisons": [],
+      "description": "Tiny deterministic case without attention_mask.",
+      "input_shape": [
+        2,
+        5
+      ],
+      "name": "tiny_no_mask",
+      "payload": "tiny_no_mask.npz",
+      "payload_sha256": "fe8421865a625d28c54c95a24aeda0f37faa48b26eae230bf1b9334553232625",
+      "status": "unsupported",
+      "unsupported_reason": "No source-generated RADLADS arrays are bundled. Payload records QRWKV-XLA current behavior only and must not be counted as RADLADS numerical parity."
+    },
+    {
+      "attention_mask": {
+        "kind": "attention_mask",
+        "present": true,
+        "shape": [
+          2,
+          5
+        ]
+      },
+      "comparisons": [],
+      "description": "Tiny deterministic padding-mask case. Current QRWKV behavior is recorded only; source parity is unsupported without RADLADS arrays.",
+      "input_shape": [
+        2,
+        5
+      ],
+      "name": "tiny_attention_mask",
+      "payload": "tiny_attention_mask.npz",
+      "payload_sha256": "8a6de773dba53e559c446e961d502232c9024243429ee75af5965fdddd0e0b7c",
+      "status": "unsupported",
+      "unsupported_reason": "No source-generated RADLADS arrays are bundled. Payload records QRWKV-XLA current behavior only and must not be counted as RADLADS numerical parity."
+    },
+    {
+      "attention_mask": {
+        "kind": "prefix_or_left_padding",
+        "present": true,
+        "shape": [
+          2,
+          5
+        ]
+      },
+      "comparisons": [],
+      "description": "Tiny deterministic prefix/left-padding shape case. QRWKV positions still advance through masked tokens; source parity is unsupported without RADLADS arrays.",
+      "input_shape": [
+        2,
+        5
+      ],
+      "name": "tiny_prefix_padding_or_left_padding",
+      "payload": "tiny_prefix_padding_or_left_padding.npz",
+      "payload_sha256": "da314f3f9aee6e558811156534785c1cdaa8171f252308211ad58af11417ba5f",
+      "status": "unsupported",
+      "unsupported_reason": "No source-generated RADLADS arrays are bundled. Payload records QRWKV-XLA current behavior only and must not be counted as RADLADS numerical parity."
+    }
+  ],
+  "claim": "Canonical fixture schema bridge. Checked-in default payloads are unsupported QRWKV current behavior only, not RADLADS outputs.",
+  "config": {
+    "batch_size": 2,
+    "emit_logits": true,
+    "emit_mixer_outputs": true,
+    "hidden_size": 8,
+    "num_heads": 2,
+    "num_kv_heads": 1,
+    "num_layers": 2,
+    "sequence_length": 5,
+    "vocab_size": 32
+  },
+  "dtype": "float32",
+  "fixture_version": 1,
+  "required_cases": [
+    "tiny_no_mask",
+    "tiny_attention_mask",
+    "tiny_prefix_padding_or_left_padding"
+  ],
+  "schema": "radlads_source_parity.v1",
+  "seed": 4040,
+  "source": {
+    "branch": "radlads",
+    "checkout": "/home/nyx/.openclaw/workspace/_refs/RADLADS",
+    "generation_mode": "qrwkv_current_behavior_only",
+    "head": "1b362eb",
+    "live_generation": "not run; source fixtures must be supplied manually",
+    "name": "RADLADS"
+  }
+}

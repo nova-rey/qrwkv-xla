@@ -657,3 +657,33 @@ P39 is documented in `docs/COLAB_TPU_PLANNER_SMOKE.md` and
 for the tiny validated execution path. P39 does not add Qwen-scale or long
 training, pjit/sharding/multi-host TPU, Pallas kernels, lm-eval, WandB, or HF
 student export.
+
+## Phase 40 — RADLADS Source Parity Fixture Bridge
+
+This phase starts the explicit RADLADS source parity track. It does not claim
+full numerical equivalence. Instead, it adds a canonical fixture schema,
+checked-in deterministic tiny cases, import/report tooling, and an honest
+parameter-surface map so later work can measure what is comparable and what is
+still unsupported.
+
+The canonical checked-in fixture set lives under
+`tests/fixtures/radlads_source_parity`. Those payloads are intentionally marked
+`unsupported`: they record QRWKV-XLA current behavior only and are not
+fabricated RADLADS outputs. Real source-produced fixtures can be copied into the
+same schema with `scripts/import_radlads_source_fixtures.py`, while
+`scripts/compare_radlads_source_fixtures.py` and
+`scripts/map_radlads_parameter_surface.py` write reports under
+`artifacts/parity/radlads_source_bridge/`.
+
+The three tiny cases are `tiny_no_mask`, `tiny_attention_mask`, and
+`tiny_prefix_padding_or_left_padding`. The left-padding/prefix case remains an
+explicitly unsupported/current-behavior-only bridge point until a fair
+source-to-QRWKV comparison is available.
+
+The initial parameter map records direct Qwen/RADLADS-to-QRWKV role matches for
+embedding, RMSNorm, Q/K/V/O projections, MLP, and LM head surfaces, and marks
+known gaps such as `w0/w1/w2`, `a0/a1/a2`, `v0/v1/v2`, gate variants,
+`k_k`/`k_a`/`r_k`, and optional `ln_x` as unsupported. P40 therefore makes
+RADLADS compatibility measurable without overclaiming live source parity,
+training quality, kernel correctness, checkpoint compatibility, or optimized
+Pallas/WKV behavior.

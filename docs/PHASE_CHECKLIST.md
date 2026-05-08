@@ -593,3 +593,16 @@
 - [x] Add Colab and Kaggle copy-paste docs with caveats
 - [x] Add CPU-only tests for the P39 harness and generated planner artifacts
 - [x] Preserve CI as CPU-only; live HF download and TPU execution remain manual and opt-in
+
+## P40 — RADLADS Source Parity Fixture Bridge
+
+- [x] Add canonical `radlads_source_parity.v1` fixture schema and loader/validator utilities under `src/qrwkv_xla/parity/`
+- [x] Add deterministic tiny cases: `tiny_no_mask`, `tiny_attention_mask`, and `tiny_prefix_padding_or_left_padding`
+- [x] Keep checked-in default fixtures honest as unsupported QRWKV current-behavior-only payloads, not invented RADLADS outputs
+- [x] Add `scripts/import_radlads_source_fixtures.py` with a required canonical source fixture import path
+- [x] Keep live RADLADS generation out of normal CI and document it as source-dependent/manual future work
+- [x] Add `scripts/compare_radlads_source_fixtures.py` to write `parity_report.json` and `P40_PARITY_REPORT.md`
+- [x] Add `scripts/map_radlads_parameter_surface.py` to write `parameter_surface_map.json` and `P40_PARAMETER_SURFACE_MAP.md`
+- [x] Add tests for manifest validation, missing arrays, shape mismatches, comparison math, pass/fail/unsupported statuses, report writing, and parameter mapping
+- [x] Add `docs/RADLADS_SOURCE_PARITY_BRIDGE.md`
+- [x] Preserve offline smoke paths and avoid full RADLADS numerical parity claims
