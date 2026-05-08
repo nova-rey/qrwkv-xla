@@ -836,3 +836,29 @@ P46 proves tiny sharding compile plumbing only. It does not prove large-model
 sharding, real training throughput, production sharded checkpointing,
 0.5B/1.5B/7B training feasibility, or multi-device TPU behavior unless a real
 multi-device TPU run is performed later.
+
+## Phase 47 — Experiment Tracking / WandB Smoke
+
+This phase extends the existing `qrwkv_xla.tracking` package rather than
+creating a separate tracking system. The new surface adds an experiment tracker
+protocol/config, a local experiment tracker, an optional WandB adapter, report
+helpers, and a deterministic tiny tracking smoke.
+
+The canonical local output is `artifacts/p47_experiment_tracking_smoke/`.
+It contains `P47_RESULTS.md`, `tracking_smoke_report.json`, and
+`local_run/` files for `run_metadata.json`, `config.json`, `metrics.jsonl`,
+`summary.json`, `artifacts_manifest.json`, and copied/logged artifacts under
+`files/`. The local tracker is the source of truth. WandB is imported only when
+`wandb-offline` or `wandb-online` is requested.
+
+The smoke records phase, UTC creation time, repo commit, git dirty
+classification, Python/JAX metadata, backend/default backend, device counts,
+device kinds/platforms, hostname when available, command/script name, tracking
+mode, and artifact root. It writes the exact smoke config and required metrics:
+`train/loss`, `train/loss_is_finite`, `train/tokens_seen`,
+`train/examples_seen`, and `step`.
+
+P47 does not require WandB credentials or network access for normal development
+or CI. It does not prove real Qwen0.5B training, long-running training,
+multi-host tracking, production dashboard design, sweeps/MLOps, model quality,
+or official benchmark reporting.

@@ -695,3 +695,18 @@
 - [x] Update snapshot, roadmap, phase checklist, and agent entrypoint
 - [x] Append Bible entry
 - [x] Run required P46 validation commands
+
+## P47 — Experiment Tracking / WandB Smoke
+
+- [x] Extend existing `qrwkv_xla.tracking` package with experiment tracker surfaces
+- [x] Add mandatory local experiment tracker
+- [x] Add optional import-safe WandB adapter
+- [x] Add tiny deterministic tracking smoke
+- [x] Add `scripts/run_tracking_smoke.py`
+- [x] Write P47 local artifacts under `artifacts/p47_experiment_tracking_smoke`
+- [x] Record run metadata, exact config, metrics, summary, and artifact manifest
+- [x] Add local report helpers for JSON and Markdown
+- [x] Add `tests/test_experiment_tracking.py`
+- [x] Add `docs/EXPERIMENT_TRACKING.md`
+- [x] Update snapshot, roadmap, phase checklist, and agent entrypoint
+- [x] Append Bible entry

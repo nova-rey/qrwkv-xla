@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 46
-checkpoint: pjit_sharding_compile_smoke
+phase: 47
+checkpoint: experiment_tracking_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add a tiny pjit/jit-with-shardings compile smoke that creates a named JAX
-  mesh, applies an explicit data-parallel sharding policy, verifies a finite
-  tiny forward/loss/update path, and reports honest single-device fallback.
+  Add a bounded experiment tracking smoke that extends the existing local
+  tracking package with a local source-of-truth tracker, an optional import-safe
+  WandB adapter, run metadata, exact config capture, metric logging, artifact
+  manifests, and JSON/Markdown reports.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -217,6 +218,64 @@ pjit_sharding_smoke:
     - full_distributed_optimizer_state_strategy
     - pallas_wkv7_kernels
     - qwen_scale_training
+
+experiment_tracking_smoke:
+  phase: P47
+  mode: local_source_of_truth_with_optional_wandb_adapter
+  module: qrwkv_xla.tracking
+  smoke_script: scripts/run_tracking_smoke.py
+  artifact_dir: artifacts/p47_experiment_tracking_smoke
+  default_tracking: local
+  optional_tracking:
+    - wandb-offline
+    - wandb-online
+  files:
+    - P47_RESULTS.md
+    - tracking_smoke_report.json
+    - local_run/run_metadata.json
+    - local_run/config.json
+    - local_run/metrics.jsonl
+    - local_run/summary.json
+    - local_run/artifacts_manifest.json
+    - local_run/files/*
+  records:
+    - phase
+    - created_at_utc
+    - repo_commit
+    - git_dirty
+    - python_version
+    - jax_metadata
+    - backend
+    - default_backend
+    - device_count
+    - local_device_count
+    - device_kinds
+    - device_platforms
+    - hostname
+    - command
+    - script_name
+    - tracking_mode
+    - artifact_root
+  required_metrics:
+    - train/loss
+    - train/loss_is_finite
+    - train/tokens_seen
+    - train/examples_seen
+    - step
+  proves:
+    - local_tracking_run_layout
+    - exact_config_capture
+    - finite_tiny_train_step_metrics
+    - artifact_manifest_with_size_and_sha256
+    - wandb_import_safety_until_requested
+  does_not_prove:
+    - real_qwen_training
+    - long_running_training
+    - multi_host_tracking
+    - required_wandb_credentials_or_network
+    - production_dashboarding
+    - sweeps_or_mlop_framework
+    - official_benchmark_reporting
 
 optimizers:
   supported:

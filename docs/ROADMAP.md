@@ -284,3 +284,18 @@ metadata, compile API, policy metadata, finite loss, update status, and honest
 single-device fallback. It does not prove large-model sharding, throughput,
 production sharded checkpointing, multi-host training, Pallas kernels, Qwen
 scale training, or that P45 large profiles are trainable.
+
+## Phase 47 — Experiment Tracking / WandB Smoke
+
+Goal: extend the existing local tracking package with a small experiment
+tracker abstraction, a durable local tracker, an optional import-safe WandB
+adapter, and a tiny deterministic smoke report.
+
+Current checkpoint: `experiment_tracking_smoke`. This checkpoint writes
+`P47_RESULTS.md`, `tracking_smoke_report.json`, and a `local_run/` directory
+with `run_metadata.json`, `config.json`, `metrics.jsonl`, `summary.json`,
+`artifacts_manifest.json`, and copied artifacts under `files/`. It records run
+metadata, exact smoke config, required training metrics, local artifact hashes,
+and optional WandB handoff when explicitly requested. It does not require WandB
+for normal development or CI and does not prove real training, production
+dashboards, sweeps, online logging, official benchmarks, or model quality.
