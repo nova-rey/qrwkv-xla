@@ -213,7 +213,18 @@ metrics/checkpoints, and resumes from target-training checkpoints locally.
 Goal: export a tiny QRWKV-XLA JSON+NPZ student checkpoint to a Hugging
 Face-style safetensors directory and prove helper reload output parity locally.
 
-Current checkpoint: `hf_safetensors_export_smoke`. This checkpoint writes
+Checkpoint: `hf_safetensors_export_smoke`. This checkpoint writes
 `config.json`, `model.safetensors`, `qrwkv_xla_export.json`, `weight_map.json`,
 and smoke reports for a tiny CPU checkpoint only. It does not add a production
 HF model class, Qwen-scale export, sharding, `lm_eval`, or model quality claims.
+
+## Phase 42 — lm_eval-Style Exported-Student Smoke
+
+Goal: load the P41 exported-student artifact and score deterministic tiny
+continuation examples through a local lm_eval-style harness.
+
+Current checkpoint: `lm_eval_toy_exported_student_smoke`. This checkpoint writes
+`results.json`, `P42_RESULTS.md`, and `p42_results_bundle.tar.gz` under
+`artifacts/eval/p42_lm_eval_smoke`. Official `lm_eval` task execution remains
+deferred and optional; P42 does not claim benchmark quality, Qwen-scale eval, a
+production HF model class, training, sharding, or optimized kernels.

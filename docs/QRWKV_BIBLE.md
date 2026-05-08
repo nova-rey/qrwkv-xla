@@ -709,3 +709,26 @@ intentionally narrow: it proves only tiny local checkpoint export/reload parity.
 It does not add a production Hugging Face model class, Qwen-scale export,
 sharded or `pjit` export, `lm_eval`, Pallas/WKV optimized kernels, or model
 quality claims.
+
+## Phase 42 — QRWKV-XLA lm_eval Toy Exported-Student Integration
+
+This phase adds a bounded lm_eval-style smoke around the P41 exported-student
+artifact path. The new `qrwkv_xla.eval.exported_student` adapter loads a P41
+HF/safetensors export with `load_hf_safetensors_export`, runs logits-capable
+student inference locally, and scores deterministic continuation
+loglikelihoods from tiny token-id fixtures under `tests/fixtures/eval/`.
+
+The smoke entrypoint is `scripts/run_lm_eval_smoke.py`. It uses the implemented
+P41 export path `artifacts/p41_hf_safetensors_export_smoke`; if that directory
+does not exist, it generates it through the P41 smoke, while partial exports
+fail with explicit missing-file errors. Successful runs write
+`artifacts/eval/p42_lm_eval_smoke/results.json`,
+`artifacts/eval/p42_lm_eval_smoke/P42_RESULTS.md`, and
+`artifacts/eval/p42_lm_eval_smoke/p42_results_bundle.tar.gz`.
+
+P42 deliberately delivers an lm_eval-style toy harness rather than official
+`lm_eval` execution. The optional `eval` extra records the dependency path for
+manual future integration, but the default smoke does not import official
+`lm_eval`, does not touch the network, and does not run large task suites. This
+phase makes no benchmark, Qwen-scale, production HF model class, training,
+pjit/sharding, Pallas/WKV kernel, or model-quality claim.

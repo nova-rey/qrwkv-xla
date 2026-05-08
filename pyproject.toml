@@ -22,6 +22,9 @@ teacher-hf = [
   "torch>=2.2",
   "transformers>=4.40",
 ]
+eval = [
+  "lm-eval>=0.4.0",
+]
 dev = [
   "jax[cpu]>=0.4.0",
   "pytest>=8.0",

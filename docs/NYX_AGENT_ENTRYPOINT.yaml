@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 41
-  checkpoint: hf_safetensors_export_smoke
-  title: Add tiny HF/safetensors checkpoint export smoke
+  phase: 42
+  checkpoint: lm_eval_toy_exported_student_smoke
+  title: Add lm_eval-style toy exported-student smoke
 
 workflow:
   primary_agent: Nyx
@@ -29,3 +29,4 @@ instructions:
   - Keep P36, P37, P38, and P39 TPU smokes manual and opt-in; normal CI remains CPU-only.
   - Keep P40 RADLADS source fixture import manual/offline-safe; do not invent RADLADS outputs.
   - Keep P41 HF/safetensors export as tiny local parity only; do not claim a production HF model class.
+  - Keep P42 official lm_eval execution deferred; default eval smoke is local token-id toy scoring only.

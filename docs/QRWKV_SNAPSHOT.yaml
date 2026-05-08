@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 41
-checkpoint: hf_safetensors_export_smoke
+phase: 42
+checkpoint: lm_eval_toy_exported_student_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add a tiny CPU/local QRWKV-XLA checkpoint to HF-style safetensors export
-  smoke with helper reload parity, explicit artifact metadata, and honest scope
-  limits.
+  Add a tiny CPU/local lm_eval-style continuation scoring smoke over the P41
+  exported-student artifact path, with deterministic toy fixtures, explicit
+  artifacts, and honest scope limits.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -86,6 +86,30 @@ hf_safetensors_export:
     - qwen_scale_export
     - sharded_or_pjit_export
     - lm_eval
+    - model_quality
+
+lm_eval_smoke:
+  phase: P42
+  mode: lm_eval_style_toy_harness
+  module: qrwkv_xla.eval.exported_student
+  smoke_script: scripts/run_lm_eval_smoke.py
+  p41_export_dir: artifacts/p41_hf_safetensors_export_smoke
+  toy_task: tests/fixtures/eval/p42_toy_continuations.jsonl
+  smoke_artifact_dir: artifacts/eval/p42_lm_eval_smoke
+  files:
+    - results.json
+    - P42_RESULTS.md
+    - p42_results_bundle.tar.gz
+  optional_extra: eval
+  official_lm_eval: deferred
+  proves:
+    - p41_export_loads_for_tiny_eval
+    - deterministic_continuation_loglikelihood_scoring
+    - finite_toy_metrics
+  does_not_prove:
+    - official_lm_eval_task_suite
+    - production_hf_model_class
+    - qwen_scale_evaluation
     - model_quality
 
 optimizers:

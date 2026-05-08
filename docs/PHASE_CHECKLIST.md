@@ -619,3 +619,18 @@
 - [x] Add `docs/HF_SAFETENSORS_EXPORT.md`
 - [x] Fail clearly when `safetensors` is unavailable
 - [x] Preserve scope: no production HF model class, `lm_eval`, Qwen-scale export, sharded export, model quality claim, Pallas/WKV kernels, or unrelated cleanup
+
+## P42 — QRWKV-XLA lm_eval Toy Exported-Student Integration
+
+- [x] Add `qrwkv_xla.eval.exported_student` adapter for P41 exports
+- [x] Score deterministic token-id continuation loglikelihoods on CPU/local JAX
+- [x] Add tiny toy eval fixture under `tests/fixtures/eval/`
+- [x] Add `scripts/run_lm_eval_smoke.py`
+- [x] Reuse or generate `artifacts/p41_hf_safetensors_export_smoke`
+- [x] Fail clearly for partial/missing required export files
+- [x] Write `results.json`, `P42_RESULTS.md`, and `p42_results_bundle.tar.gz`
+- [x] Add `tests/test_lm_eval_smoke.py`
+- [x] Add `docs/LM_EVAL_SMOKE.md`
+- [x] Add optional `eval` extra without changing default dependencies
+- [x] Explicitly defer official `lm_eval` execution while documenting the toy harness scope
+- [x] Preserve scope: no meaningful benchmark, Qwen-scale eval, production HF model class, training, pjit/sharding, Pallas/WKV kernels, WandB, or unrelated cleanup
