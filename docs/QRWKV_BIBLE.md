@@ -687,3 +687,25 @@ known gaps such as `w0/w1/w2`, `a0/a1/a2`, `v0/v1/v2`, gate variants,
 RADLADS compatibility measurable without overclaiming live source parity,
 training quality, kernel correctness, checkpoint compatibility, or optimized
 Pallas/WKV behavior.
+
+## Phase 41 — QRWKV-XLA Checkpoint to HF/Safetensors Export Smoke
+
+This phase adds a bounded HF-style safetensors export smoke for QRWKV-XLA
+student checkpoints. The new `qrwkv_xla.export` package can export an existing
+JSON + NPZ checkpoint to a directory containing `config.json`,
+`model.safetensors`, `qrwkv_xla_export.json`, and `weight_map.json`, then reload
+that directory back into QRWKV-XLA helper objects.
+
+The CLI entrypoints are `scripts/export_student_hf_safetensors.py` for direct
+checkpoint export and `scripts/run_export_smoke.py` for the end-to-end smoke.
+The smoke creates a deterministic tiny logits-capable checkpoint under its
+artifact directory, exports it, reloads it, compares hidden states and logits on
+a fixed CPU batch, and writes `export_smoke_report.json` plus
+`P41_EXPORT_SMOKE_REPORT.md`.
+
+The export helper lazy-imports `safetensors`; if unavailable, it fails with the
+explicit install message documented in `docs/HF_SAFETENSORS_EXPORT.md`. P41 is
+intentionally narrow: it proves only tiny local checkpoint export/reload parity.
+It does not add a production Hugging Face model class, Qwen-scale export,
+sharded or `pjit` export, `lm_eval`, Pallas/WKV optimized kernels, or model
+quality claims.

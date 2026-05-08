@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 40
-checkpoint: radlads_source_parity_fixture_bridge
+phase: 41
+checkpoint: hf_safetensors_export_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,10 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add a canonical RADLADS source parity fixture bridge with deterministic tiny
-  cases, source fixture import, offline comparison reports, and an explicit
-  parameter surface map while keeping checked-in default payloads honest as
-  unsupported QRWKV current-behavior-only fixtures.
+  Add a tiny CPU/local QRWKV-XLA checkpoint to HF-style safetensors export
+  smoke with helper reload parity, explicit artifact metadata, and honest scope
+  limits.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -66,6 +65,28 @@ checkpointing:
   gitignored: true
   orbax_required: false
   optimizer_state: true
+
+hf_safetensors_export:
+  phase: P41
+  module: qrwkv_xla.export
+  export_script: scripts/export_student_hf_safetensors.py
+  smoke_script: scripts/run_export_smoke.py
+  smoke_artifact_dir: artifacts/p41_hf_safetensors_export_smoke
+  files:
+    - config.json
+    - model.safetensors
+    - qrwkv_xla_export.json
+    - weight_map.json
+    - export_smoke_report.json
+    - P41_EXPORT_SMOKE_REPORT.md
+  proves:
+    - tiny_checkpoint_export_reload_output_parity
+  does_not_prove:
+    - production_hf_model_class
+    - qwen_scale_export
+    - sharded_or_pjit_export
+    - lm_eval
+    - model_quality
 
 optimizers:
   supported:

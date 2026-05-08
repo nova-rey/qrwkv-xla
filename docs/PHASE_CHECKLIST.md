@@ -606,3 +606,16 @@
 - [x] Add tests for manifest validation, missing arrays, shape mismatches, comparison math, pass/fail/unsupported statuses, report writing, and parameter mapping
 - [x] Add `docs/RADLADS_SOURCE_PARITY_BRIDGE.md`
 - [x] Preserve offline smoke paths and avoid full RADLADS numerical parity claims
+
+## P41 — QRWKV-XLA JAX Checkpoint -> HF/Safetensors Export Smoke
+
+- [x] Add `qrwkv_xla.export` with HF-style safetensors export and reload helpers
+- [x] Add `scripts/export_student_hf_safetensors.py`
+- [x] Add `scripts/run_export_smoke.py`
+- [x] Write `config.json`, `model.safetensors`, `qrwkv_xla_export.json`, and `weight_map.json`
+- [x] Make the smoke write `export_smoke_report.json` and `P41_EXPORT_SMOKE_REPORT.md`
+- [x] Compare original checkpoint outputs against reloaded export outputs on a tiny CPU/local batch
+- [x] Add `tests/test_hf_safetensors_export.py`
+- [x] Add `docs/HF_SAFETENSORS_EXPORT.md`
+- [x] Fail clearly when `safetensors` is unavailable
+- [x] Preserve scope: no production HF model class, `lm_eval`, Qwen-scale export, sharded export, model quality claim, Pallas/WKV kernels, or unrelated cleanup

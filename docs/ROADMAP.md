@@ -207,3 +207,13 @@ or tokenized-corpus inputs, including `loss_mask` and optional HF provenance.
 Goal: prove the existing JAX distillation runner consumes P25 target bundles
 end to end, applies `loss_mask` to token-level target losses, writes finite
 metrics/checkpoints, and resumes from target-training checkpoints locally.
+
+## Phase 41 — HF/Safetensors Student Export Smoke
+
+Goal: export a tiny QRWKV-XLA JSON+NPZ student checkpoint to a Hugging
+Face-style safetensors directory and prove helper reload output parity locally.
+
+Current checkpoint: `hf_safetensors_export_smoke`. This checkpoint writes
+`config.json`, `model.safetensors`, `qrwkv_xla_export.json`, `weight_map.json`,
+and smoke reports for a tiny CPU checkpoint only. It does not add a production
+HF model class, Qwen-scale export, sharding, `lm_eval`, or model quality claims.
