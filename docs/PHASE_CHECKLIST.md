@@ -647,3 +647,19 @@
 - [x] Add CPU-only fixture tests
 - [x] Add WKV7 correctness fixture docs
 - [x] Update snapshot, roadmap, entrypoint, and append-only Bible
+
+## P44 — QRWKV-XLA Streaming Data Pipeline Dry-Run
+
+- [x] Add `qrwkv_xla.data` streaming dataset manifest and iterator helpers
+- [x] Build streaming shards from the existing tokenized corpus artifact path
+- [x] Preserve LM/trainer batch keys: `input_ids`, `labels`, `attention_mask`, and `label_mask`
+- [x] Support deterministic order, optional shuffle plus seed, and resume cursor replay
+- [x] Validate attention and loss masks against tokenizer padding
+- [x] Keep validation finite and CPU/local/offline by default
+- [x] Add `scripts/build_streaming_data_dry_run.py`
+- [x] Add `scripts/run_streaming_data_dry_run.py`
+- [x] Add `scripts/run_streaming_trainer_dry_run.py`
+- [x] Write artifacts under `artifacts/data/p44_streaming_dry_run`
+- [x] Add `tests/test_streaming_data_pipeline.py`
+- [x] Add `docs/STREAMING_DATA_PIPELINE.md`
+- [x] Preserve scope: no cloud ingest, distributed input, `pjit`/sharding, Pallas, WandB, long training, or quality claims

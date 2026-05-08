@@ -755,3 +755,35 @@ not implement an optimized Pallas kernel, does not benchmark TPU performance,
 does not prove full RADLADS numerical parity, and does not claim training or
 model-quality improvements. Its job is to provide the gate future WKV7 kernels
 must pass before speed work is trusted.
+
+## Phase 44 — QRWKV-XLA Streaming Data Pipeline Dry-Run
+
+This phase adds a larger/local/offline streaming data pipeline dry-run. The new
+`qrwkv_xla.data` package defines a manifest-backed streaming dataset, shard
+metadata with tokenized-corpus provenance, a bounded batch iterator,
+deterministic order, optional shuffle plus seed, resume cursors, and explicit
+attention/loss-mask validation.
+
+The default builder intentionally reuses the existing tokenized corpus surface:
+`scripts/build_streaming_data_dry_run.py` writes deterministic synthetic prompts,
+packs them with `qrwkv_xla.lm.tokenized_corpus`, then converts the validated
+shards into a root artifact set under `artifacts/data/p44_streaming_dry_run/`
+with `manifest.json`, `shards/*.npz`, and `P44_DATASET_SUMMARY.md`. Streaming
+batches keep the same keys expected by LM/trainer code: `input_ids`, `labels`,
+`attention_mask`, and `label_mask`.
+
+`scripts/run_streaming_data_dry_run.py` writes
+`streaming_dry_run_report.json`, `P44_STREAMING_DRY_RUN_REPORT.md`, and
+`resume_cursor.json` with token availability, consumption,
+padding/discard accounting, exact integer post-resume replay checks,
+deterministic replay status, mask validation status, approximate tokens per
+second, and peak memory when the platform exposes it.
+`scripts/run_streaming_trainer_dry_run.py` runs a tiny CPU-only train-step
+ingestion check over streaming batches using the existing trainer batch
+contract and writes `trainer_dry_run_report.json` plus
+`P44_TRAINER_DRY_RUN_REPORT.md`.
+
+P44 is not a real training phase. It proves larger/streaming dry-run plumbing
+only. It does not prove full-scale throughput, real training quality, cloud or
+distributed ingest, `pjit`/sharding, Pallas, WandB, or Qwen0.5B-scale target
+generation.

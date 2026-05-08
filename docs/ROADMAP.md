@@ -240,3 +240,17 @@ fixtures under `artifacts/kernels/p43_wkv7_correctness`, compares the
 `pallas` as an explicit unsupported placeholder. It does not add TPU
 benchmarking, optimized Pallas kernels, full Qwen/RADLADS parity, or scale
 execution.
+
+## Phase 44 — Streaming Data Pipeline Dry-Run
+
+Goal: add a larger local/offline streaming dataset abstraction that can consume
+the existing tokenized corpus artifact path, expose LM/trainer-compatible
+batches, and prove deterministic cursor resume.
+
+Current checkpoint: `streaming_data_pipeline_dry_run`. This checkpoint writes a
+root manifest plus shard files under `artifacts/data/p44_streaming_dry_run`,
+emits dataset/streaming/trainer Markdown+JSON reports, validates deterministic
+iteration, optional seeded shuffle, resume cursor replay, attention/loss masks,
+and bounded token accounting. It is not a real training phase and does not
+prove full-scale throughput, real training quality, cloud or distributed input,
+sharding, Pallas, WandB, or Qwen-scale target generation.

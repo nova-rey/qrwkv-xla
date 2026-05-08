@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 43
-checkpoint: wkv7_correctness_fixture_harness
+phase: 44
+checkpoint: streaming_data_pipeline_dry_run
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add a tiny CPU/local WKV7 correctness fixture harness around the extracted
-  slow recurrence/state core, with deterministic artifacts, reference candidate
-  comparison, and an explicit unsupported Pallas placeholder.
+  Add a larger local/offline streaming data pipeline dry-run that reuses the
+  existing tokenized corpus and LM/trainer batch surfaces without becoming a
+  real training phase.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -138,6 +138,48 @@ wkv7_correctness_fixtures:
     - tpu_performance
     - full_radlads_or_qwen_block_parity
     - qwen_scale_execution
+
+streaming_data_pipeline:
+  phase: P44
+  mode: local_offline_streaming_data_dry_run
+  module: qrwkv_xla.data
+  build_script: scripts/build_streaming_data_dry_run.py
+  data_script: scripts/run_streaming_data_dry_run.py
+  trainer_script: scripts/run_streaming_trainer_dry_run.py
+  artifact_dir: artifacts/data/p44_streaming_dry_run
+  manifest: artifacts/data/p44_streaming_dry_run/manifest.json
+  batch_keys:
+    - input_ids
+    - labels
+    - attention_mask
+    - label_mask
+  files:
+    - manifest.json
+    - P44_DATASET_SUMMARY.md
+    - streaming_dry_run_report.json
+    - P44_STREAMING_DRY_RUN_REPORT.md
+    - resume_cursor.json
+    - trainer_dry_run_report.json
+    - P44_TRAINER_DRY_RUN_REPORT.md
+    - shards/*.npz
+  proves:
+    - manifest_backed_sharded_token_data
+    - chunked_streaming_iteration
+    - deterministic_order
+    - optional_seeded_shuffle
+    - resume_cursor_exact_integer_replay
+    - attention_and_loss_mask_validation
+    - padding_and_token_waste_accounting
+    - finite_cpu_local_token_accounting
+    - existing_trainer_batch_contract_ingestion
+  does_not_prove:
+    - full_scale_throughput
+    - real_training_quality
+    - cloud_or_distributed_ingest
+    - pjit_or_sharding
+    - pallas
+    - wandb
+    - qwen_scale_target_generation
 
 optimizers:
   supported:
