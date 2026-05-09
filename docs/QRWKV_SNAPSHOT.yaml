@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 49
-checkpoint: radlads_tiny_numerical_parity_fixtures
+phase: 50
+checkpoint: radlads_parameter_replay_compatibility
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -32,7 +32,7 @@ student:
   backends:
     rwkv7_reference: placeholder_smoke_backend
     rwkv7_radlads_reference: RADLADS-shaped JAX reference backend, not full RADLADS parity.
-    rwkv7_qwen_reference: Qwen/RADLADS-compatible slow JAX reference path, not optimized kernel parity.
+    rwkv7_qwen_reference: Qwen/RADLADS-compatible slow JAX reference path with explicit P50 replay mode, not optimized kernel parity.
   target_runtime:
     - CPU debug
     - TPU smoke
@@ -55,9 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add bounded real-tiny RADLADS numerical fixture import, optional live-source
-  generation hooks, comparison/reporting, and explicit missing-source handling
-  without claiming full RADLADS parity.
+  Add bounded real-tiny RADLADS parameter-value import and replay compatibility,
+  including q/k/v bias support, explicit defaulted/excluded surface handling,
+  and honest replay comparison reporting without claiming full RADLADS parity.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -768,6 +768,57 @@ radlads_tiny_numerical_parity_fixtures:
     - slow_reference_only
     - no_full_radlads_numerical_parity_claim
     - no_optimized_kernel_or_tpu_performance_claim
+
+radlads_parameter_replay_compatibility:
+  phase: P50
+  status: complete
+  docs: docs/RADLADS_PARAMETER_REPLAY_COMPATIBILITY.md
+  config: configs/parity/radlads_tiny_replay.yaml
+  script: scripts/replay_radlads_tiny_numerical_fixtures.py
+  parameter_import_module: src/qrwkv_xla/parity/radlads_parameter_import.py
+  replay_module: src/qrwkv_xla/parity/radlads_replay.py
+  input_manifest: artifacts/p49_radlads_numerical_parity/radlads_fixtures/manifest.json
+  input_parameters: artifacts/p49_radlads_numerical_parity/radlads_fixtures/radlads_parameters.npz
+  report_outputs:
+    - parameter_import_report.json
+    - replay_comparison_report.json
+    - P50_PARAMETER_IMPORT_REPORT.md
+    - P50_RESULTS.md
+    - P50_SURFACE_COMPARISON.md
+  import_statuses:
+    - mapped
+    - defaulted
+    - excluded
+    - unsupported
+    - shape_mismatch
+    - missing_required
+  replay_statuses:
+    - pass
+    - fail
+    - unsupported
+    - missing_source
+    - shape_mismatch
+    - dtype_mismatch
+    - non_finite
+    - not_replayed_due_to_import_failure
+  replay_surfaces:
+    - hidden_states
+    - logits
+    - wkv_matrix_state
+    - shift_state
+    - stepwise_hidden_states
+    - stepwise_logits
+    - stepwise_wkv_matrix_state
+    - stepwise_shift_state
+  source_backed_semantics:
+    gate_rank_type_2: sigmoid_xg_g1_then_matmul_g2
+    token_shift: commented_out_in_inspected_radlads_source
+    r_k: represented_but_excluded_because_source_residual_line_is_commented_out
+  caveats:
+    - explicit_replay_mode_only
+    - measured_fail_is_allowed_and_must_not_be_recast_as_pass
+    - unsupported_never_counts_as_pass
+    - no_pallas_no_tpu_perf_no_real_training_no_full_checkpoint_import_no_hf_model_class
 
 generation_smoke:
   tokenizer: dependency_free_utf8_byte_plus_one

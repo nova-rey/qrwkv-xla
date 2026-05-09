@@ -11,10 +11,23 @@ from qrwkv_xla.parity.radlads_numerical_fixtures import (
     write_current_behavior_numerical_fixtures,
     write_numerical_comparison_reports,
 )
+from qrwkv_xla.parity.radlads_parameter_import import (
+    PARAMETER_IMPORT_SCHEMA,
+    RadladsParameterImportResult,
+    import_radlads_parameters_for_replay,
+    load_radlads_parameter_npz,
+    replay_config_from_normalized_parameters,
+    write_parameter_import_report,
+)
 from qrwkv_xla.parity.radlads_parameter_mapping import (
     compare_parameter_surfaces,
     flatten_parameter_shapes,
     write_surface_comparison_reports,
+)
+from qrwkv_xla.parity.radlads_replay import (
+    REPLAY_REPORT_SCHEMA,
+    replay_radlads_tiny_numerical_fixtures,
+    write_replay_reports,
 )
 from qrwkv_xla.parity.radlads_source import (
     FIXTURE_SCHEMA,
@@ -47,11 +60,20 @@ __all__ = [
     "compare_parameter_surfaces",
     "flatten_parameter_shapes",
     "generate_radlads_tiny_numerical_fixtures",
+    "import_radlads_parameters_for_replay",
     "import_numerical_fixture_directory",
+    "load_radlads_parameter_npz",
     "load_numerical_case_arrays",
     "load_numerical_manifest",
+    "PARAMETER_IMPORT_SCHEMA",
+    "RadladsParameterImportResult",
+    "REPLAY_REPORT_SCHEMA",
+    "replay_config_from_normalized_parameters",
+    "replay_radlads_tiny_numerical_fixtures",
     "validate_numerical_manifest",
     "write_current_behavior_numerical_fixtures",
     "write_numerical_comparison_reports",
+    "write_parameter_import_report",
+    "write_replay_reports",
     "write_surface_comparison_reports",
 ]

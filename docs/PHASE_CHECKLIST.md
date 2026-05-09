@@ -745,3 +745,17 @@
 - [x] Add `tests/test_radlads_numerical_parity.py`
 - [x] Update snapshot, roadmap, phase checklist, and agent entrypoint
 - [x] Append Bible entry
+
+## P50 — RADLADS Parameter Replay Compatibility
+
+- [x] Add RADLADS parameter-value replay importer
+- [x] Add explicit import report buckets for mapped/defaulted/excluded/unsupported/shape_mismatch/missing_required
+- [x] Add q_proj/k_proj/v_proj bias support behind replay/config flags
+- [x] Add source-backed g1/g2 replay mode for RADLADS gate_rank_type=2
+- [x] Keep QRWKV-only surfaces deterministic and reported instead of silently random
+- [x] Add replay comparison report for P49 hidden/logit/state and stepwise surfaces
+- [x] Add `configs/parity/radlads_tiny_replay.yaml`
+- [x] Add `scripts/replay_radlads_tiny_numerical_fixtures.py`
+- [x] Add `docs/RADLADS_PARAMETER_REPLAY_COMPATIBILITY.md`
+- [x] Add `tests/test_radlads_parameter_replay.py`
+- [x] Preserve scope: no Pallas, TPU perf work, real training, full checkpoint import, or HF model class

@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 49
-  checkpoint: radlads_tiny_numerical_parity_fixtures
-  title: RADLADS tiny numerical parity fixtures
+  phase: 50
+  checkpoint: radlads_parameter_replay_compatibility
+  title: RADLADS parameter replay compatibility
 
 workflow:
   primary_agent: Nyx
@@ -38,6 +38,26 @@ instructions:
   - Keep P48 RADLADS math flags explicit; legacy/default `rwkv7_qwen_reference` behavior must remain unchanged unless RADLADS-compatible flags are enabled.
   - Keep P48 `r_k` represented but inactive unless a future source audit finds active source math; the inspected RADLADS residual line is commented out.
   - Keep P49 tiny numerical parity honest; live RADLADS execution is optional/env-gated and default fixtures must report missing_source rather than fabricated source parity.
+  - Keep P50 replay explicit/config-driven; unsupported/defaulted/excluded surfaces must be reported and must not count as passes.
+
+radlads_parameter_replay_compatibility:
+  phase: P50
+  status: complete
+  docs: docs/RADLADS_PARAMETER_REPLAY_COMPATIBILITY.md
+  config: configs/parity/radlads_tiny_replay.yaml
+  script: scripts/replay_radlads_tiny_numerical_fixtures.py
+  default_manifest: artifacts/p49_radlads_numerical_parity/radlads_fixtures/manifest.json
+  default_parameters: artifacts/p49_radlads_numerical_parity/radlads_fixtures/radlads_parameters.npz
+  reports:
+    - parameter_import_report.json
+    - replay_comparison_report.json
+    - P50_PARAMETER_IMPORT_REPORT.md
+    - P50_RESULTS.md
+    - P50_SURFACE_COMPARISON.md
+  caveats:
+    - measured_fail_is_allowed_and_preferred_over_fake_pass
+    - no_training_no_pallas_no_tpu_perf_no_hf_model_class
+    - no_full_checkpoint_import
 
 radlads_tiny_numerical_parity_fixtures:
   phase: P49

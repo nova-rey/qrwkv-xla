@@ -334,3 +334,19 @@ cases `missing_source`; these payloads are not RADLADS outputs.
 P49 does not claim full RADLADS numerical parity, training, checkpoint import,
 Pallas or optimized WKV kernels, a Hugging Face model class, Qwen-scale
 execution, or large-scale parity.
+
+## Phase 50 — RADLADS Parameter Replay Compatibility
+
+Goal: load the tiny real RADLADS P49 parameter payload into the explicit
+QRWKV-XLA slow replay mode and produce honest import plus numerical replay
+reports.
+
+Current checkpoint: `radlads_parameter_replay_compatibility`. This checkpoint
+adds q/k/v projection bias support, source-backed `g1/g2` gate replay for
+RADLADS `gate_rank_type == 2`, deterministic/defaulted reporting for QRWKV-only
+surfaces, and replay comparisons for P49 hidden, logits, WKV state, shift state,
+and stepwise surfaces.
+
+P50 remains a bounded replay-compatibility phase. It does not claim full
+RADLADS parity, full checkpoint import, real training, Pallas kernels, TPU
+performance, Qwen-scale execution, or a Hugging Face model class.

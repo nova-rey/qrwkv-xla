@@ -1,0 +1,39 @@
+schema: radlads_parameter_replay_config.v1
+phase: P50
+description: Bounded CPU/offline-safe replay of P49 tiny RADLADS parameters.
+manifest: artifacts/p49_radlads_numerical_parity/radlads_fixtures/manifest.json
+parameters: artifacts/p49_radlads_numerical_parity/radlads_fixtures/radlads_parameters.npz
+out_dir: artifacts/p50_radlads_replay_compatibility
+backend: rwkv7_qwen_reference
+vocab_size: 32
+hidden_size: 8
+num_layers: 2
+num_heads: 2
+head_size: 4
+sequence_length: 4
+replay:
+  explicit: true
+  use_rope: false
+  emit_logits: true
+  emit_mixer_outputs: true
+  radlads_replay_mode: true
+  attention_qkv_bias: true
+  radlads_compatible_math: true
+  radlads_low_rank_decay: true
+  radlads_low_rank_iclr: true
+  radlads_value_residual_mix: true
+  radlads_balance_state: true
+  radlads_attention_group_norm: true
+  radlads_low_rank_gate: true
+  use_legacy_qrwkv_surfaces: false
+tolerance:
+  float32:
+    atol: 1.0e-5
+    rtol: 1.0e-5
+  bfloat16:
+    atol: 5.0e-2
+    rtol: 5.0e-2
+claim: >
+  This config attempts measured replay compatibility only. It does not claim
+  full RADLADS parity, checkpoint import, training readiness, Pallas kernels,
+  TPU performance, or an HF model class.

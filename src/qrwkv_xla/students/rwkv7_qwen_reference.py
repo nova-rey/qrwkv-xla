@@ -57,6 +57,7 @@ class RWKV7QwenReferenceConfig:
     num_kv_heads: int | None = None
     intermediate_size: int | None = None
     init_scale: float = 0.02
+    use_rope: bool = True
     rope_theta: float = 10000.0
     rms_norm_eps: float = 1e-6
     emit_logits: bool = False
@@ -69,9 +70,13 @@ class RWKV7QwenReferenceConfig:
     radlads_balance_state_terms: bool = False
     radlads_attention_group_norm: bool = False
     radlads_balance_state: bool = False
+    radlads_replay_mode: bool = False
+    attention_qkv_bias: bool = False
+    radlads_low_rank_gate: bool = False
     lora_rank_decay: int | None = None
     lora_rank_iclr: int | None = None
     lora_rank_value_residual_mix: int | None = None
+    lora_rank_gate: int | None = None
 
     def __post_init__(self) -> None:
         for name in ("vocab_size", "hidden_size", "num_layers", "num_heads"):
@@ -112,6 +117,7 @@ class RWKV7QwenReferenceConfig:
             "lora_rank_decay",
             "lora_rank_iclr",
             "lora_rank_value_residual_mix",
+            "lora_rank_gate",
         ):
             value = getattr(self, name)
             if value is not None and value <= 0:
@@ -157,6 +163,14 @@ class RWKV7QwenReferenceConfig:
         return self.radlads_compatible_math or self.radlads_balance_state_terms
 
     @property
+    def use_attention_qkv_bias(self) -> bool:
+        return self.radlads_replay_mode or self.attention_qkv_bias
+
+    @property
+    def use_radlads_low_rank_gate(self) -> bool:
+        return self.radlads_replay_mode or self.radlads_low_rank_gate
+
+    @property
     def use_radlads_attention_group_norm(self) -> bool:
         return self.radlads_attention_group_norm
 
@@ -186,6 +200,14 @@ class RWKV7QwenReferenceConfig:
             self.hidden_size,
             exponent=0.5,
             multiplier=1.3,
+        )
+
+    @property
+    def effective_lora_rank_gate(self) -> int:
+        return self.lora_rank_gate or _radlads_lora_rank(
+            self.hidden_size,
+            exponent=0.8,
+            multiplier=0.6,
         )
 
 
@@ -278,6 +300,7 @@ class RWKV7QwenReferenceStudent:
         rank_decay = self.config.effective_lora_rank_decay
         rank_iclr = self.config.effective_lora_rank_iclr
         rank_value = self.config.effective_lora_rank_value_residual_mix
+        rank_gate = self.config.effective_lora_rank_gate
         self_attn: dict[str, object] = {
             "q_proj": {
                 "weight": _normal(
@@ -346,6 +369,19 @@ class RWKV7QwenReferenceStudent:
                 self.config.init_scale,
             ),
         }
+        if self.config.use_attention_qkv_bias:
+            self_attn["q_proj"]["bias"] = jnp.zeros(  # type: ignore[index]
+                (layer_count, hidden),
+                dtype=jnp.float32,
+            )
+            self_attn["k_proj"]["bias"] = jnp.zeros(  # type: ignore[index]
+                (layer_count, kv_hidden),
+                dtype=jnp.float32,
+            )
+            self_attn["v_proj"]["bias"] = jnp.zeros(  # type: ignore[index]
+                (layer_count, kv_hidden),
+                dtype=jnp.float32,
+            )
         if self.config.use_radlads_low_rank_decay:
             self_attn.update(
                 {
@@ -422,6 +458,21 @@ class RWKV7QwenReferenceStudent:
                     "r_k": _normal(
                         extra_keys[11],
                         (layer_count, self.config.num_heads, self.config.head_size),
+                        self.config.init_scale,
+                    ),
+                }
+            )
+        if self.config.use_radlads_low_rank_gate:
+            self_attn.update(
+                {
+                    "g1": _normal(
+                        extra_keys[0],
+                        (layer_count, hidden, rank_gate),
+                        self.config.init_scale,
+                    ),
+                    "g2": _normal(
+                        extra_keys[1],
+                        (layer_count, rank_gate, hidden),
                         self.config.init_scale,
                     ),
                 }
@@ -703,8 +754,12 @@ class RWKV7QwenReferenceStudent:
         )
 
         def project(token: jax.Array, name: str, heads: int) -> jax.Array:
-            weight = params[f"{name}_proj"]["weight"][layer_index]  # type: ignore[index]
-            return (token @ weight).reshape(batch_size, heads, head_size)
+            proj = params[f"{name}_proj"]  # type: ignore[index]
+            weight = proj["weight"][layer_index]  # type: ignore[index]
+            value = token @ weight
+            if self.config.use_attention_qkv_bias and name in {"q", "k", "v"}:
+                value = value + jnp.asarray(proj["bias"])[layer_index]  # type: ignore[index]
+            return value.reshape(batch_size, heads, head_size)
 
         def low_rank(token: jax.Array, prefix: str) -> jax.Array:
             base = jnp.asarray(params[f"{prefix}0"])[layer_index]
@@ -733,8 +788,9 @@ class RWKV7QwenReferenceStudent:
             q = project(projection_token, "q", num_heads)
             k = project(projection_token, "k", num_kv_heads)
             v = project(projection_token, "v", num_kv_heads)
-            q = rwkv7_qwen_reference_rope(q, position, theta=self.config.rope_theta)
-            k = rwkv7_qwen_reference_rope(k, position, theta=self.config.rope_theta)
+            if self.config.use_rope:
+                q = rwkv7_qwen_reference_rope(q, position, theta=self.config.rope_theta)
+                k = rwkv7_qwen_reference_rope(k, position, theta=self.config.rope_theta)
             k = rwkv7_qwen_reference_group_kv(k, num_heads=num_heads)
             v = rwkv7_qwen_reference_group_kv(v, num_heads=num_heads)
             v_flat = v.reshape(batch_size, hidden)
@@ -758,7 +814,13 @@ class RWKV7QwenReferenceStudent:
             else:
                 a = jax.nn.sigmoid(project(mixed, "a", num_heads))
             b = project(mixed, "b", num_heads)
-            gate = jax.nn.sigmoid(project(projection_token, "g", num_heads))
+            if self.config.use_radlads_low_rank_gate:
+                g1 = jnp.asarray(params["g1"])[layer_index]
+                g2 = jnp.asarray(params["g2"])[layer_index]
+                gate = jax.nn.sigmoid(projection_token @ g1) @ g2
+                gate = gate.reshape(batch_size, num_heads, head_size)
+            else:
+                gate = jax.nn.sigmoid(project(projection_token, "g", num_heads))
 
             if self.config.use_radlads_balance_state_terms:
                 if self.config.radlads_balance_state:
@@ -788,7 +850,10 @@ class RWKV7QwenReferenceStudent:
             ):
                 k = k * (1.0 - decay + a)
             vk = jnp.einsum("bhi,bhj->bhij", v, k)
-            ab = jnp.einsum("bhi,bhj->bhij", -kk, kk * a + b)
+            if self.config.radlads_replay_mode:
+                ab = jnp.einsum("bhi,bhj->bhij", -kk, kk * a)
+            else:
+                ab = jnp.einsum("bhi,bhj->bhij", -kk, kk * a + b)
             next_wkv = prev_wkv * decay[:, :, None, :] + prev_wkv @ ab + vk
 
             mixed_heads = jnp.einsum("bhij,bhj->bhi", next_wkv, q)

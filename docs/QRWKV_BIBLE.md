@@ -936,3 +936,28 @@ fabricate RADLADS arrays from QRWKV-XLA.
 P49 remains tiny fixture infrastructure only. It does not add training,
 checkpoint import, Pallas or optimized WKV kernels, a Hugging Face model class,
 Qwen-scale execution, or large-scale RADLADS parity claims.
+
+## Phase 50 — RADLADS Parameter Replay Compatibility
+
+P50 adds an explicit bounded replay path for the real tiny P49 RADLADS
+parameter payload. The new importer loads
+`artifacts/p49_radlads_numerical_parity/radlads_fixtures/radlads_parameters.npz`,
+normalizes RADLADS parameter names/shapes, maps values into
+`rwkv7_qwen_reference`, and reports mapped, defaulted, excluded, unsupported,
+shape-mismatch, and missing-required surfaces. QRWKV-only surfaces such as
+`a_proj.weight`, `b_proj.weight`, `g_proj.weight`, `w_proj.weight`, `time_mix`,
+`time_bias`, and `lm_head.bias` are reported and deterministically defaulted
+rather than left as random replay inputs.
+
+The slow reference now has explicit replay-gated support for q/k/v projection
+biases and the audited RADLADS `gate_rank_type == 2` expression
+`sigmoid(xg @ g1) @ g2`. The inspected RADLADS token-shift parameters and `r_k`
+residual contribution remain commented out in the local source path, so P50
+does not invent those semantics.
+
+`scripts/replay_radlads_tiny_numerical_fixtures.py` writes P50 import and replay
+reports for the P49 hidden, logits, WKV matrix state, shift state, and stepwise
+surfaces. Failing numerical comparisons are acceptable and expected at this
+stage; unsupported or missing surfaces never count as passes. P50 does not add
+Pallas, TPU performance work, real training, full checkpoint import, or a
+Hugging Face model class.
