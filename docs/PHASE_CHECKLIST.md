@@ -759,3 +759,15 @@
 - [x] Add `docs/RADLADS_PARAMETER_REPLAY_COMPATIBILITY.md`
 - [x] Add `tests/test_radlads_parameter_replay.py`
 - [x] Preserve scope: no Pallas, TPU perf work, real training, full checkpoint import, or HF model class
+
+## Phase 51 — RADLADS Replay Non-Finite Diagnosis and Stabilization
+
+- [x] Reproduce the P50 replay-side `non_finite` failure.
+- [x] Add replay tensor summaries and first-nonfinite detection.
+- [x] Add parameter sanity reports for the RADLADS payload.
+- [x] Add `scripts/diagnose_radlads_replay_nonfinite.py`.
+- [x] Fix replay profile selection so simple P49 fixtures do not force all RADLADS math.
+- [x] Re-run stabilized replay with P51 reports.
+- [x] Add `tests/test_radlads_replay_diagnostics.py`.
+- [x] Add `docs/RADLADS_REPLAY_NONFINITE_DIAGNOSTICS.md`.
+- [x] Preserve scope: no Pallas, TPU perf work, real training, full checkpoint import, or HF model class.

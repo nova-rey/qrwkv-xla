@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -13,10 +14,15 @@ from qrwkv_xla.parity.radlads_numerical_fixtures import (
     load_numerical_manifest,
 )
 from qrwkv_xla.parity.radlads_parameter_import import (
+    QRWKV_DEFAULTED_SURFACES,
     import_radlads_parameters_for_replay,
     write_parameter_import_report,
 )
-from qrwkv_xla.students import RWKV7QwenReferenceStudent
+from qrwkv_xla.parity.radlads_replay_diagnostics import (
+    ReplayDiagnosticsCollector,
+    find_first_nonfinite,
+)
+from qrwkv_xla.students import RWKV7QwenReferenceConfig, RWKV7QwenReferenceStudent
 
 REPLAY_REPORT_SCHEMA = "radlads_parameter_replay_comparison.v1"
 
@@ -44,6 +50,90 @@ P49_REPLAY_SURFACES = (
 )
 
 
+@dataclass(frozen=True)
+class ReplayCaseProfile:
+    case_name: str
+    all_radlads_math: bool
+    attention_qkv_bias: bool
+    active_defaulted_surfaces: tuple[str, ...]
+    reason: str
+
+
+_SIMPLE_CASES = {
+    "tiny_no_mask",
+    "tiny_attention_mask",
+    "tiny_prefix_or_left_padding",
+    "tiny_stepwise_state",
+}
+
+
+_SIMPLE_CASE_DEFAULTS = (
+    "layers.self_attn.b_proj.weight",
+    "layers.self_attn.time_mix",
+    "layers.self_attn.time_bias",
+    "lm_head.bias",
+)
+
+
+_ALL_MATH_DEFAULTS = ("lm_head.bias",)
+
+
+def replay_profile_for_case(case: Mapping[str, Any]) -> ReplayCaseProfile:
+    case_name = str(case.get("name"))
+    all_math = bool(
+        case.get("all_radlads_math")
+        if "all_radlads_math" in case
+        else case_name == "tiny_all_radlads_math_enabled"
+    )
+    if all_math:
+        return ReplayCaseProfile(
+            case_name=case_name,
+            all_radlads_math=True,
+            attention_qkv_bias=True,
+            active_defaulted_surfaces=_ALL_MATH_DEFAULTS,
+            reason=(
+                "This fixture was generated with explicit RADLADS math flags enabled, "
+                "so replay keeps the low-rank path active."
+            ),
+        )
+    if case_name in _SIMPLE_CASES:
+        return ReplayCaseProfile(
+            case_name=case_name,
+            all_radlads_math=False,
+            attention_qkv_bias=True,
+            active_defaulted_surfaces=_SIMPLE_CASE_DEFAULTS,
+            reason=(
+                "P49 generated this fixture with all_radlads_math=False, so replay "
+                "must keep the low-rank RADLADS path disabled instead of forcing "
+                "the all-math profile."
+            ),
+        )
+    return ReplayCaseProfile(
+        case_name=case_name,
+        all_radlads_math=False,
+        attention_qkv_bias=True,
+        active_defaulted_surfaces=_SIMPLE_CASE_DEFAULTS,
+        reason="Unknown fixture defaults to the safer non-all-math replay profile.",
+    )
+
+
+def student_for_replay_profile(
+    base_config: RWKV7QwenReferenceConfig,
+    profile: ReplayCaseProfile,
+) -> RWKV7QwenReferenceStudent:
+    return RWKV7QwenReferenceStudent(
+        replace(
+            base_config,
+            radlads_compatible_math=profile.all_radlads_math,
+            radlads_attention_group_norm=profile.all_radlads_math,
+            radlads_balance_state=profile.all_radlads_math,
+            radlads_replay_mode=profile.all_radlads_math,
+            radlads_low_rank_gate=profile.all_radlads_math,
+            attention_qkv_bias=profile.attention_qkv_bias,
+        )
+    )
+
+
 def replay_radlads_tiny_numerical_fixtures(
     manifest_path: Path,
     *,
@@ -52,6 +142,7 @@ def replay_radlads_tiny_numerical_fixtures(
     atol: float = 1e-5,
     rtol: float = 1e-5,
     allow_defaults: bool = True,
+    report_prefix: str = "P50",
 ) -> dict[str, Any]:
     manifest = load_numerical_manifest(manifest_path)
     fixture_dir = manifest_path.parent
@@ -66,7 +157,7 @@ def replay_radlads_tiny_numerical_fixtures(
             reason="RADLADS parameter payload is absent.",
         )
         if out_dir is not None:
-            write_replay_reports(report, out_dir)
+            write_replay_reports(report, out_dir, report_prefix=report_prefix)
         return report
 
     try:
@@ -83,7 +174,7 @@ def replay_radlads_tiny_numerical_fixtures(
             reason=f"parameter import crashed: {type(exc).__name__}: {exc}",
         )
         if out_dir is not None:
-            write_replay_reports(report, out_dir)
+            write_replay_reports(report, out_dir, report_prefix=report_prefix)
         return report
 
     if import_result.overall_status != "pass":
@@ -95,16 +186,15 @@ def replay_radlads_tiny_numerical_fixtures(
             import_report=import_result.report,
         )
         if out_dir is not None:
-            write_replay_reports(report, out_dir)
+            write_replay_reports(report, out_dir, report_prefix=report_prefix)
             write_parameter_import_report(import_result.report, out_dir)
         return report
 
-    student = RWKV7QwenReferenceStudent(import_result.qrwkv_config)
     cases = [
         _replay_case(
             manifest_path,
             case,
-            student=student,
+            base_config=import_result.qrwkv_config,
             params=import_result.params,
             atol=atol,
             rtol=rtol,
@@ -133,37 +223,98 @@ def replay_radlads_tiny_numerical_fixtures(
         overall = "unsupported"
     best_passing_surface = _best_passing_surface(cases)
     largest_failure = _largest_failure(cases)
+    baseline_non_finite_count = _load_baseline_non_finite_count(manifest_path)
     report = {
         "schema": REPLAY_REPORT_SCHEMA,
         "manifest": str(manifest_path),
         "parameter_payload": str(parameter_path),
         "overall_status": overall,
         "counts": counts,
+        "surface_status_counts": counts,
         "attempted_comparisons": attempted,
+        "cases_attempted": len(cases),
+        "cases_finite": sum(
+            1
+            for case in cases
+            if all(
+                row.get("status")
+                not in {"non_finite", "not_replayed_due_to_import_failure"}
+                for row in case.get("comparisons", [])
+            )
+        ),
+        "baseline_non_finite_count": baseline_non_finite_count,
+        "non_finite_count_after": counts.get("non_finite", 0),
         "best_passing_surface": best_passing_surface,
         "largest_failure": largest_failure,
         "import_report": import_result.report,
         "cases": cases,
     }
     if out_dir is not None:
-        write_replay_reports(report, out_dir)
+        write_replay_reports(report, out_dir, report_prefix=report_prefix)
         write_parameter_import_report(import_result.report, out_dir)
     return report
 
 
-def write_replay_reports(report: Mapping[str, Any], out_dir: Path) -> None:
+def diagnose_replay_case(
+    manifest_path: Path,
+    case: Mapping[str, Any],
+    *,
+    base_config: RWKV7QwenReferenceConfig,
+    params: dict[str, object],
+) -> dict[str, Any]:
+    arrays = load_numerical_case_arrays(manifest_path, case)
+    profile = replay_profile_for_case(case)
+    student = student_for_replay_profile(base_config, profile)
+    diagnostics = ReplayDiagnosticsCollector()
+    qrwkv = _run_qrwkv_replay(
+        student,
+        params,
+        arrays,
+        diagnostics=diagnostics,
+    )
+    final_outputs_finite = all(np.isfinite(value).all() for value in qrwkv.values())
+    first_nonfinite = find_first_nonfinite(diagnostics.summaries)
+    return {
+        "case": case["name"],
+        "first_nonfinite": first_nonfinite,
+        "final_outputs_finite": final_outputs_finite,
+        "instrumented_stages": diagnostics.instrumented_stages,
+        "tensor_summaries": diagnostics.summaries,
+        "replay_profile": {
+            "all_radlads_math": profile.all_radlads_math,
+            "attention_qkv_bias": profile.attention_qkv_bias,
+            "reason": profile.reason,
+            "active_defaulted_surfaces": list(profile.active_defaulted_surfaces),
+            "qrwkv_only_default_used_in_active_path": bool(
+                profile.active_defaulted_surfaces
+            ),
+        },
+        "suspected_root_cause": (
+            "active_path_profile_mismatch"
+            if not profile.all_radlads_math
+            else "source_parameter_nonfinite_or_overflow"
+        ),
+    }
+
+
+def write_replay_reports(
+    report: Mapping[str, Any],
+    out_dir: Path,
+    *,
+    report_prefix: str = "P50",
+) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     payload = dict(report)
     (out_dir / "replay_comparison_report.json").write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    (out_dir / "P50_RESULTS.md").write_text(
-        _results_markdown(payload),
+    (out_dir / f"{report_prefix}_RESULTS.md").write_text(
+        _results_markdown(payload, report_prefix=report_prefix),
         encoding="utf-8",
     )
-    (out_dir / "P50_SURFACE_COMPARISON.md").write_text(
-        _surface_markdown(payload),
+    (out_dir / f"{report_prefix}_SURFACE_COMPARISON.md").write_text(
+        _surface_markdown(payload, report_prefix=report_prefix),
         encoding="utf-8",
     )
 
@@ -172,7 +323,7 @@ def _replay_case(
     manifest_path: Path,
     case: Mapping[str, Any],
     *,
-    student: RWKV7QwenReferenceStudent,
+    base_config: RWKV7QwenReferenceConfig,
     params: dict[str, object],
     atol: float,
     rtol: float,
@@ -192,6 +343,8 @@ def _replay_case(
             "reason": "case has no RADLADS arrays",
             "comparisons": [],
         }
+    profile = replay_profile_for_case(case)
+    student = student_for_replay_profile(base_config, profile)
     try:
         qrwkv = _run_qrwkv_replay(student, params, arrays)
     except Exception as exc:
@@ -199,6 +352,7 @@ def _replay_case(
             "name": case["name"],
             "status": "fail",
             "reason": f"QRWKV replay execution failed: {exc}",
+            "replay_profile": _profile_payload(profile),
             "comparisons": [
                 {
                     "name": name,
@@ -223,6 +377,7 @@ def _replay_case(
     return {
         "name": case["name"],
         "status": status,
+        "replay_profile": _profile_payload(profile),
         "comparisons": comparisons,
     }
 
@@ -231,13 +386,20 @@ def _run_qrwkv_replay(
     student: RWKV7QwenReferenceStudent,
     params: dict[str, object],
     arrays: Mapping[str, np.ndarray],
+    *,
+    diagnostics: ReplayDiagnosticsCollector | None = None,
 ) -> dict[str, np.ndarray]:
     input_ids = np.asarray(arrays["input_ids"], dtype=np.int32)
     attention_mask = None
     if "attention_mask" in arrays:
         attention_mask = np.asarray(arrays["attention_mask"], dtype=np.int32)
 
-    output, state = student.apply_with_state(params, input_ids, attention_mask)
+    output, state = student.apply_with_state(
+        params,
+        input_ids,
+        attention_mask,
+        diagnostics=diagnostics,
+    )
     result = {
         "qrwkv_hidden_states": _np(output.hidden_states)[:, -1],
         "qrwkv_logits": _np(output.logits),
@@ -258,6 +420,7 @@ def _run_qrwkv_replay(
                 input_ids[:, index : index + 1],
                 step_state,
                 attention_mask=step_mask,
+                diagnostics=diagnostics,
             )
             step_hidden.append(_np(step_output.hidden_states)[:, -1])
             step_logits.append(_np(step_output.logits))
@@ -374,12 +537,16 @@ def _not_replayed_report(
     }
 
 
-def _results_markdown(report: Mapping[str, Any]) -> str:
+def _results_markdown(report: Mapping[str, Any], *, report_prefix: str) -> str:
     lines = [
-        "# P50 Results",
+        f"# {report_prefix} Results",
         "",
         f"- Overall status: `{report.get('overall_status')}`",
         f"- Attempted comparisons: `{report.get('attempted_comparisons', 0)}`",
+        f"- Cases attempted: `{report.get('cases_attempted', 0)}`",
+        f"- Cases finite: `{report.get('cases_finite', 0)}`",
+        f"- Baseline P50 non_finite count: `{report.get('baseline_non_finite_count')}`",
+        f"- P51 non_finite count: `{report.get('non_finite_count_after')}`",
         f"- Best passing surface: `{report.get('best_passing_surface')}`",
         f"- Largest failure: `{report.get('largest_failure')}`",
         "",
@@ -388,10 +555,21 @@ def _results_markdown(report: Mapping[str, Any]) -> str:
     ]
     for status, count in sorted(dict(report.get("counts", {})).items()):
         lines.append(f"- `{status}`: {count}")
+    lines.extend(["", "## Replay profiles", ""])
+    for case in report.get("cases", []):
+        profile = case.get("replay_profile") or {}
+        if not profile:
+            continue
+        lines.append(
+            f"- `{case.get('name')}` "
+            f"all_radlads_math=`{profile.get('all_radlads_math')}` "
+            "active_defaults="
+            f"`{profile.get('active_defaulted_surfaces')}`"
+        )
     lines.extend(
         [
             "",
-            "P50 proves tiny replay compatibility only. It does not prove full "
+            f"{report_prefix} proves replay diagnostics only. It does not prove full "
             "RADLADS checkpoint compatibility, Pallas kernels, production training "
             "throughput, or model quality.",
             "",
@@ -400,9 +578,9 @@ def _results_markdown(report: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _surface_markdown(report: Mapping[str, Any]) -> str:
+def _surface_markdown(report: Mapping[str, Any], *, report_prefix: str) -> str:
     lines = [
-        "# P50 Surface Comparison",
+        f"# {report_prefix} Surface Comparison",
         "",
         "| Case | Surface | Status | Max abs | Mean abs | Max rel | Reason |",
         "| --- | --- | --- | --- | --- | --- | --- |",
@@ -462,3 +640,32 @@ def _np(value: Any) -> np.ndarray:
     if value is None:
         raise ValueError("expected emitted array")
     return np.asarray(jax.device_get(value), dtype=np.float32)
+
+
+def _profile_payload(profile: ReplayCaseProfile) -> dict[str, Any]:
+    active_defaults = list(profile.active_defaulted_surfaces)
+    return {
+        "all_radlads_math": profile.all_radlads_math,
+        "attention_qkv_bias": profile.attention_qkv_bias,
+        "active_defaulted_surfaces": active_defaults,
+        "qrwkv_only_default_used_in_active_path": bool(active_defaults),
+        "defaulted_surface_metadata": {
+            name: QRWKV_DEFAULTED_SURFACES.get(name, {}) for name in active_defaults
+        },
+        "reason": profile.reason,
+    }
+
+
+def _load_baseline_non_finite_count(manifest_path: Path) -> int | None:
+    candidate = (
+        manifest_path.parents[2]
+        / "p50_radlads_replay_compatibility"
+        / "replay_comparison_report.json"
+    )
+    if not candidate.exists():
+        return None
+    try:
+        payload = json.loads(candidate.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return int(payload.get("counts", {}).get("non_finite", 0))

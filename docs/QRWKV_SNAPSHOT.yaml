@@ -820,6 +820,34 @@ radlads_parameter_replay_compatibility:
     - unsupported_never_counts_as_pass
     - no_pallas_no_tpu_perf_no_real_training_no_full_checkpoint_import_no_hf_model_class
 
+radlads_replay_nonfinite_diagnostics:
+  phase: P51
+  status: complete
+  docs:
+    - docs/RADLADS_REPLAY_NONFINITE_DIAGNOSTICS.md
+  scripts:
+    - scripts/diagnose_radlads_replay_nonfinite.py
+    - scripts/replay_radlads_tiny_numerical_fixtures.py
+  modules:
+    - src/qrwkv_xla/parity/radlads_replay_diagnostics.py
+    - src/qrwkv_xla/parity/radlads_replay.py
+  report_outputs:
+    - P51_DIAGNOSTIC_REPORT.md
+    - replay_diagnostics.json
+    - tensor_summaries.jsonl
+    - P51_PARAMETER_SANITY.md
+    - parameter_sanity_report.json
+    - P51_RESULTS.md
+    - replay_comparison_report.json
+    - P51_SURFACE_COMPARISON.md
+  diagnostics:
+    - first_nonfinite_detection
+    - parameter_sanity_reporting
+    - case_specific_replay_profiles
+  caveats:
+    - all_math_fixture_can_remain_nonfinite_if_source_payload_is_bad
+    - no_pallas_no_training_no_model_quality_claims
+
 generation_smoke:
   tokenizer: dependency_free_utf8_byte_plus_one
 

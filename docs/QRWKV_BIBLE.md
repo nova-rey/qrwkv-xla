@@ -961,3 +961,21 @@ surfaces. Failing numerical comparisons are acceptable and expected at this
 stage; unsupported or missing surfaces never count as passes. P50 does not add
 Pallas, TPU performance work, real training, full checkpoint import, or a
 Hugging Face model class.
+
+## Phase 51 — RADLADS Replay Non-Finite Diagnosis and Stabilization
+
+P51 adds diagnosis-first replay tooling for the real P49 RADLADS tiny fixtures.
+The new diagnostics path summarizes replay tensors, detects the first
+non-finite tensor in replay order, writes parameter sanity reports for the
+shared RADLADS payload, and records which replay stages were instrumented.
+
+The key source-backed fix is replay-profile selection: P50 forced the
+all-math RADLADS path for every fixture, but P49 generated four of the five
+real cases with `all_radlads_math=False`. P51 now replays those simple cases
+with the matching non-all-math profile, preserving q/k/v bias import while
+avoiding inactive low-rank paths that were poisoning replay with suspicious
+source parameters. The explicit all-math fixture remains diagnostic and may
+still fail if the source payload itself is non-finite.
+
+P51 does not add Pallas, full RADLADS parity claims, throughput claims,
+training claims, or model-quality claims.

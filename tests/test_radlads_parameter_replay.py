@@ -140,6 +140,10 @@ def test_replay_attempts_real_p49_comparisons_when_fixture_exists(
     }
     assert "unsupported" not in statuses
     assert statuses & {"pass", "fail", "non_finite", "shape_mismatch", "dtype_mismatch"}
+    by_name = {case["name"]: case for case in report["cases"]}
+    tiny = by_name["tiny_no_mask"]
+    assert tiny["replay_profile"]["all_radlads_math"] is False
+    assert all(row["status"] != "non_finite" for row in tiny["comparisons"])
     assert (tmp_path / "replay" / "replay_comparison_report.json").is_file()
     assert (tmp_path / "replay" / "parameter_import_report.json").is_file()
     assert (tmp_path / "replay" / "P50_RESULTS.md").is_file()

@@ -350,3 +350,12 @@ and stepwise surfaces.
 P50 remains a bounded replay-compatibility phase. It does not claim full
 RADLADS parity, full checkpoint import, real training, Pallas kernels, TPU
 performance, Qwen-scale execution, or a Hugging Face model class.
+
+## Phase 51 — RADLADS Replay Non-Finite Diagnosis and Stabilization
+
+Next checkpoint: `radlads_replay_nonfinite_diagnostics`.
+
+This phase instruments replay tensors, writes parameter sanity reports, and
+keeps replay profiles aligned with the original P49 fixture math flags. The
+goal is finite slow-reference replay for at least the simple real fixtures
+before any Pallas/kernel work resumes.

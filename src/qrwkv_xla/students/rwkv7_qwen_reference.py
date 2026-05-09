@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import jax
 import jax.numpy as jnp
@@ -565,6 +566,7 @@ class RWKV7QwenReferenceStudent:
         input_ids: jax.Array,
         attention_mask: jax.Array | None = None,
         initial_state: RWKV7QwenReferenceState | None = None,
+        diagnostics: Any | None = None,
     ) -> tuple[StudentOutput, RWKV7QwenReferenceState]:
         token_ids = jnp.asarray(input_ids)
         if token_ids.ndim != 2:
@@ -576,6 +578,7 @@ class RWKV7QwenReferenceStudent:
 
         embeddings = params["token_embedding"]["weight"]  # type: ignore[index]
         x = jnp.asarray(embeddings)[token_ids]
+        _diag_record(diagnostics, "token_embedding", x, stage="input_embeddings")
         positions = state.next_position + jnp.arange(sequence_length, dtype=jnp.int32)
 
         layers = params["layers"]  # type: ignore[index]
@@ -594,6 +597,7 @@ class RWKV7QwenReferenceStudent:
                 initial_wkv=state.wkv_matrix_state[layer_index],
                 initial_shift=state.shift_state[layer_index],
                 v_first=v_first,
+                diagnostics=diagnostics,
             )
             hidden_layers.append(x)
             mixer_layers.append(mixer)
@@ -606,6 +610,7 @@ class RWKV7QwenReferenceStudent:
             jnp.asarray(final_norm_weight),
             self.config.rms_norm_eps,
         )
+        _diag_record(diagnostics, "final_hidden", final_hidden, stage="final_norm")
         logits = None
         if self.config.emit_logits:
             token_embedding = params["token_embedding"]["weight"]  # type: ignore[index]
@@ -617,6 +622,7 @@ class RWKV7QwenReferenceStudent:
                 )
             else:
                 logits = apply_lm_head(final_hidden, params["lm_head"])  # type: ignore[index]
+        _diag_record(diagnostics, "logits", logits, stage="logits")
 
         output = StudentOutput(
             hidden_states=jnp.stack(hidden_layers, axis=1),
@@ -633,6 +639,24 @@ class RWKV7QwenReferenceStudent:
             next_position=state.next_position
             + jnp.asarray(sequence_length, dtype=jnp.int32),
         )
+        _diag_record(
+            diagnostics,
+            "returned_hidden_states",
+            output.hidden_states,
+            stage="returned_hidden_states",
+        )
+        _diag_record(
+            diagnostics,
+            "returned_wkv_matrix_state",
+            final_state.wkv_matrix_state,
+            stage="returned_wkv_matrix_state",
+        )
+        _diag_record(
+            diagnostics,
+            "returned_shift_state",
+            final_state.shift_state,
+            stage="returned_shift_state",
+        )
         return output, final_state
 
     def step(
@@ -641,6 +665,7 @@ class RWKV7QwenReferenceStudent:
         input_ids: jax.Array,
         state: RWKV7QwenReferenceState,
         attention_mask: jax.Array | None = None,
+        diagnostics: Any | None = None,
     ) -> tuple[StudentOutput, RWKV7QwenReferenceState]:
         token_ids = jnp.asarray(input_ids)
         if token_ids.ndim != 2 or token_ids.shape[1] != 1:
@@ -655,6 +680,7 @@ class RWKV7QwenReferenceStudent:
             token_ids,
             attention_mask=attention_mask,
             initial_state=state,
+            diagnostics=diagnostics,
         )
 
     def _validate_state(
@@ -697,11 +723,19 @@ class RWKV7QwenReferenceStudent:
         initial_wkv: jax.Array,
         initial_shift: jax.Array,
         v_first: jax.Array | None,
+        diagnostics: Any | None,
     ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array | None]:
         attn_input = _rms_norm(
             x,
             params["input_layernorm"]["weight"][layer_index],  # type: ignore[index]
             self.config.rms_norm_eps,
+        )
+        _diag_record(
+            diagnostics,
+            f"layers.{layer_index}.pre_attention_norm",
+            attn_input,
+            stage="pre_attention_norm",
+            layer=layer_index,
         )
         attn_out, final_wkv, final_shift, next_v_first = self._attention(
             attn_input,
@@ -712,8 +746,16 @@ class RWKV7QwenReferenceStudent:
             initial_wkv=initial_wkv,
             initial_shift=initial_shift,
             v_first=v_first,
+            diagnostics=diagnostics,
         )
         residual = x + attn_out
+        _diag_record(
+            diagnostics,
+            f"layers.{layer_index}.post_attention_residual",
+            residual,
+            stage="post_attention_residual",
+            layer=layer_index,
+        )
         mlp_input = _rms_norm(
             residual,
             params["post_attention_layernorm"]["weight"][layer_index],  # type: ignore[index]
@@ -725,7 +767,22 @@ class RWKV7QwenReferenceStudent:
             layer_index=layer_index,
         )
         mlp_out = mlp_out * mask
-        return residual + mlp_out, attn_out, final_wkv, final_shift, next_v_first
+        _diag_record(
+            diagnostics,
+            f"layers.{layer_index}.mlp_output",
+            mlp_out,
+            stage="mlp_output",
+            layer=layer_index,
+        )
+        layer_output = residual + mlp_out
+        _diag_record(
+            diagnostics,
+            f"layers.{layer_index}.layer_output",
+            layer_output,
+            stage="layer_output",
+            layer=layer_index,
+        )
+        return layer_output, attn_out, final_wkv, final_shift, next_v_first
 
     def _attention(
         self,
@@ -738,6 +795,7 @@ class RWKV7QwenReferenceStudent:
         initial_wkv: jax.Array,
         initial_shift: jax.Array,
         v_first: jax.Array | None,
+        diagnostics: Any | None,
     ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array | None]:
         batch_size, _sequence_length, hidden = x.shape
         head_size = self.config.head_size
@@ -753,19 +811,82 @@ class RWKV7QwenReferenceStudent:
             positions,
         )
 
-        def project(token: jax.Array, name: str, heads: int) -> jax.Array:
+        def project(
+            token: jax.Array,
+            name: str,
+            heads: int,
+            *,
+            time_index: int | None = None,
+        ) -> jax.Array:
             proj = params[f"{name}_proj"]  # type: ignore[index]
             weight = proj["weight"][layer_index]  # type: ignore[index]
             value = token @ weight
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.{name}_projection",
+                value,
+                stage=f"{name}_projection",
+                layer=layer_index,
+                time_index=time_index,
+            )
             if self.config.use_attention_qkv_bias and name in {"q", "k", "v"}:
                 value = value + jnp.asarray(proj["bias"])[layer_index]  # type: ignore[index]
-            return value.reshape(batch_size, heads, head_size)
+                _diag_record(
+                    diagnostics,
+                    f"layers.{layer_index}.self_attn.{name}_bias_add",
+                    value,
+                    stage=f"{name}_bias_add",
+                    layer=layer_index,
+                    time_index=time_index,
+                )
+            reshaped = value.reshape(batch_size, heads, head_size)
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.{name}_head_split",
+                reshaped,
+                stage=f"{name}_head_split",
+                layer=layer_index,
+                time_index=time_index,
+            )
+            return reshaped
 
-        def low_rank(token: jax.Array, prefix: str) -> jax.Array:
+        def low_rank(
+            token: jax.Array,
+            prefix: str,
+            *,
+            time_index: int | None = None,
+        ) -> jax.Array:
             base = jnp.asarray(params[f"{prefix}0"])[layer_index]
             down = jnp.asarray(params[f"{prefix}1"])[layer_index]
             up = jnp.asarray(params[f"{prefix}2"])[layer_index]
-            return base[None, :] + (jnp.tanh(token @ down) @ up).astype(jnp.float32)
+            down_proj = token @ down
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.{prefix}0",
+                base,
+                stage=f"{prefix}0",
+                layer=layer_index,
+                time_index=time_index,
+            )
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.{prefix}1_projection",
+                down_proj,
+                stage=f"{prefix}1_projection",
+                layer=layer_index,
+                time_index=time_index,
+            )
+            activated = jnp.tanh(down_proj)
+            up_proj = activated @ up
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.{prefix}2_projection",
+                up_proj,
+                stage=f"{prefix}2_projection",
+                layer=layer_index,
+                time_index=time_index,
+            )
+            return base[None, :] + up_proj.astype(jnp.float32)
 
         if (
             self.config.use_radlads_value_residual_mix
@@ -780,47 +901,133 @@ class RWKV7QwenReferenceStudent:
         )
         xs = xs + (v_first_scan,)
 
-        def step(carry, item):
+        def step(carry, item, *, time_index: int | None = None):
             prev_wkv, prev_shift = carry
             token, token_mask, position, token_v_first = item
             mixed = token + time_mix * (prev_shift - token)
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.mixed_input",
+                mixed,
+                stage="mixed_input",
+                layer=layer_index,
+                time_index=time_index,
+            )
             projection_token = token if self.config.radlads_compatible_math else mixed
-            q = project(projection_token, "q", num_heads)
-            k = project(projection_token, "k", num_kv_heads)
-            v = project(projection_token, "v", num_kv_heads)
+            q = project(projection_token, "q", num_heads, time_index=time_index)
+            k = project(projection_token, "k", num_kv_heads, time_index=time_index)
+            v = project(projection_token, "v", num_kv_heads, time_index=time_index)
             if self.config.use_rope:
                 q = rwkv7_qwen_reference_rope(q, position, theta=self.config.rope_theta)
                 k = rwkv7_qwen_reference_rope(k, position, theta=self.config.rope_theta)
+                _diag_record(
+                    diagnostics,
+                    f"layers.{layer_index}.self_attn.rope_q",
+                    q,
+                    stage="rope_output_q",
+                    layer=layer_index,
+                    time_index=time_index,
+                )
+                _diag_record(
+                    diagnostics,
+                    f"layers.{layer_index}.self_attn.rope_k",
+                    k,
+                    stage="rope_output_k",
+                    layer=layer_index,
+                    time_index=time_index,
+                )
             k = rwkv7_qwen_reference_group_kv(k, num_heads=num_heads)
             v = rwkv7_qwen_reference_group_kv(v, num_heads=num_heads)
             v_flat = v.reshape(batch_size, hidden)
             next_v_first = v_flat
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.v_first",
+                token_v_first,
+                stage="v_first",
+                layer=layer_index,
+                time_index=time_index,
+            )
             if self.config.use_radlads_value_residual_mix and layer_index > 0:
-                v_mix = jax.nn.sigmoid(low_rank(token, "v"))
+                v_low_rank = low_rank(token, "v", time_index=time_index)
+                v_mix = jax.nn.sigmoid(v_low_rank)
+                _diag_record(
+                    diagnostics,
+                    f"layers.{layer_index}.self_attn.v_mix",
+                    v_mix,
+                    stage="mixed_value",
+                    layer=layer_index,
+                    time_index=time_index,
+                )
                 v_flat = v_flat + (token_v_first - v_flat) * v_mix
                 v = v_flat.reshape(batch_size, num_heads, head_size)
             token_mask_state = token_mask.reshape(batch_size, 1, 1)
             v = v * token_mask_state
             if self.config.use_radlads_low_rank_decay:
-                w = low_rank(token, "w").reshape(batch_size, num_heads, head_size)
-            else:
-                w = project(mixed, "w", num_heads) + time_bias[None, :, :]
-            if self.config.use_radlads_low_rank_iclr:
-                a = jax.nn.sigmoid(low_rank(token, "a")).reshape(
+                w = low_rank(token, "w", time_index=time_index).reshape(
                     batch_size,
                     num_heads,
                     head_size,
                 )
             else:
-                a = jax.nn.sigmoid(project(mixed, "a", num_heads))
-            b = project(mixed, "b", num_heads)
+                w = (
+                    project(mixed, "w", num_heads, time_index=time_index)
+                    + time_bias[None, :, :]
+                )
+            if self.config.use_radlads_low_rank_iclr:
+                a_low_rank = low_rank(token, "a", time_index=time_index)
+                a = jax.nn.sigmoid(a_low_rank).reshape(
+                    batch_size,
+                    num_heads,
+                    head_size,
+                )
+                _diag_record(
+                    diagnostics,
+                    f"layers.{layer_index}.self_attn.iclr_update_rate",
+                    a,
+                    stage="iclr_update_rate",
+                    layer=layer_index,
+                    time_index=time_index,
+                )
+            else:
+                a = jax.nn.sigmoid(
+                    project(mixed, "a", num_heads, time_index=time_index)
+                )
+            b = project(mixed, "b", num_heads, time_index=time_index)
             if self.config.use_radlads_low_rank_gate:
                 g1 = jnp.asarray(params["g1"])[layer_index]
                 g2 = jnp.asarray(params["g2"])[layer_index]
-                gate = jax.nn.sigmoid(projection_token @ g1) @ g2
+                g1_proj = projection_token @ g1
+                _diag_record(
+                    diagnostics,
+                    f"layers.{layer_index}.self_attn.g1_projection",
+                    g1_proj,
+                    stage="g1_projection",
+                    layer=layer_index,
+                    time_index=time_index,
+                )
+                gate = jax.nn.sigmoid(g1_proj) @ g2
+                _diag_record(
+                    diagnostics,
+                    f"layers.{layer_index}.self_attn.g2_projection",
+                    gate,
+                    stage="g2_projection",
+                    layer=layer_index,
+                    time_index=time_index,
+                )
                 gate = gate.reshape(batch_size, num_heads, head_size)
             else:
-                gate = jax.nn.sigmoid(project(projection_token, "g", num_heads))
+                gate = jax.nn.sigmoid(
+                    project(projection_token, "g", num_heads, time_index=time_index)
+                )
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.gate_output",
+                gate,
+                stage="gate_output",
+                layer=layer_index,
+                time_index=time_index,
+            )
 
             if self.config.use_radlads_balance_state_terms:
                 if self.config.radlads_balance_state:
@@ -838,12 +1045,44 @@ class RWKV7QwenReferenceStudent:
                     k = k * (1.0 + (a - 1.0) * k_a[None, :, :])
             else:
                 kk = _l2_normalize(k)
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.k_k",
+                kk,
+                stage="k_k",
+                layer=layer_index,
+                time_index=time_index,
+            )
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.k_a",
+                k,
+                stage="k_a",
+                layer=layer_index,
+                time_index=time_index,
+            )
             if self.config.use_radlads_low_rank_decay:
                 log_neglog_w = -0.5 - jax.nn.softplus(-w)
                 log_w = -jnp.exp(log_neglog_w.astype(jnp.float32))
             else:
                 log_w = -jnp.exp(jnp.asarray(-0.5, dtype=w.dtype)) * jax.nn.sigmoid(w)
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.log_w",
+                log_w,
+                stage="low_rank_decay",
+                layer=layer_index,
+                time_index=time_index,
+            )
             decay = jnp.exp(log_w)
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.decay",
+                decay,
+                stage="decay_applied_weights",
+                layer=layer_index,
+                time_index=time_index,
+            )
             if (
                 self.config.use_radlads_balance_state_terms
                 and self.config.radlads_balance_state
@@ -854,6 +1093,22 @@ class RWKV7QwenReferenceStudent:
                 ab = jnp.einsum("bhi,bhj->bhij", -kk, kk * a)
             else:
                 ab = jnp.einsum("bhi,bhj->bhij", -kk, kk * a + b)
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.initial_matrix_state",
+                prev_wkv,
+                stage="initial_matrix_state",
+                layer=layer_index,
+                time_index=time_index,
+            )
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.update_term",
+                vk,
+                stage="update_term",
+                layer=layer_index,
+                time_index=time_index,
+            )
             next_wkv = prev_wkv * decay[:, :, None, :] + prev_wkv @ ab + vk
 
             mixed_heads = jnp.einsum("bhij,bhj->bhi", next_wkv, q)
@@ -867,18 +1122,62 @@ class RWKV7QwenReferenceStudent:
                     num_heads=num_heads,
                     head_size=head_size,
                 )
+                _diag_record(
+                    diagnostics,
+                    f"layers.{layer_index}.self_attn.ln_x_output",
+                    projected,
+                    stage="normalized_output",
+                    layer=layer_index,
+                    time_index=time_index,
+                )
             elif self.config.use_radlads_attention_output_scale:
                 projected = projected * (head_size**-0.5)
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.output_before_o_proj",
+                projected,
+                stage="output_before_o_proj",
+                layer=layer_index,
+                time_index=time_index,
+            )
             projected = projected * gate.reshape(batch_size, hidden)
             out_weight = params["o_proj"]["weight"][layer_index]  # type: ignore[index]
             out = (projected @ out_weight) * token_mask
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.o_proj_output",
+                out,
+                stage="o_proj_output",
+                layer=layer_index,
+                time_index=time_index,
+            )
             return (next_wkv, token), (out, next_v_first)
 
-        (final_wkv, final_shift), (outputs, v_first_outputs) = jax.lax.scan(
-            step,
-            (jnp.asarray(initial_wkv, dtype=jnp.float32), jnp.asarray(initial_shift)),
-            xs,
-        )
+        if diagnostics is None:
+            (final_wkv, final_shift), (outputs, v_first_outputs) = jax.lax.scan(
+                step,
+                (
+                    jnp.asarray(initial_wkv, dtype=jnp.float32),
+                    jnp.asarray(initial_shift),
+                ),
+                xs,
+            )
+        else:
+            carry = (
+                jnp.asarray(initial_wkv, dtype=jnp.float32),
+                jnp.asarray(initial_shift),
+            )
+            outputs_list = []
+            v_first_list = []
+            for time_index in range(x.shape[1]):
+                item = tuple(value[time_index] for value in xs)
+                carry, emitted = step(carry, item, time_index=time_index)
+                out, next_v_first = emitted
+                outputs_list.append(out)
+                v_first_list.append(next_v_first)
+            final_wkv, final_shift = carry
+            outputs = jnp.stack(outputs_list, axis=0)
+            v_first_outputs = jnp.stack(v_first_list, axis=0)
         next_v_first = (
             jnp.swapaxes(v_first_outputs, 0, 1) if layer_index == 0 else v_first
         )
@@ -933,6 +1232,26 @@ def _head_group_norm(
     )
     flat = normalized.reshape(x.shape)
     return (flat * weight[None, :] + bias[None, :]).astype(x.dtype)
+
+
+def _diag_record(
+    diagnostics: Any | None,
+    name: str,
+    value: Any,
+    *,
+    stage: str,
+    layer: int | None = None,
+    time_index: int | None = None,
+) -> None:
+    if diagnostics is None or value is None or not hasattr(diagnostics, "record"):
+        return
+    diagnostics.record(
+        name,
+        value,
+        stage=stage,
+        layer=layer,
+        time_index=time_index,
+    )
 
 
 def _rms_norm(x: jax.Array, weight: jax.Array, eps: float) -> jax.Array:

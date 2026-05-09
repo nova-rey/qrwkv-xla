@@ -28,6 +28,7 @@ def main() -> None:
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--atol", type=float, default=1e-5)
     parser.add_argument("--rtol", type=float, default=1e-5)
+    parser.add_argument("--report-prefix", default="P50")
     args = parser.parse_args()
 
     if args.out_dir.exists() and args.overwrite:
@@ -40,9 +41,10 @@ def main() -> None:
         out_dir=args.out_dir,
         atol=args.atol,
         rtol=args.rtol,
+        report_prefix=args.report_prefix,
     )
     print(
-        f"wrote P50 replay reports to {args.out_dir} "
+        f"wrote {args.report_prefix} replay reports to {args.out_dir} "
         f"with overall_status={report['overall_status']} "
         f"attempted_comparisons={report['attempted_comparisons']}"
     )

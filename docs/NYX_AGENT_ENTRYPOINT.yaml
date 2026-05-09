@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 50
-  checkpoint: radlads_parameter_replay_compatibility
-  title: RADLADS parameter replay compatibility
+  phase: 51
+  checkpoint: radlads_replay_nonfinite_diagnostics
+  title: RADLADS replay non-finite diagnosis and stabilization
 
 workflow:
   primary_agent: Nyx
@@ -39,6 +39,7 @@ instructions:
   - Keep P48 `r_k` represented but inactive unless a future source audit finds active source math; the inspected RADLADS residual line is commented out.
   - Keep P49 tiny numerical parity honest; live RADLADS execution is optional/env-gated and default fixtures must report missing_source rather than fabricated source parity.
   - Keep P50 replay explicit/config-driven; unsupported/defaulted/excluded surfaces must be reported and must not count as passes.
+  - Keep P51 diagnosis-first; replay profiles must match the original fixture math flags before blaming downstream low-rank math.
 
 radlads_parameter_replay_compatibility:
   phase: P50
@@ -58,6 +59,28 @@ radlads_parameter_replay_compatibility:
     - measured_fail_is_allowed_and_preferred_over_fake_pass
     - no_training_no_pallas_no_tpu_perf_no_hf_model_class
     - no_full_checkpoint_import
+
+radlads_replay_nonfinite_diagnostics:
+  phase: P51
+  status: complete
+  docs: docs/RADLADS_REPLAY_NONFINITE_DIAGNOSTICS.md
+  diagnostics_script: scripts/diagnose_radlads_replay_nonfinite.py
+  replay_script: scripts/replay_radlads_tiny_numerical_fixtures.py
+  diagnostics_module: src/qrwkv_xla/parity/radlads_replay_diagnostics.py
+  replay_module: src/qrwkv_xla/parity/radlads_replay.py
+  reports:
+    - P51_DIAGNOSTIC_REPORT.md
+    - replay_diagnostics.json
+    - tensor_summaries.jsonl
+    - P51_PARAMETER_SANITY.md
+    - parameter_sanity_report.json
+    - P51_RESULTS.md
+    - replay_comparison_report.json
+    - P51_SURFACE_COMPARISON.md
+  caveats:
+    - simple_cases_use_non_all_math_replay_profiles
+    - all_math_fixture_can_still_fail_if_source_payload_is_nonfinite
+    - no_pallas_no_training_no_throughput_claims_no_model_quality_claims
 
 radlads_tiny_numerical_parity_fixtures:
   phase: P49
