@@ -728,3 +728,20 @@
 - [x] Add `docs/RADLADS_LORA_RANK_MATH_AUDIT.md`
 - [x] Update snapshot, roadmap, phase checklist, and agent entrypoint
 - [x] Append Bible entry
+
+## P49 — RADLADS Tiny Numerical Parity Fixtures
+
+- [x] Add P49 numerical fixture schema, validation, import, comparison, and report helpers
+- [x] Add minimal RADLADS parameter mapping statuses for tiny fixture surfaces
+- [x] Add `scripts/generate_radlads_tiny_numerical_fixtures.py`
+- [x] Add `scripts/import_radlads_tiny_numerical_fixtures.py`
+- [x] Add `scripts/compare_radlads_tiny_numerical_fixtures.py`
+- [x] Keep live RADLADS execution optional and env-gated
+- [x] Use `/home/nyx/.openclaw/workspace/_refs/RADLADS` as the live source path
+- [x] Mark offline/default payloads as `missing_source` and not RADLADS outputs
+- [x] Report per-case pass/fail/unsupported/missing_source and overall pass/pass_with_known_differences/fail/source_unavailable
+- [x] Include float32 and bfloat16 tolerance policy metadata
+- [x] Add `docs/RADLADS_NUMERICAL_PARITY_FIXTURES.md`
+- [x] Add `tests/test_radlads_numerical_parity.py`
+- [x] Update snapshot, roadmap, phase checklist, and agent entrypoint
+- [x] Append Bible entry

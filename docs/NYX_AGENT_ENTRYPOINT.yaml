@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 48
-  checkpoint: radlads_lora_rank_math_surface
-  title: Complete RADLADS LoRA rank math surface
+  phase: 49
+  checkpoint: radlads_tiny_numerical_parity_fixtures
+  title: RADLADS tiny numerical parity fixtures
 
 workflow:
   primary_agent: Nyx
@@ -37,3 +37,27 @@ instructions:
   - Keep P47 local tracking as the source of truth; WandB remains optional and absent from normal CI requirements.
   - Keep P48 RADLADS math flags explicit; legacy/default `rwkv7_qwen_reference` behavior must remain unchanged unless RADLADS-compatible flags are enabled.
   - Keep P48 `r_k` represented but inactive unless a future source audit finds active source math; the inspected RADLADS residual line is commented out.
+  - Keep P49 tiny numerical parity honest; live RADLADS execution is optional/env-gated and default fixtures must report missing_source rather than fabricated source parity.
+
+radlads_tiny_numerical_parity_fixtures:
+  phase: P49
+  status: complete
+  docs: docs/RADLADS_NUMERICAL_PARITY_FIXTURES.md
+  fixture_schema: radlads_tiny_numerical_parity.v1
+  default_fixture_status: source_unavailable
+  live_env: QRWKV_XLA_RUN_RADLADS_LIVE_FIXTURES
+  live_source: /home/nyx/.openclaw/workspace/_refs/RADLADS
+  scripts:
+    generate: scripts/generate_radlads_tiny_numerical_fixtures.py
+    import: scripts/import_radlads_tiny_numerical_fixtures.py
+    compare: scripts/compare_radlads_tiny_numerical_fixtures.py
+  report_outputs:
+    - P49_RESULTS.md
+    - numerical_parity_report.json
+    - P49_SURFACE_COMPARISON.md
+    - surface_comparison.json
+  caveats:
+    - default_payloads_are_not_real_radlads_outputs
+    - missing_source_must_not_count_as_parity
+    - live_hook_may_report_source_unavailable_or_execution_failed
+    - no_full_radlads_numerical_parity_claim

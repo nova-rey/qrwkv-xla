@@ -317,3 +317,20 @@ smoke that writes `P48_RESULTS.md`, `lora_rank_math_report.json`,
 P48 is CPU/offline slow-reference work only. It does not claim full RADLADS
 numerical parity, fitted conversion, optimized WKV/Pallas kernels, TPU
 performance, Qwen-scale execution, or active `r_k` residual math.
+
+## Phase 49 — RADLADS Tiny Numerical Parity Fixtures
+
+Goal: add a bounded real-tiny numerical fixture import/comparison path for
+RADLADS source arrays while keeping normal CI offline-safe.
+
+Current checkpoint: `radlads_tiny_numerical_parity_fixtures`. This checkpoint
+adds P49 manifest validation, fixture import, optional env-gated live-source
+generation hooks, comparison reports, and minimal parameter mapping statuses.
+Required tiny cases cover no-mask, attention-mask, prefix/left-padding,
+stepwise state, and all explicit P48 RADLADS math flags enabled. Default
+payload generation writes QRWKV-XLA current-behavior arrays only and marks
+cases `missing_source`; these payloads are not RADLADS outputs.
+
+P49 does not claim full RADLADS numerical parity, training, checkpoint import,
+Pallas or optimized WKV kernels, a Hugging Face model class, Qwen-scale
+execution, or large-scale parity.

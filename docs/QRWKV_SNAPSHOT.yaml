@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 48
-checkpoint: radlads_lora_rank_math_surface
+phase: 49
+checkpoint: radlads_tiny_numerical_parity_fixtures
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,10 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Complete the bounded RADLADS LoRA-rank math surface in the slow
-  rwkv7_qwen_reference backend with explicit compatibility flags, source-shaped
-  parameter leaves, honest r_k deferral, focused tests, and CPU/offline smoke
-  reports.
+  Add bounded real-tiny RADLADS numerical fixture import, optional live-source
+  generation hooks, comparison/reporting, and explicit missing-source handling
+  without claiming full RADLADS parity.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -733,6 +732,39 @@ radlads_lora_rank_math_surface:
   caveats:
     - legacy_defaults_remain_off
     - r_k_parameter_represented_but_inactive_source_line_commented_out
+
+radlads_tiny_numerical_parity_fixtures:
+  phase: P49
+  status: complete
+  backend: rwkv7_qwen_reference
+  docs:
+    - docs/RADLADS_NUMERICAL_PARITY_FIXTURES.md
+  scripts:
+    - scripts/generate_radlads_tiny_numerical_fixtures.py
+    - scripts/import_radlads_tiny_numerical_fixtures.py
+    - scripts/compare_radlads_tiny_numerical_fixtures.py
+  fixture_schema: radlads_tiny_numerical_parity.v1
+  report_schema: radlads_tiny_numerical_parity_report.v1
+  report_outputs:
+    - P49_RESULTS.md
+    - numerical_parity_report.json
+    - P49_SURFACE_COMPARISON.md
+    - surface_comparison.json
+  required_cases:
+    - tiny_no_mask
+    - tiny_attention_mask
+    - tiny_prefix_or_left_padding
+    - tiny_stepwise_state
+    - tiny_all_radlads_math_enabled
+  real_radlads_fixture_statuses:
+    - generated
+    - imported
+    - source_unavailable
+    - execution_failed
+  caveats:
+    - default_path_is_offline_safe_and_marks_missing_source
+    - live_radlads_execution_requires_QRWKV_XLA_RUN_RADLADS_LIVE_FIXTURES_1
+    - no_training_no_pallas_no_hf_model_class_no_checkpoint_import
     - slow_reference_only
     - no_full_radlads_numerical_parity_claim
     - no_optimized_kernel_or_tpu_performance_claim

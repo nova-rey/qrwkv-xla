@@ -1,3 +1,21 @@
+from qrwkv_xla.parity.radlads_numerical_fixtures import (
+    NUMERICAL_FIXTURE_SCHEMA,
+    NUMERICAL_FIXTURE_VERSION,
+    REQUIRED_NUMERICAL_CASE_NAMES,
+    compare_numerical_manifest,
+    generate_radlads_tiny_numerical_fixtures,
+    import_numerical_fixture_directory,
+    load_numerical_case_arrays,
+    load_numerical_manifest,
+    validate_numerical_manifest,
+    write_current_behavior_numerical_fixtures,
+    write_numerical_comparison_reports,
+)
+from qrwkv_xla.parity.radlads_parameter_mapping import (
+    compare_parameter_surfaces,
+    flatten_parameter_shapes,
+    write_surface_comparison_reports,
+)
 from qrwkv_xla.parity.radlads_source import (
     FIXTURE_SCHEMA,
     FIXTURE_VERSION,
@@ -22,4 +40,18 @@ __all__ = [
     "validate_manifest",
     "write_comparison_reports",
     "write_parameter_surface_map_reports",
+    "NUMERICAL_FIXTURE_SCHEMA",
+    "NUMERICAL_FIXTURE_VERSION",
+    "REQUIRED_NUMERICAL_CASE_NAMES",
+    "compare_numerical_manifest",
+    "compare_parameter_surfaces",
+    "flatten_parameter_shapes",
+    "generate_radlads_tiny_numerical_fixtures",
+    "import_numerical_fixture_directory",
+    "load_numerical_case_arrays",
+    "load_numerical_manifest",
+    "validate_numerical_manifest",
+    "write_current_behavior_numerical_fixtures",
+    "write_numerical_comparison_reports",
+    "write_surface_comparison_reports",
 ]

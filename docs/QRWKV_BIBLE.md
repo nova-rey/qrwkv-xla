@@ -897,3 +897,42 @@ contains `P48_RESULTS.md`, `lora_rank_math_report.json`,
 P48 remains CPU/offline slow-reference work. It does not prove full RADLADS
 numerical parity, fitted checkpoint conversion, Pallas or optimized WKV kernels,
 TPU performance, Qwen-scale execution, or model quality.
+
+## Phase 49 — RADLADS Tiny Numerical Parity Fixtures
+
+P49 adds bounded infrastructure for tiny real RADLADS numerical fixtures. The
+new module `qrwkv_xla.parity.radlads_numerical_fixtures` defines
+`radlads_tiny_numerical_parity.v1` manifests, validates NPZ payloads, imports
+canonical fixture directories, compares declared arrays, and writes JSON plus
+Markdown reports: `P49_RESULTS.md`, `numerical_parity_report.json`,
+`P49_SURFACE_COMPARISON.md`, and `surface_comparison.json`. The companion
+`radlads_parameter_mapping` module records
+minimal mapping statuses: `mapped_exact`, `mapped_renamed`, `shape_mismatch`,
+`missing_in_qrwkv`, `missing_in_radlads`, `unsupported`, and
+`source_not_found`.
+
+The required tiny cases are `tiny_no_mask`, `tiny_attention_mask`,
+`tiny_prefix_or_left_padding`, `tiny_stepwise_state`, and
+`tiny_all_radlads_math_enabled`. Reports distinguish per-case `pass`, `fail`,
+`unsupported`, `missing_source`, and `fail_known_difference`, and summarize as
+`pass`, `pass_with_known_differences`, `fail`, or `source_unavailable`.
+
+The scripts are:
+
+```bash
+python scripts/import_radlads_tiny_numerical_fixtures.py
+python scripts/generate_radlads_tiny_numerical_fixtures.py
+python scripts/compare_radlads_tiny_numerical_fixtures.py
+```
+
+Live RADLADS execution is optional and gated by
+`QRWKV_XLA_RUN_RADLADS_LIVE_FIXTURES=1` (the older `QRWKV_RUN_RADLADS_LIVE=1`
+alias still works).
+The generator probes the actual local RADLADS checkout at
+`/home/nyx/.openclaw/workspace/_refs/RADLADS`. If live execution is unavailable
+or fails, P49 records `source_unavailable` or `execution_failed`; it does not
+fabricate RADLADS arrays from QRWKV-XLA.
+
+P49 remains tiny fixture infrastructure only. It does not add training,
+checkpoint import, Pallas or optimized WKV kernels, a Hugging Face model class,
+Qwen-scale execution, or large-scale RADLADS parity claims.
