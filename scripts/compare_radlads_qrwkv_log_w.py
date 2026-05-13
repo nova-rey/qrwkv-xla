@@ -79,7 +79,8 @@ def _current_qrwkv_records(
     )
     log_w = [LogWRecord(**row) for row in capture["log_w"]]  # type: ignore[arg-type]
     w_source = [
-        LogWRecord(**row) for row in capture["w_source"]  # type: ignore[arg-type]
+        LogWRecord(**row)
+        for row in capture["w_source"]  # type: ignore[arg-type]
     ]
     summary = {
         "manifest": str(manifest_path),
