@@ -10,7 +10,11 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
+
+try:
+    import torch
+except ModuleNotFoundError:  # pragma: no cover - optional CI dependency
+    torch = None
 
 from qrwkv_xla.parity.radlads_clean_loader import (
     load_case_output_arrays,
@@ -681,6 +685,8 @@ def _radlads_case_arrays_with_payload(
     parameter_arrays: dict[str, np.ndarray],
     seed: int,
 ) -> dict[str, np.ndarray]:
+    if torch is None:  # pragma: no cover - optional CI dependency
+        raise ModuleNotFoundError("torch")
     torch.manual_seed(seed)
     _, model = _build_radlads_model(
         runtime, seed=seed, all_math=case["all_radlads_math"]

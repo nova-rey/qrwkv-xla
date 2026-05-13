@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
+
+try:
+    import torch
+except ModuleNotFoundError:  # pragma: no cover - optional CI dependency
+    torch = None
 
 from qrwkv_xla.parity.radlads_numerical_fixtures import (
     DEFAULT_RADLADS_SOURCE,
@@ -661,6 +665,8 @@ def _run_clean_case(
     model: Any,
     case: Mapping[str, Any],
 ) -> dict[str, np.ndarray]:
+    if torch is None:  # pragma: no cover - optional CI dependency
+        raise ModuleNotFoundError("torch")
     input_ids = torch.tensor(case["input_ids"], dtype=torch.long)
     attention_mask = (
         None
@@ -847,6 +853,8 @@ def _load_state_dict_into_model(model: Any, state_dict: dict[str, Any]) -> None:
 
 
 def _smoke_forward(model: Any, normalized: Mapping[str, np.ndarray]) -> None:
+    if torch is None:  # pragma: no cover - optional CI dependency
+        raise ModuleNotFoundError("torch")
     case = _tiny_cases()[0]
     input_ids = torch.tensor(case["input_ids"], dtype=torch.long)
     attention_mask = None
@@ -891,6 +899,8 @@ def _adapt_gate_tensor(
 
 
 def _default_tensor(reference: Any, kind: str) -> torch.Tensor:
+    if torch is None:  # pragma: no cover - optional CI dependency
+        raise ModuleNotFoundError("torch")
     if kind == "ones":
         return torch.ones_like(reference)
     return torch.zeros_like(reference)
