@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 50
-checkpoint: radlads_parameter_replay_compatibility
+phase: 53
+checkpoint: radlads_qrwkv_head_to_head_parity
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add bounded real-tiny RADLADS parameter-value import and replay compatibility,
-  including q/k/v bias support, explicit defaulted/excluded surface handling,
-  and honest replay comparison reporting without claiming full RADLADS parity.
+  Compare tiny live RADLADS outputs against QRWKV-XLA replay outputs using the
+  clean P52 deterministic_finite payload, while reporting live RADLADS blockers
+  honestly instead of fabricating parity.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays

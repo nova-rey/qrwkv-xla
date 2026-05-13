@@ -771,3 +771,16 @@
 - [x] Add `tests/test_radlads_replay_diagnostics.py`.
 - [x] Add `docs/RADLADS_REPLAY_NONFINITE_DIAGNOSTICS.md`.
 - [x] Preserve scope: no Pallas, TPU perf work, real training, full checkpoint import, or HF model class.
+
+## Phase 53 — RADLADS vs QRWKV Comparable Output Fixture Parity
+
+- [x] Add `src/qrwkv_xla/parity/radlads_head_to_head.py`.
+- [x] Add `scripts/generate_radlads_qrwkv_head_to_head_fixtures.py`.
+- [x] Add `scripts/compare_radlads_qrwkv_head_to_head.py`.
+- [x] Use the P52 `deterministic_finite` parameter path with seed `5353`.
+- [x] Reuse the existing QRWKV RADLADS replay importer for QRWKV outputs.
+- [x] Report RADLADS mapped/defaulted/missing/unsupported/shape-mismatch buckets and exact live execution blockers.
+- [x] Add per-case/per-surface comparison report fields for shape, dtype, finite flags, and error metrics.
+- [x] Add `tests/test_radlads_qrwkv_head_to_head.py`.
+- [x] Add `docs/RADLADS_QRWKV_HEAD_TO_HEAD_PARITY.md`.
+- [x] Preserve scope: no Pallas, TPU perf work, real training, Qwen-scale export, HF model class, or tolerance loosening.

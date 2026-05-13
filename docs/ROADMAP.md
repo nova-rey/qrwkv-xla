@@ -359,3 +359,19 @@ This phase instruments replay tensors, writes parameter sanity reports, and
 keeps replay profiles aligned with the original P49 fixture math flags. The
 goal is finite slow-reference replay for at least the simple real fixtures
 before any Pallas/kernel work resumes.
+
+## Phase 53 — RADLADS vs QRWKV Comparable Output Fixture Parity
+
+Current checkpoint: `radlads_qrwkv_head_to_head_parity`.
+
+This checkpoint adds a tiny head-to-head fixture path under
+`artifacts/p53_radlads_qrwkv_head_to_head`. It generates the clean parameter
+payload through the existing P52 `deterministic_finite` path with seed `5353`,
+runs QRWKV-XLA through the existing replay importer, and attempts live RADLADS
+execution against the same payload. Reports include per-case/per-surface status,
+shape, dtype, finite flags, error metrics, and exact blockers when RADLADS
+cannot load or execute.
+
+P53 does not add Pallas, TPU optimization, real training, Qwen-scale export,
+HF `PreTrainedModel` support, multi-host sharding, tolerance loosening, or
+fabricated RADLADS outputs.

@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 51
-  checkpoint: radlads_replay_nonfinite_diagnostics
-  title: RADLADS replay non-finite diagnosis and stabilization
+  phase: 53
+  checkpoint: radlads_qrwkv_head_to_head_parity
+  title: RADLADS vs QRWKV comparable output fixture parity
 
 workflow:
   primary_agent: Nyx
@@ -40,6 +40,24 @@ instructions:
   - Keep P49 tiny numerical parity honest; live RADLADS execution is optional/env-gated and default fixtures must report missing_source rather than fabricated source parity.
   - Keep P50 replay explicit/config-driven; unsupported/defaulted/excluded surfaces must be reported and must not count as passes.
   - Keep P51 diagnosis-first; replay profiles must match the original fixture math flags before blaming downstream low-rank math.
+  - Keep P53 head-to-head fixtures tied to the P52 deterministic_finite payload; if live RADLADS is unavailable, report the blocker instead of faking parity.
+
+radlads_qrwkv_head_to_head_parity:
+  phase: P53
+  status: complete
+  docs: docs/RADLADS_QRWKV_HEAD_TO_HEAD_PARITY.md
+  generate_script: scripts/generate_radlads_qrwkv_head_to_head_fixtures.py
+  compare_script: scripts/compare_radlads_qrwkv_head_to_head.py
+  helper_module: src/qrwkv_xla/parity/radlads_head_to_head.py
+  artifact_dir: artifacts/p53_radlads_qrwkv_head_to_head
+  source_payload: P52 deterministic_finite seed 5353
+  reports:
+    - manifest.json
+    - head_to_head_comparison_report.json
+    - P53_HEAD_TO_HEAD_REPORT.md
+  caveats:
+    - live_radlads_blockers_are_reported_as_unsupported
+    - no_pallas_no_tpu_optimization_no_training_no_qwen_scale_no_hf_model_class
 
 radlads_parameter_replay_compatibility:
   phase: P50

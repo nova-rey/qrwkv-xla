@@ -979,3 +979,31 @@ still fail if the source payload itself is non-finite.
 
 P51 does not add Pallas, full RADLADS parity claims, throughput claims,
 training claims, or model-quality claims.
+
+## Phase 53 — RADLADS vs QRWKV Comparable Output Fixture Parity
+
+P53 adds a bounded head-to-head fixture path for live RADLADS outputs versus
+QRWKV-XLA replay outputs. The clean parameter payload is generated through the
+existing P52 `deterministic_finite` path with seed `5353`; QRWKV uses the
+existing P50/P52 replay importer, and RADLADS is attempted only through the
+local live source runtime.
+
+The new scripts are:
+
+```bash
+python scripts/generate_radlads_qrwkv_head_to_head_fixtures.py
+python scripts/compare_radlads_qrwkv_head_to_head.py
+```
+
+Artifacts are written under `artifacts/p53_radlads_qrwkv_head_to_head/`,
+including `manifest.json`, `head_to_head_comparison_report.json`, and
+`P53_HEAD_TO_HEAD_REPORT.md`. Reports preserve mapped/defaulted/missing/
+unsupported/shape-mismatch parameter buckets and per-case/per-surface shape,
+dtype, finite flags, error metrics, and reasons.
+
+If live RADLADS cannot load or execute the clean payload, P53 records the exact
+blocker and marks comparisons unsupported. It does not fabricate RADLADS
+outputs from QRWKV behavior.
+
+P53 does not add Pallas, TPU optimization, real training, Qwen-scale export,
+HF `PreTrainedModel` support, multi-host sharding, or tolerance loosening.
