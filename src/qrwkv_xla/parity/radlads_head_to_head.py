@@ -36,11 +36,6 @@ from qrwkv_xla.parity.radlads_numerical_fixtures import (
     generate_radlads_tiny_numerical_fixtures,
     load_parameter_arrays,
 )
-from qrwkv_xla.parity.radlads_parameter_import import (
-    import_radlads_parameters_for_replay,
-    write_parameter_import_report,
-)
-from qrwkv_xla.students import RWKV7QwenReferenceStudent
 
 HEAD_TO_HEAD_SCHEMA = "radlads_qrwkv_head_to_head.v1"
 HEAD_TO_HEAD_REPORT_SCHEMA = "radlads_qrwkv_head_to_head_report.v1"
@@ -129,6 +124,10 @@ def generate_radlads_qrwkv_head_to_head_fixtures(
     )
     audit_report = to_audit_report(audit_results)
     is_valid, blocking = validate_parameter_payload(audit_results)
+
+    from qrwkv_xla.parity.radlads_parameter_import import (
+        import_radlads_parameters_for_replay,
+    )
 
     qrwkv_import = import_radlads_parameters_for_replay(
         parameter_path,
@@ -263,6 +262,10 @@ def compare_radlads_qrwkv_head_to_head(
     qrwkv_import = None
     if qrwkv_output_arrays is None:
         try:
+            from qrwkv_xla.parity.radlads_parameter_import import (
+                import_radlads_parameters_for_replay,
+            )
+
             qrwkv_import = import_radlads_parameters_for_replay(
                 parameter_path,
                 allow_defaults=True,
@@ -347,6 +350,8 @@ def compare_radlads_qrwkv_head_to_head(
                     }
                 )
                 continue
+            from qrwkv_xla.students import RWKV7QwenReferenceStudent
+
             qrwkv_student = RWKV7QwenReferenceStudent(qrwkv_import.qrwkv_config)
             qrwkv_arrays = _normalize_qrwkv_arrays(
                 _qrwkv_case_arrays(
@@ -478,6 +483,10 @@ def compare_radlads_qrwkv_head_to_head(
     if out_dir is not None:
         write_head_to_head_reports(report, out_dir, report_prefix=report_prefix)
         if qrwkv_import is not None and qrwkv_output_arrays is None:
+            from qrwkv_xla.parity.radlads_parameter_import import (
+                write_parameter_import_report,
+            )
+
             write_parameter_import_report(qrwkv_import.report, out_dir)
     return report
 
@@ -690,6 +699,8 @@ def _run_case_pair(
             case_record["radlads_reason"] = f"{type(exc).__name__}: {exc}"
             radlads_arrays = None
     try:
+        from qrwkv_xla.students import RWKV7QwenReferenceStudent
+
         qrwkv_student = RWKV7QwenReferenceStudent(qrwkv_import.qrwkv_config)
         qrwkv_arrays = _qrwkv_case_arrays(
             qrwkv_student,

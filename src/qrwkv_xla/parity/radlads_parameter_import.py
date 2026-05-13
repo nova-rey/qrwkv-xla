@@ -4,10 +4,21 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import jax
-import jax.numpy as jnp
+if TYPE_CHECKING:
+    from qrwkv_xla.students import (  # noqa: F401
+        RWKV7QwenReferenceConfig,
+        RWKV7QwenReferenceStudent,
+    )
+
+try:
+    import jax
+    import jax.numpy as jnp
+except ModuleNotFoundError:  # pragma: no cover - optional CI dependency
+    jax = None
+    jnp = None
+
 import numpy as np
 
 from qrwkv_xla.parity.radlads_numerical_fixtures import load_numerical_manifest
@@ -15,7 +26,6 @@ from qrwkv_xla.parity.radlads_parameter_mapping import (
     flatten_parameter_shapes,
     normalize_radlads_parameter_arrays,
 )
-from qrwkv_xla.students import RWKV7QwenReferenceConfig, RWKV7QwenReferenceStudent
 
 PARAMETER_IMPORT_SCHEMA = "radlads_parameter_replay_import.v1"
 
@@ -141,7 +151,9 @@ def load_radlads_parameter_npz(path: Path) -> dict[str, np.ndarray]:
 
 def replay_config_from_normalized_parameters(
     arrays: Mapping[str, np.ndarray],
-) -> RWKV7QwenReferenceConfig:
+):
+    from qrwkv_xla.students import RWKV7QwenReferenceConfig
+
     embedding = np.asarray(arrays["token_embedding.weight"])
     q_weight = np.asarray(arrays["layers.self_attn.q_proj.weight"])
     k_weight = np.asarray(arrays["layers.self_attn.k_proj.weight"])
@@ -204,9 +216,14 @@ def import_radlads_parameters_for_replay(
     allow_defaults: bool = False,
     seed: int = 5050,
 ) -> RadladsParameterImportResult:
+    if jax is None or jnp is None:
+        raise ModuleNotFoundError("jax is required to import RADLADS parameters")
+
     raw_arrays = load_radlads_parameter_npz(parameter_payload_path)
     normalized = normalize_radlads_parameter_arrays(raw_arrays)
     config = qrwkv_config or replay_config_from_normalized_parameters(normalized)
+    from qrwkv_xla.students import RWKV7QwenReferenceStudent
+
     student = RWKV7QwenReferenceStudent(config)
     params = student.init_params(jax.random.PRNGKey(seed))
     _zero_defaulted_surfaces(params)

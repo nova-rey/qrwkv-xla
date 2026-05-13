@@ -21,17 +21,12 @@ from qrwkv_xla.parity.radlads_numerical_fixtures import (
     _qrwkv_case_arrays,
     _tiny_cases,
 )
-from qrwkv_xla.parity.radlads_parameter_import import (
-    import_radlads_parameters_for_replay,
-    replay_config_from_normalized_parameters,
-)
 from qrwkv_xla.parity.radlads_parameter_mapping import (
     DEFAULT_PARAMETER_RENAMES,
     compare_parameter_surfaces,
     flatten_parameter_shapes,
     normalize_radlads_parameter_arrays,
 )
-from qrwkv_xla.students import RWKV7QwenReferenceStudent
 
 CLEAN_LOADER_SCHEMA = "radlads_clean_payload_loader.v1"
 CLEAN_OUTPUT_SCHEMA = "radlads_clean_payload_outputs.v1"
@@ -224,6 +219,10 @@ def load_radlads_clean_payload(
         )
     try:
         runtime = _load_radlads_runtime(radlads_source_path)
+        from qrwkv_xla.parity.radlads_parameter_import import (
+            replay_config_from_normalized_parameters,
+        )
+
         config = replay_config_from_normalized_parameters(normalized)
         _, model = _build_radlads_model(runtime, seed=seed, all_math=False)
     except Exception as exc:
@@ -564,11 +563,17 @@ def export_qrwkv_clean_payload_outputs(
         if path.is_file():
             path.unlink()
 
+    from qrwkv_xla.parity.radlads_parameter_import import (
+        import_radlads_parameters_for_replay,
+    )
+
     qrwkv_import = import_radlads_parameters_for_replay(
         parameter_payload_path,
         allow_defaults=True,
         seed=seed,
     )
+    from qrwkv_xla.students import RWKV7QwenReferenceStudent
+
     student = RWKV7QwenReferenceStudent(qrwkv_import.qrwkv_config)
     cases = []
     for case in _tiny_cases():

@@ -5,7 +5,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-import jax
+try:
+    import jax
+except ModuleNotFoundError:  # pragma: no cover - optional CI dependency
+    jax = None
+
 import numpy as np
 
 from qrwkv_xla.parity.radlads_parameter_import import QRWKV_DEFAULTED_SURFACES
@@ -304,6 +308,8 @@ def write_diagnostic_reports(
 
 
 def _to_numpy(value: Any) -> np.ndarray:
+    if jax is None:
+        return np.asarray(value)
     return np.asarray(jax.device_get(value))
 
 

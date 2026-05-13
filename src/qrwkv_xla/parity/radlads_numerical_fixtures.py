@@ -9,10 +9,21 @@ import sys
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import jax
-import jax.numpy as jnp
+if TYPE_CHECKING:
+    from qrwkv_xla.students import (  # noqa: F401
+        RWKV7QwenReferenceConfig,
+        RWKV7QwenReferenceStudent,
+    )
+
+try:
+    import jax
+    import jax.numpy as jnp
+except ModuleNotFoundError:  # pragma: no cover - optional CI dependency
+    jax = None
+    jnp = None
+
 import numpy as np
 
 from qrwkv_xla.parity.radlads_fixture_validation import (
@@ -26,7 +37,6 @@ from qrwkv_xla.parity.radlads_parameter_mapping import (
     normalize_radlads_parameter_arrays,
     write_surface_comparison_reports,
 )
-from qrwkv_xla.students import RWKV7QwenReferenceConfig, RWKV7QwenReferenceStudent
 
 NUMERICAL_FIXTURE_VERSION = 1
 NUMERICAL_FIXTURE_SCHEMA = "radlads_tiny_numerical_parity.v1"
@@ -171,6 +181,8 @@ def write_current_behavior_numerical_fixtures(
 ) -> dict[str, Any]:
     _validate_init_policy(init_policy)
     _prepare_out_dir(out, overwrite=overwrite)
+
+    from qrwkv_xla.students import RWKV7QwenReferenceStudent
 
     cases = _tiny_cases()
     manifest_cases = []
@@ -470,6 +482,8 @@ def _generate_live_radlads_fixtures(
 ) -> dict[str, Any]:
     _prepare_out_dir(out, overwrite=overwrite)
     runtime = _load_radlads_runtime(radlads_source_path)
+    from qrwkv_xla.students import RWKV7QwenReferenceStudent
+
     qrwkv_shapes = flatten_parameter_shapes(
         RWKV7QwenReferenceStudent(
             _tiny_qrwkv_config(all_radlads_math=True)
@@ -654,6 +668,8 @@ def _deterministic_replay_parameter_shapes(
         attention_qkv_bias=True,
         radlads_low_rank_gate=True,
     )
+    from qrwkv_xla.students import RWKV7QwenReferenceStudent
+
     return flatten_parameter_shapes(
         RWKV7QwenReferenceStudent(config).init_params(jax.random.PRNGKey(seed))
     )
@@ -739,7 +755,9 @@ def _case_manifest(
     }
 
 
-def _tiny_qrwkv_config(*, all_radlads_math: bool) -> RWKV7QwenReferenceConfig:
+def _tiny_qrwkv_config(*, all_radlads_math: bool):
+    from qrwkv_xla.students import RWKV7QwenReferenceConfig
+
     return RWKV7QwenReferenceConfig(
         vocab_size=32,
         hidden_size=8,
@@ -936,6 +954,8 @@ def _parameter_mapping_for_manifest(manifest_path: Path) -> dict[str, Any]:
     payload_arrays = load_parameter_arrays(manifest_path)
     if not payload_arrays:
         return manifest.get("parameter_mapping") or compare_parameter_surfaces(None, {})
+    from qrwkv_xla.students import RWKV7QwenReferenceStudent
+
     qrwkv_shapes = flatten_parameter_shapes(
         RWKV7QwenReferenceStudent(
             _tiny_qrwkv_config(all_radlads_math=True)

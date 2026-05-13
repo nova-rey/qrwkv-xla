@@ -4,9 +4,16 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import jax
+if TYPE_CHECKING:
+    from qrwkv_xla.students import RWKV7QwenReferenceConfig, RWKV7QwenReferenceStudent
+
+try:
+    import jax
+except ModuleNotFoundError:  # pragma: no cover - optional CI dependency
+    jax = None
+
 import numpy as np
 
 from qrwkv_xla.parity.radlads_numerical_fixtures import (
@@ -22,7 +29,6 @@ from qrwkv_xla.parity.radlads_replay_diagnostics import (
     ReplayDiagnosticsCollector,
     find_first_nonfinite,
 )
-from qrwkv_xla.students import RWKV7QwenReferenceConfig, RWKV7QwenReferenceStudent
 
 REPLAY_REPORT_SCHEMA = "radlads_parameter_replay_comparison.v1"
 
@@ -121,6 +127,8 @@ def student_for_replay_profile(
     base_config: RWKV7QwenReferenceConfig,
     profile: ReplayCaseProfile,
 ) -> RWKV7QwenReferenceStudent:
+    from qrwkv_xla.students import RWKV7QwenReferenceStudent
+
     return RWKV7QwenReferenceStudent(
         replace(
             base_config,

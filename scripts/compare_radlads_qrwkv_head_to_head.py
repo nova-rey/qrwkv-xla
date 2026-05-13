@@ -1,7 +1,14 @@
+# ruff: noqa: E402
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
 from qrwkv_xla.parity.radlads_head_to_head import (
     DEFAULT_OUT,
