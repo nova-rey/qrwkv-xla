@@ -953,3 +953,29 @@ radlads_state_layout_parity:
     - diagnostic_first_no_pallas_no_tpu_optimization_no_training_claims
     - hidden_states_convention_must_be_explicit
     - wkv_matrix_state_layout_and_pre_post_convention_must_be_explicit
+
+
+radlads_wkv_state_residual_trace:
+  phase: P56
+  status: diagnostic_only
+  docs: docs/RADLADS_QRWKV_WKV_STATE_TRACE.md
+  helper_module: src/qrwkv_xla/parity/radlads_wkv_trace.py
+  trace_script: scripts/trace_radlads_qrwkv_wkv_update.py
+  trace_compare_script: scripts/compare_radlads_qrwkv_wkv_trace.py
+  candidate_script: scripts/analyze_wkv_update_order_candidates.py
+  artifact_dir: artifacts/p56_wkv_state_residual_trace
+  source_payload: P54 confirmation outputs
+  reports:
+    - P56_RESULTS.md
+    - wkv_state_residual_report.json
+    - trace_comparison/P56_WKV_TRACE_COMPARISON.md
+    - trace_comparison/wkv_trace_comparison_report.json
+    - trace_comparison/P56_UPDATE_ORDER_CANDIDATES.md
+    - trace_comparison/update_order_candidate_report.json
+    - final_comparison/P56_SURFACE_COMPARISON.md
+    - final_comparison/head_to_head_comparison_report.json
+  caveats:
+    - trace_first_not_math_fix
+    - first_divergent_stage_is_log_w
+    - wkv_state_after_is_compared_explicitly
+    - no_pallas_no_tpu_no_training_claims

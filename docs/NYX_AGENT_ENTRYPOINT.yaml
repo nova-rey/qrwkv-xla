@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 55
-  checkpoint: radlads_state_layout_parity_diagnostics
-  title: RADLADS state/layout parity diagnostics and fix
+  phase: 56
+  checkpoint: radlads_wkv_state_residual_trace
+  title: RADLADS WKV state residual trace and update-order analysis
 
 workflow:
   primary_agent: Nyx

@@ -403,3 +403,17 @@ Current checkpoint: `radlads_state_layout_parity_diagnostics`.
 
 P55 remains diagnostic-first. It does not add Pallas, TPU optimization, real
 training, Qwen-scale export, or model-quality claims.
+
+
+## Phase 56 — RADLADS WKV State Residual Trace
+Goal: trace the remaining finite WKV residual after P55 ruled out simple layout/export conventions.
+
+Checkpoints:
+- P56A: trace capture on `tiny_no_mask`
+- P56B: trace comparison and first-divergence identification
+- P56C: update-order candidate analysis
+- P56D: preserve logits and shift_state
+
+Current checkpoint: `radlads_wkv_state_residual_trace`.
+
+P56 is diagnostic-first and does not add Pallas, TPU optimization, real training, or model-quality claims.

@@ -1041,3 +1041,8 @@ instead of vaguely missing_source.
 P55 does not implement Pallas. It does not prove training throughput or model
 quality. It only diagnoses and, where possible, fixes tiny local CPU
 state/layout parity.
+
+
+## 2026-05-13 — Weekly distillation
+- P56 adds a trace-first WKV residual pass after P55. The first divergent stage is `log_w`, the WKV state-after trace row is now explicit, and update-order candidate analysis says `as_is` is still best while the residual remains finite.
+- P56 is diagnostic-only: no recurrence math fix landed, logits and shift_state stay green, and Pallas remains blocked until the WKV matrix-state residual is explained.

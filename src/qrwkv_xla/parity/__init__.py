@@ -96,6 +96,16 @@ from qrwkv_xla.parity.radlads_source import (
     write_comparison_reports,
     write_parameter_surface_map_reports,
 )
+from qrwkv_xla.parity.radlads_wkv_trace import (
+    WKV_TRACE_COMPARISON_SCHEMA,
+    WKV_TRACE_SCHEMA,
+    TraceComparisonRow,
+    WKVTraceCollector,
+    compare_trace_arrays,
+    compare_trace_entries,
+    load_trace_jsonl,
+    write_trace_comparison_reports,
+)
 
 __all__ = [
     "FIXTURE_SCHEMA",
@@ -131,6 +141,14 @@ __all__ = [
     "DIAGNOSTIC_SCHEMA",
     "ReplayDiagnosticsCollector",
     "TensorDiagnostic",
+    "WKV_TRACE_SCHEMA",
+    "WKV_TRACE_COMPARISON_SCHEMA",
+    "WKVTraceCollector",
+    "TraceComparisonRow",
+    "compare_trace_arrays",
+    "compare_trace_entries",
+    "load_trace_jsonl",
+    "write_trace_comparison_reports",
     "build_diagnostic_report",
     "diagnose_replay_case",
     "find_first_nonfinite",

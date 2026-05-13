@@ -805,3 +805,13 @@
 - [ ] Preserve passing logits and shift_state comparisons.
 - [ ] Add docs, snapshot, and Bible updates.
 - [ ] Run Ruff and full pytest gates.
+
+
+## P56 — RADLADS WKV State Residual Trace
+
+- [x] Capture RADLADS and QRWKV WKV traces on `tiny_no_mask`.
+- [x] Compare semantic trace stages and identify the first divergent WKV stage.
+- [x] Run update-order candidate analysis.
+- [x] Preserve passing logits and shift_state.
+- [x] Update docs, snapshot, and Bible notes.
+- [x] Run full Ruff and pytest gates.

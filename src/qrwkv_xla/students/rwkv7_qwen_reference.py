@@ -1110,6 +1110,14 @@ class RWKV7QwenReferenceStudent:
                 time_index=time_index,
             )
             next_wkv = prev_wkv * decay[:, :, None, :] + prev_wkv @ ab + vk
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.next_matrix_state",
+                next_wkv,
+                stage="wkv_state_after",
+                layer=layer_index,
+                time_index=time_index,
+            )
 
             mixed_heads = jnp.einsum("bhij,bhj->bhi", next_wkv, q)
             projected = mixed_heads.reshape(batch_size, hidden)
