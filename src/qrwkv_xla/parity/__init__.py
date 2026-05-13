@@ -38,6 +38,17 @@ from qrwkv_xla.parity.radlads_head_to_head import (
     validate_head_to_head_manifest,
     write_head_to_head_reports,
 )
+from qrwkv_xla.parity.radlads_log_w_parity import (
+    LOG_W_CANDIDATE_SCHEMA,
+    LOG_W_PARITY_SCHEMA,
+    LOG_W_TRACE_SCHEMA,
+    LogWRecord,
+    capture_qrwkv_log_w_from_current_run,
+    compare_log_w_records,
+    evaluate_log_w_candidate_variants,
+    load_radlads_log_w_from_jsonl,
+    write_log_w_reports,
+)
 from qrwkv_xla.parity.radlads_numerical_fixtures import (
     NUMERICAL_FIXTURE_SCHEMA,
     NUMERICAL_FIXTURE_VERSION,
@@ -149,6 +160,15 @@ __all__ = [
     "compare_trace_entries",
     "load_trace_jsonl",
     "write_trace_comparison_reports",
+    "LOG_W_PARITY_SCHEMA",
+    "LOG_W_CANDIDATE_SCHEMA",
+    "LOG_W_TRACE_SCHEMA",
+    "LogWRecord",
+    "capture_qrwkv_log_w_from_current_run",
+    "compare_log_w_records",
+    "evaluate_log_w_candidate_variants",
+    "load_radlads_log_w_from_jsonl",
+    "write_log_w_reports",
     "build_diagnostic_report",
     "diagnose_replay_case",
     "find_first_nonfinite",

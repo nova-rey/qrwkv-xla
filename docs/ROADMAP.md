@@ -417,3 +417,18 @@ Checkpoints:
 Current checkpoint: `radlads_wkv_state_residual_trace`.
 
 P56 is diagnostic-first and does not add Pallas, TPU optimization, real training, or model-quality claims.
+
+## Phase 57 — RADLADS log_w Decay Parity Caliper
+Goal: isolate the P56 first divergent stage with a dedicated source-audit
+comparison for `log_w`.
+
+Checkpoints:
+- P57A: load RADLADS `log_w` rows from JSONL trace artifacts
+- P57B: capture QRWKV `log_w` from the current diagnostics path
+- P57C: compare `log_w` values and write parity artifacts
+- P57D: evaluate non-mutating formula candidates for orientation/sign/activation/base-term/dtype/axis
+
+Current checkpoint: `radlads_log_w_decay_parity`.
+
+P57 is diagnostic-only. It does not patch model math, loosen tolerances, add
+Pallas, run TPU optimization, or claim broader RADLADS parity.

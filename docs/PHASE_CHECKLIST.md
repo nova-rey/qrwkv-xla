@@ -815,3 +815,15 @@
 - [x] Preserve passing logits and shift_state.
 - [x] Update docs, snapshot, and Bible notes.
 - [x] Run full Ruff and pytest gates.
+
+## P57 — RADLADS log_w Decay Parity Caliper
+
+- [x] Add `src/qrwkv_xla/parity/radlads_log_w_parity.py`.
+- [x] Load RADLADS `log_w` rows from JSONL trace artifacts.
+- [x] Capture current QRWKV `log_w` via diagnostics.
+- [x] Compare RADLADS and QRWKV `log_w` rows with existing strict tolerances.
+- [x] Evaluate candidate formula variants for orientation, sign, activation, base-term, dtype, and axis handling.
+- [x] Add `scripts/compare_radlads_qrwkv_log_w.py`.
+- [x] Add `tests/test_radlads_log_w_decay_parity.py`.
+- [x] Add `docs/RADLADS_LOG_W_DECAY_PARITY.md`.
+- [x] Preserve scope: diagnostic-only, no model patch unless a separate source-backed fix phase is opened.

@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 53
-checkpoint: radlads_qrwkv_head_to_head_parity
+phase: 57
+checkpoint: radlads_log_w_decay_parity
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Repair the RADLADS clean payload loader/export path so the tiny deterministic
-  payload loads locally, exports RADLADS/QRWKV outputs, and compares them via
-  the P54 head-to-head flow without modifying the RADLADS repo.
+  Audit the P56 first divergent WKV trace stage by comparing RADLADS log_w rows
+  from source trace JSONL against QRWKV log_w captured from the current
+  diagnostics path, without patching model math or loosening tolerances.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -978,4 +978,32 @@ radlads_wkv_state_residual_trace:
     - trace_first_not_math_fix
     - first_divergent_stage_is_log_w
     - wkv_state_after_is_compared_explicitly
+    - no_pallas_no_tpu_no_training_claims
+
+radlads_log_w_decay_parity:
+  phase: P57
+  status: diagnostic_only
+  docs: docs/RADLADS_LOG_W_DECAY_PARITY.md
+  helper_module: src/qrwkv_xla/parity/radlads_log_w_parity.py
+  compare_script: scripts/compare_radlads_qrwkv_log_w.py
+  artifact_dir: artifacts/p57_log_w_decay_parity
+  source_trace: artifacts/p56_wkv_state_residual_trace/wkv_trace_radlads.jsonl
+  default_manifest: artifacts/p54_confirmation/fixtures/manifest.json
+  reports:
+    - log_w_parity_report.json
+    - P57_LOG_W_PARITY.md
+    - log_w_values.npz
+    - P57_LOG_W_CANDIDATES.md
+    - log_w_candidate_report.json
+  candidate_axes:
+    - orientation
+    - sign
+    - activation
+    - base_term
+    - dtype
+    - axis
+  caveats:
+    - source_audit_caliper_only
+    - no_model_patch_in_p57
+    - no_tolerance_loosening
     - no_pallas_no_tpu_no_training_claims

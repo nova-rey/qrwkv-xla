@@ -1046,3 +1046,24 @@ state/layout parity.
 ## 2026-05-13 — Weekly distillation
 - P56 adds a trace-first WKV residual pass after P55. The first divergent stage is `log_w`, the WKV state-after trace row is now explicit, and update-order candidate analysis says `as_is` is still best while the residual remains finite.
 - P56 is diagnostic-only: no recurrence math fix landed, logits and shift_state stay green, and Pallas remains blocked until the WKV matrix-state residual is explained.
+
+## Phase 57 — RADLADS log_w Decay Parity Caliper
+
+P57 narrows the P56 first-divergence result to a dedicated `log_w` source audit.
+It loads RADLADS `log_w` rows from JSONL trace artifacts, captures QRWKV
+`log_w` from a current model run through diagnostics, compares the surfaces, and
+evaluates candidate formula calipers for orientation, sign, activation,
+base-term, dtype, and axis handling.
+
+Artifacts live under `artifacts/p57_log_w_decay_parity/`:
+`log_w_parity_report.json`, `P57_LOG_W_PARITY.md`, `log_w_values.npz`,
+`P57_LOG_W_CANDIDATES.md`, and `log_w_candidate_report.json`.
+
+P57 is diagnostic-only. It does not patch model math, loosen tolerances, claim
+broader RADLADS parity, or unblock Pallas by itself.
+
+Observed run metrics:
+- log_w first mismatch: `tiny_no_mask / L0 / H0 / T0` with max abs error `0.003779083490371704`
+- trace rerun first divergent stage: `log_w`
+- head-to-head summary: `attempted_comparisons=40`, `pass=12`, `fail=12`, `not_applicable=16`
+- best passing surface stays `tiny_no_mask:logits`; `hidden_states` and `wkv_matrix_state` remain the main failures
