@@ -55,9 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Compare tiny live RADLADS outputs against QRWKV-XLA replay outputs using the
-  clean P52 deterministic_finite payload, while reporting live RADLADS blockers
-  honestly instead of fabricating parity.
+  Repair the RADLADS clean payload loader/export path so the tiny deterministic
+  payload loads locally, exports RADLADS/QRWKV outputs, and compares them via
+  the P54 head-to-head flow without modifying the RADLADS repo.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -912,3 +912,21 @@ evaluation_harness:
     - comparison.json
   strict_default: false
   quality_claims: false
+
+radlads_clean_payload_loader:
+  phase: P54
+  status: complete
+  docs: docs/RADLADS_CLEAN_PARAMETER_LOADER.md
+  helper_module: src/qrwkv_xla/parity/radlads_clean_loader.py
+  export_script: scripts/export_radlads_clean_payload_outputs.py
+  compare_script: scripts/compare_radlads_qrwkv_head_to_head.py
+  artifact_dir: artifacts/p54_radlads_clean_payload_outputs
+  source_payload: P53/P52 deterministic_finite clean payload
+  reports:
+    - manifest.json
+    - load_report.json
+    - export_report.json
+  caveats:
+    - unsupported_live_boundary_leaves_are_reported_and_defaulted_deterministically
+    - gate_rank_shape_mismatches_are_classified_explicitly
+    - no_pallas_no_repo_vendoring_no_tolerance_loosening

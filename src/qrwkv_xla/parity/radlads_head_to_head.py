@@ -12,6 +12,11 @@ from typing import Any
 import numpy as np
 import torch
 
+from qrwkv_xla.parity.radlads_clean_loader import (
+    load_case_output_arrays,
+    load_clean_output_manifest,
+    load_radlads_clean_payload,
+)
 from qrwkv_xla.parity.radlads_fixture_validation import (
     audit_parameter_payload,
     to_audit_report,
@@ -137,9 +142,11 @@ def generate_radlads_qrwkv_head_to_head_fixtures(
         radlads_blocker = f"{type(exc).__name__}: {exc}"
 
     radlads_load_report = _radlads_load_report(
-        parameter_arrays,
+        parameter_path,
         radlads_runtime=radlads_runtime,
         blocker=radlads_blocker,
+        seed=seed,
+        radlads_source_path=radlads_source_path,
     )
     case_radlads_runtime = (
         radlads_runtime if radlads_load_report.get("status") == "pass" else None
@@ -220,6 +227,8 @@ def compare_radlads_qrwkv_head_to_head(
     atol: float = DEFAULT_ATOL,
     rtol: float = DEFAULT_RTOL,
     report_prefix: str = "P53",
+    radlads_outputs: Path | None = None,
+    qrwkv_outputs: Path | None = None,
 ) -> dict[str, Any]:
     manifest = validate_head_to_head_manifest(manifest_path)
     fixture_dir = manifest_path.parent
@@ -236,25 +245,50 @@ def compare_radlads_qrwkv_head_to_head(
             write_head_to_head_reports(report, out_dir, report_prefix=report_prefix)
         return report
 
-    try:
-        qrwkv_import = import_radlads_parameters_for_replay(
-            parameter_path,
-            allow_defaults=True,
-            seed=int(manifest.get("seed", DEFAULT_SEED)),
-        )
-    except Exception as exc:  # pragma: no cover - environment specific
-        report = _missing_source_report(
-            manifest_path,
-            parameter_path,
-            reason=f"QRWKV import failed: {type(exc).__name__}: {exc}",
-        )
-        if out_dir is not None:
-            write_head_to_head_reports(report, out_dir, report_prefix=report_prefix)
-        return report
+    radlads_output_arrays = None
+    qrwkv_output_arrays = None
+    radlads_output_report = None
+    qrwkv_output_report = None
+    if radlads_outputs is not None:
+        radlads_output_report = load_clean_output_manifest(radlads_outputs)
+        radlads_output_arrays = load_case_output_arrays(radlads_outputs)
+    if qrwkv_outputs is not None:
+        qrwkv_output_report = load_clean_output_manifest(qrwkv_outputs)
+        qrwkv_output_arrays = load_case_output_arrays(qrwkv_outputs)
+
+    qrwkv_import = None
+    if qrwkv_output_arrays is None:
+        try:
+            qrwkv_import = import_radlads_parameters_for_replay(
+                parameter_path,
+                allow_defaults=True,
+                seed=int(manifest.get("seed", DEFAULT_SEED)),
+            )
+        except Exception as exc:  # pragma: no cover - environment specific
+            report = _missing_source_report(
+                manifest_path,
+                parameter_path,
+                reason=f"QRWKV import failed: {type(exc).__name__}: {exc}",
+            )
+            if out_dir is not None:
+                write_head_to_head_reports(report, out_dir, report_prefix=report_prefix)
+            return report
 
     cases = []
     for case in manifest["cases"]:
-        if case.get("radlads_status") == "unsupported":
+        if radlads_output_arrays is not None:
+            if case["name"] not in radlads_output_arrays:
+                cases.append(
+                    {
+                        "name": case["name"],
+                        "status": "missing_source",
+                        "reason": "RADLADS output manifest did not include this case",
+                        "comparisons": [],
+                    }
+                )
+                continue
+            radlads_arrays = radlads_output_arrays[case["name"]]
+        elif case.get("radlads_status") == "unsupported":
             reason = case.get("radlads_reason", "RADLADS output unavailable")
             cases.append(
                 {
@@ -272,23 +306,57 @@ def compare_radlads_qrwkv_head_to_head(
                 }
             )
             continue
-        case_path = fixture_dir / str(case["payload"])
-        if not case_path.exists():
-            cases.append(
-                {
-                    "name": case["name"],
-                    "status": "missing_source",
-                    "reason": f"missing paired case payload: {case_path.name}",
-                    "comparisons": [],
-                }
+        else:
+            case_path = fixture_dir / str(case["payload"])
+            if not case_path.exists():
+                cases.append(
+                    {
+                        "name": case["name"],
+                        "status": "missing_source",
+                        "reason": f"missing paired case payload: {case_path.name}",
+                        "comparisons": [],
+                    }
+                )
+                continue
+            radlads_arrays = _load_npz(case_path)
+
+        if qrwkv_output_arrays is not None:
+            if case["name"] not in qrwkv_output_arrays:
+                cases.append(
+                    {
+                        "name": case["name"],
+                        "status": "missing_source",
+                        "reason": "QRWKV output manifest did not include this case",
+                        "comparisons": [],
+                    }
+                )
+                continue
+            qrwkv_arrays = qrwkv_output_arrays[case["name"]]
+        else:
+            if qrwkv_import is None:
+                cases.append(
+                    {
+                        "name": case["name"],
+                        "status": "missing_source",
+                        "reason": "QRWKV output unavailable",
+                        "comparisons": [],
+                    }
+                )
+                continue
+            qrwkv_student = RWKV7QwenReferenceStudent(qrwkv_import.qrwkv_config)
+            qrwkv_arrays = _normalize_qrwkv_arrays(
+                _qrwkv_case_arrays(
+                    qrwkv_student,
+                    qrwkv_import.params,
+                    case,
+                )
             )
-            continue
-        arrays = _load_npz(case_path)
+
         comparisons = [
             compare_surface_arrays(
                 name,
-                arrays.get(left),
-                arrays.get(right),
+                {**radlads_arrays, **qrwkv_arrays}.get(left),
+                {**radlads_arrays, **qrwkv_arrays}.get(right),
                 atol=atol,
                 rtol=rtol,
             )
@@ -316,7 +384,16 @@ def compare_radlads_qrwkv_head_to_head(
         for row in case["comparisons"]
         if row["status"] not in {"unsupported", "missing_source"}
     )
-    radlads_load = manifest.get("radlads_load", {})
+    radlads_load = (
+        radlads_output_report.get("load_report", {})
+        if radlads_output_report is not None
+        else manifest.get("radlads_load", {})
+    )
+    qrwkv_load = (
+        qrwkv_output_report.get("load_report", {})
+        if qrwkv_output_report is not None
+        else (qrwkv_import.report if qrwkv_import is not None else {})
+    )
     overall_status = "pass" if counts and set(counts) == {"pass"} else "fail"
     if attempted == 0:
         overall_status = "unsupported"
@@ -326,8 +403,10 @@ def compare_radlads_qrwkv_head_to_head(
         "parameter_payload": str(parameter_path),
         "overall_status": overall_status,
         "cases_attempted": len(cases),
+        "cases_ran_both_sides": attempted,
         "cases_finite": sum(1 for case in cases if case["status"] == "pass"),
         "attempted_comparisons": attempted,
+        "surface_comparisons_count": attempted,
         "non_finite_count": counts.get("non_finite_radlads", 0)
         + counts.get("non_finite_qrwkv", 0)
         + counts.get("non_finite_both", 0),
@@ -339,7 +418,9 @@ def compare_radlads_qrwkv_head_to_head(
         "parameter_validation": manifest.get("parameter_validation", {}),
         "radlads_load": radlads_load,
         "radlads_blocker": radlads_load.get("reason"),
-        "qrwkv_load": qrwkv_import.report,
+        "qrwkv_load": qrwkv_load,
+        "radlads_outputs": None if radlads_outputs is None else str(radlads_outputs),
+        "qrwkv_outputs": None if qrwkv_outputs is None else str(qrwkv_outputs),
     }
 
     if _needs_intermediate_trace(report):
@@ -347,7 +428,8 @@ def compare_radlads_qrwkv_head_to_head(
 
     if out_dir is not None:
         write_head_to_head_reports(report, out_dir, report_prefix=report_prefix)
-        write_parameter_import_report(qrwkv_import.report, out_dir)
+        if qrwkv_import is not None and qrwkv_output_arrays is None:
+            write_parameter_import_report(qrwkv_import.report, out_dir)
     return report
 
 
@@ -370,12 +452,18 @@ def generate_head_to_head_fixtures(
 def compare_head_to_head_manifest(
     manifest_path: Path,
     *,
+    parameter_npz: Path | None = None,
+    radlads_outputs: Path | None = None,
+    qrwkv_outputs: Path | None = None,
     out_dir: Path | None = None,
     atol: float = DEFAULT_ATOL,
     rtol: float = DEFAULT_RTOL,
 ) -> dict[str, Any]:
     return compare_radlads_qrwkv_head_to_head(
         manifest_path,
+        parameter_npz=parameter_npz,
+        radlads_outputs=radlads_outputs,
+        qrwkv_outputs=qrwkv_outputs,
         out_dir=out_dir,
         atol=atol,
         rtol=rtol,
@@ -691,54 +779,42 @@ def _radlads_case_arrays_with_payload(
 
 
 def _radlads_load_report(
-    parameter_arrays: dict[str, np.ndarray],
+    parameter_path: Path,
     *,
     radlads_runtime: dict[str, Any] | None,
     blocker: str | None,
+    seed: int,
+    radlads_source_path: Path,
 ) -> dict[str, Any]:
     if radlads_runtime is None:
         return {
             "status": "blocked",
             "reason": blocker or "RADLADS runtime unavailable",
             "radlads_loaded_params": 0,
-            "radlads_missing_params": len(parameter_arrays),
+            "radlads_missing_params": 0,
             "radlads_defaulted_params": 0,
-            "radlads_unsupported_params": len(parameter_arrays),
+            "radlads_unsupported_params": 0,
             "radlads_shape_mismatches": 0,
         }
-    _, model = _build_radlads_model(radlads_runtime, seed=DEFAULT_SEED, all_math=False)
-    named = dict(model.named_parameters())
-    loaded = 0
-    missing = []
-    unsupported = []
-    mismatches = []
-    for name, value in parameter_arrays.items():
-        if name not in named:
-            unsupported.append(name)
-            continue
-        if tuple(named[name].shape) != tuple(value.shape):
-            mismatches.append(name)
-            continue
-        loaded += 1
-    for name in named:
-        if name not in parameter_arrays:
-            missing.append(name)
-    mismatch_reason = (
-        "RADLADS payload does not cleanly match live model parameters: "
-        f"missing={len(missing)} unsupported={len(unsupported)} "
-        f"shape_mismatches={len(mismatches)}"
-        if missing or mismatches
-        else None
+    result = load_radlads_clean_payload(
+        parameter_path,
+        radlads_source_path=radlads_source_path,
+        seed=seed,
+        run_smoke=False,
     )
-    return {
-        "status": "pass" if not mismatches and not missing else "blocked",
-        "reason": blocker or mismatch_reason,
-        "radlads_loaded_params": loaded,
-        "radlads_missing_params": len(missing),
-        "radlads_defaulted_params": 0,
-        "radlads_unsupported_params": len(unsupported),
-        "radlads_shape_mismatches": len(mismatches),
-    }
+    report = dict(result.report)
+    report.update(
+        {
+            "status": "pass" if result.overall_status == "pass" else "blocked",
+            "reason": blocker or result.reason,
+            "radlads_loaded_params": result.loaded_parameter_count,
+            "radlads_missing_params": len(result.missing_required),
+            "radlads_defaulted_params": len(result.defaulted),
+            "radlads_unsupported_params": len(result.unsupported),
+            "radlads_shape_mismatches": len(result.shape_mismatches),
+        }
+    )
+    return report
 
 
 def _load_npz(path: Path) -> dict[str, np.ndarray]:

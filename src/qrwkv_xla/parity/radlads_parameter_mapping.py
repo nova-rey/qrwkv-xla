@@ -70,7 +70,12 @@ def flatten_parameter_shapes(
         if isinstance(value, Mapping):
             shapes.update(flatten_parameter_shapes(value, prefix=path))
         elif hasattr(value, "shape"):
-            shapes[path] = tuple(int(dim) for dim in np.asarray(value).shape)
+            array = (
+                value.detach().cpu().numpy()
+                if hasattr(value, "detach")
+                else np.asarray(value)
+            )
+            shapes[path] = tuple(int(dim) for dim in np.asarray(array).shape)
     return shapes
 
 

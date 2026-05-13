@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 53
-  checkpoint: radlads_qrwkv_head_to_head_parity
-  title: RADLADS vs QRWKV comparable output fixture parity
+  phase: 54
+  checkpoint: radlads_clean_payload_loader_export_repair
+  title: RADLADS clean payload loader/export repair
 
 workflow:
   primary_agent: Nyx
@@ -58,6 +58,24 @@ radlads_qrwkv_head_to_head_parity:
   caveats:
     - live_radlads_blockers_are_reported_as_unsupported
     - no_pallas_no_tpu_optimization_no_training_no_qwen_scale_no_hf_model_class
+
+radlads_clean_payload_loader:
+  phase: P54
+  status: complete
+  docs: docs/RADLADS_CLEAN_PARAMETER_LOADER.md
+  loader_module: src/qrwkv_xla/parity/radlads_clean_loader.py
+  export_script: scripts/export_radlads_clean_payload_outputs.py
+  compare_script: scripts/compare_radlads_qrwkv_head_to_head.py
+  artifact_dir: artifacts/p54_radlads_clean_payload_outputs
+  source_payload: P53 deterministic_finite clean payload
+  reports:
+    - manifest.json
+    - load_report.json
+    - export_report.json
+  caveats:
+    - unsupported_leaves_are_reported_explicitly
+    - gate_shape_mismatches_are_reported_explicitly
+    - no_repo_vendoring_no_pallas_no_tolerance_loosen
 
 radlads_parameter_replay_compatibility:
   phase: P50

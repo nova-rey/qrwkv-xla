@@ -1007,3 +1007,25 @@ outputs from QRWKV behavior.
 
 P53 does not add Pallas, TPU optimization, real training, Qwen-scale export,
 HF `PreTrainedModel` support, multi-host sharding, or tolerance loosening.
+
+## Phase 54 — RADLADS Clean Payload Loading and Export
+
+P54 adds a clean payload loader for the tiny deterministic_finite RADLADS
+parameter archive used by P53. The new loader classifies live RADLADS boundary
+surfaces explicitly, keeps the 16 unsupported leaves and 4 gate shape
+mismatches visible in the report, and applies only deterministic safe defaults
+with parity-risk caveats instead of random initialization.
+
+P54 also adds a standalone exporter for clean RADLADS outputs and output
+manifests so the head-to-head comparison can consume precomputed RADLADS and
+QRWKV outputs when they are available. The comparison path remains honest when
+either side is missing and continues to avoid touching the RADLADS repo
+contents.
+
+P54 does not add Pallas, tolerance loosening, RADLADS repo vendoring, or any
+claim of full RADLADS parity.
+
+P54 implementation note: the local clean loader now loads the tiny deterministic
+payload successfully, adapts the four gate surfaces with deterministic rank
+truncation, excludes 34 payload-only surfaces as not needed for the tiny case,
+and leaves no missing-required leaves in the live path.

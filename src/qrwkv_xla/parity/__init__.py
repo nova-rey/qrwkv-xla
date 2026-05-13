@@ -2,6 +2,20 @@ from qrwkv_xla.parity.audit_radlads_parameter_provenance import (
     audit_radlads_parameter_provenance,
     write_provenance_audit_report,
 )
+from qrwkv_xla.parity.radlads_clean_loader import (
+    CLEAN_LOADER_SCHEMA,
+    CLEAN_OUTPUT_SCHEMA,
+    RadladsCleanPayloadExportResult,
+    RadladsCleanPayloadLoadResult,
+    export_radlads_clean_payload_outputs,
+    load_case_output_arrays,
+    load_clean_output_manifest,
+    load_radlads_clean_payload,
+    validate_clean_output_manifest,
+)
+from qrwkv_xla.parity.radlads_clean_loader import (
+    DEFAULT_SEED as CLEAN_LOADER_DEFAULT_SEED,
+)
 from qrwkv_xla.parity.radlads_fixture_validation import (
     ParameterAuditResult,
     analyze_array,
@@ -152,4 +166,14 @@ __all__ = [
     "to_audit_report",
     "validate_parameter_payload",
     "write_audit_report",
+    "CLEAN_LOADER_SCHEMA",
+    "CLEAN_OUTPUT_SCHEMA",
+    "CLEAN_LOADER_DEFAULT_SEED",
+    "RadladsCleanPayloadLoadResult",
+    "RadladsCleanPayloadExportResult",
+    "export_radlads_clean_payload_outputs",
+    "load_case_output_arrays",
+    "load_clean_output_manifest",
+    "load_radlads_clean_payload",
+    "validate_clean_output_manifest",
 ]

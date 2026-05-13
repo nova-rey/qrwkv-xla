@@ -128,6 +128,7 @@ def test_head_to_head_cli_help() -> None:
     for script in (
         "generate_radlads_qrwkv_head_to_head_fixtures.py",
         "compare_radlads_qrwkv_head_to_head.py",
+        "export_radlads_clean_payload_outputs.py",
     ):
         result = subprocess.run(
             [sys.executable, str(ROOT / "scripts" / script), "--help"],

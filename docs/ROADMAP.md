@@ -375,3 +375,15 @@ cannot load or execute.
 P53 does not add Pallas, TPU optimization, real training, Qwen-scale export,
 HF `PreTrainedModel` support, multi-host sharding, tolerance loosening, or
 fabricated RADLADS outputs.
+
+## Phase 54 — RADLADS Clean Payload Loading and Export
+Goal: load the clean deterministic_finite RADLADS payload against the live
+RADLADS boundary, classify unsupported leaves and gate-rank shape mismatches
+explicitly, and export runnable RADLADS outputs for comparison.
+
+Current checkpoint: `radlads_clean_payload_loader`. This checkpoint adds the
+clean loader, output exporter, and optional RADLADS/QRWKV output-manifest
+consumption path for the P53/P54 tiny fixture flow.
+
+P54 remains bounded loader/export work only. It does not add Pallas, repo
+vendoring, tolerance loosening, or full RADLADS parity claims.

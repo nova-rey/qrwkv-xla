@@ -784,3 +784,14 @@
 - [x] Add `tests/test_radlads_qrwkv_head_to_head.py`.
 - [x] Add `docs/RADLADS_QRWKV_HEAD_TO_HEAD_PARITY.md`.
 - [x] Preserve scope: no Pallas, TPU perf work, real training, Qwen-scale export, HF model class, or tolerance loosening.
+
+## P54 — RADLADS Clean Payload Loading and Export
+
+- [x] Add `src/qrwkv_xla/parity/radlads_clean_loader.py`.
+- [x] Add `scripts/export_radlads_clean_payload_outputs.py`.
+- [x] Extend `scripts/compare_radlads_qrwkv_head_to_head.py` for optional RADLADS and QRWKV output manifests.
+- [x] Reuse the clean loader and output-manifest helpers from the P53 head-to-head path.
+- [x] Add `tests/test_radlads_clean_loader.py`.
+- [x] Add `docs/RADLADS_CLEAN_PARAMETER_LOADER.md`.
+- [x] Update snapshot, roadmap, and agent entrypoint.
+- [x] Preserve scope: no RADLADS repo vendoring, no Pallas, and no tolerance loosening.
