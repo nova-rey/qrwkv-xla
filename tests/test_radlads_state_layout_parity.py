@@ -11,6 +11,11 @@ ROOT = Path(__file__).resolve().parents[1]
 P54_ROOT = ROOT / "artifacts/p54_confirmation"
 RADLADS_OUTPUTS = P54_ROOT / "radlads_outputs"
 QRWKV_OUTPUTS = P54_ROOT / "qrwkv_outputs"
+P54_FIXTURE_AVAILABLE = (
+    (P54_ROOT / "fixtures" / "manifest.json").is_file()
+    and RADLADS_OUTPUTS.is_dir()
+    and QRWKV_OUTPUTS.is_dir()
+)
 
 
 @pytest.mark.parametrize(
@@ -31,6 +36,10 @@ def test_cli_help(script: str, needle: str) -> None:
     assert needle.lower() in result.stdout.lower()
 
 
+@pytest.mark.skipif(
+    not P54_FIXTURE_AVAILABLE,
+    reason="P54 fixture artifacts are not checked into CI; skip local-only audit test",
+)
 def test_surface_layout_audit_and_candidate_analysis(tmp_path: Path) -> None:
     layout_out = tmp_path / "layout"
     candidates_out = tmp_path / "candidates"
@@ -128,6 +137,10 @@ def test_surface_layout_audit_and_candidate_analysis(tmp_path: Path) -> None:
     assert (candidates_out / "layout_candidate_report.json").is_file()
 
 
+@pytest.mark.skipif(
+    not P54_FIXTURE_AVAILABLE,
+    reason="P54 fixture artifacts are not checked into CI; skip local-only audit test",
+)
 def test_head_to_head_normalizes_hidden_states_and_classifies_stepwise(
     tmp_path: Path,
 ) -> None:
