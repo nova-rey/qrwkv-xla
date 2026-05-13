@@ -19,7 +19,11 @@ from qrwkv_xla.parity import (
     write_current_behavior_numerical_fixtures,
     write_numerical_comparison_reports,
 )
-from qrwkv_xla.parity.radlads_numerical_fixtures import hash_numerical_arrays
+from qrwkv_xla.parity.radlads_numerical_fixtures import (
+    PARAMETER_EXTREME_THRESHOLD,
+    hash_numerical_arrays,
+    load_parameter_arrays,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -41,6 +45,30 @@ def test_current_behavior_manifest_is_valid_and_honest(tmp_path: Path) -> None:
         arrays = load_numerical_case_arrays(out / "manifest.json", case)
         assert case["payload_sha256"] == hash_numerical_arrays(arrays)
         assert arrays["input_ids"].shape == (2, 4)
+
+
+def test_deterministic_finite_init_writes_clean_parameter_payload(
+    tmp_path: Path,
+) -> None:
+    out = tmp_path / "fixtures"
+
+    manifest = generate_radlads_tiny_numerical_fixtures(
+        out,
+        overwrite=True,
+        init_policy="deterministic_finite",
+    )
+    parameters = load_parameter_arrays(out / "manifest.json")
+    max_abs = max(float(np.max(np.abs(value))) for value in parameters.values())
+
+    assert manifest["parameter_payload"] == "radlads_parameters.npz"
+    assert manifest["parameter_payload_init_policy"] == "deterministic_finite"
+    assert manifest["parameter_payload_source"] == "deterministic_finite"
+    assert manifest["parameter_payload_validation"]["status"] == "clean"
+    assert manifest["parameter_payload_validation"]["deterministic"] is True
+    assert manifest["parameter_payload_validation"]["finite"] is True
+    assert parameters
+    assert all(np.all(np.isfinite(value)) for value in parameters.values())
+    assert max_abs < PARAMETER_EXTREME_THRESHOLD
 
 
 def test_parameter_mapping_statuses() -> None:

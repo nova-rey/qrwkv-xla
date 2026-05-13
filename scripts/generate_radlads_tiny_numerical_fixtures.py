@@ -22,6 +22,16 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--radlads-source", type=Path, default=DEFAULT_RADLADS_SOURCE)
+    parser.add_argument(
+        "--init-policy",
+        choices=("radlads_source", "deterministic_finite"),
+        default="radlads_source",
+        help=(
+            "Parameter payload initialization policy. Use deterministic_finite "
+            "to write clean, small finite parameters when RADLADS source init is "
+            "poisoned or unavailable."
+        ),
+    )
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
@@ -30,12 +40,14 @@ def main() -> None:
         seed=args.seed,
         overwrite=args.overwrite,
         radlads_source_path=args.radlads_source,
+        init_policy=args.init_policy,
     )
     print(
         "wrote "
         f"{len(manifest['cases'])} P49 tiny numerical fixtures to {args.out} "
         f"with real_radlads_fixture_status="
-        f"{manifest['real_radlads_fixture_status']}"
+        f"{manifest['real_radlads_fixture_status']} "
+        f"init_policy={manifest.get('parameter_payload_init_policy', args.init_policy)}"
     )
 
 

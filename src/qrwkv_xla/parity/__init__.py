@@ -1,3 +1,16 @@
+from qrwkv_xla.parity.audit_radlads_parameter_provenance import (
+    audit_radlads_parameter_provenance,
+    write_provenance_audit_report,
+)
+from qrwkv_xla.parity.radlads_fixture_validation import (
+    ParameterAuditResult,
+    analyze_array,
+    audit_parameter_payload,
+    compute_sha256_from_array,
+    to_audit_report,
+    validate_parameter_payload,
+    write_audit_report,
+)
 from qrwkv_xla.parity.radlads_numerical_fixtures import (
     NUMERICAL_FIXTURE_SCHEMA,
     NUMERICAL_FIXTURE_VERSION,
@@ -104,4 +117,13 @@ __all__ = [
     "write_parameter_import_report",
     "write_replay_reports",
     "write_surface_comparison_reports",
+    "audit_radlads_parameter_provenance",
+    "write_provenance_audit_report",
+    "ParameterAuditResult",
+    "analyze_array",
+    "audit_parameter_payload",
+    "compute_sha256_from_array",
+    "to_audit_report",
+    "validate_parameter_payload",
+    "write_audit_report",
 ]

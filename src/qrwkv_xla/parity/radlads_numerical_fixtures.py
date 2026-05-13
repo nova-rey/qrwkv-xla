@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,11 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+from qrwkv_xla.parity.radlads_fixture_validation import (
+    audit_parameter_payload,
+    to_audit_report,
+    validate_parameter_payload,
+)
 from qrwkv_xla.parity.radlads_parameter_mapping import (
     compare_parameter_surfaces,
     flatten_parameter_shapes,
@@ -50,6 +56,24 @@ LIVE_ENV_VARS = (
     "QRWKV_XLA_RUN_RADLADS_LIVE_FIXTURES",
     "QRWKV_RUN_RADLADS_LIVE",
 )
+PARAMETER_EXTREME_THRESHOLD = 1e6
+INIT_POLICIES = {"radlads_source", "deterministic_finite"}
+_TRANSPOSE_RAW_LAYER_SUFFIXES = {
+    "self_attn.q_proj.weight",
+    "self_attn.k_proj.weight",
+    "self_attn.v_proj.weight",
+    "self_attn.o_proj.weight",
+    "mlp.gate_proj.weight",
+    "mlp.up_proj.weight",
+    "mlp.down_proj.weight",
+}
+_SQUEEZE_RAW_LAYER_SUFFIXES = {
+    "self_attn.w0",
+    "self_attn.a0",
+    "self_attn.v0",
+    "self_attn.k_k",
+    "self_attn.k_a",
+}
 
 
 def load_numerical_manifest(path: Path) -> dict[str, Any]:
@@ -143,7 +167,9 @@ def write_current_behavior_numerical_fixtures(
     overwrite: bool = False,
     radlads_source_path: Path = DEFAULT_RADLADS_SOURCE,
     generation_script: str = "scripts/import_radlads_tiny_numerical_fixtures.py",
+    init_policy: str = "radlads_source",
 ) -> dict[str, Any]:
+    _validate_init_policy(init_policy)
     _prepare_out_dir(out, overwrite=overwrite)
 
     cases = _tiny_cases()
@@ -189,6 +215,19 @@ def write_current_behavior_numerical_fixtures(
         "P49 tiny numerical fixture schema and reporting. Default payloads are "
         "QRWKV-XLA current behavior only, not RADLADS outputs."
     )
+    if init_policy == "deterministic_finite":
+        parameter_arrays = _deterministic_finite_radlads_parameter_arrays(seed=seed)
+        np.savez(out / "radlads_parameters.npz", **parameter_arrays)
+        _add_parameter_payload_metadata(
+            manifest,
+            parameter_arrays,
+            init_policy=init_policy,
+            source="deterministic_finite",
+        )
+        manifest["parameter_mapping"] = _parameter_mapping_for_arrays(
+            parameter_arrays,
+            seed=seed,
+        )
     (out / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -203,7 +242,18 @@ def generate_radlads_tiny_numerical_fixtures(
     overwrite: bool = False,
     radlads_source_path: Path = DEFAULT_RADLADS_SOURCE,
     live_env_var: str | None = None,
+    init_policy: str = "radlads_source",
 ) -> dict[str, Any]:
+    _validate_init_policy(init_policy)
+    if init_policy == "deterministic_finite":
+        return write_current_behavior_numerical_fixtures(
+            out,
+            seed=seed,
+            overwrite=overwrite,
+            radlads_source_path=radlads_source_path,
+            generation_script="scripts/generate_radlads_tiny_numerical_fixtures.py",
+            init_policy=init_policy,
+        )
     if not _live_requested(live_env_var):
         return write_current_behavior_numerical_fixtures(
             out,
@@ -211,6 +261,7 @@ def generate_radlads_tiny_numerical_fixtures(
             overwrite=overwrite,
             radlads_source_path=radlads_source_path,
             generation_script="scripts/generate_radlads_tiny_numerical_fixtures.py",
+            init_policy=init_policy,
         )
     if not radlads_source_path.exists():
         return write_current_behavior_numerical_fixtures(
@@ -219,6 +270,7 @@ def generate_radlads_tiny_numerical_fixtures(
             overwrite=overwrite,
             radlads_source_path=radlads_source_path,
             generation_script="scripts/generate_radlads_tiny_numerical_fixtures.py",
+            init_policy=init_policy,
         )
     try:
         return _generate_live_radlads_fixtures(
@@ -234,6 +286,7 @@ def generate_radlads_tiny_numerical_fixtures(
             overwrite=overwrite,
             radlads_source_path=radlads_source_path,
             generation_script="scripts/generate_radlads_tiny_numerical_fixtures.py",
+            init_policy=init_policy,
         )
         manifest["real_radlads_fixture_status"] = "execution_failed"
         manifest["live_generation_error"] = f"{type(exc).__name__}: {exc}"
@@ -460,8 +513,12 @@ def _generate_live_radlads_fixtures(
         real_status="generated",
     )
     manifest["cases"] = manifest_cases
-    manifest["parameter_payload"] = "radlads_parameters.npz"
-    manifest["parameter_payload_sha256"] = hash_numerical_arrays(parameter_arrays)
+    _add_parameter_payload_metadata(
+        manifest,
+        parameter_arrays,
+        init_policy="radlads_source",
+        source="radlads_source",
+    )
     manifest["parameter_mapping"] = parameter_mapping
     manifest["claim"] = (
         "P49 real tiny RADLADS source fixtures generated locally via patched CPU "
@@ -505,6 +562,141 @@ def _base_manifest(
         "real_radlads_fixture_status": real_status,
         "cases": [],
     }
+
+
+def _validate_init_policy(init_policy: str) -> None:
+    if init_policy not in INIT_POLICIES:
+        raise ValueError(
+            f"unsupported init_policy={init_policy!r}; "
+            f"expected one of {sorted(INIT_POLICIES)}"
+        )
+
+
+def _add_parameter_payload_metadata(
+    manifest: dict[str, Any],
+    parameter_arrays: dict[str, np.ndarray],
+    *,
+    init_policy: str,
+    source: str,
+) -> None:
+    audit_results = audit_parameter_payload(
+        parameter_arrays,
+        stage="saved_npz",
+        extreme_threshold=PARAMETER_EXTREME_THRESHOLD,
+    )
+    is_valid, blocking = validate_parameter_payload(audit_results)
+    audit_report = to_audit_report(audit_results)
+    manifest["parameter_payload"] = "radlads_parameters.npz"
+    manifest["parameter_payload_sha256"] = hash_numerical_arrays(parameter_arrays)
+    manifest["parameter_payload_init_policy"] = init_policy
+    manifest["parameter_payload_source"] = source
+    manifest["parameter_payload_validation"] = {
+        "status": "clean" if is_valid else "blocked",
+        "deterministic": init_policy == "deterministic_finite",
+        "finite": all(
+            result.nan_count == 0
+            and result.posinf_count == 0
+            and result.neginf_count == 0
+            for result in audit_results
+        ),
+        "extreme_threshold": PARAMETER_EXTREME_THRESHOLD,
+        "blocking_count": len(blocking),
+        "summary": audit_report["summary"],
+    }
+
+
+def _parameter_mapping_for_arrays(
+    parameter_arrays: dict[str, np.ndarray],
+    *,
+    seed: int,
+) -> dict[str, Any]:
+    return compare_parameter_surfaces(
+        flatten_parameter_shapes(normalize_radlads_parameter_arrays(parameter_arrays)),
+        _deterministic_replay_parameter_shapes(seed=seed),
+    )
+
+
+def _deterministic_finite_radlads_parameter_arrays(
+    *, seed: int
+) -> dict[str, np.ndarray]:
+    qrwkv_shapes = _deterministic_replay_parameter_shapes(seed=seed)
+    qrwkv_shapes.update(
+        {
+            "layers.self_attn.q_proj.bias": (
+                qrwkv_shapes["layers.self_attn.q_proj.weight"][0],
+                qrwkv_shapes["layers.self_attn.q_proj.weight"][2],
+            ),
+            "layers.self_attn.k_proj.bias": (
+                qrwkv_shapes["layers.self_attn.k_proj.weight"][0],
+                qrwkv_shapes["layers.self_attn.k_proj.weight"][2],
+            ),
+            "layers.self_attn.v_proj.bias": (
+                qrwkv_shapes["layers.self_attn.v_proj.weight"][0],
+                qrwkv_shapes["layers.self_attn.v_proj.weight"][2],
+            ),
+        }
+    )
+    normalized = {
+        name: _deterministic_finite_array(name, shape, seed=seed)
+        for name, shape in sorted(qrwkv_shapes.items())
+        if name != "lm_head.bias"
+    }
+    return _radlads_raw_arrays_from_normalized(normalized)
+
+
+def _deterministic_replay_parameter_shapes(
+    *,
+    seed: int,
+) -> dict[str, tuple[int, ...]]:
+    config = replace(
+        _tiny_qrwkv_config(all_radlads_math=True),
+        radlads_replay_mode=True,
+        attention_qkv_bias=True,
+        radlads_low_rank_gate=True,
+    )
+    return flatten_parameter_shapes(
+        RWKV7QwenReferenceStudent(config).init_params(jax.random.PRNGKey(seed))
+    )
+
+
+def _deterministic_finite_array(
+    name: str, shape: tuple[int, ...], *, seed: int
+) -> np.ndarray:
+    size = int(np.prod(shape))
+    if size == 0:
+        return np.zeros(shape, dtype=np.float32)
+    name_offset = int(hashlib.sha256(name.encode("utf-8")).hexdigest()[:8], 16)
+    values = np.arange(size, dtype=np.float32)
+    values = ((values + seed + name_offset) % 997) / 9970.0
+    return (values.reshape(shape) - 0.05).astype(np.float32)
+
+
+def _radlads_raw_arrays_from_normalized(
+    normalized: dict[str, np.ndarray],
+) -> dict[str, np.ndarray]:
+    raw: dict[str, np.ndarray] = {}
+    for name, array in sorted(normalized.items()):
+        value = np.asarray(array, dtype=np.float32)
+        if name == "token_embedding.weight":
+            raw["model.embed_tokens.weight"] = value
+            continue
+        if name == "final_layernorm.weight":
+            raw["model.norm.weight"] = value
+            continue
+        if name == "lm_head.weight":
+            raw["lm_head.weight"] = value.T
+            continue
+        if not name.startswith("layers."):
+            continue
+        suffix = name.removeprefix("layers.")
+        for layer_index, layer_value in enumerate(value):
+            raw_value = np.asarray(layer_value, dtype=np.float32)
+            if suffix in _TRANSPOSE_RAW_LAYER_SUFFIXES:
+                raw_value = raw_value.T
+            if suffix in _SQUEEZE_RAW_LAYER_SUFFIXES:
+                raw_value = raw_value.reshape((1, 1, *raw_value.shape))
+            raw[f"model.layers.{layer_index}.{suffix}"] = raw_value
+    return raw
 
 
 def _case_manifest(
