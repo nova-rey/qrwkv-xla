@@ -335,7 +335,7 @@ def compare_radlads_qrwkv_head_to_head(
                     }
                 )
                 continue
-            qrwkv_arrays = qrwkv_output_arrays[case["name"]]
+            qrwkv_arrays = _normalize_qrwkv_arrays(qrwkv_output_arrays[case["name"]])
         else:
             if qrwkv_import is None:
                 cases.append(
@@ -356,16 +356,39 @@ def compare_radlads_qrwkv_head_to_head(
                 )
             )
 
-        comparisons = [
-            compare_surface_arrays(
-                name,
-                {**radlads_arrays, **qrwkv_arrays}.get(left),
-                {**radlads_arrays, **qrwkv_arrays}.get(right),
-                atol=atol,
-                rtol=rtol,
+        comparisons = []
+        for name, left, right in PAIRWISE_SURFACES:
+            if name.startswith("stepwise_") and case["name"] != "tiny_stepwise_state":
+                comparisons.append(
+                    {
+                        "name": name,
+                        "status": "not_applicable",
+                        "reason": "stepwise surface not requested for this case",
+                        "shape_match": False,
+                        "finite_radlads": False,
+                        "finite_qrwkv": False,
+                        "allclose": False,
+                        "atol": atol,
+                        "rtol": rtol,
+                        "dtype_match": False,
+                        "shape": None,
+                        "left_shape": None,
+                        "right_shape": None,
+                        "max_abs_error": None,
+                        "mean_abs_error": None,
+                        "max_relative_error": None,
+                    }
+                )
+                continue
+            comparisons.append(
+                compare_surface_arrays(
+                    name,
+                    {**radlads_arrays, **qrwkv_arrays}.get(left),
+                    {**radlads_arrays, **qrwkv_arrays}.get(right),
+                    atol=atol,
+                    rtol=rtol,
+                )
             )
-            for name, left, right in PAIRWISE_SURFACES
-        ]
         case_status = _case_status(comparisons)
         cases.append(
             {
@@ -418,6 +441,28 @@ def compare_radlads_qrwkv_head_to_head(
         "surface_status_counts": counts,
         "best_passing_surface": _best_passing_surface(cases),
         "largest_failure": _largest_failure(cases),
+        "hidden_states_convention": {
+            "radlads": "final_hidden",
+            "qrwkv": "layer_major_all_hidden",
+            "comparison": "final_hidden_selected_from_layer_major",
+        },
+        "surface_conventions": {
+            "hidden_states": {
+                "radlads": "final_hidden",
+                "qrwkv": "layer_major_all_hidden",
+                "comparison": "final_hidden_selected_from_layer_major",
+            },
+            "wkv_matrix_state": {
+                "radlads": "full_sequence_final_state",
+                "qrwkv": "full_sequence_final_state",
+                "comparison": "as_exported",
+            },
+            "stepwise": {
+                "radlads": "stepwise_only_for_tiny_stepwise_state",
+                "qrwkv": "stepwise_only_for_tiny_stepwise_state",
+                "comparison": "not_applicable_for_non_stepwise_cases",
+            },
+        },
         "cases": cases,
         "parameter_validation": manifest.get("parameter_validation", {}),
         "radlads_load": radlads_load,
@@ -829,7 +874,11 @@ def _load_npz(path: Path) -> dict[str, np.ndarray]:
 
 
 def _case_status(comparisons: list[dict[str, Any]]) -> str:
-    statuses = {row["status"] for row in comparisons}
+    statuses = {
+        row["status"] for row in comparisons if row["status"] != "not_applicable"
+    }
+    if not statuses:
+        return "unsupported"
     if statuses == {"pass"}:
         return "pass"
     if statuses <= {"unsupported", "missing_source"}:

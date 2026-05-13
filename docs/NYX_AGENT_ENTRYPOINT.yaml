@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 54
-  checkpoint: radlads_clean_payload_loader_export_repair
-  title: RADLADS clean payload loader/export repair
+  phase: 55
+  checkpoint: radlads_state_layout_parity_diagnostics
+  title: RADLADS state/layout parity diagnostics and fix
 
 workflow:
   primary_agent: Nyx

@@ -930,3 +930,26 @@ radlads_clean_payload_loader:
     - unsupported_live_boundary_leaves_are_reported_and_defaulted_deterministically
     - gate_rank_shape_mismatches_are_classified_explicitly
     - no_pallas_no_repo_vendoring_no_tolerance_loosening
+
+radlads_state_layout_parity:
+  phase: P55
+  status: in_progress
+  docs: docs/RADLADS_QRWKV_STATE_LAYOUT_PARITY.md
+  helper_module: src/qrwkv_xla/parity/radlads_state_layout.py
+  audit_script: scripts/audit_radlads_qrwkv_surface_layouts.py
+  candidate_script: scripts/analyze_radlads_qrwkv_layout_candidates.py
+  compare_script: scripts/compare_radlads_qrwkv_head_to_head.py
+  artifact_dir: artifacts/p55_state_layout_parity
+  source_payload: P54 confirmation outputs
+  reports:
+    - P55_RESULTS.md
+    - P55_SURFACE_COMPARISON.md
+    - head_to_head_comparison_report.json
+    - layout_audit/P55_SURFACE_LAYOUT_AUDIT.md
+    - layout_audit/surface_layout_audit.json
+    - layout_audit/P55_LAYOUT_CANDIDATES.md
+    - layout_audit/layout_candidate_report.json
+  caveats:
+    - diagnostic_first_no_pallas_no_tpu_optimization_no_training_claims
+    - hidden_states_convention_must_be_explicit
+    - wkv_matrix_state_layout_and_pre_post_convention_must_be_explicit

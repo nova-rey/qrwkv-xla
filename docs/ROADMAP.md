@@ -387,3 +387,19 @@ consumption path for the P53/P54 tiny fixture flow.
 
 P54 remains bounded loader/export work only. It does not add Pallas, repo
 vendoring, tolerance loosening, or full RADLADS parity claims.
+
+## Phase 55 — RADLADS State/Layout Parity Diagnostics
+Goal: diagnose the remaining tiny parity differences with explicit surface
+layout and candidate-transform analysis before any kernel work.
+
+Checkpoints:
+- P55A: surface layout audit
+- P55B: candidate normalization analysis
+- P55C: hidden_states convention normalization
+- P55D: wkv_matrix_state pre/post or axis resolution
+- P55E: stepwise coverage cleanup
+
+Current checkpoint: `radlads_state_layout_parity_diagnostics`.
+
+P55 remains diagnostic-first. It does not add Pallas, TPU optimization, real
+training, Qwen-scale export, or model-quality claims.

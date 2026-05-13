@@ -795,3 +795,13 @@
 - [x] Add `docs/RADLADS_CLEAN_PARAMETER_LOADER.md`.
 - [x] Update snapshot, roadmap, and agent entrypoint.
 - [x] Preserve scope: no RADLADS repo vendoring, no Pallas, and no tolerance loosening.
+
+## P55 — RADLADS State/Layout Parity Diagnostics
+
+- [ ] Add surface layout audit and candidate normalization reports.
+- [ ] Normalize hidden_states convention explicitly.
+- [ ] Diagnose and fix wkv_matrix_state layout/pre-post mismatch if proven.
+- [ ] Clarify stepwise surface coverage and status classification.
+- [ ] Preserve passing logits and shift_state comparisons.
+- [ ] Add docs, snapshot, and Bible updates.
+- [ ] Run Ruff and full pytest gates.

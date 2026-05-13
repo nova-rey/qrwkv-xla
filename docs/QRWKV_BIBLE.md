@@ -1029,3 +1029,15 @@ P54 implementation note: the local clean loader now loads the tiny deterministic
 payload successfully, adapts the four gate surfaces with deterministic rank
 truncation, excludes 34 payload-only surfaces as not needed for the tiny case,
 and leaves no missing-required leaves in the live path.
+
+## Phase 55 — RADLADS State/Layout Parity Diagnostics
+
+P55 separates the remaining parity issue into two honest pieces: hidden_states
+convention mismatch and a small but finite wkv_matrix_state residual. It adds
+surface layout audit reports, non-mutating candidate-transform analysis, and a
+clearer stepwise classification so non-stepwise cases are marked not_applicable
+instead of vaguely missing_source.
+
+P55 does not implement Pallas. It does not prove training throughput or model
+quality. It only diagnoses and, where possible, fixes tiny local CPU
+state/layout parity.
