@@ -445,3 +445,19 @@ passing logits and shift_state surfaces.
 
 P58 does not implement Pallas, TPU optimization, real training, or a claim of
 full RADLADS parity.
+
+## Phase 59 — RADLADS WKV State Provenance
+Goal: make WKV state handoff provenance explicit before any further recurrence
+or kernel work.
+
+Checkpoints:
+- P59A: JSONL schema and report helpers for provenance rows
+- P59B: QRWKV synthetic trace over initial state, token carry, full-vs-stepwise,
+  and mask behavior
+- P59C: provenance JSONL comparison script
+- P59D: focused tmp_path tests and documentation
+
+Current checkpoint: `radlads_wkv_state_provenance`.
+
+P59 is diagnostic-only. It does not change recurrence math, widen tolerances,
+alter P58 log_w behavior, add Pallas, or claim full RADLADS parity.

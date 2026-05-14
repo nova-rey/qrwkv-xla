@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 57
-  checkpoint: radlads_log_w_decay_parity
-  title: RADLADS log_w decay parity caliper
+  phase: 59
+  checkpoint: radlads_wkv_state_provenance
+  title: RADLADS WKV state provenance
 
 workflow:
   primary_agent: Nyx
@@ -42,6 +42,7 @@ instructions:
   - Keep P51 diagnosis-first; replay profiles must match the original fixture math flags before blaming downstream low-rank math.
   - Keep P53 head-to-head fixtures tied to the P52 deterministic_finite payload; if live RADLADS is unavailable, report the blocker instead of faking parity.
   - Keep P57 diagnostic-only; compare source-backed log_w traces and current diagnostics without patching model math or loosening tolerances.
+  - Keep P59 diagnostic-only; trace WKV state handoff without changing recurrence math, loosening tolerances, or disturbing P58 log_w behavior.
 
 radlads_qrwkv_head_to_head_parity:
   phase: P53
@@ -92,6 +93,25 @@ radlads_log_w_decay_source_fix:
     - low_rank_decay_selected_for_tiny_no_mask
     - no_pallas_no_tpu_no_training_claims
     - wkv_matrix_state_still_unexplained
+
+radlads_wkv_state_provenance:
+  phase: P59
+  status: diagnostic_only
+  docs: docs/RADLADS_WKV_STATE_PROVENANCE.md
+  helper_module: src/qrwkv_xla/parity/radlads_wkv_state_provenance.py
+  trace_script: scripts/trace_radlads_qrwkv_wkv_state_provenance.py
+  compare_script: scripts/compare_radlads_qrwkv_wkv_state_provenance.py
+  artifact_dir: artifacts/p59_wkv_state_provenance
+  reports:
+    - wkv_state_provenance.jsonl
+    - wkv_state_provenance_report.json
+    - P59_WKV_STATE_PROVENANCE.md
+    - wkv_state_provenance_manifest.json
+  caveats:
+    - diagnostic_only_no_recurrence_math_change
+    - no_tolerance_loosening
+    - p58_log_w_fix_preserved
+    - ci_tests_use_tmp_path_synthetic_data
 
 radlads_clean_payload_loader:
   phase: P54

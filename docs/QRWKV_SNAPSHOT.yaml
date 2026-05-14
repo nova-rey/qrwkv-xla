@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 57
-checkpoint: radlads_log_w_decay_parity
+phase: 59
+checkpoint: radlads_wkv_state_provenance
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Audit the P56 first divergent WKV trace stage by comparing RADLADS log_w rows
-  from source trace JSONL against QRWKV log_w captured from the current
-  diagnostics path, without patching model math or loosening tolerances.
+  Trace WKV state handoff provenance through the existing QRWKV student state
+  APIs, covering initial state, token carry, full-vs-stepwise equivalence, and
+  mask behavior without changing recurrence math or loosening tolerances.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -1026,3 +1026,28 @@ radlads_log_w_decay_source_fix:
     - source_backed_tiny_replay_fix
     - no_pallas_no_tpu_no_training_claims
     - wkv_matrix_state_still_unexplained
+
+radlads_wkv_state_provenance:
+  phase: P59
+  status: diagnostic_only
+  docs: docs/RADLADS_WKV_STATE_PROVENANCE.md
+  helper_module: src/qrwkv_xla/parity/radlads_wkv_state_provenance.py
+  trace_script: scripts/trace_radlads_qrwkv_wkv_state_provenance.py
+  compare_script: scripts/compare_radlads_qrwkv_wkv_state_provenance.py
+  artifact_dir: artifacts/p59_wkv_state_provenance
+  reports:
+    - wkv_state_provenance.jsonl
+    - wkv_state_provenance_report.json
+    - P59_WKV_STATE_PROVENANCE.md
+    - wkv_state_provenance_manifest.json
+  comparisons:
+    - initial_state
+    - initial_state_handoff
+    - token_carry
+    - full_vs_stepwise
+    - mask_behavior
+  caveats:
+    - diagnostic_only_no_recurrence_math_change
+    - no_tolerance_loosening
+    - p58_log_w_fix_preserved
+    - synthetic_ci_path_no_ignored_artifact_dependency

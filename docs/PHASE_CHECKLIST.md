@@ -836,3 +836,13 @@
 - [x] Re-run the WKV trace and head-to-head comparison after the fix.
 - [x] Update the Bible, snapshot, roadmap, and entrypoint notes.
 - [x] Write the P58 reports and preserve before/after artifacts.
+
+## P59 — RADLADS WKV State Provenance
+
+- [x] Add `src/qrwkv_xla/parity/radlads_wkv_state_provenance.py`.
+- [x] Add trace and compare scripts for WKV state handoff provenance.
+- [x] Add JSONL writer/reader roundtrips and schema validation.
+- [x] Compare initial state, token carry, full-vs-stepwise, and mask behavior.
+- [x] Use synthetic/tmp_path tests so CI does not depend on ignored artifacts.
+- [x] Preserve P58 log_w fixes and avoid recurrence-math rewrites.
+- [x] Add `docs/RADLADS_WKV_STATE_PROVENANCE.md`.

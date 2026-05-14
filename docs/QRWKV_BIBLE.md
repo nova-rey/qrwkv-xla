@@ -1079,3 +1079,20 @@ trace divergence moves downstream.
 P58 does not implement Pallas. It does not prove training throughput or model
 quality. It only proves tiny local CPU log_w/decay parity status, and Pallas
 remains blocked until WKV matrix-state parity is credible.
+
+## Phase 59 — RADLADS WKV State Provenance
+
+P59 adds a provenance-tracing layer for WKV state handoff. It records
+initial-state equivalence, explicit-versus-implicit initial-state handoff,
+token carry between `step` calls, full-sequence versus stepwise state/output
+equivalence, and masked-token state deltas through the existing QRWKV student
+state APIs.
+
+The new artifacts live under `artifacts/p59_wkv_state_provenance/` when the
+trace script is run locally. The module and scripts are diagnostic-only:
+`src/qrwkv_xla/parity/radlads_wkv_state_provenance.py`,
+`scripts/trace_radlads_qrwkv_wkv_state_provenance.py`, and
+`scripts/compare_radlads_qrwkv_wkv_state_provenance.py`.
+
+P59 does not rewrite recurrence math, widen tolerances, alter the P58 `log_w`
+fix, implement Pallas, or claim broader RADLADS parity.
