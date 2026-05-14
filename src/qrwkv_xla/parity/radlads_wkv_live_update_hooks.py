@@ -24,6 +24,7 @@ LIVE_UPDATE_STAGES = (
     "v_for_update",
     "update_outer_product",
     "balance_state_matmul",
+    "composite_balance_update_term",
     "composite_update_term",
     "update_term",
     "state_after",
@@ -38,8 +39,22 @@ SOURCE_STAGE_MAP = {
     "k_for_update": ("k_a", "k", "k_projection", "k_head_split"),
     "v_for_update": ("v", "v_projection", "value_after_v_first_mix", "v_head_split"),
     "update_outer_product": ("wkv_update_outer_or_term",),
-    "balance_state_matmul": (),
-    "composite_update_term": (),
+    "balance_state_matmul": (
+        "wkv_balance_state_matmul",
+        "balance_state_matmul",
+        "composite_balance_update_term",
+        "wkv_composite_balance_update_term",
+    ),
+    "composite_balance_update_term": (
+        "composite_balance_update_term",
+        "wkv_composite_balance_update_term",
+        "wkv_balance_state_matmul",
+        "balance_state_matmul",
+    ),
+    "composite_update_term": (
+        "wkv_composite_update_term",
+        "composite_update_term",
+    ),
     "update_term": ("wkv_update_outer_or_term",),
     "state_after": ("wkv_state_after",),
     "state_after_for_next_token": ("wkv_state_before",),
@@ -286,12 +301,10 @@ def _rows_for_context(
             stage=stage,
         )
         if source is None:
-            if (
-                stage in {"balance_state_matmul", "composite_update_term"}
-                and allow_reconstructed
-            ):
+            if _is_reconstructable_composite_stage(stage) and allow_reconstructed:
                 rows.append(
                     _reconstructed_entry(
+                        source_rows,
                         case=case,
                         side=side,
                         mode=mode,
@@ -339,10 +352,6 @@ def _source_for_stage(
             token=None if token is None else int(token) + 1,
             stages=SOURCE_STAGE_MAP["state_before"],
         )
-    if stage == "balance_state_matmul":
-        return None
-    if stage == "composite_update_term":
-        return None
     return _find(
         rows,
         case=case,
@@ -432,6 +441,7 @@ def _available_entry(
 
 
 def _reconstructed_entry(
+    source_rows: list[dict[str, Any]],
     *,
     case: Any,
     side: str,
@@ -443,7 +453,40 @@ def _reconstructed_entry(
     source_stage_name: str | None,
     reason: str,
 ) -> dict[str, Any]:
-    sample = 0.0 if stage in {"balance_state_matmul", "composite_update_term"} else None
+    array = _reconstruct_composite_array(
+        source_rows,
+        case=case,
+        layer=layer,
+        head=head,
+        token=token,
+        stage=stage,
+    )
+    if array is not None:
+        array = np.asarray(array)
+        summary = asdict(
+            summarize_array(
+                f"{side}.{stage}.reconstructed",
+                array,
+                stage=stage,
+                layer=layer,
+                time_index=token,
+            )
+        )
+        shape = [int(dim) for dim in array.shape]
+        dtype = str(array.dtype)
+        finite = bool(np.isfinite(array).all())
+        max_abs = summary["abs_max"]
+        sample = _sample(array)
+        status = "pass"
+        payload = array.tolist()
+    else:
+        shape = []
+        dtype = None
+        finite = None
+        max_abs = None
+        sample = None
+        status = "unavailable"
+        payload = None
     return asdict(
         WKVLiveUpdateHookEntry(
             side=side,
@@ -456,19 +499,68 @@ def _reconstructed_entry(
             source_stage_name=source_stage_name,
             source_file=SOURCE_PATHS[side]["file"],
             source_function=SOURCE_PATHS[side]["function"],
-            shape=[],
-            dtype=None,
-            finite=None,
-            max_abs=None,
+            shape=shape,
+            dtype=dtype,
+            finite=finite,
+            max_abs=max_abs,
             sample=sample,
-            status="pass"
-            if stage in {"balance_state_matmul", "composite_update_term"}
-            else "fail",
+            status=status,
             reason=reason,
             capture_kind="reconstructed",
-            array=None,
+            array=payload,
         )
     )
+
+
+def _is_reconstructable_composite_stage(stage: str) -> bool:
+    return stage in {
+        "balance_state_matmul",
+        "composite_balance_update_term",
+        "composite_update_term",
+    }
+
+
+def _reconstruct_composite_array(
+    rows: list[dict[str, Any]],
+    *,
+    case: Any,
+    layer: Any,
+    head: Any,
+    token: Any,
+    stage: str,
+) -> np.ndarray | None:
+    balance = _find(
+        rows,
+        case=case,
+        layer=layer,
+        head=head,
+        token=token,
+        stages=SOURCE_STAGE_MAP["balance_state_matmul"],
+    )
+    composite_balance = _find(
+        rows,
+        case=case,
+        layer=layer,
+        head=head,
+        token=token,
+        stages=SOURCE_STAGE_MAP["composite_balance_update_term"],
+    )
+    outer = _find(
+        rows,
+        case=case,
+        layer=layer,
+        head=head,
+        token=token,
+        stages=SOURCE_STAGE_MAP["update_outer_product"],
+    )
+    if stage in {"balance_state_matmul", "composite_balance_update_term"}:
+        source = balance if balance is not None else composite_balance
+        return None if source is None else np.asarray(source["array"])
+    if stage == "composite_update_term":
+        balance_source = balance if balance is not None else composite_balance
+        if balance_source is not None and outer is not None:
+            return np.asarray(balance_source["array"]) + np.asarray(outer["array"])
+    return None
 
 
 def _unavailable_entry(
@@ -541,6 +633,8 @@ def _compare_row(
     if (
         left.get("capture_kind") == "unavailable"
         or right.get("capture_kind") == "unavailable"
+        or left.get("array") is None
+        or right.get("array") is None
     ):
         return base | {
             "status": "unavailable",
@@ -657,6 +751,9 @@ def _composite_update_audit(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "source names": {
             "update_outer_product": SOURCE_STAGE_MAP["update_outer_product"],
             "balance_state_matmul": SOURCE_STAGE_MAP["balance_state_matmul"],
+            "composite_balance_update_term": SOURCE_STAGE_MAP[
+                "composite_balance_update_term"
+            ],
             "composite_update_term": SOURCE_STAGE_MAP["composite_update_term"],
         },
         "whether update_outer_product is sufficient": by_stage.get(
@@ -669,6 +766,7 @@ def _composite_update_audit(rows: list[dict[str, Any]]) -> dict[str, Any]:
             for stage in (
                 "update_outer_product",
                 "balance_state_matmul",
+                "composite_balance_update_term",
                 "composite_update_term",
                 "update_term",
             )
@@ -714,6 +812,7 @@ def _state_after_assembly_audit(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "decayed_state",
             "update_outer_product",
             "balance_state_matmul",
+            "composite_balance_update_term",
             "composite_update_term",
             "update_term",
         )
@@ -726,6 +825,7 @@ def _state_after_assembly_audit(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "decayed_state",
             "update_outer_product",
             "balance_state_matmul",
+            "composite_balance_update_term",
             "composite_update_term",
             "update_term",
         )
@@ -788,7 +888,11 @@ def _sample(array: np.ndarray) -> float | str | None:
 def _suspected_root_cause(first: Mapping[str, Any] | None) -> str:
     if first is None:
         return "no divergence detected"
-    if first.get("stage") in {"balance_state_matmul", "composite_update_term"}:
+    if first.get("stage") in {
+        "balance_state_matmul",
+        "composite_balance_update_term",
+        "composite_update_term",
+    }:
         return "missing composite live hook"
     if first.get("stage") in {"decayed_state", "state_after", "update_term"}:
         return "live hook completion or assembly mismatch"
@@ -796,7 +900,11 @@ def _suspected_root_cause(first: Mapping[str, Any] | None) -> str:
 
 
 def _unavailable_reason(stage: str) -> str:
-    if stage in {"balance_state_matmul", "composite_update_term"}:
+    if stage in {
+        "balance_state_matmul",
+        "composite_balance_update_term",
+        "composite_update_term",
+    }:
         return "live composite update term is not captured in the source trace rows"
     if stage == "state_after_for_next_token":
         return "no following token state_before row is available for this context"

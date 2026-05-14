@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 63
-  checkpoint: wkv_live_update_hooks
-  title: WKV live update hooks completion
+  phase: 64
+  checkpoint: wkv_composite_balance_hook
+  title: WKV composite balance-state hook extraction
 
 workflow:
   primary_agent: Nyx
@@ -45,6 +45,7 @@ instructions:
   - Keep P59 diagnostic-only; trace WKV state handoff without changing recurrence math, loosening tolerances, or disturbing P58 log_w behavior.
   - Keep P60 tied to real cached P54/P58 artifacts; do not synthesize missing traces, and make strict real-artifact mode fail when live regeneration is unavailable.
   - Keep P62 diagnostic-only unless a source-backed update-term fix is proven; unavailable WKV stages must be reported explicitly, not synthesized.
+  - Keep P64 scoped to composite/balance-state hook extraction and comparison; preserve P58/P61/P63 behavior, do not loosen tolerances, and do not change recurrence math.
 
 radlads_qrwkv_head_to_head_parity:
   phase: P53

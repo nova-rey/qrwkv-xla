@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 63
-checkpoint: wkv_live_update_hooks
+phase: 64
+checkpoint: wkv_composite_balance_hook
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,10 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Expose or explicitly label the live WKV recurrence substages that remain
-  hidden after P62, including the composite balance-state update term, and
-  compare them across RADLADS and QRWKV on real tiny artifacts without
-  changing recurrence semantics.
+  Extract and compare the WKV composite/balance-state hook surface that remains
+  hidden behind the P63 live update labels, preserving P58/P61/P63 behavior
+  without recurrence-math changes, Pallas work, or tolerance loosening.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -1136,3 +1135,28 @@ radlads_wkv_update_residual_parity:
     - p58_log_w_fix_preserved
     - p61_slot_export_conclusion_preserved
     - no_pallas_no_tolerance_loosening_no_broad_recurrence_rewrite
+
+radlads_wkv_composite_balance_hook:
+  phase: P64
+  status: diagnostic_only
+  docs: docs/RADLADS_WKV_COMPOSITE_BALANCE_HOOK.md
+  helper_module: src/qrwkv_xla/parity/radlads_wkv_live_update_hooks.py
+  locate_script: scripts/locate_radlads_qrwkv_wkv_composite_hook.py
+  extract_script: scripts/extract_radlads_qrwkv_wkv_composite_hook.py
+  compare_script: scripts/compare_radlads_qrwkv_wkv_composite_hook.py
+  artifact_dir: artifacts/p64_composite_balance_hook
+  labels:
+    - balance_state_matmul
+    - composite_balance_update_term
+    - composite_update_term
+  reports:
+    - composite_balance_hook_locator.json
+    - P64_COMPOSITE_BALANCE_HOOK_LOCATOR.md
+    - composite_balance_hook_extract.json
+    - composite_balance_hook_comparison.json
+    - P64_COMPOSITE_BALANCE_HOOK_RESULTS.md
+  caveats:
+    - diagnostic_only_no_recurrence_math_change
+    - no_pallas_no_tolerance_loosening_no_broad_rewrite
+    - p58_p61_p63_behavior_preserved
+    - local_source_tree_is_allowed_audit_target_when_external_radlads_unavailable

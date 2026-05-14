@@ -1169,3 +1169,22 @@ recurrence-fix phase is opened.
 
 P63 keeps the recurrence semantics untouched unless a tiny source-backed
 instrumentation bug is proven.
+
+## Phase 64 — WKV Composite Balance-State Hook
+
+P64 narrows the P63 live-hook surface to the balance-state WKV addend and the
+composite update labels around it. The helper now recognizes
+`composite_balance_update_term` alongside `balance_state_matmul` and
+`composite_update_term`, with source aliases for live rows and labeled
+diagnostic reconstruction where adjacent captured rows are sufficient.
+
+Artifacts default to `artifacts/p64_composite_balance_hook/` and are produced
+by `scripts/locate_radlads_qrwkv_wkv_composite_hook.py`,
+`scripts/extract_radlads_qrwkv_wkv_composite_hook.py`, and
+`scripts/compare_radlads_qrwkv_wkv_composite_hook.py`. If an external RADLADS
+checkout is unavailable, the locator uses the local source tree as the
+RADLADS-equivalent audit target and records that choice explicitly.
+
+P64 preserves P58/P61/P63 behavior. It does not change recurrence math, add
+Pallas, loosen tolerances, or broaden the update-residual diagnosis beyond the
+composite/balance-state WKV hook extraction and comparison.

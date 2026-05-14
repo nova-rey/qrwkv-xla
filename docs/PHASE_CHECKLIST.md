@@ -890,3 +890,13 @@
 - [x] Add `tests/test_radlads_wkv_live_update_hooks.py`.
 - [x] Expose or explicitly label live vs reconstructed substages for the remaining WKV update path.
 - [x] Keep the phase diagnostic-first; no recurrence rewrite, no Pallas, no tolerance widening.
+
+## P64 — WKV Composite Balance-State Hook
+
+- [x] Add `docs/RADLADS_WKV_COMPOSITE_BALANCE_HOOK.md`.
+- [x] Add P64 locator, extractor, and comparison scripts with `--help`.
+- [x] Extend the P63 live-hook helper with `composite_balance_update_term`
+  labels, live source aliases, and labeled reconstruction handling.
+- [x] Add CI-safe P64 tests with tmp-path JSONL fixtures.
+- [x] Preserve P58/P61/P63 behavior: no recurrence math changes, no Pallas,
+  no tolerance loosening, no broad rewrite.

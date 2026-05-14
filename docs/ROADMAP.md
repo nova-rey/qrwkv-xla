@@ -528,3 +528,23 @@ Current checkpoint: `wkv_live_update_hooks`.
 
 P63 is diagnostic-first. It does not add Pallas, TPU optimization, broad
 recurrence rewrites, tolerance loosening, or RADLADS output changes.
+
+## Phase 64 — WKV Composite Balance-State Hook
+Goal: extract and compare the balance-state WKV addend and composite update
+labels that P63 identified as the remaining hidden live-hook surface.
+
+Checkpoints:
+- P64A: locate composite/balance-state hook sites in the external RADLADS tree
+  when available, otherwise in the local RADLADS-equivalent source tree
+- P64B: extract `balance_state_matmul`,
+  `composite_balance_update_term`, and related update rows from JSONL traces
+- P64C: compare the extracted RADLADS/QRWKV hooks with unchanged P63
+  tolerances
+- P64D: keep reconstruction diagnostic and labeled, with no recurrence math
+  change
+
+Current checkpoint: `wkv_composite_balance_hook`.
+
+P64 is diagnostic/extraction work only. It does not add Pallas, TPU
+optimization, recurrence rewrites, tolerance loosening, or RADLADS output
+changes.
