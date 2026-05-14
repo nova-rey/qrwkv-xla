@@ -1155,3 +1155,17 @@ No source-backed fix is applied in P62. The next phase should capture
 source-backed RADLADS and QRWKV `update_term` and `decayed_state` rows in the
 live recurrence hooks, including the balance-state matmul term, before any
 numeric correction.
+
+## Phase 63 — WKV Live Update Hooks
+
+P63 completes the live WKV update-hook surface after P62 narrowed the residual
+to decayed_state/update_term/state_after but still lacked a source-backed
+composite balance-state intermediate. It exposes or explicitly labels live vs
+reconstructed rows for decayed_state, update_outer_product,
+balance_state_matmul/composite_update_term, update_term, and state_after on
+real paired RADLADS-vs-QRWKV artifacts. It does not implement Pallas and only
+allows instrumentation/comparison fixes unless a separate source-backed
+recurrence-fix phase is opened.
+
+P63 keeps the recurrence semantics untouched unless a tiny source-backed
+instrumentation bug is proven.

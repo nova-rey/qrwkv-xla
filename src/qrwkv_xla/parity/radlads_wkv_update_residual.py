@@ -248,6 +248,10 @@ def write_update_residual_reports(
         json.dumps(_jsonable(comparison_report), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    (out_dir / "p62_wkv_update_residual_report.json").write_text(
+        json.dumps(_jsonable(comparison_report), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     (out_dir / "P62_WKV_UPDATE_RESIDUAL.md").write_text(
         _markdown(comparison_report),
         encoding="utf-8",

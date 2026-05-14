@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 62
-checkpoint: radlads_wkv_update_residual_parity
+phase: 63
+checkpoint: wkv_live_update_hooks
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,10 +55,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Trace the RADLADS-vs-QRWKV WKV update-term and state-after residual using
-  real paired post-P58 trace artifacts where available, report unavailable
-  source surfaces explicitly, and keep kernel readiness blocked until a
-  source-backed fix is proven.
+  Expose or explicitly label the live WKV recurrence substages that remain
+  hidden after P62, including the composite balance-state update term, and
+  compare them across RADLADS and QRWKV on real tiny artifacts without
+  changing recurrence semantics.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays

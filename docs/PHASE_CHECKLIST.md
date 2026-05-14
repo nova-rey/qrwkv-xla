@@ -880,3 +880,13 @@
 - [x] Preserve P58 `log_w` fix and P61 slot/export conclusion.
 - [x] Leave `kernel_ready: no`; no source-backed numeric fix was proven.
 - [x] Preserve scope: no Pallas, no tolerance loosening, no broad recurrence rewrite, no RADLADS output changes.
+
+## P63 — QRWKV-XLA WKV Live Update Hooks
+
+- [x] Add `docs/RADLADS_WKV_LIVE_UPDATE_HOOKS.md`.
+- [x] Extend live hook support in `src/qrwkv_xla/parity/radlads_wkv_live_update_hooks.py`.
+- [x] Add `scripts/trace_radlads_qrwkv_wkv_live_update_hooks.py`.
+- [x] Add `scripts/compare_radlads_qrwkv_wkv_live_update_hooks.py`.
+- [x] Add `tests/test_radlads_wkv_live_update_hooks.py`.
+- [x] Expose or explicitly label live vs reconstructed substages for the remaining WKV update path.
+- [x] Keep the phase diagnostic-first; no recurrence rewrite, no Pallas, no tolerance widening.

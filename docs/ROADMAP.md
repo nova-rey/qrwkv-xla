@@ -511,3 +511,20 @@ Current checkpoint: `radlads_wkv_update_residual_parity`.
 P62 is diagnostic-only. It does not add Pallas, TPU optimization, broad
 recurrence rewrites, tolerance loosening, synthetic real-artifact fallbacks, or
 RADLADS output changes.
+
+## Phase 63 — WKV Live Update Hooks
+Goal: expose or explicitly label the live WKV recurrence substages that P62
+could not directly compare, especially the composite balance-state update
+term.
+
+Checkpoints:
+- P63A: live hook availability matrix and source-path audit
+- P63B: expose or mark unavailable the balance-state/composite update term
+- P63C: compare live hooks across RADLADS and QRWKV on real tiny artifacts
+- P63D: keep recurrence changes deferred unless an instrumentation bug is
+  proven
+
+Current checkpoint: `wkv_live_update_hooks`.
+
+P63 is diagnostic-first. It does not add Pallas, TPU optimization, broad
+recurrence rewrites, tolerance loosening, or RADLADS output changes.

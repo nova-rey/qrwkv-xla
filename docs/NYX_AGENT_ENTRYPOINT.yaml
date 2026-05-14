@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 62
-  checkpoint: radlads_wkv_update_residual_parity
-  title: WKV update-term/state-after residual parity trace
+  phase: 63
+  checkpoint: wkv_live_update_hooks
+  title: WKV live update hooks completion
 
 workflow:
   primary_agent: Nyx
