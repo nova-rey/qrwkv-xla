@@ -1117,3 +1117,12 @@ tolerances, or synthesize missing RADLADS traces. Strict real-artifact mode
 fails when only cached-derived outputs are available. The real comparison
 still fails deterministically at `tiny_attention_mask /
 initial_state_handoff / wkv_matrix_state`.
+
+## Phase 61 — WKV Matrix-State Export Convention Audit
+
+P61 audits the RADLADS-vs-QRWKV WKV matrix-state export and slot convention
+after P60 narrowed the remaining real-artifact residual to handoff/export-style
+comparisons. It identifies whether the remaining mismatch comes from the wrong
+slot, pre/post-update convention, full-vs-stepwise export, cached artifact
+semantics, or true recurrence math. It may apply only a minimal
+source-backed comparison/export normalization and does not implement Pallas.

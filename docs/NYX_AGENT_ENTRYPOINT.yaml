@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 60
-  checkpoint: real_radlads_qrwkv_wkv_state_provenance
-  title: Real RADLADS/QRWKV WKV state provenance
+  phase: 61
+  checkpoint: wkv_matrix_state_export_convention_audit
+  title: WKV matrix-state export convention audit
 
 workflow:
   primary_agent: Nyx

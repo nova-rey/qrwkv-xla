@@ -477,3 +477,18 @@ Current checkpoint: `real_radlads_qrwkv_wkv_state_provenance`.
 P60 is diagnostic/reporting work only. It does not add Pallas, widen
 tolerances, rewrite recurrence math, or fabricate source traces. Strict
 real-artifact mode fails when only cached-derived outputs are available.
+
+## Phase 61 — WKV Matrix-State Export Convention Audit
+Goal: audit and normalize the remaining RADLADS-vs-QRWKV WKV matrix-state
+export/slot convention gap without broad math changes.
+
+Checkpoints:
+- P61A: slot/export audit docs and scripts
+- P61B: source-backed normalization helper for WKV matrix-state comparison
+- P61C: normalized comparison report and hidden-state side audit
+- P61D: CI-safe tmp_path tests plus real-artifact local verification
+
+Current checkpoint: `wkv_matrix_state_export_convention_audit`.
+
+P61 stays diagnostic-first. It does not add Pallas, widen tolerances, rewrite
+recurrent math, or change RADLADS outputs.

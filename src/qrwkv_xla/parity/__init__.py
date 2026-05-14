@@ -107,6 +107,16 @@ from qrwkv_xla.parity.radlads_source import (
     write_comparison_reports,
     write_parameter_surface_map_reports,
 )
+from qrwkv_xla.parity.radlads_wkv_state_convention import (
+    WKV_STATE_CONVENTION_REPORT_SCHEMA,
+    WKV_STATE_CONVENTION_SCHEMA,
+    WKV_STATE_SLOT_AUDIT_SCHEMA,
+    compare_wkv_matrix_state_conventions,
+    extract_state_slot,
+    normalize_qrwkv_wkv_matrix_state,
+    normalize_radlads_wkv_matrix_state,
+    write_wkv_state_convention_report,
+)
 from qrwkv_xla.parity.radlads_wkv_trace import (
     WKV_TRACE_COMPARISON_SCHEMA,
     WKV_TRACE_SCHEMA,
@@ -160,6 +170,14 @@ __all__ = [
     "compare_trace_entries",
     "load_trace_jsonl",
     "write_trace_comparison_reports",
+    "WKV_STATE_CONVENTION_SCHEMA",
+    "WKV_STATE_SLOT_AUDIT_SCHEMA",
+    "WKV_STATE_CONVENTION_REPORT_SCHEMA",
+    "compare_wkv_matrix_state_conventions",
+    "extract_state_slot",
+    "normalize_qrwkv_wkv_matrix_state",
+    "normalize_radlads_wkv_matrix_state",
+    "write_wkv_state_convention_report",
     "LOG_W_PARITY_SCHEMA",
     "LOG_W_CANDIDATE_SCHEMA",
     "LOG_W_TRACE_SCHEMA",

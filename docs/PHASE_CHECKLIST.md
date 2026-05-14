@@ -857,3 +857,12 @@
 - [x] Add case, comparison, trace provenance, and hidden-state dependency reports.
 - [x] Add `tests/test_real_wkv_state_provenance.py`.
 - [x] Preserve scope: no Pallas, no broad math rewrite, no tolerance widening, no synthetic fallback.
+
+## P61 — WKV Matrix-State Export Convention Audit
+
+- [x] Add `docs/RADLADS_WKV_STATE_EXPORT_CONVENTION.md`.
+- [x] Add `src/qrwkv_xla/parity/radlads_wkv_state_convention.py`.
+- [x] Add `scripts/inspect_radlads_qrwkv_wkv_state_slots.py`.
+- [x] Add `scripts/compare_radlads_qrwkv_head_to_head_normalized_state.py`.
+- [x] Add `tests/test_radlads_wkv_state_convention.py`.
+- [x] Keep the audit source-backed and diagnostic-first; no tolerance widening, no recurrence rewrite, no Pallas.

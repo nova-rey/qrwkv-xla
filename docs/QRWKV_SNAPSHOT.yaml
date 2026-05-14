@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 60
-checkpoint: real_radlads_qrwkv_wkv_state_provenance
+phase: 61
+checkpoint: wkv_matrix_state_export_convention_audit
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Bind WKV state provenance to paired real cached RADLADS and QRWKV tiny
-  artifacts, with explicit cached-vs-regenerated and real-vs-synthetic labels,
-  while preserving strict failure behavior for unavailable live regeneration.
+  Audit and normalize the remaining RADLADS-vs-QRWKV WKV matrix-state export
+  convention gap using real cached artifacts, while preserving strict
+  failure behavior for unavailable live regeneration and avoiding any broad
+  recurrence rewrite.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays

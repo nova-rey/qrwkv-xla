@@ -89,3 +89,10 @@ error `0.0003433828242123127`.
 live regenerated RADLADS output path is proven. This is by design: P60 labels
 cached-derived outputs honestly rather than silently substituting synthetic
 traces.
+
+## P61 WKV Matrix-State Export Convention Audit
+
+P61 audits the remaining real-artifact WKV matrix-state residual by checking
+the exported slot, the returned state, and the comparison convention. It keeps
+the P60 diagnosis intact, documents slot/export semantics, and avoids any
+broad recurrence rewrite or tolerance widening.
