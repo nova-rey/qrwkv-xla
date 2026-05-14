@@ -1126,3 +1126,32 @@ comparisons. It identifies whether the remaining mismatch comes from the wrong
 slot, pre/post-update convention, full-vs-stepwise export, cached artifact
 semantics, or true recurrence math. It may apply only a minimal
 source-backed comparison/export normalization and does not implement Pallas.
+
+## Phase 62 — QRWKV-XLA WKV Update-Term / State-After Residual Parity
+
+P62 adds a diagnostic trace layer for the remaining WKV update-term and
+state-after residual after P58 fixed `log_w` parity and P61 preserved the
+`as_is` slot/export conclusion. It normalizes the existing paired post-P58 WKV
+trace artifacts into explicit stages: `state_before`, `decay_value`,
+`decayed_state`, `k_for_update`, `v_for_update`, `update_outer_product`,
+`update_term`, `state_after`, `state_after_for_next_token`, and
+`state_after_exported`.
+
+Artifacts live under `artifacts/p62_wkv_update_residual/`:
+`wkv_update_residual_radlads.jsonl`, `wkv_update_residual_qrwkv.jsonl`,
+`wkv_update_residual_comparison_report.json`, `P62_WKV_UPDATE_RESIDUAL.md`,
+`wkv_update_residual_values.npz`, `wkv_update_residual_manifest.json`, and
+`P62_RESULTS.md`.
+
+Current P62 status is diagnostic failure with `kernel_ready: no`. The report
+finds `decayed_state` as the first unavailable/divergent comparison stage,
+counts `32` passing rows, `40` failing rows, and `84` unavailable rows, and
+records the first RADLADS reconstruction residual at `tiny_no_mask / L0 / H0 /
+T1` with max abs error `0.0005597441340796649` when reconstructing only
+`decayed_state + update_outer_product`. That reconstruction deliberately omits
+the uncaptured composite balance-state matmul term.
+
+No source-backed fix is applied in P62. The next phase should capture
+source-backed RADLADS and QRWKV `update_term` and `decayed_state` rows in the
+live recurrence hooks, including the balance-state matmul term, before any
+numeric correction.

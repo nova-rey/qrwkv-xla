@@ -492,3 +492,22 @@ Current checkpoint: `wkv_matrix_state_export_convention_audit`.
 
 P61 stays diagnostic-first. It does not add Pallas, widen tolerances, rewrite
 recurrent math, or change RADLADS outputs.
+
+## Phase 62 — QRWKV-XLA WKV Update-Term / State-After Residual Parity
+Goal: trace the remaining WKV update-term and state-after residual after the
+P58 `log_w` fix and P61 slot/export audit, using real paired trace artifacts
+where available.
+
+Checkpoints:
+- P62A: normalize existing paired traces into explicit update stages
+- P62B: emit unavailable reasons for missing `decayed_state`, `update_term`,
+  exported-state, and next-token handoff rows
+- P62C: write deterministic comparison, reconstruction, outer-product, decay,
+  dtype, and mask/update reports
+- P62D: leave kernel readiness blocked unless a source-backed fix is proven
+
+Current checkpoint: `radlads_wkv_update_residual_parity`.
+
+P62 is diagnostic-only. It does not add Pallas, TPU optimization, broad
+recurrence rewrites, tolerance loosening, synthetic real-artifact fallbacks, or
+RADLADS output changes.

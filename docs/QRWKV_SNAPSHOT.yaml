@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 61
-checkpoint: wkv_matrix_state_export_convention_audit
+phase: 62
+checkpoint: radlads_wkv_update_residual_parity
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,10 +55,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Audit and normalize the remaining RADLADS-vs-QRWKV WKV matrix-state export
-  convention gap using real cached artifacts, while preserving strict
-  failure behavior for unavailable live regeneration and avoiding any broad
-  recurrence rewrite.
+  Trace the RADLADS-vs-QRWKV WKV update-term and state-after residual using
+  real paired post-P58 trace artifacts where available, report unavailable
+  source surfaces explicitly, and keep kernel readiness blocked until a
+  source-backed fix is proven.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -1085,3 +1085,54 @@ real_radlads_qrwkv_wkv_state_provenance:
     - no_tolerance_loosening
     - no_pallas_no_broad_math_rewrite
     - first_real_comparison_divergence_is_wkv_matrix_state
+
+radlads_wkv_state_export_convention:
+  phase: P61
+  status: diagnostic_only
+  docs: docs/RADLADS_WKV_STATE_EXPORT_CONVENTION.md
+  helper_module: src/qrwkv_xla/parity/radlads_wkv_state_convention.py
+  inspect_script: scripts/inspect_radlads_qrwkv_wkv_state_slots.py
+  compare_script: scripts/compare_radlads_qrwkv_head_to_head_normalized_state.py
+  artifact_dir: artifacts/p61_wkv_state_export_convention
+  reports:
+    - wkv_state_slot_audit.json
+    - WKV_STATE_SLOT_AUDIT.md
+    - head_to_head_normalized_state_report.json
+    - P61_SURFACE_COMPARISON.md
+    - P61_RESULTS.md
+  caveats:
+    - slot_export_convention_does_not_explain_residual
+    - normalization_remains_as_is
+    - kernel_ready_no
+    - no_pallas_no_tolerance_loosening_no_broad_recurrence_rewrite
+
+radlads_wkv_update_residual_parity:
+  phase: P62
+  status: diagnostic_only
+  docs: docs/RADLADS_WKV_UPDATE_RESIDUAL_PARITY.md
+  helper_module: src/qrwkv_xla/parity/radlads_wkv_update_residual.py
+  trace_script: scripts/trace_radlads_qrwkv_wkv_update_residual.py
+  compare_script: scripts/compare_radlads_qrwkv_wkv_update_residual.py
+  artifact_dir: artifacts/p62_wkv_update_residual
+  source_artifacts:
+    - artifacts/p58_log_w_decay_fix/post_fix_trace/wkv_trace_radlads.jsonl
+    - artifacts/p58_log_w_decay_fix/post_fix_trace/wkv_trace_qrwkv.jsonl
+  reports:
+    - wkv_update_residual_radlads.jsonl
+    - wkv_update_residual_qrwkv.jsonl
+    - wkv_update_residual_comparison_report.json
+    - P62_WKV_UPDATE_RESIDUAL.md
+    - P62_RESULTS.md
+  findings:
+    status: fail
+    kernel_ready: no
+    first_divergent_stage: decayed_state
+    unavailable_rows: 84
+    first_radlads_reconstruction_residual_max_abs: 0.0005597441340796649
+  caveats:
+    - no_source_backed_fix_applied
+    - missing_stages_reported_explicitly
+    - no_synthetic_fallback_for_real_diagnosis
+    - p58_log_w_fix_preserved
+    - p61_slot_export_conclusion_preserved
+    - no_pallas_no_tolerance_loosening_no_broad_recurrence_rewrite

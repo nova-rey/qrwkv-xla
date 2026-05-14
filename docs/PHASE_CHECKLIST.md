@@ -866,3 +866,17 @@
 - [x] Add `scripts/compare_radlads_qrwkv_head_to_head_normalized_state.py`.
 - [x] Add `tests/test_radlads_wkv_state_convention.py`.
 - [x] Keep the audit source-backed and diagnostic-first; no tolerance widening, no recurrence rewrite, no Pallas.
+
+## P62 — QRWKV-XLA WKV Update-Term / State-After Residual Parity Fix
+
+- [x] Add `docs/RADLADS_WKV_UPDATE_RESIDUAL_PARITY.md`.
+- [x] Add `src/qrwkv_xla/parity/radlads_wkv_update_residual.py`.
+- [x] Add `scripts/trace_radlads_qrwkv_wkv_update_residual.py`.
+- [x] Add `scripts/compare_radlads_qrwkv_wkv_update_residual.py`.
+- [x] Add `tests/test_radlads_wkv_update_residual.py`.
+- [x] Produce `artifacts/p62_wkv_update_residual` from real paired post-P58 trace artifacts.
+- [x] Record explicit unavailable reasons for missing update-stage surfaces.
+- [x] Include first residual reconstruction, outer-product convention, decay application, dtype accumulation, and mask/update interaction audits.
+- [x] Preserve P58 `log_w` fix and P61 slot/export conclusion.
+- [x] Leave `kernel_ready: no`; no source-backed numeric fix was proven.
+- [x] Preserve scope: no Pallas, no tolerance loosening, no broad recurrence rewrite, no RADLADS output changes.

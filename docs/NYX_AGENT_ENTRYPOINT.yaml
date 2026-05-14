@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 61
-  checkpoint: wkv_matrix_state_export_convention_audit
-  title: WKV matrix-state export convention audit
+  phase: 62
+  checkpoint: radlads_wkv_update_residual_parity
+  title: WKV update-term/state-after residual parity trace
 
 workflow:
   primary_agent: Nyx
@@ -44,6 +44,7 @@ instructions:
   - Keep P57 diagnostic-only; compare source-backed log_w traces and current diagnostics without patching model math or loosening tolerances.
   - Keep P59 diagnostic-only; trace WKV state handoff without changing recurrence math, loosening tolerances, or disturbing P58 log_w behavior.
   - Keep P60 tied to real cached P54/P58 artifacts; do not synthesize missing traces, and make strict real-artifact mode fail when live regeneration is unavailable.
+  - Keep P62 diagnostic-only unless a source-backed update-term fix is proven; unavailable WKV stages must be reported explicitly, not synthesized.
 
 radlads_qrwkv_head_to_head_parity:
   phase: P53
@@ -138,6 +139,29 @@ real_radlads_qrwkv_wkv_state_provenance:
     - no_synthetic_fallback
     - strict_real_artifacts_fails_without_live_regeneration
     - no_pallas_no_tolerance_loosening_no_broad_math_rewrite
+
+radlads_wkv_update_residual_parity:
+  phase: P62
+  status: diagnostic_only
+  docs: docs/RADLADS_WKV_UPDATE_RESIDUAL_PARITY.md
+  helper_module: src/qrwkv_xla/parity/radlads_wkv_update_residual.py
+  trace_script: scripts/trace_radlads_qrwkv_wkv_update_residual.py
+  compare_script: scripts/compare_radlads_qrwkv_wkv_update_residual.py
+  artifact_dir: artifacts/p62_wkv_update_residual
+  source_artifacts:
+    - artifacts/p58_log_w_decay_fix/post_fix_trace/wkv_trace_radlads.jsonl
+    - artifacts/p58_log_w_decay_fix/post_fix_trace/wkv_trace_qrwkv.jsonl
+  reports:
+    - wkv_update_residual_radlads.jsonl
+    - wkv_update_residual_qrwkv.jsonl
+    - wkv_update_residual_comparison_report.json
+    - P62_WKV_UPDATE_RESIDUAL.md
+    - P62_RESULTS.md
+  caveats:
+    - kernel_ready_no
+    - no_source_backed_fix_applied
+    - missing_update_term_and_decayed_state_surfaces_are_explicit
+    - no_synthetic_fallback_no_pallas_no_tolerance_loosening
 
 radlads_clean_payload_loader:
   phase: P54
