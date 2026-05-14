@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 59
-checkpoint: radlads_wkv_state_provenance
+phase: 60
+checkpoint: real_radlads_qrwkv_wkv_state_provenance
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Trace WKV state handoff provenance through the existing QRWKV student state
-  APIs, covering initial state, token carry, full-vs-stepwise equivalence, and
-  mask behavior without changing recurrence math or loosening tolerances.
+  Bind WKV state provenance to paired real cached RADLADS and QRWKV tiny
+  artifacts, with explicit cached-vs-regenerated and real-vs-synthetic labels,
+  while preserving strict failure behavior for unavailable live regeneration.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -1051,3 +1051,36 @@ radlads_wkv_state_provenance:
     - no_tolerance_loosening
     - p58_log_w_fix_preserved
     - synthetic_ci_path_no_ignored_artifact_dependency
+
+real_radlads_qrwkv_wkv_state_provenance:
+  phase: P60
+  status: diagnostic_real_artifacts
+  docs: docs/RADLADS_WKV_STATE_PROVENANCE.md
+  run_script: scripts/run_real_radlads_qrwkv_wkv_state_provenance.py
+  compare_script: scripts/compare_real_radlads_qrwkv_wkv_state_provenance.py
+  artifact_dir: artifacts/p60_real_wkv_state_provenance
+  source_artifacts:
+    - artifacts/p54_confirmation/radlads_outputs
+    - artifacts/p54_confirmation/qrwkv_outputs
+    - artifacts/p58_log_w_decay_fix/post_fix_trace
+  reports:
+    - real_wkv_state_provenance_radlads.jsonl
+    - real_wkv_state_provenance_qrwkv.jsonl
+    - real_provenance_metadata.json
+    - p60_real_state_provenance_report.json
+    - P60_RESULTS.md
+    - TRACE_PROVENANCE.md
+    - comparison/P60_REAL_WKV_STATE_PROVENANCE.md
+    - comparison/p60_real_wkv_state_provenance_report.json
+  labels:
+    real_artifact_trace: true
+    synthetic_trace: false
+    self_comparison_trace: true
+    derived_from_cached_outputs: true
+    regenerated_live_outputs: false
+  caveats:
+    - strict_real_artifacts_fails_without_live_regeneration
+    - no_synthetic_fallback
+    - no_tolerance_loosening
+    - no_pallas_no_broad_math_rewrite
+    - first_real_comparison_divergence_is_wkv_matrix_state

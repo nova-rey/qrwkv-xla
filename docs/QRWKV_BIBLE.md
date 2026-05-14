@@ -1096,3 +1096,24 @@ trace script is run locally. The module and scripts are diagnostic-only:
 
 P59 does not rewrite recurrence math, widen tolerances, alter the P58 `log_w`
 fix, implement Pallas, or claim broader RADLADS parity.
+
+## Phase 60 — Real RADLADS/QRWKV WKV State Provenance
+
+P60 converts the P59 provenance layer from synthetic QRWKV-only diagnostics to
+paired real tiny artifacts. The runner derives rows from cached
+`artifacts/p54_confirmation` RADLADS/QRWKV outputs and the P58 post-fix WKV
+trace, then writes explicit provenance labels for real-vs-synthetic and
+cached-vs-regenerated status.
+
+Artifacts live under `artifacts/p60_real_wkv_state_provenance/`:
+`real_wkv_state_provenance_radlads.jsonl`,
+`real_wkv_state_provenance_qrwkv.jsonl`,
+`real_provenance_metadata.json`, `p60_real_state_provenance_report.json`,
+`P60_RESULTS.md`, `TRACE_PROVENANCE.md`, case reports, hidden-state dependency
+reporting, and `comparison/p60_real_wkv_state_provenance_report.json`.
+
+P60 does not add Pallas, broaden the recurrence math rewrite, widen
+tolerances, or synthesize missing RADLADS traces. Strict real-artifact mode
+fails when only cached-derived outputs are available. The real comparison
+still fails deterministically at `tiny_attention_mask /
+initial_state_handoff / wkv_matrix_state`.

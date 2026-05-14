@@ -461,3 +461,19 @@ Current checkpoint: `radlads_wkv_state_provenance`.
 
 P59 is diagnostic-only. It does not change recurrence math, widen tolerances,
 alter P58 log_w behavior, add Pallas, or claim full RADLADS parity.
+
+## Phase 60 — Real RADLADS/QRWKV WKV State Provenance
+Goal: bind WKV state provenance to real paired tiny RADLADS and QRWKV cached
+artifacts without introducing synthetic substitutions.
+
+Checkpoints:
+- P60A: derive provenance JSONL from `artifacts/p54_confirmation` outputs
+- P60B: reuse P58 post-fix WKV trace rows for initial/token-carry state checks
+- P60C: compare RADLADS and QRWKV provenance with deterministic first divergence
+- P60D: write source provenance, case, mask/padding, and hidden-state dependency reports
+
+Current checkpoint: `real_radlads_qrwkv_wkv_state_provenance`.
+
+P60 is diagnostic/reporting work only. It does not add Pallas, widen
+tolerances, rewrite recurrence math, or fabricate source traces. Strict
+real-artifact mode fails when only cached-derived outputs are available.

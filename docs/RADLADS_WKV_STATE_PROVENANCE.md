@@ -44,3 +44,48 @@ Expected files:
 - `self_compare/wkv_state_provenance_report.json`
 - `self_compare/P59_WKV_STATE_PROVENANCE_COMPARISON.md`
 - `self_compare/P59_WKV_STATE_PROVENANCE.md`
+
+## P60 Real Artifact Provenance
+
+P60 adds a real-artifact layer on top of the P59 provenance schema. It consumes
+paired cached deterministic tiny artifacts from `artifacts/p54_confirmation`
+and the post-fix WKV traces from `artifacts/p58_log_w_decay_fix/post_fix_trace`.
+It does not regenerate live RADLADS outputs in this environment and therefore
+labels every emitted row with:
+
+- `real_artifact_trace: true`
+- `synthetic_trace: false`
+- `self_comparison_trace: true`
+- `derived_from_cached_outputs: true`
+- `regenerated_live_outputs: false`
+
+The P60 runner is
+`scripts/run_real_radlads_qrwkv_wkv_state_provenance.py`; the comparator is
+`scripts/compare_real_radlads_qrwkv_wkv_state_provenance.py`. Default outputs
+live under `artifacts/p60_real_wkv_state_provenance/`.
+
+Required P60 reports:
+
+- `real_wkv_state_provenance_radlads.jsonl`
+- `real_wkv_state_provenance_qrwkv.jsonl`
+- `real_provenance_metadata.json`
+- `p60_real_state_provenance_report.json`
+- `P60_RESULTS.md`
+- `TRACE_PROVENANCE.md`
+- `comparison/P60_REAL_WKV_STATE_PROVENANCE.md`
+- `comparison/p60_real_wkv_state_provenance_report.json`
+- `TINY_NO_MASK_REAL_STATE.md`
+- `TINY_STEPWISE_REAL_STATE.md`
+- `REAL_MASK_PADDING_STATE.md`
+- `HIDDEN_STATE_DEPENDENCY.md`
+
+Observed P60 result: the top-level real provenance report writes successfully
+from cached real artifacts with no synthetic fallback. The paired RADLADS-vs-
+QRWKV comparison remains a real failure; the deterministic first divergence is
+`tiny_attention_mask / initial_state_handoff / wkv_matrix_state` with max abs
+error `0.0003433828242123127`.
+
+`--strict-real-artifacts` intentionally fails in this implementation because no
+live regenerated RADLADS output path is proven. This is by design: P60 labels
+cached-derived outputs honestly rather than silently substituting synthetic
+traces.

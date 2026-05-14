@@ -846,3 +846,14 @@
 - [x] Use synthetic/tmp_path tests so CI does not depend on ignored artifacts.
 - [x] Preserve P58 log_w fixes and avoid recurrence-math rewrites.
 - [x] Add `docs/RADLADS_WKV_STATE_PROVENANCE.md`.
+
+## P60 — Real RADLADS/QRWKV WKV State Provenance
+
+- [x] Add `scripts/run_real_radlads_qrwkv_wkv_state_provenance.py`.
+- [x] Add `scripts/compare_real_radlads_qrwkv_wkv_state_provenance.py`.
+- [x] Reuse P59 provenance schema and P58/P54 cached real artifacts.
+- [x] Emit explicit real/synthetic/self/cached/regenerated metadata labels.
+- [x] Fail `--strict-real-artifacts` instead of falling back to synthetic rows.
+- [x] Add case, comparison, trace provenance, and hidden-state dependency reports.
+- [x] Add `tests/test_real_wkv_state_provenance.py`.
+- [x] Preserve scope: no Pallas, no broad math rewrite, no tolerance widening, no synthetic fallback.

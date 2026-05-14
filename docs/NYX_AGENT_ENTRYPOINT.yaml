@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 59
-  checkpoint: radlads_wkv_state_provenance
-  title: RADLADS WKV state provenance
+  phase: 60
+  checkpoint: real_radlads_qrwkv_wkv_state_provenance
+  title: Real RADLADS/QRWKV WKV state provenance
 
 workflow:
   primary_agent: Nyx
@@ -43,6 +43,7 @@ instructions:
   - Keep P53 head-to-head fixtures tied to the P52 deterministic_finite payload; if live RADLADS is unavailable, report the blocker instead of faking parity.
   - Keep P57 diagnostic-only; compare source-backed log_w traces and current diagnostics without patching model math or loosening tolerances.
   - Keep P59 diagnostic-only; trace WKV state handoff without changing recurrence math, loosening tolerances, or disturbing P58 log_w behavior.
+  - Keep P60 tied to real cached P54/P58 artifacts; do not synthesize missing traces, and make strict real-artifact mode fail when live regeneration is unavailable.
 
 radlads_qrwkv_head_to_head_parity:
   phase: P53
@@ -112,6 +113,31 @@ radlads_wkv_state_provenance:
     - no_tolerance_loosening
     - p58_log_w_fix_preserved
     - ci_tests_use_tmp_path_synthetic_data
+
+real_radlads_qrwkv_wkv_state_provenance:
+  phase: P60
+  status: diagnostic_real_artifacts
+  docs: docs/RADLADS_WKV_STATE_PROVENANCE.md
+  run_script: scripts/run_real_radlads_qrwkv_wkv_state_provenance.py
+  compare_script: scripts/compare_real_radlads_qrwkv_wkv_state_provenance.py
+  artifact_dir: artifacts/p60_real_wkv_state_provenance
+  source_artifacts:
+    - artifacts/p54_confirmation/radlads_outputs
+    - artifacts/p54_confirmation/qrwkv_outputs
+    - artifacts/p58_log_w_decay_fix/post_fix_trace
+  reports:
+    - real_wkv_state_provenance_radlads.jsonl
+    - real_wkv_state_provenance_qrwkv.jsonl
+    - real_provenance_metadata.json
+    - p60_real_state_provenance_report.json
+    - P60_RESULTS.md
+    - TRACE_PROVENANCE.md
+    - comparison/P60_REAL_WKV_STATE_PROVENANCE.md
+    - comparison/p60_real_wkv_state_provenance_report.json
+  caveats:
+    - no_synthetic_fallback
+    - strict_real_artifacts_fails_without_live_regeneration
+    - no_pallas_no_tolerance_loosening_no_broad_math_rewrite
 
 radlads_clean_payload_loader:
   phase: P54
