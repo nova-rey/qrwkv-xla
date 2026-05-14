@@ -548,3 +548,21 @@ Current checkpoint: `wkv_composite_balance_hook`.
 P64 is diagnostic/extraction work only. It does not add Pallas, TPU
 optimization, recurrence rewrites, tolerance loosening, or RADLADS output
 changes.
+
+## Phase 65 — Balance-State Experiment Surface
+Goal: expose a small, explicit, opt-in experiment for the existing
+source-backed RADLADS balance-state path without changing default behavior.
+
+Checkpoints:
+- P65A: document `radlads_balance_state_terms` plus `radlads_balance_state`
+  as the experimental switch
+- P65B: run tiny fixture comparisons for off vs experimental mode
+- P65C: run a tiny local stability smoke for experimental full-vs-stepwise
+  behavior
+- P65D: preserve P58 `log_w` behavior and P63/P64 hook behavior
+
+Current checkpoint: `balance_state_experiment_surface`.
+
+P65 is experiment/stability work only. It does not add Pallas, TPU
+optimization, recurrence rewrites beyond the existing flagged path, tolerance
+loosening, or default promotion.

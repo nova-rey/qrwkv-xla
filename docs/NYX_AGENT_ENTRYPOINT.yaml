@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 64
-  checkpoint: wkv_composite_balance_hook
-  title: WKV composite balance-state hook extraction
+  phase: 65
+  checkpoint: balance_state_experiment_surface
+  title: Balance-state experiment surface
 
 workflow:
   primary_agent: Nyx
@@ -245,3 +245,25 @@ radlads_tiny_numerical_parity_fixtures:
     - missing_source_must_not_count_as_parity
     - live_hook_may_report_source_unavailable_or_execution_failed
     - no_full_radlads_numerical_parity_claim
+
+radlads_wkv_balance_state_experiment:
+  phase: P65
+  status: experiment_surface
+  docs: docs/RADLADS_WKV_BALANCE_STATE_EXPERIMENT.md
+  helper_module: src/qrwkv_xla/parity/radlads_balance_state_experiment.py
+  experiment_script: scripts/run_balance_state_experiment.py
+  stability_script: scripts/run_balance_state_stability_smoke.py
+  artifact_dir: artifacts/p65_balance_state_experiment
+  switches:
+    - radlads_balance_state_terms
+    - radlads_balance_state
+  reports:
+    - P65_RESULTS.md
+    - balance_state_experiment_report.json
+    - DIFF_SUMMARY.md
+    - STABILITY_SMOKE.md
+  caveats:
+    - default_off_behavior_preserved
+    - experimental_path_not_default
+    - p58_log_w_and_p63_p64_behavior_preserved
+    - no_pallas_no_tolerance_loosening_no_default_promotion

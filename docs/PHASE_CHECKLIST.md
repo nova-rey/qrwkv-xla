@@ -900,3 +900,18 @@
 - [x] Add CI-safe P64 tests with tmp-path JSONL fixtures.
 - [x] Preserve P58/P61/P63 behavior: no recurrence math changes, no Pallas,
   no tolerance loosening, no broad rewrite.
+
+## P65 — Balance-State Experiment Surface
+
+- [x] Add `docs/RADLADS_WKV_BALANCE_STATE_EXPERIMENT.md`.
+- [x] Reuse `radlads_balance_state_terms` and `radlads_balance_state` as the
+  explicit experimental switches.
+- [x] Add `scripts/run_balance_state_experiment.py`.
+- [x] Add `scripts/run_balance_state_stability_smoke.py`.
+- [x] Add `tests/test_balance_state_experiment.py`.
+- [x] Compare off vs experimental mode on tiny fixture inputs for `log_w`,
+  logits, hidden states, WKV matrix state, shift state, finite counts, and first
+  divergent stage.
+- [x] Preserve default/off behavior, P58 `log_w`, and P63/P64 behavior.
+- [x] Keep scope local/CPU/tiny with no Pallas, no tolerance loosening, and no
+  default promotion.

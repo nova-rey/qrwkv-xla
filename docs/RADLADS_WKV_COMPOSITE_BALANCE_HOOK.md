@@ -36,6 +36,16 @@ It does not appear to be the remaining culprit once reconstructed on both sides;
 ## Recommended next phase
 P65 residual-impact / kernel-readiness gate
 
+## P65 follow-up
+
+P65 keeps the P64 hook conclusions intact and adds an explicit opt-in
+experiment surface for the existing balance-state compatibility path. See
+[`RADLADS_WKV_BALANCE_STATE_EXPERIMENT.md`](RADLADS_WKV_BALANCE_STATE_EXPERIMENT.md).
+
+The experimental switch remains
+`RWKV7QwenReferenceConfig.radlads_balance_state_terms` together with
+`radlads_balance_state`; default/off behavior is unchanged.
+
 ## Source table
 
 | side | source file | function/class | source expression | source variable name | comparison label | capture method | reason if unavailable |

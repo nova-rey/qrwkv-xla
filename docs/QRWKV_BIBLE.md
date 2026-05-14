@@ -1188,3 +1188,22 @@ RADLADS-equivalent audit target and records that choice explicitly.
 P64 preserves P58/P61/P63 behavior. It does not change recurrence math, add
 Pallas, loosen tolerances, or broaden the update-residual diagnosis beyond the
 composite/balance-state WKV hook extraction and comparison.
+
+## Phase 65 — Balance-State Experiment Surface
+
+P65 adds a small explicit experiment/stability surface for the existing
+RADLADS balance-state compatibility path in
+`RWKV7QwenReferenceConfig`. It treats `radlads_balance_state_terms` and
+`radlads_balance_state` as opt-in experimental flags, compares off vs
+experimental mode on tiny fixture inputs, and writes compact local reports.
+
+Artifacts default to `artifacts/p65_balance_state_experiment/` and are
+produced by `scripts/run_balance_state_experiment.py` and
+`scripts/run_balance_state_stability_smoke.py`. The reports compare `log_w`,
+`logits`, `hidden_states`, `wkv_matrix_state`, `shift_state`, finite/NaN
+counts, state summaries, mode status, and the first divergent diagnostic stage.
+
+P65 preserves default/off behavior, P58 `log_w` parity behavior, and existing
+P63/P64 hook behavior. It does not promote the experimental path to default,
+add Pallas, loosen tolerances, or rewrite recurrence math beyond wiring the
+existing source-backed path behind the existing flags.
