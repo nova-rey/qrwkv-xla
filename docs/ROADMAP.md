@@ -432,3 +432,16 @@ Current checkpoint: `radlads_log_w_decay_parity`.
 
 P57 is diagnostic-only. It does not patch model math, loosen tolerances, add
 Pallas, run TPU optimization, or claim broader RADLADS parity.
+
+## Phase 58 — RADLADS log_w / Decay Source-Backed Fix
+Goal: apply the smallest source-backed QRWKV-XLA fix for the tiny `log_w` /
+decay divergence and verify the downstream trace impact.
+
+Current checkpoint: `radlads_log_w_decay_source_fix`.
+
+P58 keeps the low-rank decay path active for the simple tiny replay profile,
+re-runs the log_w caliper, traces the downstream WKV state, and preserves the
+passing logits and shift_state surfaces.
+
+P58 does not implement Pallas, TPU optimization, real training, or a claim of
+full RADLADS parity.

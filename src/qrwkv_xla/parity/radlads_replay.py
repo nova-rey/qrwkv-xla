@@ -60,6 +60,7 @@ P49_REPLAY_SURFACES = (
 class ReplayCaseProfile:
     case_name: str
     all_radlads_math: bool
+    low_rank_decay: bool
     attention_qkv_bias: bool
     active_defaulted_surfaces: tuple[str, ...]
     reason: str
@@ -75,6 +76,7 @@ _SIMPLE_CASES = {
 
 _SIMPLE_CASE_DEFAULTS = (
     "layers.self_attn.b_proj.weight",
+    "layers.self_attn.w_proj.weight",
     "layers.self_attn.time_mix",
     "layers.self_attn.time_bias",
     "lm_head.bias",
@@ -95,6 +97,7 @@ def replay_profile_for_case(case: Mapping[str, Any]) -> ReplayCaseProfile:
         return ReplayCaseProfile(
             case_name=case_name,
             all_radlads_math=True,
+            low_rank_decay=True,
             attention_qkv_bias=True,
             active_defaulted_surfaces=_ALL_MATH_DEFAULTS,
             reason=(
@@ -106,20 +109,21 @@ def replay_profile_for_case(case: Mapping[str, Any]) -> ReplayCaseProfile:
         return ReplayCaseProfile(
             case_name=case_name,
             all_radlads_math=False,
+            low_rank_decay=False,
             attention_qkv_bias=True,
             active_defaulted_surfaces=_SIMPLE_CASE_DEFAULTS,
             reason=(
-                "P49 generated this fixture with all_radlads_math=False, so replay "
-                "must keep the low-rank RADLADS path disabled instead of forcing "
-                "the all-math profile."
+                "P49 generated this fixture with all_radlads_math=False, so the "
+                "tiny replay keeps the dense decay fallback active by default."
             ),
         )
     return ReplayCaseProfile(
         case_name=case_name,
         all_radlads_math=False,
+        low_rank_decay=False,
         attention_qkv_bias=True,
         active_defaulted_surfaces=_SIMPLE_CASE_DEFAULTS,
-        reason="Unknown fixture defaults to the safer non-all-math replay profile.",
+        reason="Unknown fixture defaults to the dense non-all-math replay profile.",
     )
 
 
@@ -133,6 +137,7 @@ def student_for_replay_profile(
         replace(
             base_config,
             radlads_compatible_math=profile.all_radlads_math,
+            radlads_low_rank_decay=profile.low_rank_decay,
             radlads_attention_group_norm=profile.all_radlads_math,
             radlads_balance_state=profile.all_radlads_math,
             radlads_replay_mode=profile.all_radlads_math,

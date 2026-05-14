@@ -827,3 +827,12 @@
 - [x] Add `tests/test_radlads_log_w_decay_parity.py`.
 - [x] Add `docs/RADLADS_LOG_W_DECAY_PARITY.md`.
 - [x] Preserve scope: diagnostic-only, no model patch unless a separate source-backed fix phase is opened.
+
+## P58 — RADLADS log_w / Decay Source-Backed Fix
+
+- [x] Keep the low-rank decay path active on the simple tiny replay profile.
+- [x] Record the low-rank decay head-split diagnostic so the candidate caliper can align.
+- [x] Re-run the log_w caliper and confirm an exact pass on `tiny_no_mask`.
+- [x] Re-run the WKV trace and head-to-head comparison after the fix.
+- [x] Update the Bible, snapshot, roadmap, and entrypoint notes.
+- [x] Write the P58 reports and preserve before/after artifacts.

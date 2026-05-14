@@ -20,16 +20,14 @@ from qrwkv_xla.parity.radlads_log_w_parity import (
     compare_log_w_records,
     evaluate_log_w_candidate_variants,
     load_radlads_log_w_from_jsonl,
+    log_w_replay_profile_for_case,
     write_log_w_reports,
 )
 from qrwkv_xla.parity.radlads_numerical_fixtures import load_numerical_case_arrays
 from qrwkv_xla.parity.radlads_parameter_import import (
     import_radlads_parameters_for_replay,
 )
-from qrwkv_xla.parity.radlads_replay import (
-    replay_profile_for_case,
-    student_for_replay_profile,
-)
+from qrwkv_xla.parity.radlads_replay import student_for_replay_profile
 
 DEFAULT_MANIFEST = Path("artifacts/p54_confirmation/fixtures/manifest.json")
 DEFAULT_RADLADS_TRACE = Path(
@@ -63,7 +61,7 @@ def _current_qrwkv_records(
         allow_defaults=True,
         seed=seed,
     )
-    profile = replay_profile_for_case(case)
+    profile = log_w_replay_profile_for_case(case)
     student = student_for_replay_profile(import_result.qrwkv_config, profile)
     arrays = load_numerical_case_arrays(manifest_path, case)
     input_ids = np.asarray(arrays["input_ids"], dtype=np.int32)

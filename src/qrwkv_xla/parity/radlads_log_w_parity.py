@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable, Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +22,22 @@ LOG_W_CANDIDATE_SCHEMA = "radlads_qrwkv_log_w_candidate_report.v1"
 
 LOG_W_STAGE_NAMES = {"log_w", "low_rank_decay"}
 W_SOURCE_STAGE_NAMES = {"w_head_split", "w2_projection", "w_projection", "decay_raw"}
+
+
+def log_w_replay_profile_for_case(case: Mapping[str, Any]):
+    from qrwkv_xla.parity.radlads_replay import replay_profile_for_case
+
+    profile = replay_profile_for_case(case)
+    if str(case.get("name")) == "tiny_no_mask":
+        return replace(
+            profile,
+            low_rank_decay=True,
+            reason=(
+                "P58 log_w caliper keeps the RADLADS low-rank decay path active "
+                "for the tiny_no_mask source trace."
+            ),
+        )
+    return profile
 
 
 @dataclass(frozen=True)

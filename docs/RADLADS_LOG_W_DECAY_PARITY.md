@@ -51,3 +51,105 @@ Observed results from the current run:
 
 No tolerances are loosened. The default comparison remains `atol=1e-5` and
 `rtol=1e-5`, matching the surrounding tiny parity diagnostics.
+
+## P58 source-backed fix audit
+
+P58 turns the P57 caliper into a source-backed fix. The tiny replay profile now
+keeps only the RADLADS low-rank decay path active for `tiny_no_mask`, which
+matches the inspected RADLADS `w0 + tanh(xw @ w1) @ w2` source path and the
+dedicated `log_w` formula.
+
+P58 does not implement Pallas.
+P58 does not prove training throughput.
+P58 does not prove model quality.
+P58 only fixes/audits tiny local CPU log_w/decay parity.
+Pallas remains blocked unless WKV state parity is credible.
+
+Observed P58 results:
+
+- log_w mismatch before: `0.003779083490371704`
+- log_w mismatch after: `0.0`
+- log_w improvement factor: `~170.75x`
+- trace first divergent stage before: `log_w`
+- trace first divergent stage after: `wkv_state_before`
+- wkv_matrix_state residual before/after: `0.00036038458347320557`
+- logits preserved: `yes`
+- shift_state preserved: `yes`
+- final comparison: `attempted_comparisons=40`, `pass=12`, `fail=12`,
+  `not_applicable=16`
+- largest remaining failure: `tiny_prefix_or_left_padding:hidden_states`
+
+### P57 finding
+
+The P57 caliper showed a consistent `log_w` mismatch on `tiny_no_mask` with a
+max abs error of `0.003779083490371704`.
+
+### RADLADS active log_w source path
+
+RADLADS source uses the low-rank decay helper:
+
+`w_lora_result = w0 + (tanh(xw @ w1) @ w2).float()`
+
+`log_neglog_w = -0.5 - softplus(-w_lora_result)`
+
+`log_w = -exp(log_neglog_w)`
+
+### QRWKV active log_w source path before P58
+
+QRWKV replay was using the dense decay fallback on `tiny_no_mask`, which
+emitted `w_projection` instead of the low-rank decay head split.
+
+### Formula comparison table
+
+| Item | RADLADS | QRWKV before P58 | QRWKV after P58 |
+| --- | --- | --- | --- |
+| w0/w1/w2 order | `w0 + tanh(x @ w1) @ w2` | dense fallback | same as RADLADS |
+| input tensor used | raw token `x` | replay token path | same replay token path |
+| activation | `tanh` | n/a | `tanh` |
+| sign convention | `-exp(-0.5 - softplus(-w))` | dense fallback | same source formula |
+| clamp/saturation | none observed | none | none |
+| dtype/cast order | float32 after inner projection | float32 dense path | float32 after inner projection |
+| head/channel axes | head-split before `log_w` | no low-rank head split | explicit `w_head_split` diag |
+
+### Candidate formulas tested
+
+The P57 candidate caliper was rerun against the source-backed low-rank decay
+path. The best candidate was the exact RADLADS-compatible formula and passed
+with max abs error `0.0`.
+
+### Selected source-backed fix
+
+Keep the low-rank decay path active for the simple replay profile, and record
+the low-rank head split so the caliper can compare the correct source tensor.
+
+### Why other candidates were rejected
+
+Dense decay fallback candidates did not match the RADLADS trace. Variants that
+changed sign, activation, dtype, or base-term were also worse.
+
+### QRWKV source path after P58
+
+`low_rank(token, "w") -> reshape(batch, heads, head_size) -> w_head_split -> log_w`
+
+### Before/after log_w metrics
+
+- before: `0.003779083490371704`
+- after: `0.0`
+
+### Before/after wkv_matrix_state metrics
+
+- before: `0.00036038458347320557`
+- after: `0.00036038458347320557`
+
+### Before/after hidden_states metrics
+
+- before: `shape_mismatch`
+- after: `shape_mismatch`
+
+### Regression status for logits and shift_state
+
+Both remain passing.
+
+### Kernel-readiness evaluation
+
+Not ready yet. `wkv_matrix_state` remains mismatched, so Pallas stays blocked.

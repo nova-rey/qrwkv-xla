@@ -969,6 +969,14 @@ class RWKV7QwenReferenceStudent:
                     num_heads,
                     head_size,
                 )
+                _diag_record(
+                    diagnostics,
+                    f"layers.{layer_index}.self_attn.w_head_split",
+                    w,
+                    stage="w_head_split",
+                    layer=layer_index,
+                    time_index=time_index,
+                )
             else:
                 w = (
                     project(mixed, "w", num_heads, time_index=time_index)

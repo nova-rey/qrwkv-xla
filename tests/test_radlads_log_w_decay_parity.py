@@ -16,8 +16,14 @@ from qrwkv_xla.parity.radlads_log_w_parity import (
     compare_log_w_records,
     evaluate_log_w_candidate_variants,
     load_radlads_log_w_from_jsonl,
+    log_w_replay_profile_for_case,
     write_log_w_reports,
 )
+from qrwkv_xla.parity.radlads_numerical_fixtures import load_numerical_manifest
+from qrwkv_xla.parity.radlads_parameter_import import (
+    import_radlads_parameters_for_replay,
+)
+from qrwkv_xla.parity.radlads_replay import student_for_replay_profile
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -146,6 +152,47 @@ def test_capture_qrwkv_log_w_finite_path() -> None:
     assert capture["log_w"]
     assert all(row["finite"] for row in capture["log_w"])
     assert capture["w_source"]
+
+
+def test_tiny_no_mask_profile_keeps_low_rank_decay_and_matches_source() -> None:
+    pytest.importorskip("jax")
+
+    manifest = load_numerical_manifest(
+        ROOT / "artifacts/p54_confirmation/fixtures/manifest.json"
+    )
+    case = next(case for case in manifest["cases"] if case["name"] == "tiny_no_mask")
+    profile = log_w_replay_profile_for_case(case)
+    assert profile.low_rank_decay is True
+
+    import_result = import_radlads_parameters_for_replay(
+        ROOT / "artifacts/p54_confirmation/fixtures/radlads_parameters.npz"
+    )
+    student = student_for_replay_profile(import_result.qrwkv_config, profile)
+    fixture = np.load(ROOT / "artifacts/p54_confirmation/fixtures/tiny_no_mask.npz")
+    capture = capture_qrwkv_log_w_from_current_run(
+        student,
+        import_result.params,
+        fixture["input_ids"],
+        attention_mask=None,
+        case="tiny_no_mask",
+    )
+    assert any(
+        row["name"] == "layers.0.self_attn.w2_projection" for row in capture["w_source"]
+    )
+    assert any(
+        row["name"] == "layers.0.self_attn.w_head_split" for row in capture["w_source"]
+    )
+    assert all(
+        row["name"] != "layers.0.self_attn.w_projection" for row in capture["w_source"]
+    )
+
+    radlads_rows = load_radlads_log_w_from_jsonl(
+        ROOT / "artifacts/p56_wkv_state_residual_trace/wkv_trace_radlads.jsonl"
+    )
+    qrwkv_rows = [LogWRecord(**row) for row in capture["log_w"]]
+    report = compare_log_w_records(radlads_rows, qrwkv_rows)
+    assert report["status"] == "pass"
+    assert all(row["status"] == "pass" for row in report["rows"])
 
 
 def test_script_help() -> None:

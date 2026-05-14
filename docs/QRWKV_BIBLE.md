@@ -1067,3 +1067,15 @@ Observed run metrics:
 - trace rerun first divergent stage: `log_w`
 - head-to-head summary: `attempted_comparisons=40`, `pass=12`, `fail=12`, `not_applicable=16`
 - best passing surface stays `tiny_no_mask:logits`; `hidden_states` and `wkv_matrix_state` remain the main failures
+
+## Phase 58 — RADLADS log_w / Decay Source-Backed Fix
+
+P58 applies the tiny-replay source-backed fix for the RADLADS-vs-QRWKV
+`log_w` / decay divergence identified by P56 and instrumented by P57. It keeps
+the low-rank decay path active on `tiny_no_mask`, matches the inspected
+RADLADS source formula, reruns the log_w caliper, and confirms the first WKV
+trace divergence moves downstream.
+
+P58 does not implement Pallas. It does not prove training throughput or model
+quality. It only proves tiny local CPU log_w/decay parity status, and Pallas
+remains blocked until WKV matrix-state parity is credible.

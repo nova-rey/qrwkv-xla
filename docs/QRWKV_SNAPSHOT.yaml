@@ -1007,3 +1007,22 @@ radlads_log_w_decay_parity:
     - no_model_patch_in_p57
     - no_tolerance_loosening
     - no_pallas_no_tpu_no_training_claims
+
+radlads_log_w_decay_source_fix:
+  phase: P58
+  status: partial_success
+  docs: docs/RADLADS_LOG_W_DECAY_PARITY.md
+  helper_module: src/qrwkv_xla/parity/radlads_replay.py
+  compare_script: scripts/compare_radlads_qrwkv_log_w.py
+  artifact_dir: artifacts/p58_log_w_decay_fix
+  source_trace: artifacts/p56_wkv_state_residual_trace/wkv_trace_radlads.jsonl
+  default_manifest: artifacts/p54_confirmation/fixtures/manifest.json
+  reports:
+    - P58_RESULTS.md
+    - log_w_decay_fix_report.json
+    - P58_LOG_W_CANDIDATES.md
+    - log_w_candidate_report.json
+  caveats:
+    - source_backed_tiny_replay_fix
+    - no_pallas_no_tpu_no_training_claims
+    - wkv_matrix_state_still_unexplained
