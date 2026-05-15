@@ -62,3 +62,12 @@ Yes, experimentally closer on the checked-in tiny/local fixtures.
 
 Kernel-ready remains `no` until the remaining boundary gap is either removed or
 explicitly shown to be non-blocking.
+
+## P67 caveat
+
+P67 does not implement Pallas.
+P67 does not prove training throughput.
+P67 does not prove model quality.
+P67 does not promote experimental balance_state mode by default.
+P67 only establishes a same-run ingredient-level RADLADS-vs-QRWKV comparison
+on tiny/local fixtures.

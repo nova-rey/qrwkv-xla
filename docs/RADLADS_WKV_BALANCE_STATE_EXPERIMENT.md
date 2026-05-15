@@ -85,3 +85,12 @@ P66 does not prove model quality.
 P66 does not promote experimental balance_state mode by default.
 P66 only measures whether experimental balance_state mode moves QRWKV-XLA
 closer to RADLADS on tiny/local parity fixtures.
+
+## P67 caveat
+
+P67 does not implement Pallas.
+P67 does not prove training throughput.
+P67 does not prove model quality.
+P67 does not promote experimental balance_state mode by default.
+P67 only establishes a same-run ingredient-level RADLADS-vs-QRWKV comparison
+on tiny/local fixtures.

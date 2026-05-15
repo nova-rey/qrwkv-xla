@@ -931,3 +931,17 @@
   provenance, and no synthetic fallback.
 - [x] Keep scope local/CPU/tiny with no Pallas, no tolerance loosening, no
   default promotion, and no model-quality claim.
+
+## P67 — Same-Run WKV Update Ingredients
+
+- [x] Add `src/qrwkv_xla/parity/radlads_same_run_update_ingredients.py`.
+- [x] Add `scripts/run_same_run_update_ingredient_trace.py`.
+- [x] Add `scripts/compare_same_run_update_ingredients.py`.
+- [x] Add `tests/test_same_run_update_ingredients.py`.
+- [x] Normalize existing source rows into dependency-ordered update ingredients.
+- [x] Enforce same-run lineage in strict mode and reject mixed lineage.
+- [x] Emit unavailable rows for missing stages instead of omitting them.
+- [x] Preserve live vs reconstructed capture labels.
+- [x] Keep scope instrumentation-only: no recurrence math change, no Pallas, no
+  tolerance loosening, no balance-state default promotion, and no RADLADS
+  upstream edits.

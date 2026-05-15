@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 65
-checkpoint: balance_state_experiment_surface
+phase: 67
+checkpoint: same_run_update_ingredients_trace
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Extract and compare the WKV composite/balance-state hook surface that remains
-  hidden behind the P63 live update labels, preserving P58/P61/P63 behavior
-  without recurrence-math changes, Pallas work, or tolerance loosening.
+  Trace same-run WKV update ingredients across RADLADS, QRWKV off, and QRWKV
+  experimental balance-state artifacts, preserving default/off behavior without
+  recurrence-math changes, Pallas work, tolerance loosening, or default
+  promotion of experimental balance-state mode.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -1232,3 +1233,53 @@ radlads_balance_state_three_way_parity:
     - p58_log_w_behavior_preserved
     - strict_real_artifacts_no_synthetic_fallback
     - no_pallas_no_tolerance_loosening_no_broad_recurrence_rewrite
+
+radlads_same_run_update_ingredients:
+  phase: P67
+  status: diagnostic_only
+  docs: docs/QRWKV_BIBLE.md
+  helper_module: src/qrwkv_xla/parity/radlads_same_run_update_ingredients.py
+  trace_script: scripts/run_same_run_update_ingredient_trace.py
+  compare_script: scripts/compare_same_run_update_ingredients.py
+  artifact_dir: artifacts/p67_same_run_update_ingredients
+  compared_sides:
+    - radlads
+    - qrwkv_off
+    - qrwkv_experimental
+  dependency_order:
+    - pre_attention_norm
+    - k_head_split
+    - v_head_split
+    - v_first
+    - mixed_value
+    - iclr_update_rate
+    - k_k
+    - k_a
+    - low_rank_decay
+    - decay_applied_weights
+    - wkv_state_before
+    - wkv_decay_applied
+    - wkv_update_outer_or_term
+    - balance_state_term
+    - composite_update_term
+    - wkv_state_after
+    - state_after_exported
+  reports:
+    - same_run_update_ingredients_radlads.jsonl
+    - same_run_update_ingredients_qrwkv_off.jsonl
+    - same_run_update_ingredients_qrwkv_experimental.jsonl
+    - same_run_update_ingredients_metadata.json
+    - same_run_update_ingredients_report.json
+    - P67_SAME_RUN_UPDATE_INGREDIENTS.md
+    - UPDATE_INGREDIENT_AVAILABILITY.md
+    - FIRST_DIFFERING_INGREDIENT.md
+    - SAME_RUN_LINEAGE.md
+    - P67_RESULTS.md
+  caveats:
+    - same_run_lineage_required_in_strict_mode
+    - unavailable_stages_reported_explicitly
+    - reconstructed_values_not_labeled_live
+    - first_difference_uses_dependency_order
+    - default_off_behavior_preserved
+    - experimental_path_not_default
+    - no_pallas_no_tolerance_loosening_no_recurrence_math_change

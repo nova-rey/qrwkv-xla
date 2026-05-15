@@ -1228,3 +1228,34 @@ compatibility path`. P66 preserves default/off behavior and P58 `log_w`
 behavior, uses strict real-artifact provenance, and does not add Pallas,
 tolerance loosening, recurrence rewrites, default promotion, synthetic
 fallback, or model-quality claims.
+
+## Phase 67 — Same-Run WKV Update Ingredients
+
+P67 adds a same-run ingredient trace for the WKV update path. The helper
+`src/qrwkv_xla/parity/radlads_same_run_update_ingredients.py` normalizes
+existing RADLADS, QRWKV off, and QRWKV experimental trace rows into a fixed
+dependency order from pre-attention inputs through decay, update, balance-state,
+composite term, and final WKV state surfaces.
+
+Artifacts default to `artifacts/p67_same_run_update_ingredients/` and are
+produced by `scripts/run_same_run_update_ingredient_trace.py` and
+`scripts/compare_same_run_update_ingredients.py`. The artifact set includes
+three JSONL ingredient traces, `same_run_update_ingredients_metadata.json`,
+`same_run_update_ingredients_report.json`,
+`P67_SAME_RUN_UPDATE_INGREDIENTS.md`,
+`UPDATE_INGREDIENT_AVAILABILITY.md`, `FIRST_DIFFERING_INGREDIENT.md`,
+`SAME_RUN_LINEAGE.md`, and `P67_RESULTS.md`.
+
+P67 is instrumentation/reporting only. It rejects mixed same-run lineage in
+strict mode, emits unavailable ingredient rows instead of omitting missing
+surfaces, preserves reconstructed capture labels, and selects the first
+differing ingredient by dependency order. It does not change recurrence math,
+add Pallas, loosen tolerances, promote experimental balance-state mode, or edit
+RADLADS upstream.
+
+P67 does not implement Pallas.
+P67 does not prove training throughput.
+P67 does not prove model quality.
+P67 does not promote experimental balance_state mode by default.
+P67 only establishes a same-run ingredient-level RADLADS-vs-QRWKV comparison
+on tiny/local fixtures.
