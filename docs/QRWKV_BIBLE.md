@@ -1207,3 +1207,24 @@ P65 preserves default/off behavior, P58 `log_w` parity behavior, and existing
 P63/P64 hook behavior. It does not promote the experimental path to default,
 add Pallas, loosen tolerances, or rewrite recurrence math beyond wiring the
 existing source-backed path behind the existing flags.
+
+## Phase 66 — Balance-State Experimental vs RADLADS Three-Way Parity
+
+P66 adds a comparison-first three-way update-boundary report for RADLADS,
+QRWKV off mode, and QRWKV experimental balance-state mode. The helper
+`src/qrwkv_xla/parity/radlads_balance_state_three_way.py` compares the existing
+P64 RADLADS hook trace against the checked-in P65 off/experimental mode
+artifacts and records the update-boundary result without changing recurrence
+semantics.
+
+Artifacts live under `artifacts/p66_balance_state_radlads_three_way/` and are
+produced by `scripts/run_balance_state_radlads_three_way.py`. The artifact set
+includes `three_way_parity_report.json`, three raw JSONL update-boundary
+traces, `THREE_WAY_PARITY.md`, `UPDATE_BOUNDARY_PARITY.md`,
+`BALANCE_STATE_DECISION.md`, and `P66_RESULTS.md`.
+
+The decision report now recommends `P67 promote/harden balance-state
+compatibility path`. P66 preserves default/off behavior and P58 `log_w`
+behavior, uses strict real-artifact provenance, and does not add Pallas,
+tolerance loosening, recurrence rewrites, default promotion, synthetic
+fallback, or model-quality claims.

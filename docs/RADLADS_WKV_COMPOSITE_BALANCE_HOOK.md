@@ -52,3 +52,12 @@ The experimental switch remains
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | RADLADS | `src/qrwkv_xla/students/rwkv7_radlads_reference.py` | `rwkv7_radlads_reference_layer/step` | `next_state = prev_state * decay[:, :, None, :] + prev_state @ ab + vk` | `ab` | `composite_balance_update_term` | `exact_reconstruction` | live hook not present in P63 trace |
 | QRWKV-XLA | `src/qrwkv_xla/students/rwkv7_qwen_reference.py` | `RWKV7QwenReference.step/apply_with_state` | `next_wkv = prev_wkv * decay[:, :, None, :] + prev_wkv @ ab + vk` | `ab` | `composite_balance_update_term` | `exact_reconstruction` | live hook not present in P63 trace |
+
+## P66 caveat
+
+P66 does not implement Pallas.
+P66 does not prove training throughput.
+P66 does not prove model quality.
+P66 does not promote experimental balance_state mode by default.
+P66 only measures whether experimental balance_state mode moves QRWKV-XLA
+closer to RADLADS on tiny/local parity fixtures.

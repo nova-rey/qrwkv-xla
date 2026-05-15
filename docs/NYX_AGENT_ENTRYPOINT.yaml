@@ -267,3 +267,27 @@ radlads_wkv_balance_state_experiment:
     - experimental_path_not_default
     - p58_log_w_and_p63_p64_behavior_preserved
     - no_pallas_no_tolerance_loosening_no_default_promotion
+
+radlads_balance_state_three_way_parity:
+  phase: P66
+  status: diagnostic_fail_keep_experimental_only
+  docs: docs/RADLADS_BALANCE_STATE_THREE_WAY_PARITY.md
+  helper_module: src/qrwkv_xla/parity/radlads_balance_state_three_way.py
+  script: scripts/run_balance_state_radlads_three_way.py
+  artifact_dir: artifacts/p66_balance_state_radlads_three_way
+  reports:
+    - three_way_parity_report.json
+    - THREE_WAY_PARITY.md
+    - UPDATE_BOUNDARY_PARITY.md
+    - BALANCE_STATE_DECISION.md
+    - P66_RESULTS.md
+  traces:
+    - radlads_update_boundary_trace.jsonl
+    - qrwkv_off_update_boundary_trace.jsonl
+    - qrwkv_experimental_update_boundary_trace.jsonl
+  recommendation: P67 promote/harden balance-state compatibility path
+  caveats:
+    - strict_real_artifacts_no_synthetic_fallback
+    - default_off_behavior_preserved
+    - experimental_path_not_default
+    - no_pallas_no_tolerance_loosening_no_default_promotion

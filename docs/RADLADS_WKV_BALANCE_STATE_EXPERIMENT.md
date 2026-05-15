@@ -76,3 +76,12 @@ and experimental mode is expected because the experimental mode wires the
 existing source-backed balance-state update path behind the flag. The contract
 is that off/default mode remains bit-for-bit unchanged and the experimental
 path is visible, deterministic, finite, and locally smoke-tested.
+
+## P66 caveat
+
+P66 does not implement Pallas.
+P66 does not prove training throughput.
+P66 does not prove model quality.
+P66 does not promote experimental balance_state mode by default.
+P66 only measures whether experimental balance_state mode moves QRWKV-XLA
+closer to RADLADS on tiny/local parity fixtures.

@@ -566,3 +566,24 @@ Current checkpoint: `balance_state_experiment_surface`.
 P65 is experiment/stability work only. It does not add Pallas, TPU
 optimization, recurrence rewrites beyond the existing flagged path, tolerance
 loosening, or default promotion.
+
+## Phase 66 — Balance-State Experimental vs RADLADS Three-Way Parity
+Goal: compare RADLADS, QRWKV off mode, and QRWKV experimental balance-state
+mode on update-boundary surfaces using existing real P64/P65 artifacts.
+
+Checkpoints:
+- P66A: normalize the three sides to the update-boundary stages used in the
+  P66 report (`state_before`, `decay_value`, `decayed_state`,
+  `update_outer_product`, `balance_state_term`, `composite_update_term`,
+  `final_update_term`, `state_after`)
+- P66B: emit raw JSONL traces for RADLADS, QRWKV off, and QRWKV experimental
+- P66C: write a concise three-way report and decision gate
+- P66D: preserve default/off behavior and keep the experimental path opt-in
+
+Current checkpoint: `balance_state_radlads_three_way_parity`.
+
+P66 is comparison-first diagnostic work. It does not add Pallas, TPU
+optimization, broad recurrence rewrites, tolerance loosening, synthetic
+strict-artifact fallback, default promotion, or model-quality claims. The
+current decision points to `P67 promote/harden balance-state compatibility
+path`.

@@ -915,3 +915,19 @@
 - [x] Preserve default/off behavior, P58 `log_w`, and P63/P64 behavior.
 - [x] Keep scope local/CPU/tiny with no Pallas, no tolerance loosening, and no
   default promotion.
+
+## P66 — Balance-State Experimental vs RADLADS Three-Way Parity
+
+- [x] Add `src/qrwkv_xla/parity/radlads_balance_state_three_way.py`.
+- [x] Add `scripts/run_balance_state_radlads_three_way.py`.
+- [x] Add `docs/RADLADS_BALANCE_STATE_THREE_WAY_PARITY.md`.
+- [x] Add `tests/test_balance_state_three_way_parity.py`.
+- [x] Produce `artifacts/p66_balance_state_radlads_three_way/` with three raw
+  update-boundary JSONL traces and compact markdown reports.
+- [x] Compare RADLADS, QRWKV off, and QRWKV experimental balance-state rows
+  without changing recurrence semantics.
+- [x] Emit exactly one decision recommendation: `P67 promote/harden balance-state compatibility path`.
+- [x] Preserve default/off behavior, P58 `log_w`, strict real-artifact
+  provenance, and no synthetic fallback.
+- [x] Keep scope local/CPU/tiny with no Pallas, no tolerance loosening, no
+  default promotion, and no model-quality claim.
