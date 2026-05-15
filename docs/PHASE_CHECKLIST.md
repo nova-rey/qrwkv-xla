@@ -945,3 +945,17 @@
 - [x] Keep scope instrumentation-only: no recurrence math change, no Pallas, no
   tolerance loosening, no balance-state default promotion, and no RADLADS
   upstream edits.
+
+## P68 — Live Same-Run Update Ingredient Trace
+
+- [x] Add `src/qrwkv_xla/parity/radlads_live_same_run_trace.py`.
+- [x] Add `scripts/run_live_same_run_update_trace.py`.
+- [x] Add `tests/test_live_same_run_trace.py`.
+- [x] Compute one `same_run_group_id` per invocation and deterministic
+  `fixture_id` / `parameter_id`.
+- [x] Emit strict-live trace rows with unavailable critical stages instead of
+  treating old P66/P67 rows as source truth.
+- [x] Invalidate mixed ids, config deltas, unavailable critical stages, and
+  decay/log_w precondition failures before math recommendations.
+- [x] Keep scope P68-only: no recurrence math change, no Pallas, no tolerance
+  loosening, no balance-state default promotion, and no RADLADS upstream edits.

@@ -1283,3 +1283,36 @@ radlads_same_run_update_ingredients:
     - default_off_behavior_preserved
     - experimental_path_not_default
     - no_pallas_no_tolerance_loosening_no_recurrence_math_change
+
+radlads_live_same_run_update_trace:
+  phase: P68
+  status: invalid_until_true_live_radlads_hook
+  docs: docs/RADLADS_SAME_RUN_UPDATE_INGREDIENT_TRACE.md
+  helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
+  trace_script: scripts/run_live_same_run_update_trace.py
+  artifact_dir: artifacts/p68_live_same_run_trace
+  compared_sides:
+    - radlads
+    - qrwkv_off
+    - qrwkv_experimental
+  reports:
+    - P68_RESULTS.md
+    - live_same_run_trace_metadata.json
+    - live_trace_radlads.jsonl
+    - live_trace_qrwkv_off.jsonl
+    - live_trace_qrwkv_experimental.jsonl
+    - live_trace_combined.jsonl
+    - live_same_run_update_ingredients_report.json
+    - LIVE_SAME_RUN_VALIDITY.md
+    - STAGE_AVAILABILITY_MATRIX.md
+    - FIRST_DIFFERING_INGREDIENT.md
+    - P68_DECISION.md
+    - P68_FIX_NOTE.md
+  recommendation: P69 targeted live RADLADS trace hook completion
+  caveats:
+    - strict_live_required
+    - old_p66_p67_rows_not_source_truth
+    - unavailable_critical_stages_invalidate_math_conclusion
+    - decay_log_w_precondition_required
+    - default_off_behavior_preserved
+    - no_pallas_no_tolerance_loosening_no_recurrence_math_change

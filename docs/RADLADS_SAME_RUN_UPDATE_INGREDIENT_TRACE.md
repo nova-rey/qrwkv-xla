@@ -53,3 +53,18 @@ P67 does not prove model quality.
 P67 does not promote experimental balance_state mode by default.
 P67 only establishes a same-run ingredient-level RADLADS-vs-QRWKV comparison
 on tiny/local fixtures.
+
+## P68 live same-run trace contract
+P68 adds `src/qrwkv_xla/parity/radlads_live_same_run_trace.py` and
+`scripts/run_live_same_run_update_trace.py` for strict-live trace generation
+under `artifacts/p68_live_same_run_trace/`. P68 rows carry
+`same_run_group_id`, deterministic `fixture_id`, deterministic `parameter_id`,
+fixture context, source stage, capture kind, shape, dtype, inline array, and
+summary fields.
+
+P68 does not use old P66/P67 rows as the source of truth. If a true live
+RADLADS hook is unavailable, P68 emits unavailable rows for critical stages,
+marks `same_run_valid: false`, and recommends only targeted live RADLADS trace
+hook completion. It does not recommend math fixes, promotion, Pallas work, or a
+residual-impact gate while strict-live validity or decay/log_w preconditions
+fail.
