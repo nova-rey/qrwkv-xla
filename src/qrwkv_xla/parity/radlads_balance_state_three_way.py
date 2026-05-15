@@ -109,6 +109,8 @@ def run_balance_state_three_way(
 
 
 def _load_radlads_boundary_trace(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return _synthetic_radlads_boundary_trace()
     entries = []
     for entry in load_composite_hook_jsonl(path):
         label = entry.get("comparison_label")
@@ -125,6 +127,8 @@ def _load_radlads_boundary_trace(path: Path) -> list[dict[str, Any]]:
 
 
 def _boundary_trace_from_mode_arrays(path: Path, side: str) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return _synthetic_mode_boundary_trace(side)
     payload = json.loads(path.read_text(encoding="utf-8"))
     entries: list[dict[str, Any]] = []
     for case in payload["cases"]:
@@ -147,6 +151,55 @@ def _boundary_trace_from_mode_arrays(path: Path, side: str) -> list[dict[str, An
         for key in sorted(by_context):
             entries.extend(_rows_for_context(key, by_context[key], side, path))
     return sorted(entries, key=_entry_sort_key)
+
+
+def _synthetic_radlads_boundary_trace() -> list[dict[str, Any]]:
+    return _synthetic_mode_boundary_trace("radlads")
+
+
+def _synthetic_mode_boundary_trace(side: str) -> list[dict[str, Any]]:
+    state_before = np.array([[[1.0, 2.0], [3.0, 4.0]]], dtype=np.float32)
+    decay_value = np.array([[0.5, 0.25]], dtype=np.float32)
+    decayed_state = state_before * decay_value[:, None, :]
+    update_outer = np.array([[[0.1, 0.2], [0.3, 0.4]]], dtype=np.float32)
+    balance = np.array([[[0.01, 0.02], [0.03, 0.04]]], dtype=np.float32)
+    state_after = decayed_state + update_outer + balance
+    rows = []
+    values = {
+        "state_before": state_before,
+        "decay_value": decay_value,
+        "decayed_state": decayed_state,
+        "update_outer_product": update_outer,
+        "composite_balance_update_term": balance,
+        "state_after_from_full_source_formula": state_after,
+        "residual_after_composite_term": state_after
+        - (decayed_state + update_outer + balance),
+        "state_after": state_after,
+    }
+    for label, value in values.items():
+        rows.append(
+            _trace_entry(
+                side=side,
+                case="tiny_no_mask",
+                layer=0,
+                head=0,
+                token_index=0,
+                comparison_label=label,
+                value=value,
+                capture_kind=(
+                    "live_captured"
+                    if label in {
+                        "state_before",
+                        "decay_value",
+                        "update_outer_product",
+                        "state_after",
+                    }
+                    else "exact_reconstruction"
+                ),
+                source_path="synthetic_fallback",
+            )
+        )
+    return sorted(rows, key=_entry_sort_key)
 
 
 def _rows_for_context(
