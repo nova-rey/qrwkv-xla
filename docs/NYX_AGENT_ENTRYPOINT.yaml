@@ -294,8 +294,8 @@ radlads_balance_state_three_way_parity:
     - no_pallas_no_tolerance_loosening_no_default_promotion
 
 radlads_live_same_run_update_trace:
-  phase: P69
-  status: p68_strict_live_harness_extended_missing_true_radlads_hook
+  phase: P71
+  status: p71_balance_prep_trace_extended_first_gap_k_k_unavailable
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   script: scripts/run_live_same_run_update_trace.py
   artifact_dir: artifacts/p68_live_same_run_trace
@@ -321,10 +321,31 @@ radlads_live_same_run_update_trace:
     - STAGE_AVAILABILITY_MATRIX.md
     - FIRST_DIFFERING_INGREDIENT.md
     - P68_DECISION.md
-  recommendation: P70 targeted live RADLADS pre_attention/k/v hook completion
+    - P70_RADLADS_HOOK_NOTE.md
+    - P71_BALANCE_PREP_HOOK_NOTE.md
+    - P71_FIX_NOTE.md
+  recommendation: P72 targeted live missing-stage hook completion
+  p70_minimum_stage_status:
+    same_run_valid: true
+    unavailable_minimum_stages: 0
+    live_rows_per_side: 240
+  p71_stretch_stage_names:
+    - v_first
+    - mixed_value
+    - iclr_update_rate
+    - k_k
+    - k_a
+    - kk
+    - k_for_update
+    - v_for_update
+    - ab
+    - balance_state_term
+    - composite_update_term
+  p71_first_remaining_gap: k_k
   caveats:
     - source_stage_name_preserved
     - missing_live_hooks_remain_explicit
     - old_p66_p67_rows_not_source_truth
-    - no_math_conclusion_without_live_tensors
+    - minimum_stage_validity_reported_separately_from_stretch_availability
+    - no_math_conclusion_while_stretch_rows_are_unavailable
     - no_pallas_no_tolerance_loosening_no_recurrence_math_change

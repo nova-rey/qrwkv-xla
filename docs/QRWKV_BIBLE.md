@@ -1317,3 +1317,30 @@ remain under `artifacts/p68_live_same_run_trace/` and include
 `P70_RADLADS_HOOK_NOTE.md`. P70 does not change recurrence math, implement
 Pallas, loosen tolerances, alter dtype policy, change deterministic fixture
 values, or promote experimental `balance_state` behavior.
+
+## Phase 71 — Live Balance-Prep Ingredient Hook Completion
+
+P71 extends the validated P70 live same-run trace beyond the minimum WKV update
+stages into balance-prep/update-prep ingredients. It targets `v_first`,
+`mixed_value`, `iclr_update_rate`, `k_k`, `k_a`, `kk`, `k_for_update`,
+`v_for_update`, `ab`, `balance_state_term`, and `composite_update_term`.
+
+The strict-live harness now distinguishes minimum-stage validity from stretch
+availability and full math-conclusion validity. It preserves P70 minimum-stage
+capture on RADLADS, QRWKV off, and QRWKV experimental sides, keeps same-run
+fixture/parameter identity checks, and only labels `balance_state_term` and
+`composite_update_term` as exact reconstructions when their same-side live
+ingredients are present in the same run/context.
+
+The regenerated `artifacts/p68_live_same_run_trace/` reports
+`same_run_valid=True`, zero unavailable minimum stages, and 240 live rows per
+side. The first remaining P71 gap is unavailable stretch stage `k_k`, so the
+decision is `P72 targeted live missing-stage hook completion`.
+
+P71 includes a local observe-only diagnostic capture fix in
+`RWKV7QwenReferenceStudent._attention`: `mixed_value`, `kk`,
+`k_for_update`, `v_for_update`, `ab`, and projection-path
+`iclr_update_rate` are emitted under their P71 ingredient names. It does not
+change recurrence math, dtype policy, tolerances, Pallas/kernel code, real
+training behavior, RADLADS upstream/vendor code, or default balance-state
+promotion.

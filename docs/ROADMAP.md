@@ -621,3 +621,30 @@ P69 is instrumentation only. It does not add Pallas, TPU optimization,
 recurrence math changes, tolerance loosening, training changes, balance-state
 default promotion, RADLADS upstream edits, residual/kernel readiness claims, or
 math conclusions without live tensors.
+
+## Phase 71 — Live Balance-Prep Ingredient Trace
+Goal: extend the validated strict-live same-run trace beyond P70 minimum WKV
+update stages into balance-prep/update-prep ingredients without changing
+recurrence math.
+
+Checkpoints:
+- P71A: normalize P71 target stage names and aliases while preserving source
+  names
+- P71B: emit observe-only QRWKV/RADLADS rows for available balance-prep
+  ingredients
+- P71C: exact-reconstruct only `balance_state_term` and
+  `composite_update_term` from same-side same-run live inputs
+- P71D: split reports into minimum-stage validity, stretch-stage availability,
+  and math-conclusion validity
+
+Current checkpoint: `live_balance_prep_ingredient_trace`.
+
+The regenerated P71 artifact keeps `same_run_valid=True`, preserves all P70
+minimum stages on all three sides, captures 240 live rows per side, and stops
+at unavailable stretch stage `k_k`. The next phase is `P72 targeted live
+missing-stage hook completion`.
+
+P71 is observe-only hook completion plus a local diagnostic capture-label fix.
+It does not add Pallas, TPU optimization, real training, recurrence math
+changes, tolerance loosening, RADLADS upstream/vendor edits, or default
+balance-state promotion.

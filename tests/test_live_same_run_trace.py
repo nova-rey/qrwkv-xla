@@ -12,6 +12,7 @@ from qrwkv_xla.parity.radlads_live_same_run_trace import (
     DEPENDENCY_ORDER,
     LIVE_SAME_RUN_TRACE_SCHEMA,
     MINIMUM_STAGES,
+    P71_STRETCH_STAGES,
     LiveTraceCollector,
     _capture_radlads_case,
     build_live_same_run_trace,
@@ -94,11 +95,15 @@ def _minimal_source(
         "iclr_update_rate": [[0.1, 0.2]],
         "k_k": [[0.01, 0.02]],
         "k_a": [[0.03, 0.04]],
+        "kk": [[0.05, 0.06]],
+        "k_for_update": [[1.0 + k_delta, 2.0]],
+        "v_for_update": [[3.0, 4.0]],
         "low_rank_decay": [[-1.0 + decay_delta, -2.0]],
         "decay_applied_weights": decay,
         "wkv_state_before": matrix,
         "wkv_decay_applied": matrix * decay[:, None, :],
         "wkv_update_outer_or_term": matrix + 0.01,
+        "ab": matrix + 0.015,
         "balance_state_term": matrix + 0.02,
         "composite_update_term": matrix + 0.03,
         "wkv_state_after": matrix + 0.04,
@@ -352,6 +357,7 @@ def test_radlads_live_capture_path_appends_minimum_rows(tmp_path: Path) -> None:
         "wkv_update_outer_or_term",
         "wkv_state_after",
     }.issubset({row["source_stage_name"] for row in collector.entries})
+    assert {"mixed_value", "kk", "k_for_update", "v_for_update", "ab"} & stages
 
 
 def test_minimum_stages_are_counted_separately_from_stretch() -> None:
@@ -411,7 +417,7 @@ def test_unavailable_critical_stage_invalidates() -> None:
     assert report["same_run_validity"]["critical_availability"]["status"] == "fail"
     assert (
         report["recommended_next_phase"]
-        == "P71 targeted live RADLADS missing-stage hook completion"
+        == "P72 targeted live missing-stage hook completion"
     )
     assert report["unavailable_minimum_stages"]
     assert report["unavailable_minimum_stages"][0]["reason"].startswith(
@@ -438,6 +444,210 @@ def test_first_difference_uses_dependency_order() -> None:
     )
     assert report["first_divergent_stage"] == "raw_k"
     assert report["first_divergent_dependency_index"] == DEPENDENCY_ORDER.index("raw_k")
+
+
+def test_p71_stretch_stage_normalization_preserves_source_stage_name() -> None:
+    collector = LiveTraceCollector(
+        same_run_group_id="group-a",
+        fixture_id="fixture-a",
+        parameter_id="parameter-a",
+        case="tiny_no_mask",
+        side="qrwkv_off",
+    )
+
+    collector.record(
+        "k",
+        np.array([[[1.0, 2.0]]], dtype=np.float32),
+        layer=0,
+        token=0,
+        stage="k_after_balance",
+    )
+
+    assert collector.entries[0]["stage"] == "k_for_update"
+    assert collector.entries[0]["source_stage_name"] == "k_after_balance"
+    assert collector.entries[0]["head"] == 0
+
+
+def test_p71_stretch_rows_are_classified_separately() -> None:
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata=_metadata(),
+        strict_live=True,
+    )
+
+    assert set(report["stretch_stage_availability"]) == set(P71_STRETCH_STAGES)
+    assert "v_first" in report["stretch_stage_availability"]
+    assert "mixed_value" in report["stretch_stage_availability"]
+    assert "v_first" not in report["minimum_stage_availability"]
+    assert report["minimum_stage_valid"] is True
+
+
+def test_k_and_v_for_update_are_not_reconstructed() -> None:
+    contexts = [("tiny_no_mask", None, 0, 0, 0)]
+    source = [
+        row
+        for row in _minimal_source("radlads")
+        if row["stage"] not in {"k_for_update", "v_for_update"}
+    ]
+
+    rows = build_live_same_run_trace(
+        source,
+        side="radlads",
+        same_run_group_id="group-a",
+        fixture_id="fixture-a",
+        parameter_id="parameter-a",
+        contexts=contexts,
+    )
+
+    assert (
+        next(row for row in rows if row["stage"] == "k_for_update")["capture_kind"]
+        == "unavailable"
+    )
+    assert (
+        next(row for row in rows if row["stage"] == "v_for_update")["capture_kind"]
+        == "unavailable"
+    )
+
+
+def test_balance_terms_use_exact_reconstruction_from_live_inputs() -> None:
+    contexts = [("tiny_no_mask", None, 0, 0, 0)]
+    source = [
+        row
+        for row in _minimal_source("radlads")
+        if row["stage"] not in {"balance_state_term", "composite_update_term"}
+    ]
+
+    rows = build_live_same_run_trace(
+        source,
+        side="radlads",
+        same_run_group_id="group-a",
+        fixture_id="fixture-a",
+        parameter_id="parameter-a",
+        contexts=contexts,
+    )
+
+    balance = next(row for row in rows if row["stage"] == "balance_state_term")
+    composite = next(row for row in rows if row["stage"] == "composite_update_term")
+    assert balance["capture_kind"] == "exact_reconstruction"
+    assert composite["capture_kind"] == "exact_reconstruction"
+    assert {item["stage"] for item in composite["reconstruction_sources"]} == {
+        "wkv_state_before",
+        "ab",
+        "wkv_update_outer_or_term",
+    }
+
+
+def test_balance_term_reconstruction_requires_live_ab() -> None:
+    contexts = [("tiny_no_mask", None, 0, 0, 0)]
+    source = [
+        row
+        for row in _minimal_source("radlads")
+        if row["stage"] not in {"ab", "balance_state_term"}
+    ]
+
+    rows = build_live_same_run_trace(
+        source,
+        side="radlads",
+        same_run_group_id="group-a",
+        fixture_id="fixture-a",
+        parameter_id="parameter-a",
+        contexts=contexts,
+    )
+
+    assert (
+        next(row for row in rows if row["stage"] == "balance_state_term")[
+            "capture_kind"
+        ]
+        == "unavailable"
+    )
+
+
+def test_unavailable_stretch_does_not_invalidate_minimum_but_blocks_math() -> None:
+    contexts = [("tiny_no_mask", None, 0, 0, 0)]
+    traces = {}
+    for side in ("radlads", "qrwkv_off", "qrwkv_experimental"):
+        traces[side] = build_live_same_run_trace(
+            [row for row in _minimal_source(side) if row["stage"] != "kk"],
+            side=side,
+            same_run_group_id="group-a",
+            fixture_id="fixture-a",
+            parameter_id="parameter-a",
+            contexts=contexts,
+        )
+
+    report = compare_live_same_run_traces(
+        traces=traces,
+        metadata=_metadata(),
+        strict_live=True,
+    )
+
+    assert report["same_run_valid"] is True
+    assert report["minimum_stage_valid"] is True
+    assert report["stretch_stages_available"] is False
+    assert report["math_conclusion_valid"] is False
+    assert report["first_divergent_stage"] == "kk"
+    assert report["recommended_next_phase"] == (
+        "P72 targeted live missing-stage hook completion"
+    )
+
+
+def test_first_live_mismatch_in_k_for_update_recommends_balance_prep_fix() -> None:
+    traces = _traces()
+    for row in traces["qrwkv_off"]:
+        if row["stage"] == "k_for_update":
+            row["array"] = (np.asarray(row["array"]) + 1.0).tolist()
+            break
+
+    report = compare_live_same_run_traces(
+        traces=traces,
+        metadata=_metadata(),
+        strict_live=True,
+    )
+
+    assert report["first_divergent_stage"] == "k_for_update"
+    assert (
+        report["recommended_next_phase"]
+        == "P72 targeted k_for_update/v_for_update balance-prep fix"
+    )
+
+
+def test_first_live_mismatch_in_kk_recommends_construction_fix() -> None:
+    traces = _traces()
+    for row in traces["qrwkv_off"]:
+        if row["stage"] == "kk":
+            row["array"] = (np.asarray(row["array"]) + 1.0).tolist()
+            break
+
+    report = compare_live_same_run_traces(
+        traces=traces,
+        metadata=_metadata(),
+        strict_live=True,
+    )
+
+    assert report["first_divergent_stage"] == "kk"
+    assert (
+        report["recommended_next_phase"] == "P72 targeted kk/k_k/k_a construction fix"
+    )
+
+
+def test_first_live_mismatch_in_ab_recommends_ab_fix() -> None:
+    traces = _traces()
+    for row in traces["qrwkv_off"]:
+        if row["stage"] == "ab":
+            row["array"] = (np.asarray(row["array"]) + 1.0).tolist()
+            break
+
+    report = compare_live_same_run_traces(
+        traces=traces,
+        metadata=_metadata(),
+        strict_live=True,
+    )
+
+    assert report["first_divergent_stage"] == "ab"
+    assert (
+        report["recommended_next_phase"]
+        == "P72 targeted ab construction/orientation fix"
+    )
 
 
 def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:

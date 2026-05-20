@@ -940,14 +940,15 @@ class RWKV7QwenReferenceStudent:
             v = rwkv7_qwen_reference_group_kv(v, num_heads=num_heads)
             v_flat = v.reshape(batch_size, hidden)
             next_v_first = v_flat
-            _diag_record(
-                diagnostics,
-                f"layers.{layer_index}.self_attn.v_first",
-                token_v_first,
-                stage="v_first",
-                layer=layer_index,
-                time_index=time_index,
-            )
+            if token_v_first is not None:
+                _diag_record(
+                    diagnostics,
+                    f"layers.{layer_index}.self_attn.v_first",
+                    token_v_first.reshape(batch_size, num_heads, head_size),
+                    stage="v_first",
+                    layer=layer_index,
+                    time_index=time_index,
+                )
             if self.config.use_radlads_value_residual_mix and layer_index > 0:
                 v_low_rank = low_rank(token, "v", time_index=time_index)
                 v_mix = jax.nn.sigmoid(v_low_rank)
@@ -955,14 +956,30 @@ class RWKV7QwenReferenceStudent:
                     diagnostics,
                     f"layers.{layer_index}.self_attn.v_mix",
                     v_mix,
-                    stage="mixed_value",
+                    stage="value_residual_mix_rate",
                     layer=layer_index,
                     time_index=time_index,
                 )
                 v_flat = v_flat + (token_v_first - v_flat) * v_mix
                 v = v_flat.reshape(batch_size, num_heads, head_size)
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.mixed_value",
+                v,
+                stage="mixed_value",
+                layer=layer_index,
+                time_index=time_index,
+            )
             token_mask_state = token_mask.reshape(batch_size, 1, 1)
             v = v * token_mask_state
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.v_for_update",
+                v,
+                stage="v_for_update",
+                layer=layer_index,
+                time_index=time_index,
+            )
             if self.config.use_radlads_low_rank_decay:
                 w = low_rank(token, "w", time_index=time_index).reshape(
                     batch_size,
@@ -1000,6 +1017,14 @@ class RWKV7QwenReferenceStudent:
             else:
                 a = jax.nn.sigmoid(
                     project(mixed, "a", num_heads, time_index=time_index)
+                )
+                _diag_record(
+                    diagnostics,
+                    f"layers.{layer_index}.self_attn.iclr_update_rate",
+                    a,
+                    stage="iclr_update_rate",
+                    layer=layer_index,
+                    time_index=time_index,
                 )
             b = project(mixed, "b", num_heads, time_index=time_index)
             if self.config.use_radlads_low_rank_gate:
@@ -1049,23 +1074,31 @@ class RWKV7QwenReferenceStudent:
                         num_heads,
                         head_size,
                     )
+                    _diag_record(
+                        diagnostics,
+                        f"layers.{layer_index}.self_attn.k_k_factor",
+                        jnp.broadcast_to(k_k[None, :, :], (batch_size, *k_k.shape)),
+                        stage="k_k",
+                        layer=layer_index,
+                        time_index=time_index,
+                    )
+                    _diag_record(
+                        diagnostics,
+                        f"layers.{layer_index}.self_attn.k_a_factor",
+                        jnp.broadcast_to(k_a[None, :, :], (batch_size, *k_a.shape)),
+                        stage="k_a",
+                        layer=layer_index,
+                        time_index=time_index,
+                    )
                     kk = _l2_normalize(k * k_k[None, :, :])
                     k = k * (1.0 + (a - 1.0) * k_a[None, :, :])
             else:
                 kk = _l2_normalize(k)
             _diag_record(
                 diagnostics,
-                f"layers.{layer_index}.self_attn.k_k",
+                f"layers.{layer_index}.self_attn.kk",
                 kk,
-                stage="k_k",
-                layer=layer_index,
-                time_index=time_index,
-            )
-            _diag_record(
-                diagnostics,
-                f"layers.{layer_index}.self_attn.k_a",
-                k,
-                stage="k_a",
+                stage="kk",
                 layer=layer_index,
                 time_index=time_index,
             )
@@ -1096,11 +1129,27 @@ class RWKV7QwenReferenceStudent:
                 and self.config.radlads_balance_state
             ):
                 k = k * (1.0 - decay + a)
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.k_for_update",
+                k,
+                stage="k_for_update",
+                layer=layer_index,
+                time_index=time_index,
+            )
             vk = jnp.einsum("bhi,bhj->bhij", v, k)
             if self.config.radlads_replay_mode:
                 ab = jnp.einsum("bhi,bhj->bhij", -kk, kk * a)
             else:
                 ab = jnp.einsum("bhi,bhj->bhij", -kk, kk * a + b)
+            _diag_record(
+                diagnostics,
+                f"layers.{layer_index}.self_attn.ab",
+                ab,
+                stage="ab",
+                layer=layer_index,
+                time_index=time_index,
+            )
             _diag_record(
                 diagnostics,
                 f"layers.{layer_index}.self_attn.initial_matrix_state",

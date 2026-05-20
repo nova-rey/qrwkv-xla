@@ -52,14 +52,106 @@ STRETCH_STAGE_NORMALIZATION = {
     for stage in P67_DEPENDENCY_ORDER
     if stage not in MINIMUM_STAGE_NORMALIZATION
 }
-STAGE_NORMALIZATION = MINIMUM_STAGE_NORMALIZATION | STRETCH_STAGE_NORMALIZATION
-DEPENDENCY_ORDER = tuple(
-    STAGE_NORMALIZATION.get(stage, stage) for stage in P67_DEPENDENCY_ORDER
+P71_STAGE_NORMALIZATION = {
+    "v_first": "v_first",
+    "value_before_v_first_mix": "v_first",
+    "mixed_value": "mixed_value",
+    "value_after_v_first_mix": "mixed_value",
+    "v_after_v_first_mix": "mixed_value",
+    "iclr_update_rate": "iclr_update_rate",
+    "a": "iclr_update_rate",
+    "a_or_iclr_after_transform": "iclr_update_rate",
+    "k_k": "k_k",
+    "kk_neg": "k_k",
+    "k_k_after_transform": "k_k",
+    "k_a": "k_a",
+    "kk_a": "k_a",
+    "k_a_after_transform": "k_a",
+    "kk": "kk",
+    "kk_normalized": "kk",
+    "k_normalized_for_ab": "kk",
+    "k_for_update": "k_for_update",
+    "k_after_balance": "k_for_update",
+    "k_for_vk": "k_for_update",
+    "v_for_update": "v_for_update",
+    "v_for_vk": "v_for_update",
+    "value_for_update": "v_for_update",
+    "ab": "ab",
+    "ab_matrix": "ab",
+    "balance_ab": "ab",
+    "balance_state_term": "balance_state_term",
+    "prev_state_at_ab": "balance_state_term",
+    "prev_state_matmul_ab": "balance_state_term",
+    "balance_composite_term": "balance_state_term",
+    "composite_update_term": "composite_update_term",
+    "final_update_term": "composite_update_term",
+}
+STAGE_NORMALIZATION = (
+    MINIMUM_STAGE_NORMALIZATION | STRETCH_STAGE_NORMALIZATION | P71_STAGE_NORMALIZATION
+)
+DEPENDENCY_ORDER = (
+    "pre_attention_norm",
+    "raw_k",
+    "raw_v",
+    "v_first",
+    "mixed_value",
+    "iclr_update_rate",
+    "k_k",
+    "k_a",
+    "kk",
+    "k_for_update",
+    "v_for_update",
+    "decay_log_w",
+    "decay_value",
+    "prev_state",
+    "wkv_decay_applied",
+    "vk",
+    "ab",
+    "balance_state_term",
+    "composite_update_term",
+    "state_after_live",
+    "state_after_exported",
 )
 SOURCE_STAGE_MAP = {
     STAGE_NORMALIZATION.get(stage, stage): aliases
     for stage, aliases in P67_SOURCE_STAGE_MAP.items()
 }
+SOURCE_STAGE_MAP.update(
+    {
+        "v_first": ("v_first", "value_before_v_first_mix"),
+        "mixed_value": (
+            "mixed_value",
+            "value_after_v_first_mix",
+            "v_after_v_first_mix",
+        ),
+        "iclr_update_rate": (
+            "iclr_update_rate",
+            "a",
+            "a_or_iclr_after_transform",
+        ),
+        "k_k": ("k_k", "kk_neg", "k_k_after_transform"),
+        "k_a": ("k_a", "kk_a", "k_a_after_transform"),
+        "kk": ("kk", "kk_normalized", "k_normalized_for_ab"),
+        "k_for_update": ("k_for_update", "k_after_balance", "k_for_vk"),
+        "v_for_update": ("v_for_update", "v_for_vk", "value_for_update"),
+        "ab": ("ab", "ab_matrix", "balance_ab"),
+        "balance_state_term": (
+            "balance_state_term",
+            "prev_state_at_ab",
+            "prev_state_matmul_ab",
+            "balance_composite_term",
+            "composite_balance_update_term",
+            "balance_state_matmul",
+            "wkv_balance_state_matmul",
+            "wkv_composite_balance_update_term",
+        ),
+        "composite_update_term": (
+            "composite_update_term",
+            "final_update_term",
+            "state_after_from_full_source_formula",
+        ),
+    }
+)
 SOURCE_STAGE_MAP["prev_state"] = (
     *SOURCE_STAGE_MAP["prev_state"],
     "initial_matrix_state",
@@ -67,21 +159,35 @@ SOURCE_STAGE_MAP["prev_state"] = (
 SOURCE_STAGE_MAP["vk"] = (*SOURCE_STAGE_MAP["vk"], "update_term")
 MINIMUM_STAGES = tuple(MINIMUM_STAGE_NORMALIZATION.values())
 CRITICAL_STAGES = MINIMUM_STAGES
+P71_STRETCH_STAGES = (
+    "v_first",
+    "mixed_value",
+    "iclr_update_rate",
+    "k_k",
+    "k_a",
+    "kk",
+    "k_for_update",
+    "v_for_update",
+    "ab",
+    "balance_state_term",
+    "composite_update_term",
+)
+AVAILABLE_CAPTURE_KINDS = {"live_captured", "exact_reconstruction"}
 BALANCE_STATE_CONFIG_KEYS = {
     "radlads_balance_state",
     "radlads_balance_state_terms",
     "use_radlads_balance_state_terms",
 }
-P71_RADLADS_HOOK_COMPLETION = "P71 targeted live RADLADS missing-stage hook completion"
-P71_QRWKV_HOOK_COMPLETION = "P71 targeted live QRWKV missing-stage hook completion"
-P71_DECAY_REPAIR = "P71 targeted live decay/log_w hook repair"
-P71_RAW_KV_FIX = "P71 targeted raw_k/raw_v projection fix"
-P71_BALANCE_PREP_FIX = "P71 targeted k_for_update/v_for_update balance-prep fix"
-P71_AB_FIX = "P71 targeted kk/a/b/ab construction fix"
-P71_VK_FIX = "P71 targeted vk/outer-product orientation fix"
-P71_STATE_AFTER_FIX = "P71 targeted state_after assembly/dtype fix"
-P71_BALANCE_STATE_HARDEN = "P71 harden/promote balance-state compatibility path"
-P71_RESIDUAL_GATE = "P71 residual-impact / kernel-readiness gate"
+P72_HOOK_COMPLETION = "P72 targeted live missing-stage hook completion"
+P72_V_FIRST_FIX = "P72 targeted v_first/mixed_value hook or formula repair"
+P72_BALANCE_PREP_FIX = "P72 targeted k_for_update/v_for_update balance-prep fix"
+P72_KK_FIX = "P72 targeted kk/k_k/k_a construction fix"
+P72_ICLR_FIX = "P72 targeted iclr_update_rate/a construction fix"
+P72_AB_FIX = "P72 targeted ab construction/orientation fix"
+P72_VK_FIX = "P72 targeted vk/outer-product orientation fix"
+P72_STATE_AFTER_FIX = "P72 targeted state_after assembly/dtype fix"
+P72_RESIDUAL_GATE = "P72 residual-impact / kernel-readiness gate"
+P72_PALLAS = "P72 Pallas prototype behind known-caveat flag"
 
 
 class LiveTraceCollector:
@@ -152,7 +258,7 @@ class LiveTraceCollector:
             return
         if (
             head is None
-            and normalized_stage in MINIMUM_STAGES
+            and normalized_stage in (*MINIMUM_STAGES, *P71_STRETCH_STAGES)
             and array.ndim >= 3
             and array.shape[1] > 0
         ):
@@ -302,6 +408,19 @@ def build_live_same_run_trace(
         for dependency_index, stage in enumerate(DEPENDENCY_ORDER):
             source = _source_for_stage(by_stage, stage)
             if source is None:
+                reconstructed = _exact_reconstruction_for_stage(
+                    by_stage,
+                    side=side,
+                    context=context,
+                    stage=stage,
+                    dependency_index=dependency_index,
+                    same_run_group_id=same_run_group_id,
+                    fixture_id=fixture_id,
+                    parameter_id=parameter_id,
+                )
+                if reconstructed is not None:
+                    output.append(reconstructed)
+                    continue
                 output.append(
                     _unavailable_row(
                         side=side,
@@ -351,11 +470,21 @@ def compare_live_same_run_traces(
     live_counts = _live_row_counts(traces)
     minimum_availability = _minimum_stage_availability(traces)
     unavailable_minimum = _unavailable_minimum_stages(traces)
+    stretch_availability = _stretch_stage_availability(traces)
+    unavailable_stretch = _unavailable_stretch_stages(traces)
+    minimum_stage_valid = not unavailable_minimum
+    stretch_stages_available = not unavailable_stretch
     same_run_valid = (
         (not strict_live or identity["status"] == "pass")
         and config["status"] == "pass"
         and unavailable["status"] == "pass"
         and decay["status"] == "pass"
+    )
+    math_conclusion_valid = bool(
+        same_run_valid
+        and minimum_stage_valid
+        and stretch_stages_available
+        and (first is None or not _row_has_unavailable(first))
     )
     recommendation = _recommendation(
         same_run_valid=same_run_valid,
@@ -407,7 +536,12 @@ def compare_live_same_run_traces(
         "live_rows_captured_qrwkv_off": live_counts["qrwkv_off"],
         "live_rows_captured_qrwkv_experimental": live_counts["qrwkv_experimental"],
         "minimum_stage_availability": minimum_availability,
+        "minimum_stage_valid": minimum_stage_valid,
         "unavailable_minimum_stages": unavailable_minimum,
+        "stretch_stage_availability": stretch_availability,
+        "stretch_stages_available": stretch_stages_available,
+        "unavailable_stretch_stages": unavailable_stretch,
+        "math_conclusion_valid": math_conclusion_valid,
         "unavailable_rows": sum(
             1
             for side in SIDES
@@ -426,6 +560,12 @@ def compare_live_same_run_traces(
         if first is None
         else first["dependency_index"],
         "first_divergent_status": None if first is None else _row_status(first),
+        "first_divergent_capture_kind": None
+        if first is None
+        else _row_capture_kind(first),
+        "first_divergent_samples": None
+        if first is None
+        else _first_samples(first, traces),
         "first_divergent_max_abs_error": None if first is None else _first_error(first),
         "first_differing_ingredient_overall": None if first is None else first["stage"],
         "primary_remaining_gap": None if first is None else _primary_gap(first),
@@ -599,6 +739,12 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
     )
     (out_dir / "P70_RADLADS_HOOK_NOTE.md").write_text(
         _p70_hook_note_markdown(report), encoding="utf-8"
+    )
+    (out_dir / "P71_BALANCE_PREP_HOOK_NOTE.md").write_text(
+        _p71_hook_note_markdown(report), encoding="utf-8"
+    )
+    (out_dir / "P71_FIX_NOTE.md").write_text(
+        _p71_fix_note_markdown(report), encoding="utf-8"
     )
     if not report.get("same_run_valid"):
         (out_dir / "P68_FIX_NOTE.md").write_text(
@@ -918,6 +1064,89 @@ def _source_for_stage(
     return None
 
 
+def _exact_reconstruction_for_stage(
+    by_stage: Mapping[str, list[dict[str, Any]]],
+    *,
+    side: str,
+    context: tuple[str, str | None, int | None, int | None, int | None],
+    stage: str,
+    dependency_index: int,
+    same_run_group_id: str,
+    fixture_id: str,
+    parameter_id: str,
+) -> dict[str, Any] | None:
+    if stage == "balance_state_term":
+        prev_state = _live_source_for_stage(by_stage, "prev_state")
+        ab = _live_source_for_stage(by_stage, "ab")
+        if prev_state is None or ab is None:
+            return None
+        value = np.asarray(prev_state["array"]) @ np.asarray(ab["array"])
+        sources = (prev_state, ab)
+    elif stage == "composite_update_term":
+        prev_state = _live_source_for_stage(by_stage, "prev_state")
+        ab = _live_source_for_stage(by_stage, "ab")
+        vk = _live_source_for_stage(by_stage, "vk")
+        if prev_state is None or ab is None or vk is None:
+            return None
+        value = np.asarray(prev_state["array"]) @ np.asarray(ab["array"])
+        value = value + np.asarray(vk["array"])
+        sources = (prev_state, ab, vk)
+    elif stage == "state_after_from_formula":
+        decayed = _live_source_for_stage(by_stage, "wkv_decay_applied")
+        prev_state = _live_source_for_stage(by_stage, "prev_state")
+        ab = _live_source_for_stage(by_stage, "ab")
+        vk = _live_source_for_stage(by_stage, "vk")
+        if decayed is None or prev_state is None or ab is None or vk is None:
+            return None
+        value = (
+            np.asarray(decayed["array"])
+            + np.asarray(prev_state["array"]) @ np.asarray(ab["array"])
+            + np.asarray(vk["array"])
+        )
+        sources = (decayed, prev_state, ab, vk)
+    else:
+        return None
+    source = sources[0]
+    row = _available_row(
+        {
+            **source,
+            "stage": stage,
+            "source_stage_name": stage,
+            "capture_kind": "exact_reconstruction",
+            "array": value.tolist(),
+            "shape": list(value.shape),
+            "dtype": str(value.dtype),
+            "live_config": source.get("live_config"),
+        },
+        side=side,
+        stage=stage,
+        dependency_index=dependency_index,
+        same_run_group_id=same_run_group_id,
+        fixture_id=fixture_id,
+        parameter_id=parameter_id,
+    )
+    row["reconstruction_sources"] = [
+        {
+            "stage": item.get("stage"),
+            "source_stage_name": item.get("source_stage_name"),
+            "capture_kind": item.get("capture_kind"),
+        }
+        for item in sources
+    ]
+    row["case"], row["mode"], row["layer"], row["token"], row["head"] = context
+    row["token_index"] = context[3]
+    return row
+
+
+def _live_source_for_stage(
+    by_stage: Mapping[str, list[dict[str, Any]]], stage: str
+) -> dict[str, Any] | None:
+    source = _source_for_stage(by_stage, stage)
+    if source is None or source.get("capture_kind") != "live_captured":
+        return None
+    return source
+
+
 def _available_row(
     source: Mapping[str, Any],
     *,
@@ -1061,8 +1290,8 @@ def _compare_pair(
         or right is None
         or left.get("array") is None
         or right.get("array") is None
-        or left.get("capture_kind") != "live_captured"
-        or right.get("capture_kind") != "live_captured"
+        or left.get("capture_kind") not in AVAILABLE_CAPTURE_KINDS
+        or right.get("capture_kind") not in AVAILABLE_CAPTURE_KINDS
     ):
         return {
             "status": "unavailable",
@@ -1152,7 +1381,7 @@ def _validate_critical_availability(
         for side in SIDES
         for row in traces.get(side, [])
         if row.get("stage") in CRITICAL_STAGES
-        and row.get("capture_kind") != "live_captured"
+        and row.get("capture_kind") not in AVAILABLE_CAPTURE_KINDS
     ]
     return {
         "status": "pass" if not missing else "fail",
@@ -1178,7 +1407,8 @@ def _minimum_stage_availability(
     return {
         stage: {
             side: any(
-                row.get("stage") == stage and row.get("capture_kind") == "live_captured"
+                row.get("stage") == stage
+                and row.get("capture_kind") in AVAILABLE_CAPTURE_KINDS
                 for row in traces.get(side, [])
             )
             for side in SIDES
@@ -1204,7 +1434,44 @@ def _unavailable_minimum_stages(
         for side in SIDES
         for row in traces.get(side, [])
         if row.get("stage") in MINIMUM_STAGES
-        and row.get("capture_kind") != "live_captured"
+        and row.get("capture_kind") not in AVAILABLE_CAPTURE_KINDS
+    ]
+
+
+def _stretch_stage_availability(
+    traces: Mapping[str, list[dict[str, Any]]],
+) -> dict[str, dict[str, bool]]:
+    return {
+        stage: {
+            side: any(
+                row.get("stage") == stage
+                and row.get("capture_kind") in AVAILABLE_CAPTURE_KINDS
+                for row in traces.get(side, [])
+            )
+            for side in SIDES
+        }
+        for stage in P71_STRETCH_STAGES
+    }
+
+
+def _unavailable_stretch_stages(
+    traces: Mapping[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "side": side,
+            "stage": row.get("stage"),
+            "case": row.get("case"),
+            "mode": row.get("mode"),
+            "layer": row.get("layer"),
+            "token": row.get("token"),
+            "head": row.get("head"),
+            "reason": row.get("reason"),
+        }
+        for side in SIDES
+        for row in traces.get(side, [])
+        if row.get("stage") in P71_STRETCH_STAGES
+        and row.get("capture_kind") not in AVAILABLE_CAPTURE_KINDS
     ]
 
 
@@ -1243,41 +1510,36 @@ def _recommendation(
     first: Mapping[str, Any] | None,
 ) -> str:
     if same_run_valid and first is None:
-        return P71_RESIDUAL_GATE
+        return P72_RESIDUAL_GATE
     if identity["status"] != "pass":
-        return P71_QRWKV_HOOK_COMPLETION
+        return P72_HOOK_COMPLETION
     if config["status"] != "pass":
-        return P71_BALANCE_STATE_HARDEN
+        return P72_HOOK_COMPLETION
     if unavailable["status"] != "pass":
-        missing = unavailable.get("missing", [])
-        sides = {row.get("side") for row in missing}
-        stages = {row.get("stage") for row in missing}
-        if "radlads" in sides:
-            return P71_RADLADS_HOOK_COMPLETION
-        if not sides.isdisjoint({"qrwkv_off", "qrwkv_experimental"}):
-            if stages & {"decay_log_w", "decay_value"}:
-                return P71_DECAY_REPAIR
-            if stages & {"prev_state", "vk", "state_after_live"}:
-                return P71_QRWKV_HOOK_COMPLETION
-            return P71_QRWKV_HOOK_COMPLETION
-        return P71_RADLADS_HOOK_COMPLETION
+        return P72_HOOK_COMPLETION
     if decay["status"] != "pass":
-        return P71_DECAY_REPAIR
+        return P72_HOOK_COMPLETION
     if first is not None:
         stage = first.get("stage")
-        if stage in {"raw_k", "raw_v"}:
-            return P71_RAW_KV_FIX
-        if stage in {"v_first", "mixed_value", "k_a", "k_k"}:
-            return P71_BALANCE_PREP_FIX
-        if stage in {"a_or_iclr_after_transform", "ab"}:
-            return P71_AB_FIX
+        if _row_has_unavailable(first):
+            return P72_HOOK_COMPLETION
+        if stage in {"v_first", "mixed_value"}:
+            return P72_V_FIRST_FIX
+        if stage in {"k_for_update", "v_for_update"}:
+            return P72_BALANCE_PREP_FIX
+        if stage in {"kk", "k_k", "k_a"}:
+            return P72_KK_FIX
+        if stage == "iclr_update_rate":
+            return P72_ICLR_FIX
+        if stage == "ab":
+            return P72_AB_FIX
         if stage == "vk":
-            return P71_VK_FIX
+            return P72_VK_FIX
         if stage == "state_after_live":
-            return P71_STATE_AFTER_FIX
+            return P72_STATE_AFTER_FIX
     if same_run_valid:
-        return P71_RESIDUAL_GATE
-    return P71_RADLADS_HOOK_COMPLETION
+        return P72_RESIDUAL_GATE
+    return P72_HOOK_COMPLETION
 
 
 def _contexts_from_manifest(
@@ -1345,6 +1607,49 @@ def _row_status(row: Mapping[str, Any]) -> str:
         row["qrwkv_off_vs_qrwkv_experimental"]["status"],
     }
     return "pass" if statuses == {"pass"} else "fail"
+
+
+def _row_has_unavailable(row: Mapping[str, Any]) -> bool:
+    return any(
+        row[name]["status"] == "unavailable"
+        for name in (
+            "radlads_vs_qrwkv_off",
+            "radlads_vs_qrwkv_experimental",
+            "qrwkv_off_vs_qrwkv_experimental",
+        )
+    )
+
+
+def _row_capture_kind(row: Mapping[str, Any]) -> str:
+    kinds = [
+        row.get("radlads_capture_kind"),
+        row.get("qrwkv_off_capture_kind"),
+        row.get("qrwkv_experimental_capture_kind"),
+    ]
+    if any(kind in {None, "unavailable"} for kind in kinds):
+        return "unavailable"
+    return ",".join(str(kind) for kind in kinds)
+
+
+def _first_samples(
+    first: Mapping[str, Any], traces: Mapping[str, list[dict[str, Any]]]
+) -> dict[str, Any]:
+    samples = {}
+    key = (
+        first.get("case"),
+        first.get("mode"),
+        first.get("layer"),
+        first.get("token"),
+        first.get("head"),
+        first.get("stage"),
+    )
+    for side in SIDES:
+        row = next(
+            (item for item in traces.get(side, []) if _trace_key(item) == key),
+            None,
+        )
+        samples[side] = None if row is None else row.get("summary", {}).get("sample")
+    return samples
 
 
 def _first_error(row: Mapping[str, Any]) -> float | None:
@@ -1487,9 +1792,28 @@ def _fmt(value: Any) -> str:
     return str(value)
 
 
+def _source_backed_interpretation(report: Mapping[str, Any]) -> str:
+    if not report.get("same_run_valid"):
+        return "strict-live identity/config/minimum preconditions failed"
+    if not report.get("minimum_stage_valid"):
+        return "minimum live stage regression"
+    if not report.get("stretch_stages_available"):
+        return "stretch stage unavailable; hook completion required"
+    if not report.get("math_conclusion_valid"):
+        return "first differing row is unavailable"
+    stage = report.get("first_divergent_stage")
+    if stage is None:
+        return "all captured ingredients match"
+    return f"live same-run mismatch at {stage}"
+
+
 def _results_markdown(report: Mapping[str, Any]) -> str:
-    availability = json.dumps(
+    minimum_availability = json.dumps(
         report.get("minimum_stage_availability", {}),
+        sort_keys=True,
+    )
+    stretch_availability = json.dumps(
+        report.get("stretch_stage_availability", {}),
         sort_keys=True,
     )
     return "\n".join(
@@ -1497,14 +1821,21 @@ def _results_markdown(report: Mapping[str, Any]) -> str:
             "# P68 Results",
             "",
             f"- Status: `{report['overall_status']}`",
-            f"- Rows compared: `{report['row_count']}`",
             f"- Same-run valid: `{report['same_run_valid']}`",
+            f"- Minimum stages valid: `{report.get('minimum_stage_valid')}`",
+            f"- Stretch stages available: `{report.get('stretch_stages_available')}`",
+            "- Unavailable stretch stages: `"
+            f"{len(report.get('unavailable_stretch_stages', []))}`",
             f"- First differing ingredient: `{report['first_divergent_stage']}`",
-            f"- Unavailable rows: `{report['unavailable_rows']}`",
+            "- First differing ingredient capture kind: `"
+            f"{report.get('first_divergent_capture_kind')}`",
+            f"- Math conclusion valid: `{report.get('math_conclusion_valid')}`",
+            f"- Recommended next phase: {report['recommended_next_phase']}",
             f"- Kernel ready: `{report['kernel_ready']}`",
-            f"- Recommendation: {report['recommended_next_phase']}",
+            f"- Rows compared: `{report['row_count']}`",
+            f"- Unavailable rows: `{report['unavailable_rows']}`",
             "",
-            "## P69 hook wiring",
+            "## Live hook wiring",
             "",
             "- live_rows_captured_radlads: `"
             f"{report.get('live_rows_captured_radlads', 0)}`",
@@ -1512,7 +1843,8 @@ def _results_markdown(report: Mapping[str, Any]) -> str:
             f"{report.get('live_rows_captured_qrwkv_off', 0)}`",
             "- live_rows_captured_qrwkv_experimental: `"
             f"{report.get('live_rows_captured_qrwkv_experimental', 0)}`",
-            f"- minimum_stage_availability: `{availability}`",
+            f"- minimum_stage_availability: `{minimum_availability}`",
+            f"- stretch_stage_availability: `{stretch_availability}`",
             "- unavailable_minimum_stages: `"
             f"{len(report.get('unavailable_minimum_stages', []))}`",
             "",
@@ -1546,8 +1878,10 @@ def _availability_markdown(report: Mapping[str, Any]) -> str:
     lines = [
         "# Stage Availability Matrix",
         "",
-        "| stage | RADLADS | QRWKV off | QRWKV experimental | notes |",
-        "| --- | --- | --- | --- | --- |",
+        "| stage | RADLADS available | QRWKV off available | "
+        "QRWKV experimental available | RADLADS capture kind | off capture kind | "
+        "experimental capture kind | classification | source names | notes |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for stage in DEPENDENCY_ORDER:
         stage_rows = [row for row in report.get("rows", []) if row["stage"] == stage]
@@ -1561,10 +1895,23 @@ def _availability_markdown(report: Mapping[str, Any]) -> str:
             kinds["qrwkv_off"] = row.get("qrwkv_off_capture_kind")
             kinds["qrwkv_experimental"] = row.get("qrwkv_experimental_capture_kind")
             break
+        classification = (
+            "minimum"
+            if stage in MINIMUM_STAGES
+            else "stretch"
+            if stage in P71_STRETCH_STAGES
+            else "supporting"
+        )
+        available = {side: kinds[side] in AVAILABLE_CAPTURE_KINDS for side in kinds}
+        source_names = ", ".join(SOURCE_STAGE_MAP.get(stage, ()))
         lines.append(
-            f"| `{stage}` | `{kinds['radlads'] or 'unavailable'}` | "
+            f"| `{stage}` | `{available['radlads']}` | "
+            f"`{available['qrwkv_off']}` | "
+            f"`{available['qrwkv_experimental']}` | "
+            f"`{kinds['radlads'] or 'unavailable'}` | "
             f"`{kinds['qrwkv_off'] or 'unavailable'}` | "
             f"`{kinds['qrwkv_experimental'] or 'unavailable'}` | "
+            f"`{classification}` | `{source_names}` | "
             f"`{report['stage_summary'][stage]['status']}` |"
         )
     lines.append("")
@@ -1576,27 +1923,52 @@ def _first_markdown(report: Mapping[str, Any]) -> str:
     unavailable = report.get("unavailable_minimum_stages", [])
     if unavailable:
         first_missing = unavailable[0]
-    math_valid = (
-        report.get("same_run_valid")
-        and report.get("decay_precondition_pass")
-        and first_missing is None
+    samples = report.get("first_divergent_samples") or {}
+    rows = report.get("rows", [])
+    first_row = next(
+        (
+            row
+            for row in rows
+            if row.get("stage") == report.get("first_divergent_stage")
+            and row.get("case") == report.get("first_divergent_case")
+            and row.get("mode") == report.get("first_divergent_mode")
+            and row.get("layer") == report.get("first_divergent_layer")
+            and row.get("token") == report.get("first_divergent_token")
+            and row.get("head") == report.get("first_divergent_head")
+        ),
+        {},
+    )
+    radlads_vs_off_error = _fmt(
+        (first_row.get("radlads_vs_qrwkv_off") or {}).get("max_abs_error")
+    )
+    radlads_vs_experimental_error = _fmt(
+        (first_row.get("radlads_vs_qrwkv_experimental") or {}).get("max_abs_error")
     )
     return "\n".join(
         [
             "# First Differing Ingredient",
             "",
-            f"math_conclusion_valid: `{bool(math_valid)}`",
             f"same_run_valid: `{report.get('same_run_valid')}`",
+            f"minimum_stage_valid: `{report.get('minimum_stage_valid')}`",
+            f"stretch_stage_availability: `{report.get('stretch_stages_available')}`",
             f"decay_precondition_pass: `{report.get('decay_precondition_pass')}`",
             f"first_missing_live_hook: `{first_missing}`",
             "first differing ingredient: `"
             f"{report.get('first_differing_ingredient_overall')}`",
+            f"capture kind: `{report.get('first_divergent_capture_kind')}`",
             f"case: `{report.get('first_divergent_case')}`",
             f"mode: `{report.get('first_divergent_mode')}`",
             f"layer: `{report.get('first_divergent_layer')}`",
             f"token: `{report.get('first_divergent_token')}`",
             f"head: `{report.get('first_divergent_head')}`",
+            f"RADLADS sample: `{samples.get('radlads')}`",
+            f"QRWKV off sample: `{samples.get('qrwkv_off')}`",
+            f"QRWKV experimental sample: `{samples.get('qrwkv_experimental')}`",
+            f"RADLADS vs off error: `{radlads_vs_off_error}`",
+            f"RADLADS vs experimental error: `{radlads_vs_experimental_error}`",
             f"max_abs_error: `{_fmt(report.get('first_divergent_max_abs_error'))}`",
+            f"math_conclusion_valid: `{report.get('math_conclusion_valid')}`",
+            f"source-backed interpretation: `{_source_backed_interpretation(report)}`",
             f"recommended next phase: `{report.get('recommended_next_phase')}`",
             "",
         ]
@@ -1609,6 +1981,9 @@ def _decision_markdown(report: Mapping[str, Any]) -> str:
             "# P68 Decision",
             "",
             f"- same_run_valid: `{report['same_run_valid']}`",
+            f"- minimum_stage_valid: `{report.get('minimum_stage_valid')}`",
+            f"- stretch_stages_available: `{report.get('stretch_stages_available')}`",
+            f"- math_conclusion_valid: `{report.get('math_conclusion_valid')}`",
             f"- kernel_ready: `{report['kernel_ready']}`",
             f"- recommended_next_phase: {report['recommended_next_phase']}",
             "- math_fix_recommended: `False`",
@@ -1641,6 +2016,69 @@ def _p70_hook_note_markdown(report: Mapping[str, Any]) -> str:
             "",
             "No recurrence math, dtype policy, tolerance, Pallas, or default "
             "balance-state behavior is changed by this hook wiring.",
+            "",
+        ]
+    )
+
+
+def _p71_hook_note_markdown(report: Mapping[str, Any]) -> str:
+    unavailable = report.get("unavailable_stretch_stages", [])
+    return "\n".join(
+        [
+            "# P71 Balance-Prep Hook Note",
+            "",
+            "P71 extends the strict-live same-run trace into observe-only "
+            "balance-prep/update-prep ingredients without changing recurrence "
+            "math, dtype policy, tolerances, Pallas code, or default "
+            "balance-state behavior.",
+            "",
+            f"- Stretch stages available: `{report.get('stretch_stages_available')}`",
+            f"- Unavailable stretch rows: `{len(unavailable)}`",
+            "- Exact reconstruction is limited to `balance_state_term` and "
+            "`composite_update_term` when their same-side live ingredients are "
+            "present in the same run/context.",
+            f"- Recommended next phase: `{report.get('recommended_next_phase')}`",
+            "",
+        ]
+    )
+
+
+def _p71_fix_note_markdown(report: Mapping[str, Any]) -> str:
+    return "\n".join(
+        [
+            "# P71 Fix Note",
+            "",
+            "## Problem",
+            "",
+            "P71 found observe-only diagnostic capture points that did not map "
+            "one-to-one to the balance-prep ingredients: `mixed_value` captured "
+            "the value mix rate, `k_k` captured the normalized `kk` vector, and "
+            "the projection-path `iclr_update_rate` was not emitted.",
+            "",
+            "## Source Evidence",
+            "",
+            "The affected tensors are computed locally in "
+            "`RWKV7QwenReferenceStudent._attention` immediately before WKV update "
+            "assembly. The fix changes only diagnostic labels/capture points.",
+            "",
+            "## Changed File/Function",
+            "",
+            "- `src/qrwkv_xla/students/rwkv7_qwen_reference.py`: "
+            "`RWKV7QwenReferenceStudent._attention`",
+            "",
+            "## Before/After First Difference",
+            "",
+            "- Before: unavailable stretch rows could stop at "
+            "`v_first`/`iclr_update_rate` despite local ingredients existing.",
+            "- After: the manual P71 artifact run reaches "
+            f"`{report.get('first_divergent_stage')}` with "
+            f"`same_run_valid={report.get('same_run_valid')}`.",
+            "",
+            "## Scope",
+            "",
+            "This is not a recurrence rewrite: it does not change computation, "
+            "dtype policy, tolerances, parameter mapping, default balance-state "
+            "behavior, or any Pallas/kernel code.",
             "",
         ]
     )

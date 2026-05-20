@@ -988,3 +988,23 @@
 - [x] Regenerate `artifacts/p68_live_same_run_trace/`.
 - [x] Update Bible and snapshot docs.
 - [x] Run requested P70 validation stack.
+
+## P71 — Live Balance-Prep Ingredient Hook Completion
+
+- [x] Extend strict-live stage normalization for P71 balance-prep/update-prep
+  ingredients while preserving `source_stage_name`.
+- [x] Add observe-only QRWKV/RADLADS diagnostic rows for available P71
+  ingredients: `mixed_value`, `iclr_update_rate`, `kk`, `k_for_update`,
+  `v_for_update`, and `ab`.
+- [x] Keep `k_k`, `k_a`, and unavailable stretch rows explicit instead of
+  fabricating non-live values.
+- [x] Allow exact reconstruction only for `balance_state_term` and
+  `composite_update_term` from same-side same-run live ingredients.
+- [x] Report minimum-stage validity separately from stretch availability and
+  math-conclusion validity.
+- [x] Regenerate `artifacts/p68_live_same_run_trace/` with `same_run_valid=True`,
+  zero unavailable minimum stages, and first remaining gap `k_k`.
+- [x] Recommend exactly `P72 targeted live missing-stage hook completion`.
+- [x] Preserve scope: no recurrence math change, Pallas, tolerance loosening,
+  real training, RADLADS upstream/vendor edit, or default balance-state
+  promotion.

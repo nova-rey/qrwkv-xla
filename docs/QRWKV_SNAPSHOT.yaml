@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 67
-checkpoint: same_run_update_ingredients_trace
+phase: 71
+checkpoint: live_balance_prep_ingredient_trace
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,10 +55,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Trace same-run WKV update ingredients across RADLADS, QRWKV off, and QRWKV
-  experimental balance-state artifacts, preserving default/off behavior without
-  recurrence-math changes, Pallas work, tolerance loosening, or default
-  promotion of experimental balance-state mode.
+  Extend the strict-live same-run RADLADS/QRWKV trace beyond P70 minimum WKV
+  update stages into balance-prep/update-prep ingredients, preserving default
+  behavior without recurrence-math changes, Pallas work, tolerance loosening,
+  or default promotion of experimental balance-state mode.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -1285,8 +1285,8 @@ radlads_same_run_update_ingredients:
     - no_pallas_no_tolerance_loosening_no_recurrence_math_change
 
 radlads_live_same_run_update_trace:
-  phase: P68
-  status: p70_radlads_live_hooks_wired
+  phase: P71
+  status: p71_balance_prep_trace_extended_first_gap_k_k_unavailable
   docs: docs/RADLADS_SAME_RUN_UPDATE_INGREDIENT_TRACE.md
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   trace_script: scripts/run_live_same_run_update_trace.py
@@ -1308,7 +1308,15 @@ radlads_live_same_run_update_trace:
     - FIRST_DIFFERING_INGREDIENT.md
     - P68_DECISION.md
     - P70_RADLADS_HOOK_NOTE.md
-  recommendation: P71 targeted k_for_update/v_for_update balance-prep fix
+    - P71_BALANCE_PREP_HOOK_NOTE.md
+    - P71_FIX_NOTE.md
+  recommendation: P72 targeted live missing-stage hook completion
+  same_run_valid: true
+  unavailable_minimum_stages: 0
+  live_rows_captured_per_side: 240
+  first_divergent_stage: k_k
+  first_divergent_capture_kind: unavailable
+  math_conclusion_valid: false
   caveats:
     - strict_live_required
     - old_p66_p67_rows_not_source_truth
@@ -1337,3 +1345,21 @@ radlads_live_same_run_update_trace:
     artifact_dir_preserved: artifacts/p68_live_same_run_trace
     no_recurrence_math_change: true
     no_pallas: true
+  p71_balance_prep_trace:
+    stretch_stages:
+      - v_first
+      - mixed_value
+      - iclr_update_rate
+      - k_k
+      - k_a
+      - kk
+      - k_for_update
+      - v_for_update
+      - ab
+      - balance_state_term
+      - composite_update_term
+    exact_reconstruction_allowed_only_for:
+      - balance_state_term
+      - composite_update_term
+    first_remaining_gap: k_k
+    no_fake_rows: true
