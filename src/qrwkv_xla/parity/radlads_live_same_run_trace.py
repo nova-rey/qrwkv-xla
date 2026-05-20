@@ -3,16 +3,30 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterable, Mapping
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from qrwkv_xla.parity.radlads_numerical_fixtures import (
+    load_numerical_case_arrays,
+    load_numerical_manifest,
+)
+from qrwkv_xla.parity.radlads_parameter_import import (
+    import_radlads_parameters_for_replay,
+)
+from qrwkv_xla.parity.radlads_replay import (
+    replay_profile_for_case,
+    student_for_replay_profile,
+)
 from qrwkv_xla.parity.radlads_replay_diagnostics import summarize_array
 from qrwkv_xla.parity.radlads_same_run_update_ingredients import (
-    DEPENDENCY_ORDER,
-    SOURCE_STAGE_MAP,
+    DEPENDENCY_ORDER as P67_DEPENDENCY_ORDER,
+)
+from qrwkv_xla.parity.radlads_same_run_update_ingredients import (
+    SOURCE_STAGE_MAP as P67_SOURCE_STAGE_MAP,
 )
 from qrwkv_xla.parity.radlads_wkv_trace import compare_trace_arrays, load_trace_jsonl
 
@@ -20,8 +34,195 @@ LIVE_SAME_RUN_TRACE_SCHEMA = "qrwkv_xla.p68_live_same_run_trace.v1"
 LIVE_SAME_RUN_REPORT_SCHEMA = "qrwkv_xla.p68_live_same_run_trace_report.v1"
 DEFAULT_OUT = Path("artifacts/p68_live_same_run_trace")
 SIDES = ("radlads", "qrwkv_off", "qrwkv_experimental")
-CRITICAL_STAGES = DEPENDENCY_ORDER
-MISSING_LIVE_RADLADS_PHASE = "P69 targeted live RADLADS trace hook completion"
+MINIMUM_STAGE_NORMALIZATION = {
+    "pre_attention_norm": "pre_attention_norm",
+    "k_head_split": "raw_k",
+    "v_head_split": "raw_v",
+    "low_rank_decay": "decay_log_w",
+    "decay_applied_weights": "decay_value",
+    "wkv_state_before": "prev_state",
+    "wkv_update_outer_or_term": "vk",
+    "wkv_state_after": "state_after_live",
+}
+NORMALIZED_TO_SOURCE_STAGE = {
+    normalized: source for source, normalized in MINIMUM_STAGE_NORMALIZATION.items()
+}
+STRETCH_STAGE_NORMALIZATION = {
+    stage: stage
+    for stage in P67_DEPENDENCY_ORDER
+    if stage not in MINIMUM_STAGE_NORMALIZATION
+}
+STAGE_NORMALIZATION = MINIMUM_STAGE_NORMALIZATION | STRETCH_STAGE_NORMALIZATION
+DEPENDENCY_ORDER = tuple(
+    STAGE_NORMALIZATION.get(stage, stage) for stage in P67_DEPENDENCY_ORDER
+)
+SOURCE_STAGE_MAP = {
+    STAGE_NORMALIZATION.get(stage, stage): aliases
+    for stage, aliases in P67_SOURCE_STAGE_MAP.items()
+}
+SOURCE_STAGE_MAP["prev_state"] = (
+    *SOURCE_STAGE_MAP["prev_state"],
+    "initial_matrix_state",
+)
+SOURCE_STAGE_MAP["vk"] = (*SOURCE_STAGE_MAP["vk"], "update_term")
+MINIMUM_STAGES = tuple(MINIMUM_STAGE_NORMALIZATION.values())
+CRITICAL_STAGES = MINIMUM_STAGES
+BALANCE_STATE_CONFIG_KEYS = {
+    "radlads_balance_state",
+    "radlads_balance_state_terms",
+    "use_radlads_balance_state_terms",
+}
+P70_RADLADS_HOOK_COMPLETION = (
+    "P70 targeted live RADLADS pre_attention/k/v hook completion"
+)
+P70_QRWKV_HOOK_COMPLETION = "P70 targeted live QRWKV pre_attention/k/v hook completion"
+P70_DECAY_REPAIR = "P70 targeted live decay/log_w hook repair"
+P70_WKV_REPAIR = "P70 targeted live WKV state/update hook repair"
+
+
+class LiveTraceCollector:
+    def __init__(
+        self,
+        *,
+        same_run_group_id: str,
+        fixture_id: str,
+        parameter_id: str,
+        case: str,
+        side: str,
+        mode: str | None = None,
+        live_config: Mapping[str, Any] | None = None,
+        max_inline_values: int = 1_000_000,
+    ) -> None:
+        self.same_run_group_id = same_run_group_id
+        self.fixture_id = fixture_id
+        self.parameter_id = parameter_id
+        self.case = case
+        self.side = side
+        self.mode = mode
+        self.live_config = dict(live_config or {})
+        self.max_inline_values = max_inline_values
+        self.entries: list[dict[str, Any]] = []
+
+    def record(
+        self,
+        name: str | None = None,
+        value: Any | None = None,
+        *,
+        layer: int | None,
+        token: int | None = None,
+        head: int | None = None,
+        stage: str,
+        source_stage_name: str | None = None,
+        time_index: int | None = None,
+        token_index: int | None = None,
+        capture_kind: str = "live_captured",
+        source_file: str | None = None,
+        source_function: str | None = None,
+    ) -> None:
+        del source_file, source_function
+        if value is None:
+            return
+        source_stage = _canonical_source_stage(source_stage_name or stage)
+        normalized_stage = _normalize_stage(source_stage)
+        index = token if token is not None else token_index
+        index = time_index if index is None else index
+        array = np.array(value, copy=True)
+        if (
+            head is None
+            and index is None
+            and normalized_stage == "pre_attention_norm"
+            and array.ndim == 3
+            and array.shape[1] > 0
+        ):
+            for token_offset in range(int(array.shape[1])):
+                self._append(
+                    name=name,
+                    value=array[:, token_offset, :],
+                    layer=layer,
+                    token=token_offset,
+                    head=0,
+                    stage=normalized_stage,
+                    source_stage_name=source_stage,
+                    capture_kind=capture_kind,
+                )
+            return
+        if (
+            head is None
+            and normalized_stage in MINIMUM_STAGES
+            and array.ndim >= 3
+            and array.shape[1] > 0
+        ):
+            for head_index in range(int(array.shape[1])):
+                self._append(
+                    name=name,
+                    value=np.take(array, head_index, axis=1),
+                    layer=layer,
+                    token=index,
+                    head=head_index,
+                    stage=normalized_stage,
+                    source_stage_name=source_stage,
+                    capture_kind=capture_kind,
+                )
+            return
+        self._append(
+            name=name,
+            value=array,
+            layer=layer,
+            token=index,
+            head=head,
+            stage=normalized_stage,
+            source_stage_name=source_stage,
+            capture_kind=capture_kind,
+        )
+
+    def _append(
+        self,
+        *,
+        name: str | None,
+        value: np.ndarray,
+        layer: int | None,
+        token: int | None,
+        head: int | None,
+        stage: str,
+        source_stage_name: str,
+        capture_kind: str,
+    ) -> None:
+        summary = summarize_array(
+            name or stage,
+            value,
+            stage=stage,
+            layer=layer,
+            time_index=token,
+        )
+        self.entries.append(
+            {
+                "same_run_group_id": self.same_run_group_id,
+                "fixture_id": self.fixture_id,
+                "parameter_id": self.parameter_id,
+                "case": self.case,
+                "side": self.side,
+                "mode": self.mode,
+                "layer": layer,
+                "head": head,
+                "token": token,
+                "token_index": token,
+                "stage": stage,
+                "source_stage_name": source_stage_name,
+                "capture_kind": capture_kind,
+                "shape": [int(dim) for dim in value.shape],
+                "dtype": str(value.dtype),
+                "array": (
+                    value.tolist() if value.size <= self.max_inline_values else None
+                ),
+                "summary": {
+                    "finite": bool(np.isfinite(value).all()) if value.size else True,
+                    "max_abs": summary.abs_max,
+                    "mean_abs": float(np.mean(np.abs(value))) if value.size else 0.0,
+                    "sample": None if value.size == 0 else float(value.reshape(-1)[0]),
+                },
+                "live_config": self.live_config,
+            }
+        )
 
 
 def deterministic_fixture_id(path: Path) -> str:
@@ -35,9 +236,12 @@ def deterministic_parameter_id(
     fixture_parameter_key: str | None = None,
 ) -> str:
     if fixture_parameter_key:
-        return "parameter-" + hashlib.sha256(
-            f"fixture-key:{fixture_parameter_key}".encode()
-        ).hexdigest()[:16]
+        return (
+            "parameter-"
+            + hashlib.sha256(
+                f"fixture-key:{fixture_parameter_key}".encode()
+            ).hexdigest()[:16]
+        )
     path = parameter_manifest or parameters
     if path is None:
         raise ValueError(
@@ -103,10 +307,7 @@ def build_live_same_run_trace(
                         same_run_group_id=same_run_group_id,
                         fixture_id=fixture_id,
                         parameter_id=parameter_id,
-                        reason=(
-                            "No strict-live source row available for critical "
-                            f"stage {stage!r}."
-                        ),
+                        reason=f"missing_live_hook:{side}:{stage}",
                     )
                 )
             else:
@@ -133,8 +334,7 @@ def compare_live_same_run_traces(
     rtol: float = 1e-5,
 ) -> dict[str, Any]:
     by_side = {
-        side: {_trace_key(row): row for row in traces.get(side, [])}
-        for side in SIDES
+        side: {_trace_key(row): row for row in traces.get(side, [])} for side in SIDES
     }
     keys = _sorted_keys(set().union(*(set(rows) for rows in by_side.values())))
     rows = [_compare_key(key, by_side, atol=atol, rtol=rtol) for key in keys]
@@ -144,6 +344,9 @@ def compare_live_same_run_traces(
     decay = _validate_decay_log_w_precondition(rows)
     first = next((row for row in rows if _row_status(row) != "pass"), None)
     stage_summary = _stage_summary(rows)
+    live_counts = _live_row_counts(traces)
+    minimum_availability = _minimum_stage_availability(traces)
+    unavailable_minimum = _unavailable_minimum_stages(traces)
     same_run_valid = (
         (not strict_live or identity["status"] == "pass")
         and config["status"] == "pass"
@@ -180,17 +383,25 @@ def compare_live_same_run_traces(
             "decay_log_w_precondition": decay,
         },
         "decay_precondition_pass": decay["status"] == "pass",
-        "overall_status": "pass" if same_run_valid and first is None else (
-            "invalid_for_math_conclusion" if not same_run_valid else "fail"
-        ),
+        "overall_status": "pass"
+        if same_run_valid and first is None
+        else ("invalid_for_math_conclusion" if not same_run_valid else "fail"),
         "diagnostic_only": True,
         "default_behavior_preserved": True,
         "synthetic_fallback_used": False,
         "mixed_artifact_lineage_used": False,
         "row_count": len(rows),
         "trace_counts": {side: len(traces.get(side, [])) for side in SIDES},
+        "live_rows_captured": live_counts,
+        "live_rows_captured_radlads": live_counts["radlads"],
+        "live_rows_captured_qrwkv_off": live_counts["qrwkv_off"],
+        "live_rows_captured_qrwkv_experimental": live_counts["qrwkv_experimental"],
+        "minimum_stage_availability": minimum_availability,
+        "unavailable_minimum_stages": unavailable_minimum,
         "unavailable_rows": sum(
-            1 for side in SIDES for row in traces.get(side, [])
+            1
+            for side in SIDES
+            for row in traces.get(side, [])
             if row.get("capture_kind") == "unavailable"
         ),
         "atol": atol,
@@ -237,6 +448,7 @@ def run_live_same_run_trace(
 ) -> dict[str, Any]:
     del radlads_repo
     _prepare_out_dir(out_dir, overwrite=overwrite)
+    fixture_manifest_data = load_numerical_manifest(fixture_manifest)
     fixture_id = deterministic_fixture_id(fixture_manifest)
     parameter_id = deterministic_parameter_id(
         parameters=parameters,
@@ -261,9 +473,21 @@ def run_live_same_run_trace(
         head=head,
         max_tokens=max_tokens,
     )
+    live_sources, hook_status, config_snapshots = _capture_live_sources(
+        fixture_manifest=fixture_manifest,
+        fixture_manifest_data=fixture_manifest_data,
+        parameters=parameters,
+        parameter_manifest=parameter_manifest,
+        same_run_group_id=same_run_group_id,
+        fixture_id=fixture_id,
+        parameter_id=parameter_id,
+        cases=cases,
+        mode=mode,
+        max_tokens=max_tokens,
+    )
     traces = {
         side: build_live_same_run_trace(
-            [],
+            live_sources.get(side, []),
             side=side,
             same_run_group_id=same_run_group_id,
             fixture_id=fixture_id,
@@ -297,9 +521,12 @@ def run_live_same_run_trace(
         "max_tokens": max_tokens,
         "trace_generated_at": datetime.now(UTC).isoformat(),
         "synthetic_fallback_used": False,
-        "live_radlads_hook_available": False,
-        "live_hook_blocker": (
-            "No true live RADLADS update-ingredient trace hook is wired for P68."
+        "live_hook_status": hook_status,
+        "qrwkv_off_config": config_snapshots.get("qrwkv_off"),
+        "qrwkv_experimental_config": config_snapshots.get("qrwkv_experimental"),
+        "config_delta": _config_delta(
+            config_snapshots.get("qrwkv_off"),
+            config_snapshots.get("qrwkv_experimental"),
         ),
     }
     (out_dir / "live_same_run_trace_metadata.json").write_text(
@@ -352,6 +579,141 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
         )
 
 
+def _capture_live_sources(
+    *,
+    fixture_manifest: Path,
+    fixture_manifest_data: Mapping[str, Any],
+    parameters: Path | None,
+    parameter_manifest: Path | None,
+    same_run_group_id: str,
+    fixture_id: str,
+    parameter_id: str,
+    cases: list[str] | None,
+    mode: str,
+    max_tokens: int | None,
+) -> tuple[
+    dict[str, list[dict[str, Any]]],
+    dict[str, dict[str, Any]],
+    dict[str, dict[str, Any]],
+]:
+    sources = {side: [] for side in SIDES}
+    status = {
+        "radlads": {
+            "status": "missing",
+            "reason": "missing_live_hook:radlads:pre_attention_norm",
+        },
+        "qrwkv_off": {"status": "missing", "reason": None},
+        "qrwkv_experimental": {"status": "missing", "reason": None},
+    }
+    config_snapshots: dict[str, dict[str, Any]] = {}
+    parameter_path = parameters or parameter_manifest
+    if parameter_path is None or not parameter_path.exists():
+        reason = "parameter payload unavailable for QRWKV live capture"
+        status["qrwkv_off"]["reason"] = reason
+        status["qrwkv_experimental"]["reason"] = reason
+        return sources, status, config_snapshots
+    try:
+        import_result = import_radlads_parameters_for_replay(
+            parameter_path,
+            manifest_path=fixture_manifest,
+            allow_defaults=True,
+        )
+    except Exception as exc:  # pragma: no cover - environment dependent
+        reason = f"QRWKV live capture import failed: {type(exc).__name__}: {exc}"
+        status["qrwkv_off"]["reason"] = reason
+        status["qrwkv_experimental"]["reason"] = reason
+        return sources, status, config_snapshots
+    selected_cases = _selected_case_dicts(fixture_manifest_data, cases=cases)
+    for case in selected_cases:
+        profile = replay_profile_for_case(case)
+        base_student = student_for_replay_profile(import_result.qrwkv_config, profile)
+        off_config = replace(
+            base_student.config,
+            radlads_balance_state=False,
+        )
+        exp_config = replace(
+            off_config,
+            radlads_balance_state_terms=True,
+            radlads_balance_state=True,
+        )
+        for side, config in (
+            ("qrwkv_off", off_config),
+            ("qrwkv_experimental", exp_config),
+        ):
+            config_snapshots.setdefault(side, _config_snapshot(config))
+            collector = LiveTraceCollector(
+                same_run_group_id=same_run_group_id,
+                fixture_id=fixture_id,
+                parameter_id=parameter_id,
+                case=str(case["name"]),
+                side=side,
+                mode=None if mode in {"both", "full", "stepwise"} else mode,
+                live_config=_config_snapshot(config),
+            )
+            try:
+                _capture_qrwkv_case(
+                    fixture_manifest=fixture_manifest,
+                    case=case,
+                    params=import_result.params,
+                    config=config,
+                    collector=collector,
+                    max_tokens=max_tokens,
+                )
+            except Exception as exc:  # pragma: no cover - environment dependent
+                status[side]["reason"] = (
+                    f"QRWKV live capture failed: {type(exc).__name__}: {exc}"
+                )
+                continue
+            sources[side].extend(collector.entries)
+    for side in ("qrwkv_off", "qrwkv_experimental"):
+        if sources[side]:
+            status[side] = {"status": "captured", "reason": None}
+        elif status[side]["reason"] is None:
+            status[side]["reason"] = f"missing_live_hook:{side}:pre_attention_norm"
+    return sources, status, config_snapshots
+
+
+def _capture_qrwkv_case(
+    *,
+    fixture_manifest: Path,
+    case: Mapping[str, Any],
+    params: Mapping[str, Any],
+    config: Any,
+    collector: LiveTraceCollector,
+    max_tokens: int | None,
+) -> None:
+    from qrwkv_xla.students import RWKV7QwenReferenceStudent
+
+    arrays = load_numerical_case_arrays(fixture_manifest, dict(case))
+    input_ids = np.asarray(arrays["input_ids"], dtype=np.int32)
+    if max_tokens is not None:
+        input_ids = input_ids[:, :max_tokens]
+    attention_mask = None
+    if "attention_mask" in arrays:
+        attention_mask = np.asarray(arrays["attention_mask"], dtype=np.int32)
+        if max_tokens is not None:
+            attention_mask = attention_mask[:, :max_tokens]
+    student = RWKV7QwenReferenceStudent(config)
+    student.apply_with_state(
+        dict(params),
+        input_ids,
+        attention_mask=attention_mask,
+        diagnostics=collector,
+    )
+
+
+def _selected_case_dicts(
+    manifest: Mapping[str, Any], *, cases: list[str] | None
+) -> list[dict[str, Any]]:
+    raw_cases = [
+        dict(item) for item in manifest.get("cases", []) if isinstance(item, Mapping)
+    ]
+    if cases:
+        selected = set(cases)
+        return [case for case in raw_cases if case.get("name") in selected]
+    return raw_cases
+
+
 def _side_matches(entry: Mapping[str, Any], side: str) -> bool:
     source_side = entry.get("side")
     if source_side == side:
@@ -361,6 +723,52 @@ def _side_matches(entry: Mapping[str, Any], side: str) -> bool:
     if side == "qrwkv_experimental" and source_side == "qrwkv":
         return entry.get("mode") == "experimental"
     return False
+
+
+def _normalize_stage(stage: str) -> str:
+    if stage in STAGE_NORMALIZATION:
+        return STAGE_NORMALIZATION[stage]
+    if stage in DEPENDENCY_ORDER:
+        return stage
+    for normalized, aliases in SOURCE_STAGE_MAP.items():
+        if stage in aliases:
+            return normalized
+    return stage
+
+
+def _canonical_source_stage(stage: str) -> str:
+    for source, normalized in MINIMUM_STAGE_NORMALIZATION.items():
+        aliases = SOURCE_STAGE_MAP.get(normalized, ())
+        if stage == source or stage in aliases:
+            return source
+    return stage
+
+
+def _config_snapshot(config: Any) -> dict[str, Any]:
+    try:
+        return asdict(config)
+    except TypeError:
+        payload = getattr(config, "__dict__", {})
+        return {str(key): _jsonable(value) for key, value in payload.items()}
+
+
+def _config_delta(
+    left: Mapping[str, Any] | None, right: Mapping[str, Any] | None
+) -> dict[str, Any]:
+    if left is None or right is None:
+        return {"status": "unavailable", "differences": {}}
+    keys = sorted(set(left) | set(right))
+    differences = {
+        key: {"qrwkv_off": left.get(key), "qrwkv_experimental": right.get(key)}
+        for key in keys
+        if left.get(key) != right.get(key)
+    }
+    unrelated = sorted(set(differences) - BALANCE_STATE_CONFIG_KEYS)
+    return {
+        "status": "pass" if not unrelated else "fail",
+        "differences": differences,
+        "unrelated_differences": unrelated,
+    }
 
 
 def _rows_by_source_stage(
@@ -437,10 +845,12 @@ def _available_row(
         "head": _maybe_int(source.get("head")),
         "stage": stage,
         "dependency_index": dependency_index,
-        "source_stage_name": str(
-            source.get(
-                "source_stage_name",
-                source.get("comparison_label", source.get("stage")),
+        "source_stage_name": _canonical_source_stage(
+            str(
+                source.get(
+                    "source_stage_name",
+                    source.get("comparison_label", source.get("stage")),
+                )
             )
         ),
         "capture_kind": str(source.get("capture_kind", "live_captured")),
@@ -592,21 +1002,24 @@ def _validate_identity(
 def _validate_live_config(
     traces: Mapping[str, list[dict[str, Any]]],
 ) -> dict[str, Any]:
-    configs: dict[tuple[Any, ...], dict[str, str]] = {}
+    configs: dict[tuple[Any, ...], dict[str, Mapping[str, Any]]] = {}
     for side in SIDES:
         for row in traces.get(side, []):
             config = row.get("live_config")
             if config is None or row.get("capture_kind") == "unavailable":
                 continue
-            configs.setdefault(_trace_key(row), {})[side] = json.dumps(
-                _jsonable(config), sort_keys=True
-            )
-    mismatches = {
-        key: value for key, value in configs.items() if len(set(value.values())) > 1
-    }
+            configs.setdefault(_trace_key(row), {})[side] = dict(config)
+    mismatches = {}
+    for key, value in configs.items():
+        off = value.get("qrwkv_off")
+        exp = value.get("qrwkv_experimental")
+        if off is not None and exp is not None:
+            delta = _config_delta(off, exp)
+            if delta["status"] != "pass":
+                mismatches[key] = delta
     return {
         "status": "pass" if not mismatches else "fail",
-        "reason": None if not mismatches else "strict-live config delta",
+        "reason": None if not mismatches else "unrelated strict-live config delta",
         "mismatches": {str(key): value for key, value in mismatches.items()},
     }
 
@@ -637,11 +1050,58 @@ def _validate_critical_availability(
     }
 
 
+def _live_row_counts(traces: Mapping[str, list[dict[str, Any]]]) -> dict[str, int]:
+    return {
+        side: sum(
+            1
+            for row in traces.get(side, [])
+            if row.get("capture_kind") == "live_captured"
+        )
+        for side in SIDES
+    }
+
+
+def _minimum_stage_availability(
+    traces: Mapping[str, list[dict[str, Any]]],
+) -> dict[str, dict[str, bool]]:
+    return {
+        stage: {
+            side: any(
+                row.get("stage") == stage and row.get("capture_kind") == "live_captured"
+                for row in traces.get(side, [])
+            )
+            for side in SIDES
+        }
+        for stage in MINIMUM_STAGES
+    }
+
+
+def _unavailable_minimum_stages(
+    traces: Mapping[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "side": side,
+            "stage": row.get("stage"),
+            "case": row.get("case"),
+            "mode": row.get("mode"),
+            "layer": row.get("layer"),
+            "token": row.get("token"),
+            "head": row.get("head"),
+            "reason": row.get("reason"),
+        }
+        for side in SIDES
+        for row in traces.get(side, [])
+        if row.get("stage") in MINIMUM_STAGES
+        and row.get("capture_kind") != "live_captured"
+    ]
+
+
 def _validate_decay_log_w_precondition(rows: list[dict[str, Any]]) -> dict[str, Any]:
     failures = [
         row
         for row in rows
-        if row.get("stage") in {"low_rank_decay", "decay_applied_weights"}
+        if row.get("stage") in {"decay_log_w", "decay_value"}
         and _row_status(row) != "pass"
     ]
     return {
@@ -671,18 +1131,36 @@ def _recommendation(
     decay: Mapping[str, Any],
     first: Mapping[str, Any] | None,
 ) -> str:
-    del first
     if same_run_valid:
-        return "P69 residual-impact gate after strict-live P68 trace passes"
+        return "P70 residual-impact / kernel-readiness gate"
     if identity["status"] != "pass":
-        return "P69 strict-live same_run_group_id/fixture_id/parameter_id completion"
+        return P70_QRWKV_HOOK_COMPLETION
     if config["status"] != "pass":
-        return "P69 strict-live config alignment completion"
+        return "P70 harden/promote balance-state compatibility path"
     if unavailable["status"] != "pass":
-        return MISSING_LIVE_RADLADS_PHASE
+        missing = unavailable.get("missing", [])
+        sides = {row.get("side") for row in missing}
+        stages = {row.get("stage") for row in missing}
+        if "radlads" in sides:
+            return P70_RADLADS_HOOK_COMPLETION
+        if not sides.isdisjoint({"qrwkv_off", "qrwkv_experimental"}):
+            if stages & {"decay_log_w", "decay_value"}:
+                return P70_DECAY_REPAIR
+            if stages & {"prev_state", "vk", "state_after_live"}:
+                return P70_WKV_REPAIR
+            return P70_QRWKV_HOOK_COMPLETION
+        return P70_RADLADS_HOOK_COMPLETION
     if decay["status"] != "pass":
-        return "P69 targeted decay/log_w live precondition completion"
-    return MISSING_LIVE_RADLADS_PHASE
+        return P70_DECAY_REPAIR
+    if first is not None:
+        stage = first.get("stage")
+        if stage in {"raw_k", "raw_v"}:
+            return "P70 targeted raw_k/raw_v projection fix"
+        if stage == "vk":
+            return "P70 targeted vk/outer-product orientation fix"
+        if stage == "state_after_live":
+            return "P70 targeted state_after assembly/dtype fix"
+    return P70_RADLADS_HOOK_COMPLETION
 
 
 def _contexts_from_manifest(
@@ -893,6 +1371,10 @@ def _fmt(value: Any) -> str:
 
 
 def _results_markdown(report: Mapping[str, Any]) -> str:
+    availability = json.dumps(
+        report.get("minimum_stage_availability", {}),
+        sort_keys=True,
+    )
     return "\n".join(
         [
             "# P68 Results",
@@ -904,6 +1386,18 @@ def _results_markdown(report: Mapping[str, Any]) -> str:
             f"- Unavailable rows: `{report['unavailable_rows']}`",
             f"- Kernel ready: `{report['kernel_ready']}`",
             f"- Recommendation: {report['recommended_next_phase']}",
+            "",
+            "## P69 hook wiring",
+            "",
+            "- live_rows_captured_radlads: `"
+            f"{report.get('live_rows_captured_radlads', 0)}`",
+            "- live_rows_captured_qrwkv_off: `"
+            f"{report.get('live_rows_captured_qrwkv_off', 0)}`",
+            "- live_rows_captured_qrwkv_experimental: `"
+            f"{report.get('live_rows_captured_qrwkv_experimental', 0)}`",
+            f"- minimum_stage_availability: `{availability}`",
+            "- unavailable_minimum_stages: `"
+            f"{len(report.get('unavailable_minimum_stages', []))}`",
             "",
         ]
     )
@@ -935,7 +1429,7 @@ def _availability_markdown(report: Mapping[str, Any]) -> str:
     lines = [
         "# Stage Availability Matrix",
         "",
-        "| stage | RADLADS live | QRWKV off live | QRWKV experimental live | notes |",
+        "| stage | RADLADS | QRWKV off | QRWKV experimental | notes |",
         "| --- | --- | --- | --- | --- |",
     ]
     for stage in DEPENDENCY_ORDER:
@@ -951,9 +1445,9 @@ def _availability_markdown(report: Mapping[str, Any]) -> str:
             kinds["qrwkv_experimental"] = row.get("qrwkv_experimental_capture_kind")
             break
         lines.append(
-            f"| `{stage}` | `{kinds['radlads'] == 'live_captured'}` | "
-            f"`{kinds['qrwkv_off'] == 'live_captured'}` | "
-            f"`{kinds['qrwkv_experimental'] == 'live_captured'}` | "
+            f"| `{stage}` | `{kinds['radlads'] or 'unavailable'}` | "
+            f"`{kinds['qrwkv_off'] or 'unavailable'}` | "
+            f"`{kinds['qrwkv_experimental'] or 'unavailable'}` | "
             f"`{report['stage_summary'][stage]['status']}` |"
         )
     lines.append("")
@@ -961,12 +1455,23 @@ def _availability_markdown(report: Mapping[str, Any]) -> str:
 
 
 def _first_markdown(report: Mapping[str, Any]) -> str:
+    first_missing = None
+    unavailable = report.get("unavailable_minimum_stages", [])
+    if unavailable:
+        first_missing = unavailable[0]
+    math_valid = (
+        report.get("same_run_valid")
+        and report.get("decay_precondition_pass")
+        and first_missing is None
+    )
     return "\n".join(
         [
             "# First Differing Ingredient",
             "",
+            f"math_conclusion_valid: `{bool(math_valid)}`",
             f"same_run_valid: `{report.get('same_run_valid')}`",
             f"decay_precondition_pass: `{report.get('decay_precondition_pass')}`",
+            f"first_missing_live_hook: `{first_missing}`",
             "first differing ingredient: `"
             f"{report.get('first_differing_ingredient_overall')}`",
             f"case: `{report.get('first_divergent_case')}`",

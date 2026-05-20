@@ -1286,7 +1286,7 @@ radlads_same_run_update_ingredients:
 
 radlads_live_same_run_update_trace:
   phase: P68
-  status: invalid_until_true_live_radlads_hook
+  status: p69_harness_extended_invalid_until_true_live_hooks
   docs: docs/RADLADS_SAME_RUN_UPDATE_INGREDIENT_TRACE.md
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   trace_script: scripts/run_live_same_run_update_trace.py
@@ -1308,7 +1308,7 @@ radlads_live_same_run_update_trace:
     - FIRST_DIFFERING_INGREDIENT.md
     - P68_DECISION.md
     - P68_FIX_NOTE.md
-  recommendation: P69 targeted live RADLADS trace hook completion
+  recommendation: P70 targeted live RADLADS pre_attention/k/v hook completion
   caveats:
     - strict_live_required
     - old_p66_p67_rows_not_source_truth
@@ -1316,3 +1316,18 @@ radlads_live_same_run_update_trace:
     - decay_log_w_precondition_required
     - default_off_behavior_preserved
     - no_pallas_no_tolerance_loosening_no_recurrence_math_change
+  p69_hook_completion:
+    collector_api: src/qrwkv_xla/parity/radlads_live_same_run_trace.py::LiveTraceCollector
+    minimum_stage_names:
+      pre_attention_norm: pre_attention_norm
+      k_head_split: raw_k
+      v_head_split: raw_v
+      low_rank_decay: decay_log_w
+      decay_applied_weights: decay_value
+      wkv_state_before: prev_state
+      wkv_update_outer_or_term: vk
+      wkv_state_after: state_after_live
+    reports_live_row_counts: true
+    preserves_source_stage_name: true
+    qrwkv_capture_path: existing RWKV7QwenReferenceStudent diagnostics
+    radlads_capture_path: missing_live_hook rows retained

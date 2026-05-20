@@ -587,3 +587,26 @@ optimization, broad recurrence rewrites, tolerance loosening, synthetic
 strict-artifact fallback, default promotion, or model-quality claims. The
 current decision points to `P67 promote/harden balance-state compatibility
 path`.
+
+## Phase 69 — Live Update-Ingredient Hook Completion
+Goal: extend the P68 strict-live same-run trace harness with real observe-only
+capture plumbing for the minimum WKV update ingredients, while keeping missing
+live hooks explicit and non-conclusive.
+
+Checkpoints:
+- P69A: add a small `LiveTraceCollector` API that copies observed tensors and
+  preserves source-stage names
+- P69B: normalize minimum source stages to P68 stage names:
+  `raw_k`, `raw_v`, `decay_log_w`, `decay_value`, `prev_state`, `vk`, and
+  `state_after_live`
+- P69C: attempt QRWKV off/experimental live capture through the existing Qwen
+  reference diagnostic path
+- P69D: report live-row counts, minimum-stage availability, unavailable
+  minimum stages, and balance-state-only config deltas
+
+Current checkpoint: `live_update_ingredient_hook_completion`.
+
+P69 is instrumentation only. It does not add Pallas, TPU optimization,
+recurrence math changes, tolerance loosening, training changes, balance-state
+default promotion, RADLADS upstream edits, residual/kernel readiness claims, or
+math conclusions without live tensors.

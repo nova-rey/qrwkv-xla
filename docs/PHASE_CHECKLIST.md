@@ -959,3 +959,21 @@
   decay/log_w precondition failures before math recommendations.
 - [x] Keep scope P68-only: no recurrence math change, no Pallas, no tolerance
   loosening, no balance-state default promotion, and no RADLADS upstream edits.
+
+## P69 — QRWKV-XLA Live Update-Ingredient Hook Completion
+
+- [x] Add `LiveTraceCollector` observe/copy API to the P68 strict-live helper.
+- [x] Normalize minimum source stages to P68 names while preserving
+  `source_stage_name`.
+- [x] Wire QRWKV off/experimental capture attempts through the existing Qwen
+  reference diagnostics path.
+- [x] Keep RADLADS unavailable rows explicit with
+  `missing_live_hook:radlads:<stage>` reasons when no live hook is present.
+- [x] Report live row counts, minimum-stage availability, unavailable minimum
+  stages, and balance-state-only config delta validation.
+- [x] Extend `tests/test_live_same_run_trace.py` for collector behavior,
+  normalized stage/source names, minimum-stage counting, unavailable rows,
+  config delta rejection, missing minimum rejection, decision report, and CLI
+  help.
+- [x] Preserve scope: no recurrence math change, Pallas, tolerance loosening,
+  training path, residual/kernel readiness claim, or RADLADS upstream edit.

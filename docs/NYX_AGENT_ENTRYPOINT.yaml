@@ -291,3 +291,39 @@ radlads_balance_state_three_way_parity:
     - default_off_behavior_preserved
     - experimental_path_not_default
     - no_pallas_no_tolerance_loosening_no_default_promotion
+
+radlads_live_same_run_update_trace:
+  phase: P69
+  status: p68_strict_live_harness_extended_missing_true_radlads_hook
+  helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
+  script: scripts/run_live_same_run_update_trace.py
+  artifact_dir: artifacts/p68_live_same_run_trace
+  collector_api: LiveTraceCollector
+  minimum_stage_names:
+    pre_attention_norm: pre_attention_norm
+    k_head_split: raw_k
+    v_head_split: raw_v
+    low_rank_decay: decay_log_w
+    decay_applied_weights: decay_value
+    wkv_state_before: prev_state
+    wkv_update_outer_or_term: vk
+    wkv_state_after: state_after_live
+  reports:
+    - P68_RESULTS.md
+    - live_same_run_trace_metadata.json
+    - live_trace_radlads.jsonl
+    - live_trace_qrwkv_off.jsonl
+    - live_trace_qrwkv_experimental.jsonl
+    - live_trace_combined.jsonl
+    - live_same_run_update_ingredients_report.json
+    - LIVE_SAME_RUN_VALIDITY.md
+    - STAGE_AVAILABILITY_MATRIX.md
+    - FIRST_DIFFERING_INGREDIENT.md
+    - P68_DECISION.md
+  recommendation: P70 targeted live RADLADS pre_attention/k/v hook completion
+  caveats:
+    - source_stage_name_preserved
+    - missing_live_hooks_remain_explicit
+    - old_p66_p67_rows_not_source_truth
+    - no_math_conclusion_without_live_tensors
+    - no_pallas_no_tolerance_loosening_no_recurrence_math_change

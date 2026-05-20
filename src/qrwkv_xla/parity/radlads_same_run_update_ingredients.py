@@ -196,9 +196,7 @@ def compare_same_run_update_ingredients(
     rows = [_compare_key(key, by_side, atol=atol, rtol=rtol) for key in keys]
     first = next((row for row in rows if _row_status(row) != "pass"), None)
     first_off = _first_pair_difference(rows, "radlads_vs_qrwkv_off")
-    first_experimental = _first_pair_difference(
-        rows, "radlads_vs_qrwkv_experimental"
-    )
+    first_experimental = _first_pair_difference(rows, "radlads_vs_qrwkv_experimental")
     stage_summary = _stage_summary(rows)
     stage_summaries = [stage_summary[stage] for stage in DEPENDENCY_ORDER]
     unavailable = sum(
@@ -257,9 +255,7 @@ def compare_same_run_update_ingredients(
         "first_divergent_status": None if first is None else _row_status(first),
         "first_divergent_max_abs_error": None if first is None else _first_error(first),
         "first_differing_ingredient_off": _stage_or_none(first_off),
-        "first_differing_ingredient_experimental": _stage_or_none(
-            first_experimental
-        ),
+        "first_differing_ingredient_experimental": _stage_or_none(first_experimental),
         "first_differing_ingredient_overall": _stage_or_none(first),
         "experimental_closer_to_radlads": _experimental_closer_to_radlads(first),
         "primary_remaining_gap": _primary_remaining_gap(first),
@@ -904,10 +900,9 @@ def _git_head(path: Path | None) -> str | None:
     try:
         import subprocess
 
-        return (
-            subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=path, text=True)
-            .strip()
-        )
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=path, text=True
+        ).strip()
     except Exception:
         return None
 

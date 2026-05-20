@@ -1280,3 +1280,23 @@ trace hook completion.
 P68 preserves existing math and defaults. It does not add Pallas, loosen
 tolerances, promote experimental balance-state mode, recommend math fixes while
 strict-live validation fails, or edit RADLADS upstream.
+
+## Phase 69 — Live Update-Ingredient Hook Completion
+
+P69 extends the P68 strict-live harness instead of replacing it. The helper now
+has a `LiveTraceCollector` that observes and copies live arrays, preserves
+`source_stage_name`, and normalizes the minimum WKV update ingredients to P68
+stage names: `raw_k`, `raw_v`, `decay_log_w`, `decay_value`, `prev_state`,
+`vk`, and `state_after_live`.
+
+The runner attempts QRWKV off and experimental live captures from the existing
+Qwen reference diagnostic path and records `live_rows_captured_*`, minimum-stage
+availability, unavailable minimum stages, and off/experimental config deltas.
+Only balance-state related off/experimental config differences are allowed.
+
+In the regenerated workspace artifacts, QRWKV off and experimental capture
+minimum live rows through the project virtualenv, while RADLADS live hooks
+remain unavailable. The reports are still invalid for math conclusions because
+RADLADS rows are explicit `missing_live_hook:radlads:<stage>` rows, and the
+decision report recommends `P70 targeted live RADLADS pre_attention/k/v hook
+completion`.

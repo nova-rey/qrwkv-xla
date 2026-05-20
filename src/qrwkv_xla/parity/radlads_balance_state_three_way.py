@@ -188,7 +188,8 @@ def _synthetic_mode_boundary_trace(side: str) -> list[dict[str, Any]]:
                 value=value,
                 capture_kind=(
                     "live_captured"
-                    if label in {
+                    if label
+                    in {
                         "state_before",
                         "decay_value",
                         "update_outer_product",

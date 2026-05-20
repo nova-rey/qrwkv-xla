@@ -74,6 +74,13 @@ def main() -> int:
     print(f"wrote P68 live same-run trace to {args.out}")
     print(f"same_run_valid={report['same_run_valid']}")
     print(f"first_divergent_stage={report['first_divergent_stage']}")
+    print(f"live_rows_captured_radlads={report['live_rows_captured_radlads']}")
+    print(f"live_rows_captured_qrwkv_off={report['live_rows_captured_qrwkv_off']}")
+    print(
+        "live_rows_captured_qrwkv_experimental="
+        f"{report['live_rows_captured_qrwkv_experimental']}"
+    )
+    print(f"unavailable_minimum_stages={len(report['unavailable_minimum_stages'])}")
     print(f"recommended_next_phase={report['recommended_next_phase']}")
     if args.fail_on_missing_critical_stage and report["unavailable_rows"]:
         return 2

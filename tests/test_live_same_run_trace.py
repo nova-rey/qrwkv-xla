@@ -10,6 +10,8 @@ import numpy as np
 from qrwkv_xla.parity.radlads_live_same_run_trace import (
     DEPENDENCY_ORDER,
     LIVE_SAME_RUN_TRACE_SCHEMA,
+    MINIMUM_STAGES,
+    LiveTraceCollector,
     build_live_same_run_trace,
     compare_live_same_run_traces,
     deterministic_fixture_id,
@@ -176,11 +178,7 @@ def _metadata(
 
 def test_same_run_group_id_reused_and_schema_valid() -> None:
     traces = _traces()
-    ids = {
-        row["same_run_group_id"]
-        for rows in traces.values()
-        for row in rows
-    }
+    ids = {row["same_run_group_id"] for rows in traces.values() for row in rows}
     assert ids == {"group-a"}
     first = traces["radlads"][0]
     assert first["schema"] == LIVE_SAME_RUN_TRACE_SCHEMA
@@ -257,6 +255,40 @@ def test_same_run_group_id_is_deterministic_for_inputs() -> None:
     assert first != different
 
 
+def test_live_collector_copies_array_and_normalizes_stage() -> None:
+    value = np.array([[[1.0, 2.0]]], dtype=np.float32)
+    collector = LiveTraceCollector(
+        same_run_group_id="group-a",
+        fixture_id="fixture-a",
+        parameter_id="parameter-a",
+        case="tiny_no_mask",
+        side="qrwkv_off",
+    )
+    collector.record(
+        "k",
+        value,
+        layer=0,
+        token=0,
+        stage="k_head_split",
+    )
+    value[0, 0, 0] = 99.0
+
+    assert collector.entries[0]["stage"] == "raw_k"
+    assert collector.entries[0]["source_stage_name"] == "k_head_split"
+    assert collector.entries[0]["array"] == [[1.0, 2.0]]
+
+
+def test_minimum_stages_are_counted_separately_from_stretch() -> None:
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata=_metadata(),
+        strict_live=True,
+    )
+    assert set(report["minimum_stage_availability"]) == set(MINIMUM_STAGES)
+    assert "v_first" not in report["minimum_stage_availability"]
+    assert report["live_rows_captured_radlads"] > len(MINIMUM_STAGES)
+
+
 def test_strict_live_invalidates_mixed_ids_and_config_deltas() -> None:
     mixed = compare_live_same_run_traces(
         traces=_traces(off_group="group-b"),
@@ -301,7 +333,11 @@ def test_unavailable_critical_stage_invalidates() -> None:
     )
     assert report["same_run_valid"] is False
     assert report["same_run_validity"]["critical_availability"]["status"] == "fail"
-    assert report["recommended_next_phase"].startswith("P69 targeted live RADLADS")
+    assert report["recommended_next_phase"].startswith("P70 targeted live RADLADS")
+    assert report["unavailable_minimum_stages"]
+    assert report["unavailable_minimum_stages"][0]["reason"].startswith(
+        "missing_live_hook:radlads:"
+    )
 
 
 def test_decay_log_w_precondition_invalidates() -> None:
@@ -321,10 +357,8 @@ def test_first_difference_uses_dependency_order() -> None:
         metadata=_metadata(),
         strict_live=True,
     )
-    assert report["first_divergent_stage"] == "k_head_split"
-    assert report["first_divergent_dependency_index"] == DEPENDENCY_ORDER.index(
-        "k_head_split"
-    )
+    assert report["first_divergent_stage"] == "raw_k"
+    assert report["first_divergent_dependency_index"] == DEPENDENCY_ORDER.index("raw_k")
 
 
 def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
@@ -357,6 +391,8 @@ def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
     rows = load_live_same_run_trace_jsonl(out / "live_trace_radlads.jsonl")
     assert rows
     assert all(row["capture_kind"] == "unavailable" for row in rows)
+    assert report["live_rows_captured_radlads"] == 0
+    assert "live_rows_captured_qrwkv_off" in report
     assert report["same_run_group_id"] == new_same_run_group_id(
         fixture_id=report["fixture_id"],
         parameter_id=report["parameter_id"],
