@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import jax
 import numpy as np
 
 from qrwkv_xla.parity.radlads_live_same_run_trace import (
@@ -12,6 +13,7 @@ from qrwkv_xla.parity.radlads_live_same_run_trace import (
     LIVE_SAME_RUN_TRACE_SCHEMA,
     MINIMUM_STAGES,
     LiveTraceCollector,
+    _capture_radlads_case,
     build_live_same_run_trace,
     compare_live_same_run_traces,
     deterministic_fixture_id,
@@ -20,9 +22,23 @@ from qrwkv_xla.parity.radlads_live_same_run_trace import (
     new_same_run_group_id,
     run_live_same_run_trace,
 )
+from qrwkv_xla.students import RWKV7QwenReferenceConfig, RWKV7QwenReferenceStudent
 
 ROOT = Path(__file__).resolve().parents[1]
 RUN_SCRIPT = ROOT / "scripts" / "run_live_same_run_update_trace.py"
+
+
+def _write_live_case_fixture(tmp_path: Path) -> tuple[Path, dict[str, object]]:
+    payload = tmp_path / "tiny_no_mask.npz"
+    np.savez(payload, input_ids=np.array([[1, 2]], dtype=np.int32))
+    case = {
+        "name": "tiny_no_mask",
+        "payload": payload.name,
+        "all_radlads_math": True,
+    }
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"cases": [case]}), encoding="utf-8")
+    return manifest, case
 
 
 def _source_row(
@@ -278,6 +294,66 @@ def test_live_collector_copies_array_and_normalizes_stage() -> None:
     assert collector.entries[0]["array"] == [[1.0, 2.0]]
 
 
+def test_radlads_live_capture_path_appends_minimum_rows(tmp_path: Path) -> None:
+    manifest, case = _write_live_case_fixture(tmp_path)
+    config = RWKV7QwenReferenceConfig(
+        vocab_size=8,
+        hidden_size=4,
+        num_layers=1,
+        num_heads=1,
+        num_kv_heads=1,
+        intermediate_size=8,
+        use_rope=False,
+        emit_logits=True,
+        emit_mixer_outputs=True,
+        radlads_compatible_math=True,
+        radlads_replay_mode=True,
+        radlads_attention_group_norm=True,
+        radlads_balance_state=True,
+        attention_qkv_bias=True,
+        radlads_low_rank_gate=True,
+        lora_rank_decay=2,
+        lora_rank_iclr=2,
+        lora_rank_value_residual_mix=2,
+        lora_rank_gate=2,
+    )
+    params = RWKV7QwenReferenceStudent(config).init_params(jax.random.PRNGKey(7))
+    collector = LiveTraceCollector(
+        same_run_group_id="group-rad",
+        fixture_id="fixture-rad",
+        parameter_id="parameter-rad",
+        case="tiny_no_mask",
+        side="radlads",
+        live_config={"radlads_compatible_math": True},
+    )
+
+    _capture_radlads_case(
+        fixture_manifest=manifest,
+        case=case,
+        params=params,
+        config=config,
+        collector=collector,
+        max_tokens=1,
+    )
+
+    stages = {row["stage"] for row in collector.entries}
+    assert set(MINIMUM_STAGES).issubset(stages)
+    assert {row["side"] for row in collector.entries} == {"radlads"}
+    assert {row["same_run_group_id"] for row in collector.entries} == {"group-rad"}
+    assert {row["fixture_id"] for row in collector.entries} == {"fixture-rad"}
+    assert {row["parameter_id"] for row in collector.entries} == {"parameter-rad"}
+    assert {
+        "pre_attention_norm",
+        "k_head_split",
+        "v_head_split",
+        "low_rank_decay",
+        "decay_applied_weights",
+        "wkv_state_before",
+        "wkv_update_outer_or_term",
+        "wkv_state_after",
+    }.issubset({row["source_stage_name"] for row in collector.entries})
+
+
 def test_minimum_stages_are_counted_separately_from_stretch() -> None:
     report = compare_live_same_run_traces(
         traces=_traces(),
@@ -333,7 +409,10 @@ def test_unavailable_critical_stage_invalidates() -> None:
     )
     assert report["same_run_valid"] is False
     assert report["same_run_validity"]["critical_availability"]["status"] == "fail"
-    assert report["recommended_next_phase"].startswith("P70 targeted live RADLADS")
+    assert (
+        report["recommended_next_phase"]
+        == "P71 targeted live RADLADS missing-stage hook completion"
+    )
     assert report["unavailable_minimum_stages"]
     assert report["unavailable_minimum_stages"][0]["reason"].startswith(
         "missing_live_hook:radlads:"

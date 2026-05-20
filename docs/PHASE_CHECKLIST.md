@@ -218,6 +218,7 @@
 - [x] Update docs
 - [x] Update snapshot
 - [x] Append Bible entry
+
 - [x] Run validation
 - [x] Run validation
 - [x] Add offline resolver/config/CLI tests
@@ -977,3 +978,13 @@
   help.
 - [x] Preserve scope: no recurrence math change, Pallas, tolerance loosening,
   training path, residual/kernel readiness claim, or RADLADS upstream edit.
+
+## P70 — Live RADLADS Same-Run Hook Completion
+
+- [x] Add RADLADS live capture path to the P68/P69 same-run trace harness.
+- [x] Preserve QRWKV off/experimental live capture behavior.
+- [x] Emit live RADLADS rows for the minimum decisive WKV update stages.
+- [x] Preserve same-run, fixture, parameter, case, layer, token, and head identity.
+- [x] Regenerate `artifacts/p68_live_same_run_trace/`.
+- [x] Update Bible and snapshot docs.
+- [x] Run requested P70 validation stack.

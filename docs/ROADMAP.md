@@ -218,6 +218,17 @@ Checkpoint: `hf_safetensors_export_smoke`. This checkpoint writes
 and smoke reports for a tiny CPU checkpoint only. It does not add a production
 HF model class, Qwen-scale export, sharding, `lm_eval`, or model quality claims.
 
+## Phase 70 — Live RADLADS Same-Run Hook Completion
+
+Goal: complete the RADLADS side of the P68/P69 strict-live WKV update trace by
+wiring observe-only live capture for the minimum decisive pre-attention, k/v,
+decay, previous-state, update-term, and state-after stages.
+
+Checkpoint: `radlads_live_same_run_hook_completion`. This checkpoint preserves
+the `artifacts/p68_live_same_run_trace/` output directory and does not change
+recurrence math, dtype policy, tolerances, Pallas/kernel code, or default
+balance-state behavior.
+
 ## Phase 42 — lm_eval-Style Exported-Student Smoke
 
 Goal: load the P41 exported-student artifact and score deterministic tiny

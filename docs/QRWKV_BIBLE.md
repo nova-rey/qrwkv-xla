@@ -1300,3 +1300,20 @@ remain unavailable. The reports are still invalid for math conclusions because
 RADLADS rows are explicit `missing_live_hook:radlads:<stage>` rows, and the
 decision report recommends `P70 targeted live RADLADS pre_attention/k/v hook
 completion`.
+
+## Phase 70 — Live RADLADS Hook Completion
+
+P70 targets the remaining missing side of the live same-run WKV update trace:
+RADLADS. P69 added `LiveTraceCollector` and QRWKV off/experimental live capture
+attempts, but RADLADS rows remained explicit `missing_live_hook` placeholders.
+P70 wires RADLADS-side observe-only capture for the minimum decisive stages:
+`pre_attention_norm`, k/v head split, `low_rank_decay`,
+`decay_applied_weights`, `wkv_state_before`, `wkv_update_outer_or_term`, and
+`wkv_state_after`.
+
+The P70 path reuses the imported RADLADS replay parameters and the same
+same-run IDs as the QRWKV off/experimental captures. Regenerated artifacts
+remain under `artifacts/p68_live_same_run_trace/` and include
+`P70_RADLADS_HOOK_NOTE.md`. P70 does not change recurrence math, implement
+Pallas, loosen tolerances, alter dtype policy, change deterministic fixture
+values, or promote experimental `balance_state` behavior.

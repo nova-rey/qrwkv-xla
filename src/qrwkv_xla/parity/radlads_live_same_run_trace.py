@@ -72,12 +72,16 @@ BALANCE_STATE_CONFIG_KEYS = {
     "radlads_balance_state_terms",
     "use_radlads_balance_state_terms",
 }
-P70_RADLADS_HOOK_COMPLETION = (
-    "P70 targeted live RADLADS pre_attention/k/v hook completion"
-)
-P70_QRWKV_HOOK_COMPLETION = "P70 targeted live QRWKV pre_attention/k/v hook completion"
-P70_DECAY_REPAIR = "P70 targeted live decay/log_w hook repair"
-P70_WKV_REPAIR = "P70 targeted live WKV state/update hook repair"
+P71_RADLADS_HOOK_COMPLETION = "P71 targeted live RADLADS missing-stage hook completion"
+P71_QRWKV_HOOK_COMPLETION = "P71 targeted live QRWKV missing-stage hook completion"
+P71_DECAY_REPAIR = "P71 targeted live decay/log_w hook repair"
+P71_RAW_KV_FIX = "P71 targeted raw_k/raw_v projection fix"
+P71_BALANCE_PREP_FIX = "P71 targeted k_for_update/v_for_update balance-prep fix"
+P71_AB_FIX = "P71 targeted kk/a/b/ab construction fix"
+P71_VK_FIX = "P71 targeted vk/outer-product orientation fix"
+P71_STATE_AFTER_FIX = "P71 targeted state_after assembly/dtype fix"
+P71_BALANCE_STATE_HARDEN = "P71 harden/promote balance-state compatibility path"
+P71_RESIDUAL_GATE = "P71 residual-impact / kernel-readiness gate"
 
 
 class LiveTraceCollector:
@@ -371,6 +375,12 @@ def compare_live_same_run_traces(
         "parameter_manifest_or_npz_path": metadata.get(
             "parameter_manifest_or_npz_path"
         ),
+        "parameter_source_path": metadata.get("parameter_source_path"),
+        "parameter_mapping_summary": metadata.get("parameter_mapping_summary"),
+        "radlads_config_snapshot": metadata.get("radlads_config_snapshot"),
+        "radlads_parameter_source": metadata.get("radlads_parameter_source"),
+        "qrwkv_parameter_source": metadata.get("qrwkv_parameter_source"),
+        "same_parameter_id_applies": metadata.get("same_parameter_id_applies"),
         "radlads_repo_path": metadata.get("radlads_repo_path"),
         "qrwkv_root_path": metadata.get("qrwkv_root_path"),
         "strict_live": strict_live,
@@ -521,9 +531,26 @@ def run_live_same_run_trace(
         "max_tokens": max_tokens,
         "trace_generated_at": datetime.now(UTC).isoformat(),
         "synthetic_fallback_used": False,
-        "live_hook_status": hook_status,
+        "live_hook_status": {
+            side: hook_status.get(side, {"status": "missing", "reason": None})
+            for side in SIDES
+        },
+        "parameter_source_path": str(parameter_path)
+        if (parameter_path := (parameter_manifest or parameters)) is not None
+        else None,
+        "parameter_mapping_summary": _parameter_mapping_summary(
+            hook_status.get("_parameter_import_report")
+        ),
+        "radlads_config_snapshot": config_snapshots.get("radlads"),
         "qrwkv_off_config": config_snapshots.get("qrwkv_off"),
         "qrwkv_experimental_config": config_snapshots.get("qrwkv_experimental"),
+        "radlads_parameter_source": str(parameter_path)
+        if parameter_path is not None
+        else None,
+        "qrwkv_parameter_source": str(parameter_path)
+        if parameter_path is not None
+        else None,
+        "same_parameter_id_applies": True,
         "config_delta": _config_delta(
             config_snapshots.get("qrwkv_off"),
             config_snapshots.get("qrwkv_experimental"),
@@ -570,6 +597,9 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
     (out_dir / "P68_DECISION.md").write_text(
         _decision_markdown(report), encoding="utf-8"
     )
+    (out_dir / "P70_RADLADS_HOOK_NOTE.md").write_text(
+        _p70_hook_note_markdown(report), encoding="utf-8"
+    )
     if not report.get("same_run_valid"):
         (out_dir / "P68_FIX_NOTE.md").write_text(
             "# P68 Fix Note\n\n"
@@ -577,6 +607,10 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
             "update-ingredient rows are captured in the same invocation.\n",
             encoding="utf-8",
         )
+    else:
+        stale_fix_note = out_dir / "P68_FIX_NOTE.md"
+        if stale_fix_note.exists():
+            stale_fix_note.unlink()
 
 
 def _capture_live_sources(
@@ -618,8 +652,11 @@ def _capture_live_sources(
             manifest_path=fixture_manifest,
             allow_defaults=True,
         )
+        status["_parameter_import_report"] = import_result.report
     except Exception as exc:  # pragma: no cover - environment dependent
         reason = f"QRWKV live capture import failed: {type(exc).__name__}: {exc}"
+        status["radlads"]["status"] = "failed"
+        status["radlads"]["reason"] = reason
         status["qrwkv_off"]["reason"] = reason
         status["qrwkv_experimental"]["reason"] = reason
         return sources, status, config_snapshots
@@ -627,6 +664,33 @@ def _capture_live_sources(
     for case in selected_cases:
         profile = replay_profile_for_case(case)
         base_student = student_for_replay_profile(import_result.qrwkv_config, profile)
+        radlads_config = base_student.config
+        config_snapshots.setdefault("radlads", _config_snapshot(radlads_config))
+        radlads_collector = LiveTraceCollector(
+            same_run_group_id=same_run_group_id,
+            fixture_id=fixture_id,
+            parameter_id=parameter_id,
+            case=str(case["name"]),
+            side="radlads",
+            mode=None if mode in {"both", "full", "stepwise"} else mode,
+            live_config=_config_snapshot(radlads_config),
+        )
+        try:
+            _capture_radlads_case(
+                fixture_manifest=fixture_manifest,
+                case=case,
+                params=import_result.params,
+                config=radlads_config,
+                collector=radlads_collector,
+                max_tokens=max_tokens,
+            )
+        except Exception as exc:  # pragma: no cover - environment dependent
+            status["radlads"] = {
+                "status": "failed",
+                "reason": (f"RADLADS live capture failed: {type(exc).__name__}: {exc}"),
+            }
+        else:
+            sources["radlads"].extend(radlads_collector.entries)
         off_config = replace(
             base_student.config,
             radlads_balance_state=False,
@@ -670,7 +734,43 @@ def _capture_live_sources(
             status[side] = {"status": "captured", "reason": None}
         elif status[side]["reason"] is None:
             status[side]["reason"] = f"missing_live_hook:{side}:pre_attention_norm"
+    if sources["radlads"]:
+        status["radlads"] = {"status": "captured", "reason": None}
+    elif status["radlads"]["status"] != "failed":
+        status["radlads"] = {
+            "status": "missing",
+            "reason": "missing_live_hook:radlads:pre_attention_norm",
+        }
     return sources, status, config_snapshots
+
+
+def _capture_radlads_case(
+    *,
+    fixture_manifest: Path,
+    case: Mapping[str, Any],
+    params: Mapping[str, Any],
+    config: Any,
+    collector: LiveTraceCollector,
+    max_tokens: int | None,
+) -> None:
+    from qrwkv_xla.students import RWKV7QwenReferenceStudent
+
+    arrays = load_numerical_case_arrays(fixture_manifest, dict(case))
+    input_ids = np.asarray(arrays["input_ids"], dtype=np.int32)
+    if max_tokens is not None:
+        input_ids = input_ids[:, :max_tokens]
+    attention_mask = None
+    if "attention_mask" in arrays:
+        attention_mask = np.asarray(arrays["attention_mask"], dtype=np.int32)
+        if max_tokens is not None:
+            attention_mask = attention_mask[:, :max_tokens]
+    student = RWKV7QwenReferenceStudent(config)
+    student.apply_with_state(
+        dict(params),
+        input_ids,
+        attention_mask=attention_mask,
+        diagnostics=collector,
+    )
 
 
 def _capture_qrwkv_case(
@@ -750,6 +850,17 @@ def _config_snapshot(config: Any) -> dict[str, Any]:
     except TypeError:
         payload = getattr(config, "__dict__", {})
         return {str(key): _jsonable(value) for key, value in payload.items()}
+
+
+def _parameter_mapping_summary(report: Mapping[str, Any] | None) -> dict[str, int]:
+    counts = dict(report.get("counts", {})) if report is not None else {}
+    return {
+        "mapped_count": int(counts.get("mapped", 0)),
+        "defaulted_count": int(counts.get("defaulted", 0)),
+        "missing_required_count": int(counts.get("missing_required", 0)),
+        "shape_mismatch_count": int(counts.get("shape_mismatch", 0)),
+        "unsupported_count": int(counts.get("unsupported", 0)),
+    }
 
 
 def _config_delta(
@@ -1131,36 +1242,42 @@ def _recommendation(
     decay: Mapping[str, Any],
     first: Mapping[str, Any] | None,
 ) -> str:
-    if same_run_valid:
-        return "P70 residual-impact / kernel-readiness gate"
+    if same_run_valid and first is None:
+        return P71_RESIDUAL_GATE
     if identity["status"] != "pass":
-        return P70_QRWKV_HOOK_COMPLETION
+        return P71_QRWKV_HOOK_COMPLETION
     if config["status"] != "pass":
-        return "P70 harden/promote balance-state compatibility path"
+        return P71_BALANCE_STATE_HARDEN
     if unavailable["status"] != "pass":
         missing = unavailable.get("missing", [])
         sides = {row.get("side") for row in missing}
         stages = {row.get("stage") for row in missing}
         if "radlads" in sides:
-            return P70_RADLADS_HOOK_COMPLETION
+            return P71_RADLADS_HOOK_COMPLETION
         if not sides.isdisjoint({"qrwkv_off", "qrwkv_experimental"}):
             if stages & {"decay_log_w", "decay_value"}:
-                return P70_DECAY_REPAIR
+                return P71_DECAY_REPAIR
             if stages & {"prev_state", "vk", "state_after_live"}:
-                return P70_WKV_REPAIR
-            return P70_QRWKV_HOOK_COMPLETION
-        return P70_RADLADS_HOOK_COMPLETION
+                return P71_QRWKV_HOOK_COMPLETION
+            return P71_QRWKV_HOOK_COMPLETION
+        return P71_RADLADS_HOOK_COMPLETION
     if decay["status"] != "pass":
-        return P70_DECAY_REPAIR
+        return P71_DECAY_REPAIR
     if first is not None:
         stage = first.get("stage")
         if stage in {"raw_k", "raw_v"}:
-            return "P70 targeted raw_k/raw_v projection fix"
+            return P71_RAW_KV_FIX
+        if stage in {"v_first", "mixed_value", "k_a", "k_k"}:
+            return P71_BALANCE_PREP_FIX
+        if stage in {"a_or_iclr_after_transform", "ab"}:
+            return P71_AB_FIX
         if stage == "vk":
-            return "P70 targeted vk/outer-product orientation fix"
+            return P71_VK_FIX
         if stage == "state_after_live":
-            return "P70 targeted state_after assembly/dtype fix"
-    return P70_RADLADS_HOOK_COMPLETION
+            return P71_STATE_AFTER_FIX
+    if same_run_valid:
+        return P71_RESIDUAL_GATE
+    return P71_RADLADS_HOOK_COMPLETION
 
 
 def _contexts_from_manifest(
@@ -1497,6 +1614,33 @@ def _decision_markdown(report: Mapping[str, Any]) -> str:
             "- math_fix_recommended: `False`",
             "- pallas_gate_recommended: `False`",
             "- residual_impact_gate_recommended: `False`",
+            "",
+        ]
+    )
+
+
+def _p70_hook_note_markdown(report: Mapping[str, Any]) -> str:
+    availability = report.get("minimum_stage_availability", {})
+    unavailable = [
+        row
+        for row in report.get("unavailable_minimum_stages", [])
+        if row.get("side") == "radlads"
+    ]
+    return "\n".join(
+        [
+            "# P70 RADLADS Hook Note",
+            "",
+            "P70 wires observe-only RADLADS-side live capture into the existing "
+            "P68/P69 same-run trace directory.",
+            "",
+            f"- RADLADS live rows: `{report.get('live_rows_captured_radlads', 0)}`",
+            "- RADLADS minimum-stage availability: `"
+            f"{json.dumps(availability, sort_keys=True)}`",
+            f"- Unavailable RADLADS minimum stages: `{len(unavailable)}`",
+            f"- Recommended next phase: `{report.get('recommended_next_phase')}`",
+            "",
+            "No recurrence math, dtype policy, tolerance, Pallas, or default "
+            "balance-state behavior is changed by this hook wiring.",
             "",
         ]
     )

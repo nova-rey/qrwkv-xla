@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 65
-  checkpoint: balance_state_experiment_surface
-  title: Balance-state experiment surface
+  phase: 70
+  checkpoint: radlads_live_same_run_hook_completion
+  title: Live RADLADS same-run WKV hook completion
 
 workflow:
   primary_agent: Nyx
@@ -46,6 +46,7 @@ instructions:
   - Keep P60 tied to real cached P54/P58 artifacts; do not synthesize missing traces, and make strict real-artifact mode fail when live regeneration is unavailable.
   - Keep P62 diagnostic-only unless a source-backed update-term fix is proven; unavailable WKV stages must be reported explicitly, not synthesized.
   - Keep P64 scoped to composite/balance-state hook extraction and comparison; preserve P58/P61/P63 behavior, do not loosen tolerances, and do not change recurrence math.
+  - Keep P70 scoped to observe-only RADLADS live trace hook wiring; do not change recurrence math, loosen tolerances, implement Pallas, or promote experimental balance_state mode.
 
 radlads_qrwkv_head_to_head_parity:
   phase: P53

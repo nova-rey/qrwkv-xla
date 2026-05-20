@@ -1286,7 +1286,7 @@ radlads_same_run_update_ingredients:
 
 radlads_live_same_run_update_trace:
   phase: P68
-  status: p69_harness_extended_invalid_until_true_live_hooks
+  status: p70_radlads_live_hooks_wired
   docs: docs/RADLADS_SAME_RUN_UPDATE_INGREDIENT_TRACE.md
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   trace_script: scripts/run_live_same_run_update_trace.py
@@ -1307,8 +1307,8 @@ radlads_live_same_run_update_trace:
     - STAGE_AVAILABILITY_MATRIX.md
     - FIRST_DIFFERING_INGREDIENT.md
     - P68_DECISION.md
-    - P68_FIX_NOTE.md
-  recommendation: P70 targeted live RADLADS pre_attention/k/v hook completion
+    - P70_RADLADS_HOOK_NOTE.md
+  recommendation: P71 targeted k_for_update/v_for_update balance-prep fix
   caveats:
     - strict_live_required
     - old_p66_p67_rows_not_source_truth
@@ -1330,4 +1330,10 @@ radlads_live_same_run_update_trace:
     reports_live_row_counts: true
     preserves_source_stage_name: true
     qrwkv_capture_path: existing RWKV7QwenReferenceStudent diagnostics
-    radlads_capture_path: missing_live_hook rows retained
+    radlads_capture_path: imported RADLADS replay profile through live diagnostics
+  p70_hook_completion:
+    radlads_minimum_stages_live: true
+    unavailable_minimum_stages: 0
+    artifact_dir_preserved: artifacts/p68_live_same_run_trace
+    no_recurrence_math_change: true
+    no_pallas: true
