@@ -181,3 +181,12 @@ so Adam/AdamW moments observe clipped gradients.
 For Stage 1 attention/mixer runs, report whether targets were fake or
 HF-captured, the `[B,L,S,H]` target shape, mixer output shape, the
 `attention_or_mixer` loss, and whether real HF/Qwen capture was actually run.
+
+## Nova ↔ Nyx Bridge
+
+This repo uses `docs/bridge/` as the structured handoff layer between Nova/chat and Nyx.
+
+Nova/chat writes task scope into `docs/bridge/NEXT_ACTION.md`.
+Nyx executes the task, invokes Codex only when implementation edits are needed, runs validation, and returns results in `docs/bridge/NYX_REPORT.md`.
+
+Nyx should avoid broad repo scans unless the active task requires them.
