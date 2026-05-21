@@ -1285,8 +1285,8 @@ radlads_same_run_update_ingredients:
     - no_pallas_no_tolerance_loosening_no_recurrence_math_change
 
 radlads_live_same_run_update_trace:
-  phase: P71
-  status: p71_balance_prep_trace_extended_first_gap_k_k_unavailable
+  phase: P72
+  status: p72_radlads_off_k_k_k_a_live_experimental_inactive
   docs: docs/RADLADS_SAME_RUN_UPDATE_INGREDIENT_TRACE.md
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   trace_script: scripts/run_live_same_run_update_trace.py
@@ -1310,12 +1310,24 @@ radlads_live_same_run_update_trace:
     - P70_RADLADS_HOOK_NOTE.md
     - P71_BALANCE_PREP_HOOK_NOTE.md
     - P71_FIX_NOTE.md
-  recommendation: P72 targeted live missing-stage hook completion
+    - P72_KK_KA_HOOK_NOTE.md
+  recommendation: P73 targeted source mapping clarification for k_k/k_a
   same_run_valid: true
   unavailable_minimum_stages: 0
-  live_rows_captured_per_side: 240
+  live_rows_captured:
+    radlads: 272
+    qrwkv_off: 272
+    qrwkv_experimental: 240
   first_divergent_stage: k_k
   first_divergent_capture_kind: unavailable
+  k_k_available:
+    radlads: true
+    qrwkv_off: true
+    qrwkv_experimental: false
+  k_a_available:
+    radlads: true
+    qrwkv_off: true
+    qrwkv_experimental: false
   math_conclusion_valid: false
   caveats:
     - strict_live_required
@@ -1324,6 +1336,7 @@ radlads_live_same_run_update_trace:
     - decay_log_w_precondition_required
     - default_off_behavior_preserved
     - no_pallas_no_tolerance_loosening_no_recurrence_math_change
+    - qrwkv_experimental_balance_state_true_does_not_compute_k_k_or_k_a
   p69_hook_completion:
     collector_api: src/qrwkv_xla/parity/radlads_live_same_run_trace.py::LiveTraceCollector
     minimum_stage_names:
@@ -1363,3 +1376,12 @@ radlads_live_same_run_update_trace:
       - composite_update_term
     first_remaining_gap: k_k
     no_fake_rows: true
+  p72_k_k_k_a_hook_completion:
+    radlads_k_k_k_a_live: true
+    qrwkv_off_k_k_k_a_live: true
+    qrwkv_experimental_k_k_k_a_live: false
+    qrwkv_experimental_unavailable_reason: not_active_in_fixture_path
+    source_semantics_note: artifacts/p68_live_same_run_trace/P72_KK_KA_HOOK_NOTE.md
+    no_fake_rows: true
+    no_exact_reconstruction_for_k_k_or_k_a: true
+    no_default_balance_state_promotion: true

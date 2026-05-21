@@ -64,9 +64,11 @@ P71_STAGE_NORMALIZATION = {
     "k_k": "k_k",
     "kk_neg": "k_k",
     "k_k_after_transform": "k_k",
+    "key_norm_factor": "k_k",
     "k_a": "k_a",
     "kk_a": "k_a",
     "k_a_after_transform": "k_a",
+    "key_balance_adjustment": "k_a",
     "kk": "kk",
     "kk_normalized": "kk",
     "k_normalized_for_ab": "kk",
@@ -129,8 +131,8 @@ SOURCE_STAGE_MAP.update(
             "a",
             "a_or_iclr_after_transform",
         ),
-        "k_k": ("k_k", "kk_neg", "k_k_after_transform"),
-        "k_a": ("k_a", "kk_a", "k_a_after_transform"),
+        "k_k": ("k_k", "kk_neg", "k_k_after_transform", "key_norm_factor"),
+        "k_a": ("k_a", "kk_a", "k_a_after_transform", "key_balance_adjustment"),
         "kk": ("kk", "kk_normalized", "k_normalized_for_ab"),
         "k_for_update": ("k_for_update", "k_after_balance", "k_for_vk"),
         "v_for_update": ("v_for_update", "v_for_vk", "value_for_update"),
@@ -181,13 +183,18 @@ BALANCE_STATE_CONFIG_KEYS = {
 P72_HOOK_COMPLETION = "P72 targeted live missing-stage hook completion"
 P72_V_FIRST_FIX = "P72 targeted v_first/mixed_value hook or formula repair"
 P72_BALANCE_PREP_FIX = "P72 targeted k_for_update/v_for_update balance-prep fix"
-P72_KK_FIX = "P72 targeted kk/k_k/k_a construction fix"
 P72_ICLR_FIX = "P72 targeted iclr_update_rate/a construction fix"
 P72_AB_FIX = "P72 targeted ab construction/orientation fix"
 P72_VK_FIX = "P72 targeted vk/outer-product orientation fix"
 P72_STATE_AFTER_FIX = "P72 targeted state_after assembly/dtype fix"
 P72_RESIDUAL_GATE = "P72 residual-impact / kernel-readiness gate"
 P72_PALLAS = "P72 Pallas prototype behind known-caveat flag"
+P73_KK_KA_FIX = "P73 targeted k_k/k_a construction fix"
+P73_KK_FIX = "P73 targeted kk construction fix"
+P73_BALANCE_PREP_FIX = "P73 targeted k_for_update/v_for_update balance-prep fix"
+P73_AB_FIX = "P73 targeted ab construction/orientation fix"
+P73_SOURCE_MAPPING = "P73 targeted source mapping clarification for k_k/k_a"
+P73_RESIDUAL_GATE = "P73 residual-impact / kernel-readiness gate"
 
 
 class LiveTraceCollector:
@@ -430,7 +437,7 @@ def build_live_same_run_trace(
                         same_run_group_id=same_run_group_id,
                         fixture_id=fixture_id,
                         parameter_id=parameter_id,
-                        reason=f"missing_live_hook:{side}:{stage}",
+                        reason=_missing_stage_reason(side=side, stage=stage),
                     )
                 )
             else:
@@ -539,6 +546,8 @@ def compare_live_same_run_traces(
         "minimum_stage_valid": minimum_stage_valid,
         "unavailable_minimum_stages": unavailable_minimum,
         "stretch_stage_availability": stretch_availability,
+        "k_k_available": _stage_available_on_all_sides(stretch_availability, "k_k"),
+        "k_a_available": _stage_available_on_all_sides(stretch_availability, "k_a"),
         "stretch_stages_available": stretch_stages_available,
         "unavailable_stretch_stages": unavailable_stretch,
         "math_conclusion_valid": math_conclusion_valid,
@@ -746,6 +755,9 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
     (out_dir / "P71_FIX_NOTE.md").write_text(
         _p71_fix_note_markdown(report), encoding="utf-8"
     )
+    (out_dir / "P72_KK_KA_HOOK_NOTE.md").write_text(
+        _p72_hook_note_markdown(report), encoding="utf-8"
+    )
     if not report.get("same_run_valid"):
         (out_dir / "P68_FIX_NOTE.md").write_text(
             "# P68 Fix Note\n\n"
@@ -810,7 +822,15 @@ def _capture_live_sources(
     for case in selected_cases:
         profile = replay_profile_for_case(case)
         base_student = student_for_replay_profile(import_result.qrwkv_config, profile)
-        radlads_config = base_student.config
+        # P72 trace-only activation: source `k_k`/`k_a` semantics live in the
+        # balance-state-terms branch when `radlads_balance_state` is false.
+        # This does not change default model behavior; it only makes the
+        # same-run diagnostic execute and observe that source-backed path.
+        radlads_config = replace(
+            base_student.config,
+            radlads_balance_state_terms=True,
+            radlads_balance_state=False,
+        )
         config_snapshots.setdefault("radlads", _config_snapshot(radlads_config))
         radlads_collector = LiveTraceCollector(
             same_run_group_id=same_run_group_id,
@@ -839,6 +859,7 @@ def _capture_live_sources(
             sources["radlads"].extend(radlads_collector.entries)
         off_config = replace(
             base_student.config,
+            radlads_balance_state_terms=True,
             radlads_balance_state=False,
         )
         exp_config = replace(
@@ -1062,6 +1083,12 @@ def _source_for_stage(
         if rows:
             return rows[0]
     return None
+
+
+def _missing_stage_reason(*, side: str, stage: str) -> str:
+    if side == "qrwkv_experimental" and stage in {"k_k", "k_a"}:
+        return f"not_active_in_fixture_path:{side}:{stage}"
+    return f"missing_live_hook:{side}:{stage}"
 
 
 def _exact_reconstruction_for_stage(
@@ -1454,6 +1481,12 @@ def _stretch_stage_availability(
     }
 
 
+def _stage_available_on_all_sides(
+    availability: Mapping[str, Mapping[str, bool]], stage: str
+) -> bool:
+    return all(bool(availability.get(stage, {}).get(side)) for side in SIDES)
+
+
 def _unavailable_stretch_stages(
     traces: Mapping[str, list[dict[str, Any]]],
 ) -> list[dict[str, Any]]:
@@ -1510,7 +1543,7 @@ def _recommendation(
     first: Mapping[str, Any] | None,
 ) -> str:
     if same_run_valid and first is None:
-        return P72_RESIDUAL_GATE
+        return P73_RESIDUAL_GATE
     if identity["status"] != "pass":
         return P72_HOOK_COMPLETION
     if config["status"] != "pass":
@@ -1522,23 +1555,27 @@ def _recommendation(
     if first is not None:
         stage = first.get("stage")
         if _row_has_unavailable(first):
+            if stage in {"k_k", "k_a"}:
+                return P73_SOURCE_MAPPING
             return P72_HOOK_COMPLETION
         if stage in {"v_first", "mixed_value"}:
             return P72_V_FIRST_FIX
         if stage in {"k_for_update", "v_for_update"}:
-            return P72_BALANCE_PREP_FIX
-        if stage in {"kk", "k_k", "k_a"}:
-            return P72_KK_FIX
+            return P73_BALANCE_PREP_FIX
+        if stage in {"k_k", "k_a"}:
+            return P73_KK_KA_FIX
+        if stage == "kk":
+            return P73_KK_FIX
         if stage == "iclr_update_rate":
             return P72_ICLR_FIX
         if stage == "ab":
-            return P72_AB_FIX
+            return P73_AB_FIX
         if stage == "vk":
             return P72_VK_FIX
         if stage == "state_after_live":
             return P72_STATE_AFTER_FIX
     if same_run_valid:
-        return P72_RESIDUAL_GATE
+        return P73_RESIDUAL_GATE
     return P72_HOOK_COMPLETION
 
 
@@ -1824,6 +1861,8 @@ def _results_markdown(report: Mapping[str, Any]) -> str:
             f"- Same-run valid: `{report['same_run_valid']}`",
             f"- Minimum stages valid: `{report.get('minimum_stage_valid')}`",
             f"- Stretch stages available: `{report.get('stretch_stages_available')}`",
+            f"- k_k available: `{report.get('k_k_available')}`",
+            f"- k_a available: `{report.get('k_a_available')}`",
             "- Unavailable stretch stages: `"
             f"{len(report.get('unavailable_stretch_stages', []))}`",
             f"- First differing ingredient: `{report['first_divergent_stage']}`",
@@ -2079,6 +2118,50 @@ def _p71_fix_note_markdown(report: Mapping[str, Any]) -> str:
             "This is not a recurrence rewrite: it does not change computation, "
             "dtype policy, tolerances, parameter mapping, default balance-state "
             "behavior, or any Pallas/kernel code.",
+            "",
+        ]
+    )
+
+
+def _p72_hook_note_markdown(report: Mapping[str, Any]) -> str:
+    unavailable = [
+        row
+        for row in report.get("unavailable_stretch_stages", [])
+        if row.get("stage") in {"k_k", "k_a"}
+    ]
+    return "\n".join(
+        [
+            "# P72 k_k / k_a Hook Note",
+            "",
+            "## Source Semantics",
+            "",
+            "- k_k source expression / variable: "
+            "`RWKV7QwenReferenceStudent._attention` reads `params['k_k']`, "
+            "reshapes it per layer/head, records it as `stage='k_k'`, then "
+            "uses it in `kk = _l2_normalize(k * k_k[None, :, :])`.",
+            "- k_a source expression / variable: "
+            "`RWKV7QwenReferenceStudent._attention` reads `params['k_a']`, "
+            "reshapes it per layer/head, records it as `stage='k_a'`, then "
+            "uses it in `k = k * (1.0 + (a - 1.0) * k_a[None, :, :])`.",
+            "- RADLADS-compatible path: active when "
+            "`use_radlads_balance_state_terms=True` and "
+            "`radlads_balance_state=False`; rows are live captured when emitted.",
+            "- QRWKV off: active under the same balance-state-terms path; rows "
+            "are live captured when emitted.",
+            "- QRWKV experimental: `radlads_balance_state=True` uses "
+            "`kk = _l2_normalize(k)` directly, so `k_k` and `k_a` are not "
+            "computed in this fixture path and remain explicit unavailable rows.",
+            "",
+            "## Availability",
+            "",
+            f"- k_k available on all sides: `{report.get('k_k_available')}`",
+            f"- k_a available on all sides: `{report.get('k_a_available')}`",
+            f"- k_k/k_a unavailable rows: `{len(unavailable)}`",
+            f"- Recommended next phase: `{report.get('recommended_next_phase')}`",
+            "",
+            "No computation, dtype policy, tolerance, fixture values, parameter "
+            "mapping, Pallas/kernel code, or default balance-state behavior is "
+            "changed by P72.",
             "",
         ]
     )

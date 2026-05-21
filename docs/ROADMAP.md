@@ -637,14 +637,17 @@ Checkpoints:
 - P71D: split reports into minimum-stage validity, stretch-stage availability,
   and math-conclusion validity
 
-Current checkpoint: `live_balance_prep_ingredient_trace`.
+Current checkpoint: `targeted_live_k_k_k_a_hook_completion`.
 
-The regenerated P71 artifact keeps `same_run_valid=True`, preserves all P70
-minimum stages on all three sides, captures 240 live rows per side, and stops
-at unavailable stretch stage `k_k`. The next phase is `P72 targeted live
-missing-stage hook completion`.
+The regenerated P72 artifact keeps `same_run_valid=True`, preserves all P70
+minimum stages on all three sides, captures 272 live rows on RADLADS and QRWKV
+off, and captures 240 live rows on QRWKV experimental. `k_k` and `k_a` are
+live on RADLADS/off; QRWKV experimental keeps explicit
+`not_active_in_fixture_path` rows because `radlads_balance_state=True` bypasses
+those factors. The next phase is `P73 targeted source mapping clarification for
+k_k/k_a`.
 
-P71 is observe-only hook completion plus a local diagnostic capture-label fix.
-It does not add Pallas, TPU optimization, real training, recurrence math
-changes, tolerance loosening, RADLADS upstream/vendor edits, or default
-balance-state promotion.
+P72 is observe-only targeted trace hook completion. It does not add Pallas, TPU
+optimization, real training, recurrence math changes, tolerance loosening,
+RADLADS upstream/vendor edits, fake `k_k`/`k_a` rows, exact reconstruction for
+those stages, or default balance-state promotion.

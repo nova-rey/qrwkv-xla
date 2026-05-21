@@ -468,6 +468,36 @@ def test_p71_stretch_stage_normalization_preserves_source_stage_name() -> None:
     assert collector.entries[0]["head"] == 0
 
 
+def test_p72_k_k_and_k_a_aliases_preserve_allowed_source_names() -> None:
+    collector = LiveTraceCollector(
+        same_run_group_id="group-a",
+        fixture_id="fixture-a",
+        parameter_id="parameter-a",
+        case="tiny_no_mask",
+        side="qrwkv_off",
+    )
+
+    collector.record(
+        "k_k",
+        np.array([[[1.0, 2.0]]], dtype=np.float32),
+        layer=0,
+        token=0,
+        stage="key_norm_factor",
+    )
+    collector.record(
+        "k_a",
+        np.array([[[0.5, 0.75]]], dtype=np.float32),
+        layer=0,
+        token=0,
+        stage="key_balance_adjustment",
+    )
+
+    assert collector.entries[0]["stage"] == "k_k"
+    assert collector.entries[0]["source_stage_name"] == "key_norm_factor"
+    assert collector.entries[1]["stage"] == "k_a"
+    assert collector.entries[1]["source_stage_name"] == "key_balance_adjustment"
+
+
 def test_p71_stretch_rows_are_classified_separately() -> None:
     report = compare_live_same_run_traces(
         traces=_traces(),
@@ -591,6 +621,31 @@ def test_unavailable_stretch_does_not_invalidate_minimum_but_blocks_math() -> No
     )
 
 
+def test_p72_experimental_missing_k_k_k_a_uses_inactive_path_reason() -> None:
+    contexts = [("tiny_no_mask", None, 0, 0, 0)]
+    rows = build_live_same_run_trace(
+        [
+            row
+            for row in _minimal_source("qrwkv_experimental")
+            if row["stage"] not in {"k_k", "k_a"}
+        ],
+        side="qrwkv_experimental",
+        same_run_group_id="group-a",
+        fixture_id="fixture-a",
+        parameter_id="parameter-a",
+        contexts=contexts,
+    )
+
+    unavailable = {row["stage"]: row for row in rows if row["stage"] in {"k_k", "k_a"}}
+    assert unavailable["k_k"]["capture_kind"] == "unavailable"
+    assert unavailable["k_k"]["reason"] == (
+        "not_active_in_fixture_path:qrwkv_experimental:k_k"
+    )
+    assert unavailable["k_a"]["reason"] == (
+        "not_active_in_fixture_path:qrwkv_experimental:k_a"
+    )
+
+
 def test_first_live_mismatch_in_k_for_update_recommends_balance_prep_fix() -> None:
     traces = _traces()
     for row in traces["qrwkv_off"]:
@@ -607,8 +662,42 @@ def test_first_live_mismatch_in_k_for_update_recommends_balance_prep_fix() -> No
     assert report["first_divergent_stage"] == "k_for_update"
     assert (
         report["recommended_next_phase"]
-        == "P72 targeted k_for_update/v_for_update balance-prep fix"
+        == "P73 targeted k_for_update/v_for_update balance-prep fix"
     )
+
+
+def test_first_live_mismatch_in_k_k_recommends_p73_k_k_k_a_fix() -> None:
+    traces = _traces()
+    for row in traces["qrwkv_off"]:
+        if row["stage"] == "k_k":
+            row["array"] = (np.asarray(row["array"]) + 1.0).tolist()
+            break
+
+    report = compare_live_same_run_traces(
+        traces=traces,
+        metadata=_metadata(),
+        strict_live=True,
+    )
+
+    assert report["first_divergent_stage"] == "k_k"
+    assert report["recommended_next_phase"] == "P73 targeted k_k/k_a construction fix"
+
+
+def test_first_live_mismatch_in_k_a_recommends_p73_k_k_k_a_fix() -> None:
+    traces = _traces()
+    for row in traces["qrwkv_off"]:
+        if row["stage"] == "k_a":
+            row["array"] = (np.asarray(row["array"]) + 1.0).tolist()
+            break
+
+    report = compare_live_same_run_traces(
+        traces=traces,
+        metadata=_metadata(),
+        strict_live=True,
+    )
+
+    assert report["first_divergent_stage"] == "k_a"
+    assert report["recommended_next_phase"] == "P73 targeted k_k/k_a construction fix"
 
 
 def test_first_live_mismatch_in_kk_recommends_construction_fix() -> None:
@@ -625,9 +714,7 @@ def test_first_live_mismatch_in_kk_recommends_construction_fix() -> None:
     )
 
     assert report["first_divergent_stage"] == "kk"
-    assert (
-        report["recommended_next_phase"] == "P72 targeted kk/k_k/k_a construction fix"
-    )
+    assert report["recommended_next_phase"] == "P73 targeted kk construction fix"
 
 
 def test_first_live_mismatch_in_ab_recommends_ab_fix() -> None:
@@ -646,7 +733,7 @@ def test_first_live_mismatch_in_ab_recommends_ab_fix() -> None:
     assert report["first_divergent_stage"] == "ab"
     assert (
         report["recommended_next_phase"]
-        == "P72 targeted ab construction/orientation fix"
+        == "P73 targeted ab construction/orientation fix"
     )
 
 

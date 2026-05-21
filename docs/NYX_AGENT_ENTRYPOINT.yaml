@@ -294,8 +294,8 @@ radlads_balance_state_three_way_parity:
     - no_pallas_no_tolerance_loosening_no_default_promotion
 
 radlads_live_same_run_update_trace:
-  phase: P71
-  status: p71_balance_prep_trace_extended_first_gap_k_k_unavailable
+  phase: P72
+  status: p72_radlads_off_k_k_k_a_live_experimental_inactive
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   script: scripts/run_live_same_run_update_trace.py
   artifact_dir: artifacts/p68_live_same_run_trace
@@ -324,11 +324,15 @@ radlads_live_same_run_update_trace:
     - P70_RADLADS_HOOK_NOTE.md
     - P71_BALANCE_PREP_HOOK_NOTE.md
     - P71_FIX_NOTE.md
-  recommendation: P72 targeted live missing-stage hook completion
+    - P72_KK_KA_HOOK_NOTE.md
+  recommendation: P73 targeted source mapping clarification for k_k/k_a
   p70_minimum_stage_status:
     same_run_valid: true
     unavailable_minimum_stages: 0
-    live_rows_per_side: 240
+    live_rows:
+      radlads: 272
+      qrwkv_off: 272
+      qrwkv_experimental: 240
   p71_stretch_stage_names:
     - v_first
     - mixed_value
@@ -342,9 +346,14 @@ radlads_live_same_run_update_trace:
     - balance_state_term
     - composite_update_term
   p71_first_remaining_gap: k_k
+  p72_k_k_k_a_status:
+    radlads: live_captured
+    qrwkv_off: live_captured
+    qrwkv_experimental: not_active_in_fixture_path
+    first_remaining_gap: k_k
   caveats:
     - source_stage_name_preserved
-    - missing_live_hooks_remain_explicit
+    - inactive_k_k_k_a_experimental_rows_remain_explicit
     - old_p66_p67_rows_not_source_truth
     - minimum_stage_validity_reported_separately_from_stretch_availability
     - no_math_conclusion_while_stretch_rows_are_unavailable

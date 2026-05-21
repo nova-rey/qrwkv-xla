@@ -1344,3 +1344,11 @@ P71 includes a local observe-only diagnostic capture fix in
 change recurrence math, dtype policy, tolerances, Pallas/kernel code, real
 training behavior, RADLADS upstream/vendor code, or default balance-state
 promotion.
+
+## Phase 72 — Targeted Live k_k / k_a Hook Completion
+
+P72 completes the targeted live trace hook work for `k_k` and `k_a` where the source path computes those factors. The source expressions live in `RWKV7QwenReferenceStudent._attention`: `params["k_k"]` feeds `kk = _l2_normalize(k * k_k[None, :, :])`, and `params["k_a"]` feeds `k = k * (1.0 + (a - 1.0) * k_a[None, :, :])` when balance-state terms are enabled and `radlads_balance_state` is false.
+
+The regenerated `artifacts/p68_live_same_run_trace/` reports `same_run_valid=True`, `mixed_artifact_lineage_used=False`, `synthetic_fallback_used=False`, zero unavailable minimum stages, 272 live rows for RADLADS, 272 live rows for QRWKV off, and 240 live rows for QRWKV experimental. RADLADS and QRWKV off now show `k_k` and `k_a` as `live_captured`; QRWKV experimental keeps explicit `not_active_in_fixture_path` unavailable rows because `radlads_balance_state=True` bypasses those factors and computes `kk` directly from `k`.
+
+P72 adds `P72_KK_KA_HOOK_NOTE.md` and updates the decision to `P73 targeted source mapping clarification for k_k/k_a`. It does not fabricate `k_k`/`k_a`, exact-reconstruct those stages, loosen tolerances, change dtype policy, rewrite recurrence, add Pallas/kernel work, edit or vendor RADLADS upstream code, or promote experimental balance-state behavior by default.

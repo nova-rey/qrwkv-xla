@@ -1008,3 +1008,22 @@
 - [x] Preserve scope: no recurrence math change, Pallas, tolerance loosening,
   real training, RADLADS upstream/vendor edit, or default balance-state
   promotion.
+
+## P72 — Targeted Live k_k / k_a Hook Completion
+
+- [x] Inspect source semantics for `k_k` and `k_a` before changing trace hooks.
+- [x] Add allowed aliases for `key_norm_factor` and `key_balance_adjustment`
+  while preserving `source_stage_name`.
+- [x] Activate the source-backed balance-state-terms diagnostic path for
+  RADLADS and QRWKV off without changing default model behavior.
+- [x] Capture RADLADS and QRWKV off `k_k` / `k_a` rows as `live_captured`.
+- [x] Keep QRWKV experimental `k_k` / `k_a` rows explicit unavailable with
+  `not_active_in_fixture_path` because `radlads_balance_state=True` bypasses
+  those factors.
+- [x] Regenerate `artifacts/p68_live_same_run_trace/` with
+  `same_run_valid=True`, zero unavailable minimum stages, RADLADS/off live
+  row counts at 272, and QRWKV experimental live row count at 240.
+- [x] Recommend exactly `P73 targeted source mapping clarification for k_k/k_a`.
+- [x] Preserve scope: no fake `k_k`/`k_a` rows, no exact reconstruction for
+  those stages, no recurrence math change, Pallas, tolerance loosening,
+  RADLADS upstream/vendor edit, or default balance-state promotion.
