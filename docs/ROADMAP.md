@@ -1,5 +1,17 @@
 # QRWKV-XLA Roadmap
 
+## Phase 77 — Full-vs-Stepwise Residual Evidence
+
+Goal: close the P76 full-vs-stepwise readiness blocker by adding same-fixture,
+same-parameter, lane-aware full-vs-stepwise residual evidence.
+
+Current checkpoint: `full_vs_stepwise_residual_evidence`. P77 records
+full-sequence vs token-by-token final recurrent state and exported state for
+RADLADS terms, QRWKV off terms, RADLADS direct, and QRWKV experimental direct.
+`state_after`, `exported_state`, and `full_vs_stepwise` now pass, while
+`kernel_ready` remains `no` because logits/output evidence is unavailable. The
+next phase is `P78 targeted logits/output residual fix`.
+
 ## Phase 76 — State Export / Import Residual Evidence
 
 Goal: close the P75 exported-state blocker by adding source-backed, lane-aware
@@ -724,3 +736,24 @@ P75 is a gate only. It does not implement Pallas, optimize TPU kernels, run
 real training, change recurrence or balance-state math, loosen tolerances,
 change dtype policy, edit RADLADS upstream/vendor code, or promote
 experimental `balance_state` behavior by default.
+
+## Phase 77 — Full-vs-Stepwise Residual Evidence
+
+Goal: close the full-vs-stepwise readiness blocker with same-fixture,
+same-parameter, lane-aware evidence, while preserving P76 exported-state pass
+and all P74 lane boundaries.
+
+Current checkpoint: `full_vs_stepwise_residual_evidence`. P77 documents and
+uses the full-sequence `RWKV7QwenReferenceStudent.apply_with_state` path and the
+token-by-token `RWKV7QwenReferenceStudent.step` path. Stepwise state carry is
+explicit through `RWKV7QwenReferenceState` slots. The regenerated
+`artifacts/p68_live_same_run_trace/` adds `P77_FULL_VS_STEPWISE_REPORT.md` and
+`full_vs_stepwise_residual.json`; `state_after`, `exported_state`, and
+`full_vs_stepwise` all pass. `kernel_ready` remains `no` because logits/output
+evidence is unavailable, and the next phase is
+`P78 targeted logits/output residual fix`.
+
+P77 is evidence and gating only. It does not change recurrence math,
+balance-state math, dtype policy, tolerances, fixture values, RADLADS
+upstream/vendor code, Pallas/kernel code, training paths, or default
+experimental `balance_state` behavior.

@@ -43,6 +43,7 @@ P75_RESIDUAL_IMPACT_GATE_SCHEMA = "qrwkv_xla.p75_residual_impact_gate.v1"
 P76_STATE_EXPORT_IMPORT_RESIDUAL_SCHEMA = (
     "qrwkv_xla.p76_state_export_import_residual.v1"
 )
+P77_FULL_VS_STEPWISE_RESIDUAL_SCHEMA = "qrwkv_xla.p77_full_vs_stepwise_residual.v1"
 DEFAULT_OUT = Path("artifacts/p68_live_same_run_trace")
 SIDES = ("radlads", "qrwkv_off", "qrwkv_experimental")
 BALANCE_STATE_TERMS_LANE = "balance_state_terms"
@@ -234,7 +235,7 @@ P75_RESIDUAL_GATE = "P75 residual-impact / kernel-readiness gate"
 P75_PALLAS = "P75 Pallas prototype behind known-caveat flag"
 P77_BROADER_FIXTURE_VALIDATION = "P77 broader fixture residual-impact validation"
 P77_STATE_AFTER_FIX = "P77 targeted lane-aware state layout fix"
-P77_LOGITS_OUTPUT_FIX = "P77 targeted logits/output residual fix"
+P77_LOGITS_OUTPUT_FIX = "P78 targeted logits/output residual fix"
 P77_STATE_EXPORT_FIX = "P77 targeted state export/import convention fix"
 P77_FULL_VS_STEPWISE_FIX = "P77 targeted full-vs-stepwise residual fix"
 P77_LANE_LAYOUT_FIX = "P77 targeted lane-aware state layout fix"
@@ -776,6 +777,12 @@ def compare_live_same_run_traces(
         "recommendation": recommendation,
         "rows": rows,
     }
+    report["p77_full_vs_stepwise_residual"] = build_p77_full_vs_stepwise_residual(
+        evidence=metadata.get("p77_full_vs_stepwise_evidence", []),
+        report=report,
+        atol=atol,
+        rtol=rtol,
+    )
     p75_gate = build_p75_residual_impact_gate(report)
     report["p75_residual_impact_gate"] = p75_gate
     report["p76_state_export_import_residual"] = build_p76_state_export_import_residual(
@@ -1006,7 +1013,9 @@ def build_p76_state_export_import_residual(
         "kernel_ready": p75_gate.get("kernel_ready"),
         "blocking_gates": blocking_gates,
         "p75_recommended_next_phase": p75_gate.get("recommended_next_phase"),
-        "recommended_next_phase": _p76_recommended_next_phase(
+        "recommended_next_phase": p75_gate.get("recommended_next_phase")
+        if overall == "pass"
+        else _p76_recommended_next_phase(
             status=overall,
             surface_status=surface_status,
             lane_status=lane_status,
@@ -1029,6 +1038,211 @@ def build_p76_state_export_import_residual(
         "intra_side_live_vs_exported": intra_rows,
         "import_roundtrip": import_rows,
         "inter_side_exported_state": inter_rows,
+    }
+
+
+def build_p77_full_vs_stepwise_residual(
+    *,
+    evidence: Iterable[Mapping[str, Any]],
+    report: Mapping[str, Any],
+    atol: float,
+    rtol: float,
+) -> dict[str, Any]:
+    rows = [dict(row) for row in evidence]
+    required_surfaces = {
+        "radlads_terms": ("radlads", BALANCE_STATE_TERMS_LANE),
+        "qrwkv_off_terms": ("qrwkv_off", BALANCE_STATE_TERMS_LANE),
+        "radlads_direct": ("radlads", DIRECT_BALANCE_STATE_LANE),
+        "qrwkv_experimental_direct": (
+            "qrwkv_experimental",
+            DIRECT_BALANCE_STATE_LANE,
+        ),
+    }
+    surface_status = {}
+    for surface, (side, lane) in required_surfaces.items():
+        surface_rows = [
+            row
+            for row in rows
+            if row.get("side") == side
+            and row.get("balance_state_lane") == lane
+            and row.get("stage") in {"state_after_live", "state_after_exported"}
+        ]
+        available = [row for row in surface_rows if row.get("status") != "unavailable"]
+        if not available:
+            surface_status[surface] = {
+                "status": "unavailable",
+                "reason": "missing_full_vs_stepwise_rows",
+            }
+        elif all(row.get("status") == "pass" for row in available) and {
+            row.get("stage") for row in available
+        } >= {"state_after_live", "state_after_exported"}:
+            surface_status[surface] = {"status": "pass", "reason": "allclose"}
+        else:
+            first = next(
+                (row for row in available if row.get("status") != "pass"), None
+            )
+            surface_status[surface] = {
+                "status": "fail",
+                "reason": "full_vs_stepwise_residual",
+                "first_failure": _p77_failure_summary(first),
+            }
+    lane_status = {}
+    for lane, surfaces in {
+        BALANCE_STATE_TERMS_LANE: ("radlads_terms", "qrwkv_off_terms"),
+        DIRECT_BALANCE_STATE_LANE: ("radlads_direct", "qrwkv_experimental_direct"),
+    }.items():
+        statuses = [surface_status[surface]["status"] for surface in surfaces]
+        if all(status == "pass" for status in statuses):
+            lane_status[lane] = {"status": "pass", "reason": "all_surfaces_pass"}
+        elif any(status == "fail" for status in statuses):
+            lane_status[lane] = {"status": "fail", "reason": "surface_residual"}
+        else:
+            lane_status[lane] = {"status": "unavailable", "reason": "missing_surface"}
+    statuses = [item["status"] for item in surface_status.values()]
+    overall = (
+        "pass"
+        if statuses and all(status == "pass" for status in statuses)
+        else "fail"
+        if any(status == "fail" for status in statuses)
+        else "unavailable"
+    )
+    final_state = _p77_stage_summary(rows, "state_after_live")
+    exported_state = _p77_stage_summary(rows, "state_after_exported")
+    outputs = _p77_stage_summary(rows, "logits_output")
+    blocking_gates = []
+    if overall == "fail":
+        blocking_gates.append("full_vs_stepwise_residual")
+    elif overall == "unavailable":
+        blocking_gates.append("missing_evidence:full_vs_stepwise")
+    return {
+        "schema": P77_FULL_VS_STEPWISE_RESIDUAL_SCHEMA,
+        "phase": "P77",
+        "status": overall,
+        "same_run_valid": bool(report.get("same_run_valid")),
+        "lane_aware_keys": True,
+        "full_path": "RWKV7QwenReferenceStudent.apply_with_state",
+        "stepwise_path": "RWKV7QwenReferenceStudent.step",
+        "same_run_group_id": report.get("same_run_group_id"),
+        "fixture_id": report.get("fixture_id"),
+        "parameter_id": report.get("parameter_id"),
+        "tolerances": {"atol": atol, "rtol": rtol},
+        "paths": {
+            "full": "RWKV7QwenReferenceStudent.apply_with_state",
+            "stepwise": "RWKV7QwenReferenceStudent.step",
+            "initial_state": "student.init_state(batch_size)",
+            "state_carry": "explicit returned state from each token step",
+            "state_slots": ["wkv_matrix_state", "shift_state", "next_position"],
+        },
+        "lanes": {
+            BALANCE_STATE_TERMS_LANE: {
+                "left": "RADLADS terms",
+                "right": "QRWKV off terms",
+                "status": lane_status[BALANCE_STATE_TERMS_LANE]["status"],
+            },
+            DIRECT_BALANCE_STATE_LANE: {
+                "left": "RADLADS direct",
+                "right": "QRWKV experimental direct",
+                "status": lane_status[DIRECT_BALANCE_STATE_LANE]["status"],
+            },
+        },
+        "surface_status": surface_status,
+        "lane_status": lane_status,
+        "final_state": final_state,
+        "exported_state": exported_state,
+        "outputs": outputs,
+        "blocking_gates": blocking_gates,
+        "row_count": len(rows),
+        "rows": rows,
+        "p75_full_vs_stepwise_gate": _p77_gate_from_status(overall),
+        "recommended_next_phase": _p77_recommended_next_phase(overall),
+    }
+
+
+def _p77_stage_summary(rows: Iterable[Mapping[str, Any]], stage: str) -> dict[str, Any]:
+    stage_rows = [dict(row) for row in rows if row.get("stage") == stage]
+    if not stage_rows:
+        return {
+            "status": "unavailable",
+            "reason": f"missing_evidence:{stage}",
+            "row_count": 0,
+        }
+    statuses = [str(row.get("status", "unavailable")) for row in stage_rows]
+    if all(status == "pass" for status in statuses):
+        status = "pass"
+        reason = "allclose"
+    elif any(status == "fail" for status in statuses) or any(
+        status.endswith("mismatch") for status in statuses
+    ):
+        status = "fail"
+        reason = "residual_or_shape_mismatch"
+    else:
+        status = "unavailable"
+        reason = next(
+            (
+                str(row.get("reason"))
+                for row in stage_rows
+                if row.get("status") == "unavailable"
+            ),
+            f"missing_evidence:{stage}",
+        )
+    numeric_rows = [row for row in stage_rows if row.get("max_abs_error") is not None]
+    max_abs = max((float(row["max_abs_error"]) for row in numeric_rows), default=None)
+    mean_abs = max((float(row["mean_abs_error"]) for row in numeric_rows), default=None)
+    relative_max = max(
+        (float(row["max_relative_error"]) for row in numeric_rows), default=None
+    )
+    rms = max((float(row.get("rms_error", 0.0)) for row in numeric_rows), default=None)
+    return {
+        "status": status,
+        "reason": reason,
+        "row_count": len(stage_rows),
+        "max_abs": max_abs,
+        "mean_abs": mean_abs,
+        "rms": rms,
+        "relative_max": relative_max,
+        "shape_match": all(bool(row.get("shape_match", False)) for row in stage_rows),
+        "dtype_match": all(bool(row.get("dtype_match", False)) for row in stage_rows),
+        "finite": all(bool(row.get("finite_both", False)) for row in stage_rows),
+    }
+
+
+def _p77_gate_from_status(status: str) -> dict[str, Any]:
+    if status == "pass":
+        return {"status": "pass", "required": True, "reason": "all_lanes_pass"}
+    if status == "fail":
+        return {
+            "status": "fail",
+            "required": True,
+            "reason": "full_vs_stepwise_residual",
+        }
+    return {
+        "status": "unavailable",
+        "required": True,
+        "reason": "missing_evidence:full_vs_stepwise",
+    }
+
+
+def _p77_recommended_next_phase(status: str) -> str:
+    if status == "pass":
+        return P77_LOGITS_OUTPUT_FIX
+    if status == "fail":
+        return P77_FULL_VS_STEPWISE_FIX
+    return P77_FULL_VS_STEPWISE_FIX
+
+
+def _p77_failure_summary(row: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    return {
+        "case": row.get("case"),
+        "side": row.get("side"),
+        "lane": row.get("balance_state_lane"),
+        "stage": row.get("stage"),
+        "layer": row.get("layer"),
+        "head": row.get("head"),
+        "final_token": row.get("final_token"),
+        "status": row.get("status"),
+        "max_abs_error": row.get("max_abs_error"),
     }
 
 
@@ -1077,7 +1291,12 @@ def run_live_same_run_trace(
         head=head,
         max_tokens=max_tokens,
     )
-    live_sources, hook_status, config_snapshots = _capture_live_sources(
+    (
+        live_sources,
+        hook_status,
+        config_snapshots,
+        full_vs_stepwise_evidence,
+    ) = _capture_live_sources(
         fixture_manifest=fixture_manifest,
         fixture_manifest_data=fixture_manifest_data,
         parameters=parameters,
@@ -1151,6 +1370,7 @@ def run_live_same_run_trace(
             config_snapshots.get("qrwkv_off"),
             config_snapshots.get("qrwkv_experimental"),
         ),
+        "p77_full_vs_stepwise_evidence": full_vs_stepwise_evidence,
     }
     trace_metadata["balance_state_lane_map"] = _balance_state_lane_map(
         traces=traces,
@@ -1380,11 +1600,13 @@ def _p75_output_gates(
         "exported_state": _p75_join_lane_gate(
             "exported_state", (exported_terms, exported_direct), required=True
         ),
-        "full_vs_stepwise": {
-            "status": "unavailable",
-            "required": True,
-            "reason": "missing_evidence:full_vs_stepwise",
-        },
+        "full_vs_stepwise": _p77_gate_from_status(
+            str(
+                (report.get("p77_full_vs_stepwise_residual") or {}).get(
+                    "status", "unavailable"
+                )
+            )
+        ),
         "logits_output": {
             "status": "unavailable",
             "required": True,
@@ -1677,6 +1899,12 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
             json.dumps(_jsonable(p76_report), indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+    p77_report = report.get("p77_full_vs_stepwise_residual")
+    if isinstance(p77_report, Mapping):
+        (out_dir / "full_vs_stepwise_residual.json").write_text(
+            json.dumps(_jsonable(p77_report), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     (out_dir / "P68_RESULTS.md").write_text(_results_markdown(report), encoding="utf-8")
     (out_dir / "LIVE_SAME_RUN_VALIDITY.md").write_text(
         _validity_markdown(report), encoding="utf-8"
@@ -1745,6 +1973,24 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
             stale_blocker = out_dir / "P76_BLOCKER_REPORT.md"
             if stale_blocker.exists():
                 stale_blocker.unlink()
+    if isinstance(p77_report, Mapping):
+        (out_dir / "P77_FULL_VS_STEPWISE_REPORT.md").write_text(
+            _p77_full_vs_stepwise_markdown(p77_report, p75_gate),
+            encoding="utf-8",
+        )
+        (out_dir / "P77_FIX_NOTE.md").write_text(
+            _p77_fix_note_markdown(p77_report, p75_gate),
+            encoding="utf-8",
+        )
+        if p77_report.get("status") != "pass":
+            (out_dir / "P77_BLOCKER_REPORT.md").write_text(
+                _p77_blocker_report_markdown(p77_report),
+                encoding="utf-8",
+            )
+        else:
+            stale_blocker = out_dir / "P77_BLOCKER_REPORT.md"
+            if stale_blocker.exists():
+                stale_blocker.unlink()
     if not report.get("same_run_valid"):
         (out_dir / "P68_FIX_NOTE.md").write_text(
             "# P68 Fix Note\n\n"
@@ -1774,6 +2020,7 @@ def _capture_live_sources(
     dict[str, list[dict[str, Any]]],
     dict[str, dict[str, Any]],
     dict[str, dict[str, Any]],
+    list[dict[str, Any]],
 ]:
     sources = {side: [] for side in SIDES}
     status = {
@@ -1785,12 +2032,13 @@ def _capture_live_sources(
         "qrwkv_experimental": {"status": "missing", "reason": None},
     }
     config_snapshots: dict[str, dict[str, Any]] = {}
+    full_vs_stepwise_evidence: list[dict[str, Any]] = []
     parameter_path = parameters or parameter_manifest
     if parameter_path is None or not parameter_path.exists():
         reason = "parameter payload unavailable for QRWKV live capture"
         status["qrwkv_off"]["reason"] = reason
         status["qrwkv_experimental"]["reason"] = reason
-        return sources, status, config_snapshots
+        return sources, status, config_snapshots, full_vs_stepwise_evidence
     try:
         import_result = import_radlads_parameters_for_replay(
             parameter_path,
@@ -1804,7 +2052,7 @@ def _capture_live_sources(
         status["radlads"]["reason"] = reason
         status["qrwkv_off"]["reason"] = reason
         status["qrwkv_experimental"]["reason"] = reason
-        return sources, status, config_snapshots
+        return sources, status, config_snapshots, full_vs_stepwise_evidence
     selected_cases = _selected_case_dicts(fixture_manifest_data, cases=cases)
     for case in selected_cases:
         profile = replay_profile_for_case(case)
@@ -1845,6 +2093,19 @@ def _capture_live_sources(
             }
         else:
             sources["radlads"].extend(radlads_collector.entries)
+            full_vs_stepwise_evidence.extend(
+                _capture_full_vs_stepwise_case(
+                    fixture_manifest=fixture_manifest,
+                    case=case,
+                    params=import_result.params,
+                    config=radlads_config,
+                    side="radlads",
+                    same_run_group_id=same_run_group_id,
+                    fixture_id=fixture_id,
+                    parameter_id=parameter_id,
+                    max_tokens=max_tokens,
+                )
+            )
         radlads_direct_config = replace(
             base_student.config,
             radlads_balance_state_terms=True,
@@ -1880,6 +2141,19 @@ def _capture_live_sources(
             }
         else:
             sources["radlads"].extend(radlads_direct_collector.entries)
+            full_vs_stepwise_evidence.extend(
+                _capture_full_vs_stepwise_case(
+                    fixture_manifest=fixture_manifest,
+                    case=case,
+                    params=import_result.params,
+                    config=radlads_direct_config,
+                    side="radlads",
+                    same_run_group_id=same_run_group_id,
+                    fixture_id=fixture_id,
+                    parameter_id=parameter_id,
+                    max_tokens=max_tokens,
+                )
+            )
         off_config = replace(
             base_student.config,
             radlads_balance_state_terms=True,
@@ -1919,6 +2193,19 @@ def _capture_live_sources(
                 )
                 continue
             sources[side].extend(collector.entries)
+            full_vs_stepwise_evidence.extend(
+                _capture_full_vs_stepwise_case(
+                    fixture_manifest=fixture_manifest,
+                    case=case,
+                    params=import_result.params,
+                    config=config,
+                    side=side,
+                    same_run_group_id=same_run_group_id,
+                    fixture_id=fixture_id,
+                    parameter_id=parameter_id,
+                    max_tokens=max_tokens,
+                )
+            )
     for side in ("qrwkv_off", "qrwkv_experimental"):
         if sources[side]:
             status[side] = {"status": "captured", "reason": None}
@@ -1943,7 +2230,7 @@ def _capture_live_sources(
             "status": "missing",
             "reason": "missing_live_hook:radlads:pre_attention_norm",
         }
-    return sources, status, config_snapshots
+    return sources, status, config_snapshots, full_vs_stepwise_evidence
 
 
 def _capture_radlads_case(
@@ -2012,6 +2299,239 @@ def _capture_qrwkv_case(
         state=final_state,
         token_index=input_ids.shape[1] - 1,
     )
+
+
+def _capture_full_vs_stepwise_case(
+    *,
+    fixture_manifest: Path,
+    case: Mapping[str, Any],
+    params: Mapping[str, Any],
+    config: Any,
+    side: str,
+    same_run_group_id: str,
+    fixture_id: str,
+    parameter_id: str,
+    max_tokens: int | None,
+) -> list[dict[str, Any]]:
+    from qrwkv_xla.students import RWKV7QwenReferenceStudent
+
+    lane = classify_balance_state_lane(config)
+    case_name = str(case["name"])
+    base = {
+        "same_run_group_id": same_run_group_id,
+        "fixture_id": fixture_id,
+        "parameter_id": parameter_id,
+        "case": case_name,
+        "side": side,
+        "balance_state_lane": lane,
+        "comparison": "full_vs_stepwise",
+        "full_path": "RWKV7QwenReferenceStudent.apply_with_state",
+        "stepwise_path": "RWKV7QwenReferenceStudent.step",
+        "initial_state": "student.init_state(batch_size)",
+        "state_slot_structure": ["wkv_matrix_state", "shift_state", "next_position"],
+        "state_carry": "explicit per-token returned state passed to next step",
+    }
+    try:
+        arrays = load_numerical_case_arrays(fixture_manifest, dict(case))
+        input_ids = np.asarray(arrays["input_ids"], dtype=np.int32)
+        if max_tokens is not None:
+            input_ids = input_ids[:, :max_tokens]
+        attention_mask = None
+        if "attention_mask" in arrays:
+            attention_mask = np.asarray(arrays["attention_mask"], dtype=np.int32)
+            if max_tokens is not None:
+                attention_mask = attention_mask[:, :max_tokens]
+        if input_ids.shape[1] <= 0:
+            raise ValueError("input_ids must include at least one token")
+
+        student = RWKV7QwenReferenceStudent(config)
+        full_output, full_state = student.apply_with_state(
+            dict(params),
+            input_ids,
+            attention_mask=attention_mask,
+        )
+        step_state = student.init_state(batch_size=int(input_ids.shape[0]))
+        step_outputs = []
+        for token_index in range(int(input_ids.shape[1])):
+            token_mask = (
+                None
+                if attention_mask is None
+                else attention_mask[:, token_index : token_index + 1]
+            )
+            step_output, step_state = student.step(
+                dict(params),
+                input_ids[:, token_index : token_index + 1],
+                step_state,
+                attention_mask=token_mask,
+            )
+            step_outputs.append(step_output)
+
+        rows = _full_vs_stepwise_state_rows(
+            base=base,
+            full_state=full_state,
+            step_state=step_state,
+            final_token=int(input_ids.shape[1]) - 1,
+        )
+        rows.extend(
+            _full_vs_stepwise_exported_rows(
+                base=base,
+                full_state=full_state,
+                step_state=step_state,
+                final_token=int(input_ids.shape[1]) - 1,
+            )
+        )
+        rows.append(
+            {
+                **base,
+                "layer": None,
+                "head": None,
+                "token": int(input_ids.shape[1]) - 1,
+                "final_token": int(input_ids.shape[1]) - 1,
+                "stage": "logits_output",
+                "state_slot": None,
+                "status": "unavailable",
+                "reason": "logits_output_gate_reserved_for_P78",
+                "mode": "full_vs_stepwise",
+                "full_shape": None
+                if full_output.logits is None
+                else list(np.asarray(full_output.logits).shape),
+                "stepwise_shape": None
+                if not step_outputs or step_outputs[-1].logits is None
+                else list(np.asarray(step_outputs[-1].logits).shape),
+            }
+        )
+        return rows
+    except Exception as exc:  # pragma: no cover - defensive evidence path
+        return [
+            {
+                **base,
+                "layer": None,
+                "head": None,
+                "token": None,
+                "final_token": None,
+                "stage": "state_after_live",
+                "state_slot": "wkv_matrix_state",
+                "status": "unavailable",
+                "reason": f"full_vs_stepwise_capture_failed:{type(exc).__name__}:{exc}",
+                "mode": "full_vs_stepwise",
+            }
+        ]
+
+
+def _full_vs_stepwise_state_rows(
+    *,
+    base: Mapping[str, Any],
+    full_state: Any,
+    step_state: Any,
+    final_token: int,
+) -> list[dict[str, Any]]:
+    return _full_vs_stepwise_slot_rows(
+        base=base,
+        full_value=extract_state_slot(full_state, "wkv_matrix_state"),
+        step_value=extract_state_slot(step_state, "wkv_matrix_state"),
+        final_token=final_token,
+        stage="state_after_live",
+        state_slot="wkv_matrix_state",
+    )
+
+
+def _full_vs_stepwise_exported_rows(
+    *,
+    base: Mapping[str, Any],
+    full_state: Any,
+    step_state: Any,
+    final_token: int,
+) -> list[dict[str, Any]]:
+    full_exported = export_reference_state_object(full_state)
+    step_exported = export_reference_state_object(step_state)
+    full_wkv = full_exported["state_slots"]["wkv_matrix_state"]
+    step_wkv = step_exported["state_slots"]["wkv_matrix_state"]
+    return _full_vs_stepwise_slot_rows(
+        base={
+            **base,
+            "export_path": str(
+                full_exported.get("export_path", REFERENCE_STATE_EXPORT_PATH)
+            ),
+            "import_path": REFERENCE_STATE_IMPORT_PATH,
+        },
+        full_value=full_wkv,
+        step_value=step_wkv,
+        final_token=final_token,
+        stage="state_after_exported",
+        state_slot="wkv_matrix_state",
+    )
+
+
+def _full_vs_stepwise_slot_rows(
+    *,
+    base: Mapping[str, Any],
+    full_value: Any,
+    step_value: Any,
+    final_token: int,
+    stage: str,
+    state_slot: str,
+) -> list[dict[str, Any]]:
+    full_array = np.asarray(full_value)
+    step_array = np.asarray(step_value)
+    rows = []
+    layer_count = int(full_array.shape[0]) if full_array.ndim >= 1 else 0
+    head_count = int(full_array.shape[2]) if full_array.ndim >= 3 else 0
+    for layer_index in range(layer_count):
+        for head_index in range(head_count):
+            full_head = full_array[layer_index, :, head_index]
+            step_head = step_array[layer_index, :, head_index]
+            stats = compare_trace_arrays(full_head, step_head)
+            diff = full_head.astype(np.float64) - step_head.astype(np.float64)
+            rows.append(
+                {
+                    **base,
+                    "layer": layer_index,
+                    "head": head_index,
+                    "token": final_token,
+                    "final_token": final_token,
+                    "stage": stage,
+                    "state_slot": state_slot,
+                    "mode": "full_vs_stepwise",
+                    "full_mode": "full",
+                    "stepwise_mode": "stepwise",
+                    "status": stats["status"],
+                    "reason": "allclose"
+                    if stats["status"] == "pass"
+                    else stats["status"],
+                    "shape_match": stats["shape_match"],
+                    "dtype_match": stats["dtype_match"],
+                    "finite_both": stats["finite_both"],
+                    "max_abs_error": stats["max_abs_error"],
+                    "mean_abs_error": stats["mean_abs_error"],
+                    "rms_error": float(np.sqrt(np.mean(diff * diff)))
+                    if diff.size
+                    else 0.0,
+                    "max_relative_error": stats["max_relative_error"],
+                    "allclose": stats["allclose"],
+                    "full_shape": list(full_head.shape),
+                    "stepwise_shape": list(step_head.shape),
+                    "full_dtype": str(full_head.dtype),
+                    "stepwise_dtype": str(step_head.dtype),
+                }
+            )
+    if not rows:
+        rows.append(
+            {
+                **base,
+                "layer": None,
+                "head": None,
+                "token": final_token,
+                "final_token": final_token,
+                "stage": stage,
+                "state_slot": state_slot,
+                "mode": "full_vs_stepwise",
+                "status": "unavailable",
+                "reason": "state_slot_shape_not_layer_head_addressable",
+                "full_shape": list(full_array.shape),
+                "stepwise_shape": list(step_array.shape),
+            }
+        )
+    return rows
 
 
 def _record_exported_state_rows(
@@ -3969,6 +4489,148 @@ def _p76_blocker_report_markdown(report: Mapping[str, Any]) -> str:
             "",
             *[f"- `{item}`" for item in blockers],
             "",
+            f"recommended_next_phase: `{report.get('recommended_next_phase')}`",
+            "",
+        ]
+    )
+
+
+def _p77_full_vs_stepwise_markdown(
+    report: Mapping[str, Any], gate: Mapping[str, Any]
+) -> str:
+    paths = report.get("paths", {})
+    state_gate = gate.get("output_gates", {}).get("state_after", {})
+    exported_gate = gate.get("output_gates", {}).get("exported_state", {})
+    full_gate = gate.get("output_gates", {}).get("full_vs_stepwise", {})
+    logits_gate = gate.get("output_gates", {}).get("logits_output", {})
+    lines = [
+        "# P77 Full-vs-Stepwise Report",
+        "",
+        f"status: `{report.get('status')}`",
+        f"schema: `{report.get('schema')}`",
+        f"fixture_id: `{report.get('fixture_id')}`",
+        f"parameter_id: `{report.get('parameter_id')}`",
+        f"same_run_group_id: `{report.get('same_run_group_id')}`",
+        "",
+        "## Execution Paths",
+        "",
+        f"full path: `{paths.get('full')}`",
+        f"stepwise path: `{paths.get('stepwise')}`",
+        f"state initialization: `{paths.get('initial_state')}`",
+        f"state carry: `{paths.get('state_carry')}`",
+        f"final state representation: `{paths.get('state_slots')}`",
+        "",
+        "## Lane Surfaces",
+        "",
+    ]
+    for surface, item in report.get("surface_status", {}).items():
+        lines.append(
+            f"- {surface}: status=`{item.get('status')}`, reason=`{item.get('reason')}`"
+        )
+    lines.extend(["", "## Lane Pair Policy", ""])
+    for lane, item in report.get("lanes", {}).items():
+        lines.append(
+            f"- {lane}: left=`{item.get('left')}`, right=`{item.get('right')}`, "
+            f"status=`{item.get('status')}`"
+        )
+    lines.extend(["", "## Final State Comparisons", ""])
+    lines.append(
+        f"full final state vs stepwise final state: `{report.get('final_state')}`"
+    )
+    lines.extend(["", "## Exported State Comparisons", ""])
+    lines.append(
+        "full exported state vs stepwise exported state: "
+        f"`{report.get('exported_state')}`"
+    )
+    lines.extend(["", "## Output Comparisons", ""])
+    lines.append(f"hidden/output/logits if available: `{report.get('outputs')}`")
+    lines.extend(
+        [
+            "",
+            "## P75 Gate Update",
+            "",
+            "- state_after gate: "
+            f"status=`{state_gate.get('status')}`, "
+            f"reason=`{state_gate.get('reason')}`",
+            "- exported_state gate: "
+            f"status=`{exported_gate.get('status')}`, "
+            f"reason=`{exported_gate.get('reason')}`",
+            "- full_vs_stepwise gate: "
+            f"status=`{full_gate.get('status')}`, "
+            f"reason=`{full_gate.get('reason')}`",
+            "- logits_output gate: "
+            f"status=`{logits_gate.get('status')}`, "
+            f"reason=`{logits_gate.get('reason')}`",
+            f"- kernel_ready: `{gate.get('kernel_ready')}`",
+            f"- blocking_gates: `{gate.get('blocking_gates')}`",
+            "",
+            "## Decision",
+            "",
+            f"recommended_next_phase: `{report.get('recommended_next_phase')}`",
+            "",
+            "No recurrence math, balance-state math, dtype policy, tolerances, "
+            "fixture values, RADLADS source, Pallas code, training path, or "
+            "default experimental balance_state behavior changed.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _p77_blocker_report_markdown(report: Mapping[str, Any]) -> str:
+    blockers = []
+    for surface, item in report.get("surface_status", {}).items():
+        if item.get("status") != "pass":
+            blockers.append(f"{surface}:{item.get('reason')}")
+    return "\n".join(
+        [
+            "# P77 Blocker Report",
+            "",
+            f"status: `{report.get('status')}`",
+            "",
+            "## Blocking Or Missing Evidence",
+            "",
+            *[f"- `{item}`" for item in blockers],
+            "",
+            f"recommended_next_phase: `{report.get('recommended_next_phase')}`",
+            "",
+        ]
+    )
+
+
+def _p77_fix_note_markdown(report: Mapping[str, Any], gate: Mapping[str, Any]) -> str:
+    before_reason = "missing_evidence:full_vs_stepwise"
+    after_gate = gate.get("output_gates", {}).get("full_vs_stepwise", {})
+    return "\n".join(
+        [
+            "# P77 Fix Note",
+            "",
+            "problem: P75/P76 had no same-run, lane-aware full-vs-stepwise "
+            "residual evidence, so the readiness gate stopped at "
+            f"`{before_reason}`.",
+            "",
+            "source evidence: current invocation reruns the same fixture and "
+            "same imported RADLADS parameter payload through the documented "
+            "full and token-by-token paths, preserving case, side, lane, "
+            "fixture_id, parameter_id, and same_run_group_id in every row.",
+            "",
+            "exact file/function changed: "
+            "`src/qrwkv_xla/parity/radlads_live_same_run_trace.py` "
+            "(`_capture_full_vs_stepwise_case`, "
+            "`build_p77_full_vs_stepwise_residual`, and report writers).",
+            "",
+            "why this is state-carry/reporting only: the patch calls existing "
+            "`RWKV7QwenReferenceStudent.apply_with_state` and "
+            "`RWKV7QwenReferenceStudent.step` APIs, explicitly carries the "
+            "returned stepwise state, and compares/report-gates the resulting "
+            "state slots. It does not change recurrence math, balance math, "
+            "dtype policy, tolerances, fixtures, RADLADS source, Pallas code, "
+            "or default experimental balance_state behavior.",
+            "",
+            f"before gate result: `{before_reason}`",
+            "after gate result: "
+            f"`{after_gate.get('status')}` / `{after_gate.get('reason')}`",
+            f"p77_status: `{report.get('status')}`",
             f"recommended_next_phase: `{report.get('recommended_next_phase')}`",
             "",
         ]

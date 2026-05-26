@@ -230,6 +230,53 @@ def _metadata(
     }
 
 
+def _p77_evidence_rows(
+    *,
+    group: str = "group-a",
+    fixture: str = "fixture-a",
+    parameter: str = "parameter-a",
+) -> list[dict[str, object]]:
+    rows = []
+    surfaces = (
+        ("radlads", "balance_state_terms"),
+        ("qrwkv_off", "balance_state_terms"),
+        ("radlads", "direct_balance_state"),
+        ("qrwkv_experimental", "direct_balance_state"),
+    )
+    for side, lane in surfaces:
+        for stage in ("state_after_live", "state_after_exported"):
+            rows.append(
+                {
+                    "same_run_group_id": group,
+                    "fixture_id": fixture,
+                    "parameter_id": parameter,
+                    "case": "tiny_no_mask",
+                    "side": side,
+                    "balance_state_lane": lane,
+                    "comparison": "full_vs_stepwise",
+                    "mode": "full_vs_stepwise",
+                    "full_mode": "full",
+                    "stepwise_mode": "stepwise",
+                    "layer": 0,
+                    "head": 0,
+                    "token": 1,
+                    "final_token": 1,
+                    "stage": stage,
+                    "state_slot": "wkv_matrix_state",
+                    "status": "pass",
+                    "reason": "allclose",
+                    "max_abs_error": 0.0,
+                    "mean_abs_error": 0.0,
+                    "max_relative_error": 0.0,
+                    "shape_match": True,
+                    "dtype_match": True,
+                    "finite_both": True,
+                    "allclose": True,
+                }
+            )
+    return rows
+
+
 def test_p73_balance_state_lane_classifier() -> None:
     assert classify_balance_state_lane(BALANCE_TERMS_CONFIG) == "balance_state_terms"
     assert classify_balance_state_lane(DIRECT_BALANCE_CONFIG) == "direct_balance_state"
@@ -945,6 +992,83 @@ def test_p75_missing_required_output_evidence_blocks_kernel_ready() -> None:
     )
 
 
+def test_p77_full_vs_stepwise_evidence_feeds_p75_gate() -> None:
+    metadata = {
+        **_metadata(),
+        "p77_full_vs_stepwise_evidence": _p77_evidence_rows(),
+    }
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata=metadata,
+        strict_live=True,
+    )
+    p77 = report["p77_full_vs_stepwise_residual"]
+    gate = report["p75_residual_impact_gate"]
+
+    assert p77["schema"] == "qrwkv_xla.p77_full_vs_stepwise_residual.v1"
+    assert p77["status"] == "pass"
+    assert p77["full_path"] == "RWKV7QwenReferenceStudent.apply_with_state"
+    assert p77["stepwise_path"] == "RWKV7QwenReferenceStudent.step"
+    assert p77["final_state"]["status"] == "pass"
+    assert p77["exported_state"]["status"] == "pass"
+    assert p77["outputs"]["status"] == "unavailable"
+    assert p77["blocking_gates"] == []
+    assert p77["lanes"]["balance_state_terms"]["left"] == "RADLADS terms"
+    assert p77["lanes"]["balance_state_terms"]["right"] == "QRWKV off terms"
+    assert p77["lanes"]["direct_balance_state"]["left"] == "RADLADS direct"
+    assert p77["lanes"]["direct_balance_state"]["right"] == (
+        "QRWKV experimental direct"
+    )
+    assert gate["output_gates"]["state_after"]["status"] == "pass"
+    assert gate["output_gates"]["exported_state"]["status"] == "pass"
+    assert gate["output_gates"]["full_vs_stepwise"]["status"] == "pass"
+    assert gate["output_gates"]["logits_output"]["status"] == "unavailable"
+    assert gate["blocking_gates"] == ["missing_evidence:logits_output"]
+    assert gate["recommended_next_phase"] == "P78 targeted logits/output residual fix"
+
+
+def test_p77_full_vs_stepwise_mismatch_blocks_gate() -> None:
+    rows = _p77_evidence_rows()
+    rows[0] = {
+        **rows[0],
+        "status": "fail",
+        "reason": "fail",
+        "allclose": False,
+        "max_abs_error": 1.0,
+    }
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata={**_metadata(), "p77_full_vs_stepwise_evidence": rows},
+        strict_live=True,
+    )
+    p77 = report["p77_full_vs_stepwise_residual"]
+    gate = report["p75_residual_impact_gate"]
+
+    assert p77["status"] == "fail"
+    assert p77["surface_status"]["radlads_terms"]["status"] == "fail"
+    assert gate["output_gates"]["full_vs_stepwise"]["status"] == "fail"
+    assert "output_gate_failed:full_vs_stepwise" in gate["blocking_gates"]
+
+
+def test_p77_missing_stepwise_path_is_unavailable_not_pass() -> None:
+    rows = _p77_evidence_rows()
+    rows = [row for row in rows if row["side"] != "qrwkv_experimental"]
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata={**_metadata(), "p77_full_vs_stepwise_evidence": rows},
+        strict_live=True,
+    )
+    p77 = report["p77_full_vs_stepwise_residual"]
+    gate = report["p75_residual_impact_gate"]
+
+    assert p77["status"] == "unavailable"
+    assert p77["surface_status"]["qrwkv_experimental_direct"] == {
+        "status": "unavailable",
+        "reason": "missing_full_vs_stepwise_rows",
+    }
+    assert gate["output_gates"]["full_vs_stepwise"]["status"] == "unavailable"
+
+
 def test_p75_kernel_ready_yes_requires_all_output_gates_passing() -> None:
     report = compare_live_same_run_traces(
         traces=_traces(),
@@ -1029,7 +1153,7 @@ def test_p75_logits_failure_recommends_output_fix() -> None:
         }
     )
 
-    assert gate["recommended_next_phase"] == ("P77 targeted logits/output residual fix")
+    assert gate["recommended_next_phase"] == ("P78 targeted logits/output residual fix")
 
 
 def test_first_live_mismatch_in_k_for_update_recommends_balance_prep_fix() -> None:
@@ -1159,6 +1283,8 @@ def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
     assert (out / "P75_RESIDUAL_IMPACT_GATE.md").is_file()
     assert (out / "residual_impact_gate.json").is_file()
     assert (out / "P75_KERNEL_READINESS_DECISION.md").is_file()
+    assert (out / "P77_FULL_VS_STEPWISE_REPORT.md").is_file()
+    assert (out / "full_vs_stepwise_residual.json").is_file()
     rows = load_live_same_run_trace_jsonl(out / "live_trace_radlads.jsonl")
     assert rows
     assert all(row["capture_kind"] == "unavailable" for row in rows)

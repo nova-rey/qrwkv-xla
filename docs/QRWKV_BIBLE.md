@@ -1456,3 +1456,32 @@ teacher export, HF `PreTrainedModel`, `lm_eval`, recurrence math changes,
 balance-state math changes, parameter mapping changes, dtype policy changes,
 tolerance changes, fixture value changes, RADLADS upstream/vendor changes, or
 default promotion of experimental `balance_state`.
+
+## Phase 77 — Full-vs-Stepwise Residual Evidence
+
+P77 closes the P75/P76 `full_vs_stepwise` evidence gap without changing
+recurrence math. The live same-run trace harness now reruns the same fixture and
+same imported parameters through the full-sequence
+`RWKV7QwenReferenceStudent.apply_with_state` path and the token-by-token
+`RWKV7QwenReferenceStudent.step` path. Stepwise state carry is explicit:
+`student.init_state(batch_size)` seeds the run, each token returns the next
+`RWKV7QwenReferenceState`, and that returned state is passed to the next token.
+
+The evidence is lane-aware and preserves the P74/P75/P76 fair pairs:
+RADLADS terms vs QRWKV off terms, and RADLADS direct vs QRWKV experimental
+direct. P77 compares final recurrent `wkv_matrix_state` and the exported
+`wkv_matrix_state` slot for RADLADS terms, QRWKV off terms, RADLADS direct, and
+QRWKV experimental direct. It writes
+`P77_FULL_VS_STEPWISE_REPORT.md` and `full_vs_stepwise_residual.json` under
+`artifacts/p68_live_same_run_trace/`.
+
+The regenerated P77 artifacts report `state_after=pass`,
+`exported_state=pass`, and `full_vs_stepwise=pass`. `kernel_ready` remains
+`no` because logits/output evidence is still unavailable, and the next phase is
+`P78 targeted logits/output residual fix`.
+
+P77 does not implement Pallas, TPU optimization, real training, Qwen-scale
+teacher export, HF `PreTrainedModel`, `lm_eval`, recurrence math changes,
+balance-state math changes, parameter mapping changes, dtype policy changes,
+tolerance changes, fixture value changes, RADLADS upstream/vendor changes, or
+default promotion of experimental `balance_state`.

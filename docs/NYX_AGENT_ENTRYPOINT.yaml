@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 76
-  checkpoint: state_export_import_residual_evidence
-  title: State export/import residual evidence
+  phase: 77
+  checkpoint: full_vs_stepwise_residual_evidence
+  title: Full-vs-stepwise residual evidence
 
 workflow:
   primary_agent: Nyx
@@ -295,8 +295,8 @@ radlads_balance_state_three_way_parity:
     - no_pallas_no_tolerance_loosening_no_default_promotion
 
 radlads_live_same_run_update_trace:
-  phase: P75
-  status: residual_impact_kernel_readiness_gate
+  phase: P77
+  status: full_vs_stepwise_residual_evidence
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   script: scripts/run_live_same_run_update_trace.py
   artifact_dir: artifacts/p68_live_same_run_trace
@@ -339,12 +339,18 @@ radlads_live_same_run_update_trace:
     - P75_FIX_NOTE.md
     - P76_STATE_EXPORT_IMPORT_REPORT.md
     - state_export_import_residual.json
-  recommendation: P77 targeted full-vs-stepwise residual fix
+    - P77_FULL_VS_STEPWISE_REPORT.md
+    - full_vs_stepwise_residual.json
+  recommendation: P78 targeted logits/output residual fix
   kernel_ready: no
   p76_state_export_import:
     status: pass
     exported_state_gate: pass
     next_phase: P77 targeted full-vs-stepwise residual fix
+  p77_full_vs_stepwise:
+    status: pass
+    full_vs_stepwise_gate: pass
+    next_phase: P78 targeted logits/output residual fix
   balance_state_lane_map:
     radlads: balance_state_terms
     radlads_terms: balance_state_terms

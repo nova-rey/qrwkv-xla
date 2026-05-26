@@ -1097,3 +1097,25 @@
   dtype-policy change, tolerance loosening, Pallas work, RADLADS
   upstream/vendor edit, fake direct-lane rows, or default experimental
   `balance_state` promotion.
+
+## P77 — Full-vs-Stepwise Residual Evidence
+
+- [x] Locate and document the full path
+  `RWKV7QwenReferenceStudent.apply_with_state`.
+- [x] Locate and document the stepwise path
+  `RWKV7QwenReferenceStudent.step`.
+- [x] Carry stepwise state explicitly from `student.init_state(batch_size)`
+  through each returned per-token state.
+- [x] Compare full-sequence vs token-by-token final `wkv_matrix_state`.
+- [x] Compare full-sequence vs token-by-token exported `wkv_matrix_state`.
+- [x] Keep P74/P75/P76 lane integrity: RADLADS terms vs QRWKV off terms,
+  RADLADS direct vs QRWKV experimental direct.
+- [x] Regenerate `artifacts/p68_live_same_run_trace/` with
+  `full_vs_stepwise=pass`, `state_after=pass`, and `exported_state=pass`.
+- [x] Emit `P77_FULL_VS_STEPWISE_REPORT.md` and
+  `full_vs_stepwise_residual.json`.
+- [x] Keep `kernel_ready=no` because logits/output evidence remains
+  unavailable, and recommend `P78 targeted logits/output residual fix`.
+- [x] Preserve scope: no recurrence or balance math change, Pallas work,
+  dtype-policy change, tolerance loosening, fixture changes, RADLADS
+  upstream/vendor edit, or default experimental `balance_state` promotion.
