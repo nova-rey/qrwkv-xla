@@ -402,6 +402,67 @@ def test_radlads_live_capture_path_appends_minimum_rows(tmp_path: Path) -> None:
         "wkv_state_after",
     }.issubset({row["source_stage_name"] for row in collector.entries})
     assert {"mixed_value", "kk", "k_for_update", "v_for_update", "ab"} & stages
+    exported = [
+        row
+        for row in collector.entries
+        if row["stage"] == "state_after_exported"
+        and row["capture_kind"] == "exported_state"
+    ]
+    assert exported
+    assert all(
+        "export_reference_state_object" in row["export_path"] for row in exported
+    )
+    assert all(row["import_roundtrip_status"] == "pass" for row in exported)
+
+
+def test_p76_exported_state_rows_are_lane_aware_and_feed_gate() -> None:
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata=_metadata(),
+        strict_live=True,
+    )
+    p76 = report["p76_state_export_import_residual"]
+
+    assert p76["schema"] == "qrwkv_xla.p76_state_export_import_residual.v1"
+    assert (
+        report["p75_residual_impact_gate"]["output_gates"]["exported_state"]["status"]
+        == "pass"
+    )
+    assert {row["lane"] for row in p76["inter_side_exported_state"]} == {
+        "balance_state_terms",
+        "direct_balance_state",
+    }
+    assert report["recommended_next_phase"] == (
+        "P77 targeted full-vs-stepwise residual fix"
+    )
+    assert p76["recommended_next_phase"] == (
+        "P77 targeted state export/import convention fix"
+    )
+
+
+def test_p76_missing_exported_state_rows_preserves_p75_missing_evidence() -> None:
+    traces = {
+        side: [row for row in rows if row["stage"] != "state_after_exported"]
+        for side, rows in _traces().items()
+    }
+    report = compare_live_same_run_traces(
+        traces=traces,
+        metadata=_metadata(),
+        strict_live=True,
+    )
+
+    exported_gate = report["p75_residual_impact_gate"]["output_gates"]["exported_state"]
+    p76 = report["p76_state_export_import_residual"]
+
+    assert exported_gate["status"] == "unavailable"
+    assert exported_gate["reason"] == "missing_evidence:exported_state"
+    assert p76["status"] == "unavailable"
+    assert p76["lane_pair_status"]["balance_state_terms"]["reason"] == (
+        "missing_exported_state_rows"
+    )
+    assert p76["recommended_next_phase"] == (
+        "P77 targeted state export/import convention fix"
+    )
 
 
 def test_minimum_stages_are_counted_separately_from_stretch() -> None:
@@ -460,7 +521,7 @@ def test_p73_direct_lane_not_applicable_does_not_block_terms_math() -> None:
     assert report["math_conclusion_valid"] is True
     assert report["direct_balance_state_lane_valid"] is True
     assert report["recommended_next_phase"] == (
-        "P76 targeted full-vs-stepwise residual fix"
+        "P77 targeted full-vs-stepwise residual fix"
     )
 
 
@@ -828,7 +889,7 @@ def test_p74_both_lanes_passing_recommends_residual_gate() -> None:
     assert report["balance_state_terms_lane_valid"] is True
     assert report["direct_balance_state_lane_valid"] is True
     assert report["recommended_next_phase"] == (
-        "P76 targeted full-vs-stepwise residual fix"
+        "P77 targeted full-vs-stepwise residual fix"
     )
 
 
@@ -880,7 +941,7 @@ def test_p75_missing_required_output_evidence_blocks_kernel_ready() -> None:
     assert "missing_evidence:full_vs_stepwise" in gate["blocking_gates"]
     assert "missing_evidence:logits_output" in gate["blocking_gates"]
     assert gate["recommended_next_phase"] == (
-        "P76 targeted full-vs-stepwise residual fix"
+        "P77 targeted full-vs-stepwise residual fix"
     )
 
 
@@ -904,7 +965,7 @@ def test_p75_kernel_ready_yes_requires_all_output_gates_passing() -> None:
     assert gate["kernel_ready"] == "yes"
     assert gate["blocking_gates"] == []
     assert gate["recommended_next_phase"] == (
-        "P76 broader fixture residual-impact validation"
+        "P77 broader fixture residual-impact validation"
     )
 
 
@@ -929,7 +990,7 @@ def test_p75_shape_mismatch_is_blocking_state_after_fix() -> None:
         "residual_blocking:balance_state_terms:state_after_live"
         in gate["blocking_gates"]
     )
-    assert gate["recommended_next_phase"] == "P76 targeted state_after residual fix"
+    assert gate["recommended_next_phase"] == "P77 targeted lane-aware state layout fix"
 
 
 def test_p75_non_finite_residual_is_blocking() -> None:
@@ -968,7 +1029,7 @@ def test_p75_logits_failure_recommends_output_fix() -> None:
         }
     )
 
-    assert gate["recommended_next_phase"] == ("P76 targeted logits/output residual fix")
+    assert gate["recommended_next_phase"] == ("P77 targeted logits/output residual fix")
 
 
 def test_first_live_mismatch_in_k_for_update_recommends_balance_prep_fix() -> None:

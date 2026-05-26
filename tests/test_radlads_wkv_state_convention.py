@@ -13,9 +13,14 @@ from qrwkv_xla.parity.radlads_numerical_fixtures import (
     generate_radlads_tiny_numerical_fixtures,
 )
 from qrwkv_xla.parity.radlads_wkv_state_convention import (
+    REFERENCE_STATE_EXPORT_PATH,
+    REFERENCE_STATE_IMPORT_PATH,
     WKV_STATE_CONVENTION_REPORT_SCHEMA,
+    WKV_STATE_EXPORT_SCHEMA,
     WKV_STATE_SLOT_AUDIT_SCHEMA,
     compare_wkv_matrix_state_conventions,
+    export_reference_state_object,
+    import_reference_state_object,
     normalize_qrwkv_wkv_matrix_state,
     normalize_radlads_wkv_matrix_state,
 )
@@ -119,6 +124,26 @@ def test_as_is_normalization_preserves_values() -> None:
     result = normalize_radlads_wkv_matrix_state(value)
     assert np.array_equal(result["source_array"], value)
     assert np.array_equal(result["normalized_array"], value)
+
+
+def test_reference_state_export_import_roundtrip_is_source_backed() -> None:
+    state = {
+        "wkv_matrix_state": np.arange(4, dtype=np.float32).reshape(1, 1, 1, 2, 2),
+        "shift_state": np.zeros((1, 1, 2), dtype=np.float32),
+        "next_position": np.array(2, dtype=np.int32),
+    }
+
+    exported = export_reference_state_object(state)
+    imported = import_reference_state_object(exported)
+
+    assert exported["schema"] == WKV_STATE_EXPORT_SCHEMA
+    assert exported["export_path"] == REFERENCE_STATE_EXPORT_PATH
+    assert REFERENCE_STATE_IMPORT_PATH.endswith("import_reference_state_object")
+    assert exported["representation"] == "reference_state_slots"
+    assert np.array_equal(
+        imported["wkv_matrix_state"],  # type: ignore[index]
+        state["wkv_matrix_state"],
+    )
 
 
 def test_axis_normalization_works_on_synthetic_known_layout() -> None:

@@ -11,6 +11,14 @@ import numpy as np
 WKV_STATE_CONVENTION_SCHEMA = "radlads_qrwkv_wkv_state_convention.v1"
 WKV_STATE_SLOT_AUDIT_SCHEMA = "radlads_qrwkv_wkv_state_slot_audit.v1"
 WKV_STATE_CONVENTION_REPORT_SCHEMA = "radlads_qrwkv_wkv_state_convention_report.v1"
+WKV_STATE_EXPORT_SCHEMA = "qrwkv_xla.wkv_state_export.v1"
+
+REFERENCE_STATE_EXPORT_PATH = (
+    "qrwkv_xla.parity.radlads_wkv_state_convention.export_reference_state_object"
+)
+REFERENCE_STATE_IMPORT_PATH = (
+    "qrwkv_xla.parity.radlads_wkv_state_convention.import_reference_state_object"
+)
 
 VALID_NORMALIZATIONS = {
     "as_is",
@@ -176,6 +184,59 @@ def compare_wkv_matrix_state_conventions(
         "source_convention": "radlads-vs-qrwkv",
         "target_convention": "comparison",
     }
+
+
+def export_reference_state_object(source: Any) -> dict[str, Any]:
+    """Observe-only export of the local reference recurrent state object.
+
+    This is the current QRWKV-XLA state export path for P76 evidence. It exports
+    the returned reference state object's slots without changing recurrence math
+    or serializing a checkpoint.
+    """
+    slots = {
+        "wkv_matrix_state": np.asarray(extract_state_slot(source, "wkv_matrix_state")),
+    }
+    if hasattr(source, "shift_state") or (
+        isinstance(source, Mapping) and "shift_state" in source
+    ):
+        slots["shift_state"] = np.asarray(extract_state_slot(source, "shift_state"))
+    if hasattr(source, "next_position") or (
+        isinstance(source, Mapping) and "next_position" in source
+    ):
+        slots["next_position"] = np.asarray(extract_state_slot(source, "next_position"))
+    return {
+        "schema": WKV_STATE_EXPORT_SCHEMA,
+        "export_path": REFERENCE_STATE_EXPORT_PATH,
+        "representation": "reference_state_slots",
+        "state_slots": slots,
+        "slot_shapes": {
+            name: [int(dim) for dim in value.shape] for name, value in slots.items()
+        },
+        "slot_dtypes": {name: str(value.dtype) for name, value in slots.items()},
+    }
+
+
+def import_reference_state_object(
+    payload: Mapping[str, Any], *, template: Any | None = None
+) -> Any:
+    if payload.get("schema") != WKV_STATE_EXPORT_SCHEMA:
+        raise ValueError(f"unsupported state export schema: {payload.get('schema')}")
+    slots = payload.get("state_slots")
+    if not isinstance(slots, Mapping) or "wkv_matrix_state" not in slots:
+        raise ValueError("state export payload missing wkv_matrix_state slot")
+    imported = {str(name): np.asarray(value) for name, value in slots.items()}
+    if template is not None and all(
+        hasattr(template, name)
+        for name in ("wkv_matrix_state", "shift_state", "next_position")
+    ):
+        return type(template)(
+            wkv_matrix_state=imported["wkv_matrix_state"],
+            shift_state=imported["shift_state"],
+            next_position=imported["next_position"],
+        )
+    if template is not None and not hasattr(template, "wkv_matrix_state"):
+        return imported["wkv_matrix_state"]
+    return imported
 
 
 def write_wkv_state_convention_report(report: Mapping[str, Any], out_dir: Path) -> None:

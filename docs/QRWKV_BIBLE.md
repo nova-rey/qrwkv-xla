@@ -1427,3 +1427,32 @@ Pallas/kernel code, RADLADS upstream/vendor code, deterministic fixture values,
 hidden-state layout, or default experimental `balance_state` behavior. It
 keeps `kernel_ready=no` whenever required readiness evidence is missing or any
 gate is blocking, and recommends exactly one P76 next phase.
+
+## Phase 76 — State Export / Import Residual Evidence
+
+P76 closes the P75 `exported_state` blocker without changing recurrence math.
+The current state export path is an observe-only local helper around the
+returned `RWKV7QwenReferenceState` object: it exports `wkv_matrix_state`,
+`shift_state`, and `next_position` as reference state slots, then imports the
+same payload through the matching helper for round-trip evidence.
+
+The live same-run trace now records `state_after_exported` rows with
+`capture_kind=exported_state`, lane-aware keys, and explicit `export_path` /
+`import_path` metadata. P76 compares live state vs exported state intra-side
+for RADLADS terms, QRWKV off terms, RADLADS direct, and QRWKV experimental
+direct, then compares exported states only on the fair P74 lane pairs:
+RADLADS terms vs QRWKV off terms, and RADLADS direct vs QRWKV experimental
+direct.
+
+The regenerated `artifacts/p68_live_same_run_trace/` adds
+`P76_STATE_EXPORT_IMPORT_REPORT.md` and
+`state_export_import_residual.json`. The P75 gate now reports
+`exported_state=pass`; `kernel_ready` remains `no` because
+`full_vs_stepwise` and `logits_output` are still unavailable. The exact next
+phase is `P77 targeted full-vs-stepwise residual fix`.
+
+P76 does not implement Pallas, TPU optimization, real training, Qwen-scale
+teacher export, HF `PreTrainedModel`, `lm_eval`, recurrence math changes,
+balance-state math changes, parameter mapping changes, dtype policy changes,
+tolerance changes, fixture value changes, RADLADS upstream/vendor changes, or
+default promotion of experimental `balance_state`.

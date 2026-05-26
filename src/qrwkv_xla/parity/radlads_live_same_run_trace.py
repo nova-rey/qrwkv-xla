@@ -28,11 +28,21 @@ from qrwkv_xla.parity.radlads_same_run_update_ingredients import (
 from qrwkv_xla.parity.radlads_same_run_update_ingredients import (
     SOURCE_STAGE_MAP as P67_SOURCE_STAGE_MAP,
 )
+from qrwkv_xla.parity.radlads_wkv_state_convention import (
+    REFERENCE_STATE_EXPORT_PATH,
+    REFERENCE_STATE_IMPORT_PATH,
+    export_reference_state_object,
+    extract_state_slot,
+    import_reference_state_object,
+)
 from qrwkv_xla.parity.radlads_wkv_trace import compare_trace_arrays, load_trace_jsonl
 
 LIVE_SAME_RUN_TRACE_SCHEMA = "qrwkv_xla.p68_live_same_run_trace.v1"
 LIVE_SAME_RUN_REPORT_SCHEMA = "qrwkv_xla.p68_live_same_run_trace_report.v1"
 P75_RESIDUAL_IMPACT_GATE_SCHEMA = "qrwkv_xla.p75_residual_impact_gate.v1"
+P76_STATE_EXPORT_IMPORT_RESIDUAL_SCHEMA = (
+    "qrwkv_xla.p76_state_export_import_residual.v1"
+)
 DEFAULT_OUT = Path("artifacts/p68_live_same_run_trace")
 SIDES = ("radlads", "qrwkv_off", "qrwkv_experimental")
 BALANCE_STATE_TERMS_LANE = "balance_state_terms"
@@ -157,6 +167,11 @@ SOURCE_STAGE_MAP.update(
             "final_update_term",
             "state_after_from_full_source_formula",
         ),
+        "state_after_exported": (
+            "state_after_exported",
+            "returned_wkv_matrix_state",
+            "exported_wkv_matrix_state",
+        ),
     }
 )
 SOURCE_STAGE_MAP["prev_state"] = (
@@ -179,7 +194,7 @@ P71_STRETCH_STAGES = (
     "balance_state_term",
     "composite_update_term",
 )
-AVAILABLE_CAPTURE_KINDS = {"live_captured", "exact_reconstruction"}
+AVAILABLE_CAPTURE_KINDS = {"live_captured", "exact_reconstruction", "exported_state"}
 BALANCE_STATE_CONFIG_KEYS = {
     "radlads_balance_state",
     "radlads_balance_state_terms",
@@ -217,14 +232,13 @@ P75_TERMS_AB_FIX = "P75 targeted terms-lane ab construction/orientation fix"
 P75_TERMS_VK_FIX = "P75 targeted terms-lane vk/outer-product orientation fix"
 P75_RESIDUAL_GATE = "P75 residual-impact / kernel-readiness gate"
 P75_PALLAS = "P75 Pallas prototype behind known-caveat flag"
-P76_BROADER_FIXTURE_VALIDATION = "P76 broader fixture residual-impact validation"
-P76_STATE_AFTER_FIX = "P76 targeted state_after residual fix"
-P76_LOGITS_OUTPUT_FIX = "P76 targeted logits/output residual fix"
-P76_STATE_EXPORT_FIX = "P76 targeted state export/import residual fix"
-P76_FULL_VS_STEPWISE_FIX = "P76 targeted full-vs-stepwise residual fix"
-P76_LANE_REGRESSION_REPAIR = "P76 targeted lane comparison regression repair"
-P76_PALLAS_CAVEAT = "P76 Pallas prototype behind known-caveat flag"
-P76_KERNEL_GATE_HARDENING = "P76 kernel-readiness hardening gate"
+P77_BROADER_FIXTURE_VALIDATION = "P77 broader fixture residual-impact validation"
+P77_STATE_AFTER_FIX = "P77 targeted lane-aware state layout fix"
+P77_LOGITS_OUTPUT_FIX = "P77 targeted logits/output residual fix"
+P77_STATE_EXPORT_FIX = "P77 targeted state export/import convention fix"
+P77_FULL_VS_STEPWISE_FIX = "P77 targeted full-vs-stepwise residual fix"
+P77_LANE_LAYOUT_FIX = "P77 targeted lane-aware state layout fix"
+P77_KERNEL_GATE_HARDENING = "P77 kernel-readiness hardening gate"
 P75_RESIDUAL_STAGES = (
     "state_after_live",
     "vk",
@@ -295,6 +309,10 @@ class LiveTraceCollector:
         capture_kind: str = "live_captured",
         source_file: str | None = None,
         source_function: str | None = None,
+        export_path: str | None = None,
+        import_path: str | None = None,
+        import_roundtrip_status: str | None = None,
+        import_roundtrip_reason: str | None = None,
     ) -> None:
         del source_file, source_function
         if value is None:
@@ -321,11 +339,18 @@ class LiveTraceCollector:
                     stage=normalized_stage,
                     source_stage_name=source_stage,
                     capture_kind=capture_kind,
+                    extra_metadata=_compact_metadata(
+                        export_path=export_path,
+                        import_path=import_path,
+                        import_roundtrip_status=import_roundtrip_status,
+                        import_roundtrip_reason=import_roundtrip_reason,
+                    ),
                 )
             return
         if (
             head is None
-            and normalized_stage in (*MINIMUM_STAGES, *P71_STRETCH_STAGES)
+            and normalized_stage
+            in (*MINIMUM_STAGES, *P71_STRETCH_STAGES, "state_after_exported")
             and array.ndim >= 3
             and array.shape[1] > 0
         ):
@@ -339,6 +364,12 @@ class LiveTraceCollector:
                     stage=normalized_stage,
                     source_stage_name=source_stage,
                     capture_kind=capture_kind,
+                    extra_metadata=_compact_metadata(
+                        export_path=export_path,
+                        import_path=import_path,
+                        import_roundtrip_status=import_roundtrip_status,
+                        import_roundtrip_reason=import_roundtrip_reason,
+                    ),
                 )
             return
         self._append(
@@ -350,6 +381,12 @@ class LiveTraceCollector:
             stage=normalized_stage,
             source_stage_name=source_stage,
             capture_kind=capture_kind,
+            extra_metadata=_compact_metadata(
+                export_path=export_path,
+                import_path=import_path,
+                import_roundtrip_status=import_roundtrip_status,
+                import_roundtrip_reason=import_roundtrip_reason,
+            ),
         )
 
     def _append(
@@ -363,6 +400,7 @@ class LiveTraceCollector:
         stage: str,
         source_stage_name: str,
         capture_kind: str,
+        extra_metadata: Mapping[str, Any] | None = None,
     ) -> None:
         summary = summarize_array(
             name or stage,
@@ -371,36 +409,39 @@ class LiveTraceCollector:
             layer=layer,
             time_index=token,
         )
-        self.entries.append(
-            {
-                "same_run_group_id": self.same_run_group_id,
-                "fixture_id": self.fixture_id,
-                "parameter_id": self.parameter_id,
-                "case": self.case,
-                "side": self.side,
-                "mode": self.mode,
-                "layer": layer,
-                "head": head,
-                "token": token,
-                "token_index": token,
-                "stage": stage,
-                "source_stage_name": source_stage_name,
-                "capture_kind": capture_kind,
-                "balance_state_lane": self.balance_state_lane,
-                "shape": [int(dim) for dim in value.shape],
-                "dtype": str(value.dtype),
-                "array": (
-                    value.tolist() if value.size <= self.max_inline_values else None
-                ),
-                "summary": {
-                    "finite": bool(np.isfinite(value).all()) if value.size else True,
-                    "max_abs": summary.abs_max,
-                    "mean_abs": float(np.mean(np.abs(value))) if value.size else 0.0,
-                    "sample": None if value.size == 0 else float(value.reshape(-1)[0]),
-                },
-                "live_config": self.live_config,
-            }
-        )
+        row = {
+            "same_run_group_id": self.same_run_group_id,
+            "fixture_id": self.fixture_id,
+            "parameter_id": self.parameter_id,
+            "case": self.case,
+            "side": self.side,
+            "mode": self.mode,
+            "layer": layer,
+            "head": head,
+            "token": token,
+            "token_index": token,
+            "stage": stage,
+            "source_stage_name": source_stage_name,
+            "capture_kind": capture_kind,
+            "balance_state_lane": self.balance_state_lane,
+            "shape": [int(dim) for dim in value.shape],
+            "dtype": str(value.dtype),
+            "array": (value.tolist() if value.size <= self.max_inline_values else None),
+            "summary": {
+                "finite": bool(np.isfinite(value).all()) if value.size else True,
+                "max_abs": summary.abs_max,
+                "mean_abs": float(np.mean(np.abs(value))) if value.size else 0.0,
+                "sample": None if value.size == 0 else float(value.reshape(-1)[0]),
+            },
+            "live_config": self.live_config,
+        }
+        if extra_metadata:
+            row.update(dict(extra_metadata))
+        self.entries.append(row)
+
+
+def _compact_metadata(**items: Any) -> dict[str, Any]:
+    return {key: value for key, value in items.items() if value is not None}
 
 
 def deterministic_fixture_id(path: Path) -> str:
@@ -737,6 +778,14 @@ def compare_live_same_run_traces(
     }
     p75_gate = build_p75_residual_impact_gate(report)
     report["p75_residual_impact_gate"] = p75_gate
+    report["p76_state_export_import_residual"] = build_p76_state_export_import_residual(
+        traces=traces,
+        comparison_rows=rows,
+        report=report,
+        p75_gate=p75_gate,
+        atol=atol,
+        rtol=rtol,
+    )
     report["kernel_ready"] = p75_gate["kernel_ready"]
     report["kernel_readiness_reason"] = p75_gate["kernel_readiness"]["reason"]
     report["blocking_gates"] = p75_gate["blocking_gates"]
@@ -852,6 +901,134 @@ def build_p75_residual_impact_gate(report: Mapping[str, Any]) -> dict[str, Any]:
             blocking_gates=blocking_gates,
             warning_gates=warning_gates,
         ),
+    }
+
+
+def build_p76_state_export_import_residual(
+    *,
+    traces: Mapping[str, list[dict[str, Any]]],
+    comparison_rows: list[dict[str, Any]],
+    report: Mapping[str, Any],
+    p75_gate: Mapping[str, Any],
+    atol: float,
+    rtol: float,
+) -> dict[str, Any]:
+    intra_rows = _p76_intra_side_rows(traces=traces, atol=atol, rtol=rtol)
+    import_rows = _p76_import_roundtrip_rows(traces)
+    inter_rows = _p76_inter_side_rows(comparison_rows)
+    required_surfaces = {
+        "radlads_terms": ("radlads", BALANCE_STATE_TERMS_LANE),
+        "qrwkv_off_terms": ("qrwkv_off", BALANCE_STATE_TERMS_LANE),
+        "radlads_direct": ("radlads", DIRECT_BALANCE_STATE_LANE),
+        "qrwkv_experimental_direct": (
+            "qrwkv_experimental",
+            DIRECT_BALANCE_STATE_LANE,
+        ),
+    }
+    surface_status = {}
+    for surface, (side, lane) in required_surfaces.items():
+        surface_import = [
+            row for row in import_rows if row["side"] == side and row["lane"] == lane
+        ]
+        surface_intra = [
+            row for row in intra_rows if row["side"] == side and row["lane"] == lane
+        ]
+        if not surface_import or not surface_intra:
+            surface_status[surface] = {
+                "status": "unavailable",
+                "reason": "missing_export_path",
+            }
+        elif all(row["status"] == "pass" for row in surface_import + surface_intra):
+            surface_status[surface] = {"status": "pass", "reason": "allclose"}
+        else:
+            surface_status[surface] = {
+                "status": "fail",
+                "reason": "live_export_or_import_roundtrip_mismatch",
+            }
+    lane_pairs = {
+        BALANCE_STATE_TERMS_LANE: "radlads_vs_qrwkv_off",
+        DIRECT_BALANCE_STATE_LANE: "radlads_vs_qrwkv_experimental",
+    }
+    lane_status = {}
+    for lane, pair in lane_pairs.items():
+        rows = [row for row in inter_rows if row["lane"] == lane]
+        available = [row for row in rows if row.get("status") != "unavailable"]
+        if not available:
+            lane_status[lane] = {
+                "status": "unavailable",
+                "reason": "missing_exported_state_rows",
+                "pair": pair,
+            }
+        elif all(row["status"] == "pass" for row in available):
+            lane_status[lane] = {"status": "pass", "reason": "allclose", "pair": pair}
+        else:
+            lane_status[lane] = {
+                "status": "fail",
+                "reason": "exported_state_residual",
+                "pair": pair,
+            }
+    statuses = [
+        item["status"] for item in [*surface_status.values(), *lane_status.values()]
+    ]
+    overall = (
+        "pass"
+        if statuses and all(status == "pass" for status in statuses)
+        else "fail"
+        if any(status == "fail" for status in statuses)
+        else "unavailable"
+    )
+    blocking_gates = _p76_blocking_gates(
+        surface_status=surface_status,
+        lane_status=lane_status,
+    )
+    return {
+        "schema": P76_STATE_EXPORT_IMPORT_RESIDUAL_SCHEMA,
+        "phase": "P76",
+        "same_run_valid": bool(report.get("same_run_valid")),
+        "lane_aware_keys": True,
+        "same_run_group_id": report.get("same_run_group_id"),
+        "fixture_id": report.get("fixture_id"),
+        "parameter_id": report.get("parameter_id"),
+        "export_path": REFERENCE_STATE_EXPORT_PATH,
+        "import_path": REFERENCE_STATE_IMPORT_PATH,
+        "state_export_semantics": {
+            "meaning": "reference_state_slots",
+            "exported_state_slot": "wkv_matrix_state",
+            "trace_stage": "state_after_exported",
+            "capture_kind": "exported_state",
+            "export_path": REFERENCE_STATE_EXPORT_PATH,
+            "import_path": REFERENCE_STATE_IMPORT_PATH,
+        },
+        "status": overall,
+        "p75_exported_state_gate": p75_gate.get("output_gates", {}).get(
+            "exported_state"
+        ),
+        "kernel_ready": p75_gate.get("kernel_ready"),
+        "blocking_gates": blocking_gates,
+        "p75_recommended_next_phase": p75_gate.get("recommended_next_phase"),
+        "recommended_next_phase": _p76_recommended_next_phase(
+            status=overall,
+            surface_status=surface_status,
+            lane_status=lane_status,
+        ),
+        "lanes": {
+            BALANCE_STATE_TERMS_LANE: {
+                "fair_pair": lane_pairs[BALANCE_STATE_TERMS_LANE],
+                "status": lane_status[BALANCE_STATE_TERMS_LANE]["status"],
+            },
+            DIRECT_BALANCE_STATE_LANE: {
+                "fair_pair": lane_pairs[DIRECT_BALANCE_STATE_LANE],
+                "status": lane_status[DIRECT_BALANCE_STATE_LANE]["status"],
+            },
+        },
+        "intra_side_consistency": surface_status,
+        "inter_side_parity": lane_status,
+        "round_trip": surface_status,
+        "surface_status": surface_status,
+        "lane_pair_status": lane_status,
+        "intra_side_live_vs_exported": intra_rows,
+        "import_roundtrip": import_rows,
+        "inter_side_exported_state": inter_rows,
     }
 
 
@@ -1294,22 +1471,166 @@ def _p75_recommended_next_phase(
     del warning_gates
     for blocker in blocking_gates:
         if "state_after" in blocker:
-            return P76_STATE_AFTER_FIX
+            return P77_STATE_AFTER_FIX
     for blocker in blocking_gates:
         if "lane_comparison_regression" in blocker:
-            return P76_LANE_REGRESSION_REPAIR
+            return P77_LANE_LAYOUT_FIX
     for blocker in blocking_gates:
         if "exported_state" in blocker:
-            return P76_STATE_EXPORT_FIX
+            return P77_STATE_EXPORT_FIX
     for blocker in blocking_gates:
         if "full_vs_stepwise" in blocker:
-            return P76_FULL_VS_STEPWISE_FIX
+            return P77_FULL_VS_STEPWISE_FIX
     for blocker in blocking_gates:
         if "logits_output" in blocker:
-            return P76_LOGITS_OUTPUT_FIX
+            return P77_LOGITS_OUTPUT_FIX
     if blocking_gates:
-        return P76_KERNEL_GATE_HARDENING
-    return P76_BROADER_FIXTURE_VALIDATION
+        return P77_KERNEL_GATE_HARDENING
+    return P77_BROADER_FIXTURE_VALIDATION
+
+
+def _p76_blocking_gates(
+    *,
+    surface_status: Mapping[str, Mapping[str, Any]],
+    lane_status: Mapping[str, Mapping[str, Any]],
+) -> list[str]:
+    blockers = []
+    for surface, item in surface_status.items():
+        if item.get("status") != "pass":
+            blockers.append(f"surface:{surface}:{item.get('reason')}")
+    for lane, item in lane_status.items():
+        if item.get("status") != "pass":
+            blockers.append(f"lane:{lane}:{item.get('reason')}")
+    return blockers
+
+
+def _p76_recommended_next_phase(
+    *,
+    status: str,
+    surface_status: Mapping[str, Mapping[str, Any]],
+    lane_status: Mapping[str, Mapping[str, Any]],
+) -> str:
+    if status == "pass":
+        return P77_FULL_VS_STEPWISE_FIX
+    for item in surface_status.values():
+        if item.get("status") != "pass":
+            return P77_STATE_EXPORT_FIX
+    for item in lane_status.values():
+        if item.get("status") != "pass":
+            return P77_STATE_EXPORT_FIX
+    return P77_BROADER_FIXTURE_VALIDATION
+
+
+def _p76_intra_side_rows(
+    *, traces: Mapping[str, list[dict[str, Any]]], atol: float, rtol: float
+) -> list[dict[str, Any]]:
+    rows = []
+    for side in SIDES:
+        by_key = {_trace_key(row): row for row in traces.get(side, [])}
+        for exported in traces.get(side, []):
+            if (
+                exported.get("stage") != "state_after_exported"
+                or exported.get("capture_kind") != "exported_state"
+            ):
+                continue
+            live_key = (*_trace_key(exported)[:-1], "state_after_live")
+            live = by_key.get(live_key)
+            stats = _compare_pair(live, exported, atol=atol, rtol=rtol)
+            rows.append(
+                {
+                    "side": side,
+                    "lane": exported.get("balance_state_lane"),
+                    "case": exported.get("case"),
+                    "mode": exported.get("mode"),
+                    "layer": exported.get("layer"),
+                    "token": exported.get("token"),
+                    "head": exported.get("head"),
+                    "status": stats["status"],
+                    "max_abs_error": stats["max_abs_error"],
+                    "mean_abs_error": stats["mean_abs_error"],
+                    "export_path": exported.get("export_path"),
+                    "source_stage_name": exported.get("source_stage_name"),
+                }
+            )
+    return sorted(rows, key=_p76_row_sort_key)
+
+
+def _p76_import_roundtrip_rows(
+    traces: Mapping[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    rows = []
+    for side in SIDES:
+        for exported in traces.get(side, []):
+            if (
+                exported.get("stage") != "state_after_exported"
+                or exported.get("capture_kind") != "exported_state"
+            ):
+                continue
+            status = exported.get("import_roundtrip_status")
+            reason = exported.get("import_roundtrip_reason")
+            if status is None:
+                status = "unavailable"
+                reason = "missing_import_path"
+            rows.append(
+                {
+                    "side": side,
+                    "lane": exported.get("balance_state_lane"),
+                    "case": exported.get("case"),
+                    "mode": exported.get("mode"),
+                    "layer": exported.get("layer"),
+                    "token": exported.get("token"),
+                    "head": exported.get("head"),
+                    "status": status,
+                    "reason": reason,
+                    "export_path": exported.get("export_path"),
+                    "import_path": exported.get("import_path"),
+                }
+            )
+    return sorted(rows, key=_p76_row_sort_key)
+
+
+def _p76_inter_side_rows(comparison_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = []
+    for row in comparison_rows:
+        if row.get("stage") != "state_after_exported":
+            continue
+        lane = row.get("balance_state_lane")
+        pair = _lane_primary_pair(row)
+        if pair is None:
+            continue
+        comparison = row.get(pair, {})
+        rows.append(
+            {
+                "lane": lane,
+                "pair": pair,
+                "case": row.get("case"),
+                "mode": row.get("mode"),
+                "layer": row.get("layer"),
+                "token": row.get("token"),
+                "head": row.get("head"),
+                "status": comparison.get("status"),
+                "max_abs_error": comparison.get("max_abs_error"),
+                "mean_abs_error": comparison.get("mean_abs_error"),
+                "radlads_capture_kind": row.get("radlads_capture_kind"),
+                "qrwkv_off_capture_kind": row.get("qrwkv_off_capture_kind"),
+                "qrwkv_experimental_capture_kind": row.get(
+                    "qrwkv_experimental_capture_kind"
+                ),
+            }
+        )
+    return sorted(rows, key=_p76_row_sort_key)
+
+
+def _p76_row_sort_key(row: Mapping[str, Any]) -> tuple[Any, ...]:
+    return (
+        str(row.get("side", "")),
+        str(row.get("lane", "")),
+        str(row.get("case", "")),
+        "" if row.get("mode") is None else str(row.get("mode")),
+        -1 if row.get("layer") is None else int(row.get("layer")),
+        -1 if row.get("token") is None else int(row.get("token")),
+        -1 if row.get("head") is None else int(row.get("head")),
+    )
 
 
 def write_live_same_run_trace(entries: list[dict[str, Any]], path: Path) -> None:
@@ -1350,6 +1671,12 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
         json.dumps(_jsonable(p75_gate), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    p76_report = report.get("p76_state_export_import_residual")
+    if isinstance(p76_report, Mapping):
+        (out_dir / "state_export_import_residual.json").write_text(
+            json.dumps(_jsonable(p76_report), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     (out_dir / "P68_RESULTS.md").write_text(_results_markdown(report), encoding="utf-8")
     (out_dir / "LIVE_SAME_RUN_VALIDITY.md").write_text(
         _validity_markdown(report), encoding="utf-8"
@@ -1404,6 +1731,20 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
     (out_dir / "P75_FIX_NOTE.md").write_text(
         _p75_fix_note_markdown(report, p75_gate), encoding="utf-8"
     )
+    if isinstance(p76_report, Mapping):
+        (out_dir / "P76_STATE_EXPORT_IMPORT_REPORT.md").write_text(
+            _p76_state_export_import_markdown(p76_report, p75_gate),
+            encoding="utf-8",
+        )
+        if p76_report.get("status") != "pass":
+            (out_dir / "P76_BLOCKER_REPORT.md").write_text(
+                _p76_blocker_report_markdown(p76_report),
+                encoding="utf-8",
+            )
+        else:
+            stale_blocker = out_dir / "P76_BLOCKER_REPORT.md"
+            if stale_blocker.exists():
+                stale_blocker.unlink()
     if not report.get("same_run_valid"):
         (out_dir / "P68_FIX_NOTE.md").write_text(
             "# P68 Fix Note\n\n"
@@ -1626,11 +1967,16 @@ def _capture_radlads_case(
         if max_tokens is not None:
             attention_mask = attention_mask[:, :max_tokens]
     student = RWKV7QwenReferenceStudent(config)
-    student.apply_with_state(
+    _output, final_state = student.apply_with_state(
         dict(params),
         input_ids,
         attention_mask=attention_mask,
         diagnostics=collector,
+    )
+    _record_exported_state_rows(
+        collector=collector,
+        state=final_state,
+        token_index=input_ids.shape[1] - 1,
     )
 
 
@@ -1655,12 +2001,51 @@ def _capture_qrwkv_case(
         if max_tokens is not None:
             attention_mask = attention_mask[:, :max_tokens]
     student = RWKV7QwenReferenceStudent(config)
-    student.apply_with_state(
+    _output, final_state = student.apply_with_state(
         dict(params),
         input_ids,
         attention_mask=attention_mask,
         diagnostics=collector,
     )
+    _record_exported_state_rows(
+        collector=collector,
+        state=final_state,
+        token_index=input_ids.shape[1] - 1,
+    )
+
+
+def _record_exported_state_rows(
+    *,
+    collector: LiveTraceCollector,
+    state: Any,
+    token_index: int,
+) -> None:
+    try:
+        exported = export_reference_state_object(state)
+        imported = import_reference_state_object(exported, template=state)
+        exported_wkv = np.asarray(exported["state_slots"]["wkv_matrix_state"])
+        imported_wkv = np.asarray(extract_state_slot(imported, "wkv_matrix_state"))
+        roundtrip = compare_trace_arrays(exported_wkv, imported_wkv)
+        roundtrip_status = str(roundtrip["status"])
+        roundtrip_reason = (
+            "allclose" if roundtrip_status == "pass" else roundtrip_status
+        )
+    except Exception:  # pragma: no cover - defensive evidence path
+        return
+    for layer_index in range(int(exported_wkv.shape[0])):
+        collector.record(
+            "exported_wkv_matrix_state",
+            exported_wkv[layer_index],
+            layer=layer_index,
+            token=token_index,
+            stage="state_after_exported",
+            source_stage_name="exported_wkv_matrix_state",
+            capture_kind="exported_state",
+            export_path=str(exported.get("export_path", REFERENCE_STATE_EXPORT_PATH)),
+            import_path=REFERENCE_STATE_IMPORT_PATH,
+            import_roundtrip_status=roundtrip_status,
+            import_roundtrip_reason=roundtrip_reason,
+        )
 
 
 def _selected_case_dicts(
@@ -1952,7 +2337,7 @@ def _available_row(
         "sample": None if array.size == 0 else float(array.reshape(-1)[0]),
     }
     source_config = source.get("live_config", source.get("config", {}))
-    return {
+    row = {
         "schema": LIVE_SAME_RUN_TRACE_SCHEMA,
         "phase": "P68",
         "same_run_group_id": str(source.get("same_run_group_id", same_run_group_id)),
@@ -1987,6 +2372,15 @@ def _available_row(
         "summary": row_summary,
         "live_config": source.get("live_config", source.get("config")),
     }
+    for key in (
+        "export_path",
+        "import_path",
+        "import_roundtrip_status",
+        "import_roundtrip_reason",
+    ):
+        if source.get(key) is not None:
+            row[key] = source.get(key)
+    return row
 
 
 def _unavailable_row(
@@ -3479,6 +3873,103 @@ def _p73_fix_note_markdown(report: Mapping[str, Any]) -> str:
             "No recurrence math, dtype policy, tolerance, Pallas/kernel code, "
             "RADLADS upstream/vendor code, or default experimental "
             "balance_state behavior is changed.",
+            "",
+        ]
+    )
+
+
+def _p76_state_export_import_markdown(
+    report: Mapping[str, Any], gate: Mapping[str, Any]
+) -> str:
+    semantics = report.get("state_export_semantics", {})
+    lines = [
+        "# P76 State Export / Import Report",
+        "",
+        f"status: `{report.get('status')}`",
+        f"schema: `{report.get('schema')}`",
+        f"fixture_id: `{report.get('fixture_id')}`",
+        f"parameter_id: `{report.get('parameter_id')}`",
+        f"same_run_group_id: `{report.get('same_run_group_id')}`",
+        "",
+        "## Export/Import Path",
+        "",
+        f"- export function/path: `{semantics.get('export_path')}`",
+        f"- import function/path: `{semantics.get('import_path')}`",
+        f"- state representation: `{semantics.get('meaning')}`",
+        "- state slots: `wkv_matrix_state`, `shift_state`, "
+        "`next_position` when present",
+        "- shape convention: reference state slot shapes are preserved",
+        "- dtype convention: exported slot dtypes are preserved",
+        "- lane identity: preserved by trace row `balance_state_lane` keys",
+        f"- trace_stage: `{semantics.get('trace_stage')}`",
+        f"- capture_kind: `{semantics.get('capture_kind')}`",
+        "",
+        "## Lane-Aware Exported State Rows",
+        "",
+    ]
+    for surface, item in report.get("surface_status", {}).items():
+        lines.append(
+            f"- {surface}: status=`{item.get('status')}`, reason=`{item.get('reason')}`"
+        )
+    lines.extend(["", "## Intra-side Consistency", ""])
+    lines.append(
+        "state_after_live vs state_after_exported: see required surfaces above"
+    )
+    lines.extend(["", "## Inter-side Exported-State Parity", ""])
+    for lane, item in report.get("lane_pair_status", {}).items():
+        lines.append(
+            f"- {lane}: pair=`{item.get('pair')}`, "
+            f"status=`{item.get('status')}`, reason=`{item.get('reason')}`"
+        )
+    exported_gate = gate.get("output_gates", {}).get("exported_state", {})
+    lines.extend(
+        [
+            "",
+            "## Import Round Trip",
+            "",
+            "exported -> imported: included in required surface status above",
+            "",
+            "## P75 Gate Feed",
+            "",
+            "- exported_state gate: "
+            f"status=`{exported_gate.get('status')}`, "
+            f"reason=`{exported_gate.get('reason')}`",
+            f"- kernel_ready: `{gate.get('kernel_ready')}`",
+            f"- blocking_gates: `{gate.get('blocking_gates')}`",
+            f"- recommended_next_phase: `{gate.get('recommended_next_phase')}`",
+            "",
+            "## Decision",
+            "",
+            f"recommended_next_phase: `{report.get('recommended_next_phase')}`",
+            "",
+            "No recurrence math, balance-state math, dtype policy, tolerances, "
+            "fixture values, RADLADS source, Pallas code, training path, or "
+            "default experimental balance_state behavior changed.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _p76_blocker_report_markdown(report: Mapping[str, Any]) -> str:
+    blockers = []
+    for surface, item in report.get("surface_status", {}).items():
+        if item.get("status") != "pass":
+            blockers.append(f"{surface}:{item.get('reason')}")
+    for lane, item in report.get("lane_pair_status", {}).items():
+        if item.get("status") != "pass":
+            blockers.append(f"{lane}:{item.get('reason')}")
+    return "\n".join(
+        [
+            "# P76 Blocker Report",
+            "",
+            f"status: `{report.get('status')}`",
+            "",
+            "## Blocking Or Missing Evidence",
+            "",
+            *[f"- `{item}`" for item in blockers],
+            "",
+            f"recommended_next_phase: `{report.get('recommended_next_phase')}`",
             "",
         ]
     )

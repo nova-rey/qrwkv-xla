@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 75
-  checkpoint: residual_impact_kernel_readiness_gate
-  title: Residual-impact / kernel-readiness gate
+  phase: 76
+  checkpoint: state_export_import_residual_evidence
+  title: State export/import residual evidence
 
 workflow:
   primary_agent: Nyx
@@ -47,7 +47,7 @@ instructions:
   - Keep P62 diagnostic-only unless a source-backed update-term fix is proven; unavailable WKV stages must be reported explicitly, not synthesized.
   - Keep P64 scoped to composite/balance-state hook extraction and comparison; preserve P58/P61/P63 behavior, do not loosen tolerances, and do not change recurrence math.
   - Keep P70 scoped to observe-only RADLADS live trace hook wiring; do not change recurrence math, loosen tolerances, implement Pallas, or promote experimental balance_state mode.
-  - Keep P75 scoped to residual-impact and kernel-readiness gating; preserve P74 terms/direct lane comparisons, report missing evidence explicitly, and do not implement Pallas, real training, recurrence rewrites, tolerance changes, or default experimental balance_state promotion.
+  - Keep P76 scoped to source-backed state export/import evidence; preserve P74/P75 fair lane comparisons, report remaining full-vs-stepwise and logits/output evidence gaps explicitly, and do not implement Pallas, real training, recurrence rewrites, tolerance changes, or default experimental balance_state promotion.
 
 radlads_qrwkv_head_to_head_parity:
   phase: P53
@@ -337,8 +337,14 @@ radlads_live_same_run_update_trace:
     - P75_KERNEL_READINESS_DECISION.md
     - P75_BLOCKER_REPORT.md
     - P75_FIX_NOTE.md
-  recommendation: P76 targeted state export/import residual fix
+    - P76_STATE_EXPORT_IMPORT_REPORT.md
+    - state_export_import_residual.json
+  recommendation: P77 targeted full-vs-stepwise residual fix
   kernel_ready: no
+  p76_state_export_import:
+    status: pass
+    exported_state_gate: pass
+    next_phase: P77 targeted full-vs-stepwise residual fix
   balance_state_lane_map:
     radlads: balance_state_terms
     radlads_terms: balance_state_terms

@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 75
-checkpoint: residual_impact_kernel_readiness_gate
+phase: 76
+checkpoint: state_export_import_residual_evidence
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,11 +55,11 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Gate residual impact and kernel readiness after P74 lane-aligned live trace
-  parity, preserving the terms/direct lane comparisons and reporting missing
-  state/output/export/full-vs-stepwise evidence explicitly without recurrence
-  math changes, Pallas work, tolerance loosening, or default promotion of
-  experimental balance-state mode.
+  Close the P75 exported-state blocker by adding source-backed, lane-aware
+  state export/import residual evidence to the live same-run trace, while
+  preserving terms/direct fair lane comparisons and avoiding recurrence math,
+  Pallas, training, tolerance, dtype-policy, fixture, or default balance-state
+  behavior changes.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -1323,9 +1323,11 @@ radlads_live_same_run_update_trace:
     - P75_KERNEL_READINESS_DECISION.md
     - P75_BLOCKER_REPORT.md
     - P75_FIX_NOTE.md
-  recommendation: P76 targeted state export/import residual fix
+    - P76_STATE_EXPORT_IMPORT_REPORT.md
+    - state_export_import_residual.json
+  recommendation: P77 targeted full-vs-stepwise residual fix
   kernel_ready: no
-  kernel_ready_reason: missing_evidence:exported_state
+  kernel_ready_reason: missing_evidence:full_vs_stepwise
   same_run_valid: true
   lane_mixed_comparison_valid: false
   unavailable_minimum_stages: 0
@@ -1345,10 +1347,19 @@ radlads_live_same_run_update_trace:
     residuals_lane_aware: true
     required_output_gates:
       state_after: pass
-      exported_state: unavailable
+      exported_state: pass
       full_vs_stepwise: unavailable
       logits_output: unavailable
-    next_phase: P76 targeted state export/import residual fix
+    next_phase: P77 targeted full-vs-stepwise residual fix
+  p76_state_export_import:
+    status: pass
+    schema: qrwkv_xla.p76_state_export_import_residual.v1
+    export_semantics: reference_state_slots
+    export_path: qrwkv_xla.parity.radlads_wkv_state_convention.export_reference_state_object
+    import_path: qrwkv_xla.parity.radlads_wkv_state_convention.import_reference_state_object
+    fair_lane_pairs:
+      balance_state_terms: pass
+      direct_balance_state: pass
   first_divergent_capture_kind: unavailable
   balance_state_lane_map:
     radlads: balance_state_terms

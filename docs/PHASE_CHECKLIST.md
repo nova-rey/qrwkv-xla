@@ -1,5 +1,20 @@
 # Phase Checklist
 
+## P76 — State Export / Import Residual Evidence
+
+- [x] Identify current export/import path as local reference state slot export
+- [x] Add source-backed `state_after_exported` trace rows with lane-aware keys
+- [x] Preserve RADLADS terms vs QRWKV off terms and RADLADS direct vs QRWKV experimental direct
+- [x] Record export/import round-trip status for exported WKV matrix state
+- [x] Compare live state vs exported state intra-side
+- [x] Compare exported states inter-side for fair lane pairs
+- [x] Feed P75 `exported_state` gate from P76 evidence
+- [x] Keep `kernel_ready=no` while full-vs-stepwise and logits/output evidence are unavailable
+- [x] Write `P76_STATE_EXPORT_IMPORT_REPORT.md`
+- [x] Write `state_export_import_residual.json`
+- [x] Recommend exactly one allowed P77 next phase
+- [x] Avoid recurrence math, dtype policy, tolerance, Pallas, training, and default balance-state behavior changes
+
 ## P75 — Residual-Impact / Kernel-Readiness Gate
 
 - [x] Preserve P74 terms lane comparison: RADLADS terms vs QRWKV off terms

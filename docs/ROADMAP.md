@@ -1,5 +1,18 @@
 # QRWKV-XLA Roadmap
 
+## Phase 76 — State Export / Import Residual Evidence
+
+Goal: close the P75 exported-state blocker by adding source-backed, lane-aware
+export/import state evidence to the live same-run trace and readiness gate.
+
+Current checkpoint: `state_export_import_residual_evidence`. P76 records
+`state_after_exported` from the local reference state-slot export helper,
+round-trips that payload through the matching import helper, compares live vs
+exported state intra-side, and compares exported states only on the P74 fair
+lane pairs. `exported_state` now passes, while `kernel_ready` remains `no`
+because full-vs-stepwise and logits/output evidence are still unavailable. The
+next phase is `P77 targeted full-vs-stepwise residual fix`.
+
 ## Phase 75 — Residual-Impact / Kernel-Readiness Gate
 
 Goal: decide whether lane-aligned live same-run residuals are bounded and
