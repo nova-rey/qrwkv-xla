@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 71
-checkpoint: live_balance_prep_ingredient_trace
+phase: 75
+checkpoint: residual_impact_kernel_readiness_gate
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,10 +55,11 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Extend the strict-live same-run RADLADS/QRWKV trace beyond P70 minimum WKV
-  update stages into balance-prep/update-prep ingredients, preserving default
-  behavior without recurrence-math changes, Pallas work, tolerance loosening,
-  or default promotion of experimental balance-state mode.
+  Gate residual impact and kernel readiness after P74 lane-aligned live trace
+  parity, preserving the terms/direct lane comparisons and reporting missing
+  state/output/export/full-vs-stepwise evidence explicitly without recurrence
+  math changes, Pallas work, tolerance loosening, or default promotion of
+  experimental balance-state mode.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -1285,8 +1286,8 @@ radlads_same_run_update_ingredients:
     - no_pallas_no_tolerance_loosening_no_recurrence_math_change
 
 radlads_live_same_run_update_trace:
-  phase: P74
-  status: direct_balance_state_lane_comparison
+  phase: P75
+  status: residual_impact_kernel_readiness_gate
   docs: docs/RADLADS_SAME_RUN_UPDATE_INGREDIENT_TRACE.md
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   trace_script: scripts/run_live_same_run_update_trace.py
@@ -1317,7 +1318,14 @@ radlads_live_same_run_update_trace:
     - P74_DIRECT_BALANCE_LANE_REPORT.md
     - direct_balance_lane_comparison.json
     - P74_FIX_NOTE.md
-  recommendation: P75 residual-impact / kernel-readiness gate
+    - P75_RESIDUAL_IMPACT_GATE.md
+    - residual_impact_gate.json
+    - P75_KERNEL_READINESS_DECISION.md
+    - P75_BLOCKER_REPORT.md
+    - P75_FIX_NOTE.md
+  recommendation: P76 targeted state export/import residual fix
+  kernel_ready: no
+  kernel_ready_reason: missing_evidence:exported_state
   same_run_valid: true
   lane_mixed_comparison_valid: false
   unavailable_minimum_stages: 0
@@ -1332,6 +1340,15 @@ radlads_live_same_run_update_trace:
   first_overall_non_applicable_stage: k_a
   first_comparable_differing_stage: null
   first_divergent_stage: wkv_decay_applied
+  p75_gate:
+    lane_comparisons_valid: true
+    residuals_lane_aware: true
+    required_output_gates:
+      state_after: pass
+      exported_state: unavailable
+      full_vs_stepwise: unavailable
+      logits_output: unavailable
+    next_phase: P76 targeted state export/import residual fix
   first_divergent_capture_kind: unavailable
   balance_state_lane_map:
     radlads: balance_state_terms

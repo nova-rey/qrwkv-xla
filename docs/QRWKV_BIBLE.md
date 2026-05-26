@@ -1405,3 +1405,25 @@ P74 adds `P74_DIRECT_BALANCE_LANE_REPORT.md`,
 change recurrence math, balance-prep math, dtype policy, tolerances, Pallas
 code, RADLADS upstream/vendor code, fixture values, or default experimental
 `balance_state` behavior.
+
+## Phase 75 — Residual-Impact / Kernel-Readiness Gate
+
+P75 adds a residual-impact and kernel-readiness gate after P74 generated the
+missing RADLADS direct-balance-state lane and both terms/direct lane
+comparisons reported no first comparable differing stage. P75 preserves the
+lane-aligned comparison structure: RADLADS terms are compared only with QRWKV
+off terms, and RADLADS direct is compared only with QRWKV experimental direct.
+
+The new gate writes `P75_RESIDUAL_IMPACT_GATE.md`,
+`residual_impact_gate.json`, and `P75_KERNEL_READINESS_DECISION.md` under
+`artifacts/p68_live_same_run_trace/`. Residuals are measured per lane for
+state/update/export-adjacent stages with explicit tolerance policy, and
+state_after, exported_state, full_vs_stepwise, and logits/output readiness
+evidence is reported as pass, fail, unavailable, or not_applicable with exact
+reasons.
+
+P75 does not change recurrence math, balance math, tolerances, dtype policy,
+Pallas/kernel code, RADLADS upstream/vendor code, deterministic fixture values,
+hidden-state layout, or default experimental `balance_state` behavior. It
+keeps `kernel_ready=no` whenever required readiness evidence is missing or any
+gate is blocking, and recommends exactly one P76 next phase.

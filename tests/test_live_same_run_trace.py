@@ -17,6 +17,7 @@ from qrwkv_xla.parity.radlads_live_same_run_trace import (
     _capture_radlads_case,
     _trace_key,
     build_live_same_run_trace,
+    build_p75_residual_impact_gate,
     classify_balance_state_lane,
     compare_live_same_run_traces,
     deterministic_fixture_id,
@@ -459,7 +460,7 @@ def test_p73_direct_lane_not_applicable_does_not_block_terms_math() -> None:
     assert report["math_conclusion_valid"] is True
     assert report["direct_balance_state_lane_valid"] is True
     assert report["recommended_next_phase"] == (
-        "P75 residual-impact / kernel-readiness gate"
+        "P76 targeted full-vs-stepwise residual fix"
     )
 
 
@@ -827,8 +828,147 @@ def test_p74_both_lanes_passing_recommends_residual_gate() -> None:
     assert report["balance_state_terms_lane_valid"] is True
     assert report["direct_balance_state_lane_valid"] is True
     assert report["recommended_next_phase"] == (
-        "P75 residual-impact / kernel-readiness gate"
+        "P76 targeted full-vs-stepwise residual fix"
     )
+
+
+def test_p75_gate_preserves_p74_lanes_and_reports_both_residual_lanes() -> None:
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata=_metadata(),
+        strict_live=True,
+    )
+    gate = report["p75_residual_impact_gate"]
+
+    assert gate["schema"] == "qrwkv_xla.p75_residual_impact_gate.v1"
+    assert gate["lane_comparisons"]["balance_state_terms"]["left"] == "RADLADS terms"
+    assert gate["lane_comparisons"]["balance_state_terms"]["right"] == "QRWKV off terms"
+    assert gate["lane_comparisons"]["direct_balance_state"]["left"] == (
+        "RADLADS direct"
+    )
+    assert gate["lane_comparisons"]["direct_balance_state"]["right"] == (
+        "QRWKV experimental direct"
+    )
+    assert gate["lane_comparisons_valid"] is True
+    assert set(gate["residuals"]) == {
+        "balance_state_terms",
+        "direct_balance_state",
+    }
+    assert (
+        gate["residuals"]["balance_state_terms"]["measurements"]["state_after_live"][
+            "status"
+        ]
+        == "pass"
+    )
+    assert (
+        gate["residuals"]["direct_balance_state"]["measurements"]["state_after_live"][
+            "status"
+        ]
+        == "pass"
+    )
+
+
+def test_p75_missing_required_output_evidence_blocks_kernel_ready() -> None:
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata=_metadata(),
+        strict_live=True,
+    )
+    gate = report["p75_residual_impact_gate"]
+
+    assert gate["kernel_ready"] == "no"
+    assert "missing_evidence:full_vs_stepwise" in gate["blocking_gates"]
+    assert "missing_evidence:logits_output" in gate["blocking_gates"]
+    assert gate["recommended_next_phase"] == (
+        "P76 targeted full-vs-stepwise residual fix"
+    )
+
+
+def test_p75_kernel_ready_yes_requires_all_output_gates_passing() -> None:
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata=_metadata(),
+        strict_live=True,
+    )
+    report = {
+        **report,
+        "p75_output_gates": {
+            "state_after": {"status": "pass", "reason": "synthetic_unit"},
+            "exported_state": {"status": "pass", "reason": "synthetic_unit"},
+            "full_vs_stepwise": {"status": "pass", "reason": "synthetic_unit"},
+            "logits_output": {"status": "pass", "reason": "synthetic_unit"},
+        },
+    }
+    gate = build_p75_residual_impact_gate(report)
+
+    assert gate["kernel_ready"] == "yes"
+    assert gate["blocking_gates"] == []
+    assert gate["recommended_next_phase"] == (
+        "P76 broader fixture residual-impact validation"
+    )
+
+
+def test_p75_shape_mismatch_is_blocking_state_after_fix() -> None:
+    traces = _traces()
+    for row in traces["qrwkv_off"]:
+        if row["balance_state_lane"] == "balance_state_terms" and row["stage"] == (
+            "state_after_live"
+        ):
+            row["array"] = [[1.0, 2.0]]
+            row["shape"] = [1, 2]
+            break
+
+    report = compare_live_same_run_traces(
+        traces=traces,
+        metadata=_metadata(),
+        strict_live=True,
+    )
+    gate = report["p75_residual_impact_gate"]
+
+    assert (
+        "residual_blocking:balance_state_terms:state_after_live"
+        in gate["blocking_gates"]
+    )
+    assert gate["recommended_next_phase"] == "P76 targeted state_after residual fix"
+
+
+def test_p75_non_finite_residual_is_blocking() -> None:
+    traces = _traces()
+    for row in traces["qrwkv_off"]:
+        if row["balance_state_lane"] == "balance_state_terms" and row["stage"] == "vk":
+            row["array"] = np.full(np.asarray(row["array"]).shape, np.nan).tolist()
+            break
+
+    report = compare_live_same_run_traces(
+        traces=traces,
+        metadata=_metadata(),
+        strict_live=True,
+    )
+    gate = report["p75_residual_impact_gate"]
+
+    assert "residual_blocking:balance_state_terms:vk" in gate["blocking_gates"]
+    assert gate["kernel_ready"] == "no"
+
+
+def test_p75_logits_failure_recommends_output_fix() -> None:
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata=_metadata(),
+        strict_live=True,
+    )
+    gate = build_p75_residual_impact_gate(
+        {
+            **report,
+            "p75_output_gates": {
+                "state_after": {"status": "pass"},
+                "exported_state": {"status": "pass"},
+                "full_vs_stepwise": {"status": "pass"},
+                "logits_output": {"status": "fail", "reason": "unit_mismatch"},
+            },
+        }
+    )
+
+    assert gate["recommended_next_phase"] == ("P76 targeted logits/output residual fix")
 
 
 def test_first_live_mismatch_in_k_for_update_recommends_balance_prep_fix() -> None:
@@ -955,6 +1095,9 @@ def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
     assert (out / "balance_state_lane_map.json").is_file()
     assert (out / "P74_DIRECT_BALANCE_LANE_REPORT.md").is_file()
     assert (out / "direct_balance_lane_comparison.json").is_file()
+    assert (out / "P75_RESIDUAL_IMPACT_GATE.md").is_file()
+    assert (out / "residual_impact_gate.json").is_file()
+    assert (out / "P75_KERNEL_READINESS_DECISION.md").is_file()
     rows = load_live_same_run_trace_jsonl(out / "live_trace_radlads.jsonl")
     assert rows
     assert all(row["capture_kind"] == "unavailable" for row in rows)

@@ -98,6 +98,11 @@ def test_compare_update_residual_traces_reports_first_residual() -> None:
     report = compare_update_residual_traces(radlads, qrwkv)
     assert report["schema"] == WKV_UPDATE_RESIDUAL_COMPARISON_SCHEMA
     assert report["kernel_ready"] == "no"
+    assert report["kernel_ready_reason"] == (
+        "missing_or_failing_required_update_residual_rows"
+    )
+    assert report["all_required_available"] is False
+    assert report["all_compared_pass"] is False
     assert report["first_divergent_stage"] in {
         "update_term",
         "state_after",
@@ -199,6 +204,9 @@ def test_compare_script_end_to_end_with_tmp_path_traces(tmp_path: Path) -> None:
     )
     assert report["schema"] == WKV_UPDATE_RESIDUAL_COMPARISON_SCHEMA
     assert report["kernel_ready"] == "no"
+    assert report["kernel_ready_reason"] == (
+        "missing_or_failing_required_update_residual_rows"
+    )
 
 
 def test_p62_script_help() -> None:

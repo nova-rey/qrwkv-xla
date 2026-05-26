@@ -1,5 +1,17 @@
 # QRWKV-XLA Roadmap
 
+## Phase 75 — Residual-Impact / Kernel-Readiness Gate
+
+Goal: decide whether lane-aligned live same-run residuals are bounded and
+whether required state/output/export/full-vs-stepwise evidence is sufficient
+for a kernel-readiness decision.
+
+Current checkpoint: `residual_impact_kernel_readiness_gate`. P75 preserves the
+P74 lane topology, writes lane-aware residual reports, keeps `kernel_ready=no`
+when required evidence is unavailable or failing, and does not implement
+Pallas, TPU optimization, real training, recurrence rewrites, tolerance
+changes, or default experimental balance-state promotion.
+
 ## Phase 0 — Foundation
 Goal: docs, skeleton, architecture, configs, test tiers.
 
@@ -685,3 +697,17 @@ phase is `P75 residual-impact / kernel-readiness gate`; kernel-ready remains
 P74 is lane generation and comparison hygiene only. It does not change
 recurrence math, balance math, dtype policy, tolerances, Pallas/kernel code,
 RADLADS upstream/vendor code, or default experimental `balance_state` behavior.
+
+Current checkpoint: `residual_impact_kernel_readiness_gate`.
+
+P75 preserves the P74 fair lane comparisons and adds a residual-impact
+readiness decision over those same lane-aligned rows. It writes
+`P75_RESIDUAL_IMPACT_GATE.md`, `residual_impact_gate.json`, and
+`P75_KERNEL_READINESS_DECISION.md`, reports state_after/export/full-vs-stepwise
+and logits/output gates explicitly, and keeps `kernel_ready=no` when required
+evidence is unavailable or failing.
+
+P75 is a gate only. It does not implement Pallas, optimize TPU kernels, run
+real training, change recurrence or balance-state math, loosen tolerances,
+change dtype policy, edit RADLADS upstream/vendor code, or promote
+experimental `balance_state` behavior by default.

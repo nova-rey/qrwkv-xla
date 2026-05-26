@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 70
-  checkpoint: radlads_live_same_run_hook_completion
-  title: Live RADLADS same-run WKV hook completion
+  phase: 75
+  checkpoint: residual_impact_kernel_readiness_gate
+  title: Residual-impact / kernel-readiness gate
 
 workflow:
   primary_agent: Nyx
@@ -47,6 +47,7 @@ instructions:
   - Keep P62 diagnostic-only unless a source-backed update-term fix is proven; unavailable WKV stages must be reported explicitly, not synthesized.
   - Keep P64 scoped to composite/balance-state hook extraction and comparison; preserve P58/P61/P63 behavior, do not loosen tolerances, and do not change recurrence math.
   - Keep P70 scoped to observe-only RADLADS live trace hook wiring; do not change recurrence math, loosen tolerances, implement Pallas, or promote experimental balance_state mode.
+  - Keep P75 scoped to residual-impact and kernel-readiness gating; preserve P74 terms/direct lane comparisons, report missing evidence explicitly, and do not implement Pallas, real training, recurrence rewrites, tolerance changes, or default experimental balance_state promotion.
 
 radlads_qrwkv_head_to_head_parity:
   phase: P53
@@ -294,8 +295,8 @@ radlads_balance_state_three_way_parity:
     - no_pallas_no_tolerance_loosening_no_default_promotion
 
 radlads_live_same_run_update_trace:
-  phase: P74
-  status: direct_balance_state_lane_comparison
+  phase: P75
+  status: residual_impact_kernel_readiness_gate
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   script: scripts/run_live_same_run_update_trace.py
   artifact_dir: artifacts/p68_live_same_run_trace
@@ -331,7 +332,13 @@ radlads_live_same_run_update_trace:
     - P74_DIRECT_BALANCE_LANE_REPORT.md
     - direct_balance_lane_comparison.json
     - P74_FIX_NOTE.md
-  recommendation: P75 residual-impact / kernel-readiness gate
+    - P75_RESIDUAL_IMPACT_GATE.md
+    - residual_impact_gate.json
+    - P75_KERNEL_READINESS_DECISION.md
+    - P75_BLOCKER_REPORT.md
+    - P75_FIX_NOTE.md
+  recommendation: P76 targeted state export/import residual fix
+  kernel_ready: no
   balance_state_lane_map:
     radlads: balance_state_terms
     radlads_terms: balance_state_terms

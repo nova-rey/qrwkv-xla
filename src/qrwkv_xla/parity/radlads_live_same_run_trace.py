@@ -32,6 +32,7 @@ from qrwkv_xla.parity.radlads_wkv_trace import compare_trace_arrays, load_trace_
 
 LIVE_SAME_RUN_TRACE_SCHEMA = "qrwkv_xla.p68_live_same_run_trace.v1"
 LIVE_SAME_RUN_REPORT_SCHEMA = "qrwkv_xla.p68_live_same_run_trace_report.v1"
+P75_RESIDUAL_IMPACT_GATE_SCHEMA = "qrwkv_xla.p75_residual_impact_gate.v1"
 DEFAULT_OUT = Path("artifacts/p68_live_same_run_trace")
 SIDES = ("radlads", "qrwkv_off", "qrwkv_experimental")
 BALANCE_STATE_TERMS_LANE = "balance_state_terms"
@@ -216,6 +217,32 @@ P75_TERMS_AB_FIX = "P75 targeted terms-lane ab construction/orientation fix"
 P75_TERMS_VK_FIX = "P75 targeted terms-lane vk/outer-product orientation fix"
 P75_RESIDUAL_GATE = "P75 residual-impact / kernel-readiness gate"
 P75_PALLAS = "P75 Pallas prototype behind known-caveat flag"
+P76_BROADER_FIXTURE_VALIDATION = "P76 broader fixture residual-impact validation"
+P76_STATE_AFTER_FIX = "P76 targeted state_after residual fix"
+P76_LOGITS_OUTPUT_FIX = "P76 targeted logits/output residual fix"
+P76_STATE_EXPORT_FIX = "P76 targeted state export/import residual fix"
+P76_FULL_VS_STEPWISE_FIX = "P76 targeted full-vs-stepwise residual fix"
+P76_LANE_REGRESSION_REPAIR = "P76 targeted lane comparison regression repair"
+P76_PALLAS_CAVEAT = "P76 Pallas prototype behind known-caveat flag"
+P76_KERNEL_GATE_HARDENING = "P76 kernel-readiness hardening gate"
+P75_RESIDUAL_STAGES = (
+    "state_after_live",
+    "vk",
+    "balance_state_term",
+    "composite_update_term",
+    "decay_value",
+    "decay_log_w",
+    "state_after_exported",
+    "logits",
+    "full_vs_stepwise",
+)
+P75_REQUIRED_OUTPUT_GATES = (
+    "state_after",
+    "exported_state",
+    "full_vs_stepwise",
+    "logits_output",
+)
+P75_WARNING_MAX_ABS = 1e-5
 
 
 def classify_balance_state_lane(config: Mapping[str, Any] | Any) -> str:
@@ -562,7 +589,7 @@ def compare_live_same_run_traces(
         lane_validity=lane_validity,
         first_comparable=first_comparable,
     )
-    return {
+    report = {
         "schema": LIVE_SAME_RUN_REPORT_SCHEMA,
         "phase": "P68",
         "same_run_group_id": metadata.get("same_run_group_id"),
@@ -708,6 +735,124 @@ def compare_live_same_run_traces(
         "recommendation": recommendation,
         "rows": rows,
     }
+    p75_gate = build_p75_residual_impact_gate(report)
+    report["p75_residual_impact_gate"] = p75_gate
+    report["kernel_ready"] = p75_gate["kernel_ready"]
+    report["kernel_readiness_reason"] = p75_gate["kernel_readiness"]["reason"]
+    report["blocking_gates"] = p75_gate["blocking_gates"]
+    report["warning_gates"] = p75_gate["warning_gates"]
+    report["recommended_next_phase"] = (
+        p75_gate["recommended_next_phase"]
+        if _p75_should_replace_recommendation(report, p75_gate, lane_decision)
+        else lane_decision
+    )
+    return report
+
+
+def _p75_should_replace_recommendation(
+    report: Mapping[str, Any], p75_gate: Mapping[str, Any], lane_decision: str
+) -> bool:
+    return bool(
+        lane_decision == P75_RESIDUAL_GATE and p75_gate.get("lane_comparisons_valid")
+    )
+
+
+def build_p75_residual_impact_gate(report: Mapping[str, Any]) -> dict[str, Any]:
+    terms_valid = bool(report.get("balance_state_terms_lane_valid"))
+    direct_valid = bool(report.get("direct_balance_state_lane_valid"))
+    lane_comparisons_valid = bool(
+        terms_valid
+        and direct_valid
+        and report.get("balance_state_terms_first_differing_stage") is None
+        and report.get("direct_balance_state_first_differing_stage") is None
+    )
+    residuals = {
+        BALANCE_STATE_TERMS_LANE: _p75_lane_residuals(
+            report,
+            lane=BALANCE_STATE_TERMS_LANE,
+            pair="radlads_vs_qrwkv_off",
+        ),
+        DIRECT_BALANCE_STATE_LANE: _p75_lane_residuals(
+            report,
+            lane=DIRECT_BALANCE_STATE_LANE,
+            pair="radlads_vs_qrwkv_experimental",
+        ),
+    }
+    for lane_report in residuals.values():
+        for measurement in lane_report.get("measurements", {}).values():
+            measurement["allclose_atol"] = report.get("atol")
+            measurement["allclose_rtol"] = report.get("rtol")
+    output_gates = _p75_output_gates(report, residuals=residuals)
+    blocking_gates = _p75_blocking_gates(
+        same_run_valid=bool(report.get("same_run_valid")),
+        lane_comparisons_valid=lane_comparisons_valid,
+        residuals=residuals,
+        output_gates=output_gates,
+    )
+    warning_gates = _p75_warning_gates(residuals=residuals, output_gates=output_gates)
+    kernel_ready = "yes" if not blocking_gates and not warning_gates else "no"
+    reason = "all_required_gates_pass" if kernel_ready == "yes" else blocking_gates[0]
+    return {
+        "schema": P75_RESIDUAL_IMPACT_GATE_SCHEMA,
+        "same_run_valid": bool(report.get("same_run_valid")),
+        "fixture_id": report.get("fixture_id"),
+        "parameter_id": report.get("parameter_id"),
+        "same_run_group_id": report.get("same_run_group_id"),
+        "lane_aware_keys": True,
+        "lane_comparisons_valid": lane_comparisons_valid,
+        "tolerances": {
+            "atol": report.get("atol"),
+            "rtol": report.get("rtol"),
+            "warning_threshold_max_abs": P75_WARNING_MAX_ABS,
+            "dtype": "trace row dtype",
+            "comparison_policy": (
+                "lane-primary pair allclose using existing report tolerance; "
+                "shape mismatch and non-finite values are blocking"
+            ),
+        },
+        "lane_comparisons": {
+            BALANCE_STATE_TERMS_LANE: {
+                "left": "RADLADS terms",
+                "right": "QRWKV off terms",
+                "valid": terms_valid,
+                "first_differing_stage": report.get(
+                    "balance_state_terms_first_differing_stage"
+                ),
+                "math_conclusion_valid": bool(
+                    report.get("balance_state_terms_math_conclusion_valid")
+                ),
+            },
+            DIRECT_BALANCE_STATE_LANE: {
+                "left": "RADLADS direct",
+                "right": "QRWKV experimental direct",
+                "valid": direct_valid,
+                "first_differing_stage": report.get(
+                    "direct_balance_state_first_differing_stage"
+                ),
+                "math_conclusion_valid": bool(
+                    report.get("direct_balance_state_math_conclusion_valid")
+                ),
+            },
+        },
+        "residuals": residuals,
+        "output_gates": output_gates,
+        "kernel_readiness": {
+            "kernel_ready": kernel_ready,
+            "reason": reason,
+            "policy": (
+                "yes only when same-run validity, both P74 lane comparisons, "
+                "critical residual gates, state/export/full-vs-stepwise, and "
+                "logits/output evidence are present and passing"
+            ),
+        },
+        "kernel_ready": kernel_ready,
+        "blocking_gates": blocking_gates,
+        "warning_gates": warning_gates,
+        "recommended_next_phase": _p75_recommended_next_phase(
+            blocking_gates=blocking_gates,
+            warning_gates=warning_gates,
+        ),
+    }
 
 
 def run_live_same_run_trace(
@@ -849,6 +994,324 @@ def run_live_same_run_trace(
     return report
 
 
+def _p75_lane_residuals(
+    report: Mapping[str, Any], *, lane: str, pair: str
+) -> dict[str, Any]:
+    rows_by_stage = {
+        stage: [
+            row
+            for row in report.get("rows", [])
+            if row.get("balance_state_lane") == lane and row.get("stage") == stage
+        ]
+        for stage in P75_RESIDUAL_STAGES
+    }
+    measurements = {
+        stage: _p75_stage_measurement(stage_rows, pair=pair)
+        for stage, stage_rows in rows_by_stage.items()
+    }
+    blocking = [
+        stage for stage, item in measurements.items() if item["severity"] == "blocking"
+    ]
+    warnings = [
+        stage for stage, item in measurements.items() if item["severity"] == "warning"
+    ]
+    comparable = [
+        item
+        for item in measurements.values()
+        if item["status"] not in {"unavailable", "not_applicable"}
+    ]
+    max_abs_values = [
+        item["max_abs"]
+        for item in comparable
+        if isinstance(item.get("max_abs"), int | float)
+    ]
+    return {
+        "lane": lane,
+        "pair": pair,
+        "status": "fail" if blocking else "warning" if warnings else "pass",
+        "blocking": blocking,
+        "warnings": warnings,
+        "max_abs_summary": {
+            "max": max(max_abs_values) if max_abs_values else None,
+            "measured_stage_count": len(comparable),
+        },
+        "measurements": measurements,
+    }
+
+
+def _p75_stage_measurement(
+    stage_rows: list[Mapping[str, Any]], *, pair: str
+) -> dict[str, Any]:
+    if not stage_rows:
+        return _p75_unavailable_measurement("missing_comparable_stage")
+    comparisons = [row.get(pair, {}) for row in stage_rows]
+    available = [
+        (row, comparison)
+        for row, comparison in zip(stage_rows, comparisons, strict=True)
+        if comparison.get("status") != "unavailable"
+    ]
+    if not available:
+        reasons = sorted(
+            {
+                str(row.get("reason") or "missing_lane_pair")
+                for row in stage_rows
+                if row.get("reason") is not None
+            }
+        )
+        reason = ";".join(reasons) if reasons else "missing_lane_pair"
+        if all(row.get("capture_kind") == "not_applicable" for row in stage_rows):
+            return {
+                **_p75_unavailable_measurement(reason),
+                "status": "not_applicable",
+                "severity": "non_blocking",
+            }
+        return _p75_unavailable_measurement(reason)
+    statuses = [comparison.get("status") for _, comparison in available]
+    finite = all(bool(comparison.get("finite_both")) for _, comparison in available)
+    shape_match = all(
+        bool(comparison.get("shape_match")) for _, comparison in available
+    )
+    dtype_values = sorted(
+        {
+            str(row.get("radlads_capture_kind"))
+            for row, _ in available
+            if row.get("radlads_capture_kind") is not None
+        }
+        | {
+            str(row.get("qrwkv_off_capture_kind"))
+            for row, _ in available
+            if row.get("qrwkv_off_capture_kind") is not None
+        }
+        | {
+            str(row.get("qrwkv_experimental_capture_kind"))
+            for row, _ in available
+            if row.get("qrwkv_experimental_capture_kind") is not None
+        }
+    )
+    max_abs_values = [
+        float(comparison["max_abs_error"])
+        for _, comparison in available
+        if comparison.get("max_abs_error") is not None
+    ]
+    mean_abs_values = [
+        float(comparison["mean_abs_error"])
+        for _, comparison in available
+        if comparison.get("mean_abs_error") is not None
+    ]
+    relative_values = [
+        float(comparison["max_relative_error"])
+        for _, comparison in available
+        if comparison.get("max_relative_error") is not None
+    ]
+    max_abs = max(max_abs_values) if max_abs_values else None
+    mean_abs = max(mean_abs_values) if mean_abs_values else None
+    rms = _p75_rms(stage_rows, pair=pair)
+    if not shape_match:
+        status = "fail"
+        severity = "blocking"
+        reason = "shape_mismatch"
+    elif not finite or "non_finite" in statuses:
+        status = "fail"
+        severity = "blocking"
+        reason = "non_finite"
+    elif all(status == "pass" for status in statuses):
+        status = "pass"
+        severity = "non_blocking"
+        reason = "allclose"
+    elif max_abs is not None and max_abs <= P75_WARNING_MAX_ABS:
+        status = "pass"
+        severity = "non_blocking"
+        reason = "bounded_tiny_residual"
+    else:
+        status = "fail"
+        severity = "blocking"
+        reason = "residual_exceeds_tolerance"
+    return {
+        "status": status,
+        "severity": severity,
+        "reason": reason,
+        "max_abs": max_abs,
+        "mean_abs": mean_abs,
+        "rms": rms,
+        "relative_max": max(relative_values) if relative_values else None,
+        "allclose_atol": None,
+        "allclose_rtol": None,
+        "finite": finite,
+        "shape_match": shape_match,
+        "dtype": ",".join(dtype_values) if dtype_values else None,
+        "row_count": len(stage_rows),
+        "comparable_row_count": len(available),
+    }
+
+
+def _p75_unavailable_measurement(reason: str) -> dict[str, Any]:
+    return {
+        "status": "unavailable",
+        "severity": "non_blocking",
+        "reason": reason,
+        "max_abs": None,
+        "mean_abs": None,
+        "rms": None,
+        "relative_max": None,
+        "allclose_atol": None,
+        "allclose_rtol": None,
+        "finite": None,
+        "shape_match": None,
+        "dtype": None,
+        "row_count": 0,
+        "comparable_row_count": 0,
+    }
+
+
+def _p75_rms(stage_rows: list[Mapping[str, Any]], *, pair: str) -> float | None:
+    values = []
+    for row in stage_rows:
+        comparison = row.get(pair, {})
+        mean_abs = comparison.get("mean_abs_error")
+        if mean_abs is not None:
+            values.append(float(mean_abs) ** 2)
+    if not values:
+        return None
+    return float(np.sqrt(np.mean(np.asarray(values, dtype=np.float64))))
+
+
+def _p75_output_gates(
+    report: Mapping[str, Any], *, residuals: Mapping[str, Mapping[str, Any]]
+) -> dict[str, Any]:
+    explicit = report.get("p75_output_gates")
+    if isinstance(explicit, Mapping):
+        return {
+            gate: _p75_normalize_output_gate(explicit.get(gate), gate)
+            for gate in P75_REQUIRED_OUTPUT_GATES
+        }
+    terms_state = residuals[BALANCE_STATE_TERMS_LANE]["measurements"][
+        "state_after_live"
+    ]
+    direct_state = residuals[DIRECT_BALANCE_STATE_LANE]["measurements"][
+        "state_after_live"
+    ]
+    exported_terms = residuals[BALANCE_STATE_TERMS_LANE]["measurements"][
+        "state_after_exported"
+    ]
+    exported_direct = residuals[DIRECT_BALANCE_STATE_LANE]["measurements"][
+        "state_after_exported"
+    ]
+    return {
+        "state_after": _p75_join_lane_gate(
+            "state_after", (terms_state, direct_state), required=True
+        ),
+        "exported_state": _p75_join_lane_gate(
+            "exported_state", (exported_terms, exported_direct), required=True
+        ),
+        "full_vs_stepwise": {
+            "status": "unavailable",
+            "required": True,
+            "reason": "missing_evidence:full_vs_stepwise",
+        },
+        "logits_output": {
+            "status": "unavailable",
+            "required": True,
+            "reason": "missing_evidence:logits_output",
+        },
+    }
+
+
+def _p75_normalize_output_gate(value: Any, gate: str) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        status = str(value.get("status", "unavailable"))
+        reason = value.get("reason")
+        return {
+            "status": status,
+            "required": bool(value.get("required", True)),
+            "reason": reason if reason is not None else status,
+        }
+    return {
+        "status": "unavailable",
+        "required": True,
+        "reason": f"missing_evidence:{gate}",
+    }
+
+
+def _p75_join_lane_gate(
+    gate: str, measurements: tuple[Mapping[str, Any], ...], *, required: bool
+) -> dict[str, Any]:
+    if any(item.get("severity") == "blocking" for item in measurements):
+        return {
+            "status": "fail",
+            "required": required,
+            "reason": f"{gate}:lane_residual_blocking",
+        }
+    if all(item.get("status") == "pass" for item in measurements):
+        return {"status": "pass", "required": required, "reason": "all_lanes_pass"}
+    return {
+        "status": "unavailable",
+        "required": required,
+        "reason": f"missing_evidence:{gate}",
+    }
+
+
+def _p75_blocking_gates(
+    *,
+    same_run_valid: bool,
+    lane_comparisons_valid: bool,
+    residuals: Mapping[str, Mapping[str, Any]],
+    output_gates: Mapping[str, Mapping[str, Any]],
+) -> list[str]:
+    blockers = []
+    if not same_run_valid:
+        blockers.append("same_run_valid:false")
+    if not lane_comparisons_valid:
+        blockers.append("lane_comparison_regression")
+    for lane, lane_report in residuals.items():
+        for stage in lane_report.get("blocking", []):
+            blockers.append(f"residual_blocking:{lane}:{stage}")
+    for gate, item in output_gates.items():
+        if not item.get("required", True):
+            continue
+        if item.get("status") == "fail":
+            blockers.append(f"output_gate_failed:{gate}")
+        elif item.get("status") == "unavailable":
+            blockers.append(f"missing_evidence:{gate}")
+    return blockers
+
+
+def _p75_warning_gates(
+    *,
+    residuals: Mapping[str, Mapping[str, Any]],
+    output_gates: Mapping[str, Mapping[str, Any]],
+) -> list[str]:
+    del output_gates
+    warnings = []
+    for lane, lane_report in residuals.items():
+        for stage in lane_report.get("warnings", []):
+            warnings.append(f"residual_warning:{lane}:{stage}")
+    return warnings
+
+
+def _p75_recommended_next_phase(
+    *, blocking_gates: list[str], warning_gates: list[str]
+) -> str:
+    del warning_gates
+    for blocker in blocking_gates:
+        if "state_after" in blocker:
+            return P76_STATE_AFTER_FIX
+    for blocker in blocking_gates:
+        if "lane_comparison_regression" in blocker:
+            return P76_LANE_REGRESSION_REPAIR
+    for blocker in blocking_gates:
+        if "exported_state" in blocker:
+            return P76_STATE_EXPORT_FIX
+    for blocker in blocking_gates:
+        if "full_vs_stepwise" in blocker:
+            return P76_FULL_VS_STEPWISE_FIX
+    for blocker in blocking_gates:
+        if "logits_output" in blocker:
+            return P76_LOGITS_OUTPUT_FIX
+    if blocking_gates:
+        return P76_KERNEL_GATE_HARDENING
+    return P76_BROADER_FIXTURE_VALIDATION
+
+
 def write_live_same_run_trace(entries: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
@@ -878,6 +1341,13 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
             sort_keys=True,
         )
         + "\n",
+        encoding="utf-8",
+    )
+    p75_gate = report.get("p75_residual_impact_gate") or build_p75_residual_impact_gate(
+        report
+    )
+    (out_dir / "residual_impact_gate.json").write_text(
+        json.dumps(_jsonable(p75_gate), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     (out_dir / "P68_RESULTS.md").write_text(_results_markdown(report), encoding="utf-8")
@@ -916,6 +1386,23 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
     )
     (out_dir / "P74_FIX_NOTE.md").write_text(
         _p74_fix_note_markdown(report), encoding="utf-8"
+    )
+    (out_dir / "P75_RESIDUAL_IMPACT_GATE.md").write_text(
+        _p75_residual_gate_markdown(report, p75_gate), encoding="utf-8"
+    )
+    (out_dir / "P75_KERNEL_READINESS_DECISION.md").write_text(
+        _p75_kernel_decision_markdown(report, p75_gate), encoding="utf-8"
+    )
+    if p75_gate.get("blocking_gates"):
+        (out_dir / "P75_BLOCKER_REPORT.md").write_text(
+            _p75_blocker_report_markdown(p75_gate), encoding="utf-8"
+        )
+    else:
+        stale_blocker = out_dir / "P75_BLOCKER_REPORT.md"
+        if stale_blocker.exists():
+            stale_blocker.unlink()
+    (out_dir / "P75_FIX_NOTE.md").write_text(
+        _p75_fix_note_markdown(report, p75_gate), encoding="utf-8"
     )
     if not report.get("same_run_valid"):
         (out_dir / "P68_FIX_NOTE.md").write_text(
@@ -2739,10 +3226,12 @@ def _first_markdown(report: Mapping[str, Any]) -> str:
 
 
 def _decision_markdown(report: Mapping[str, Any]) -> str:
+    p75_gate = report.get("p75_residual_impact_gate", {})
     return "\n".join(
         [
             "# P68 Decision",
             "",
+            "P75 residual-impact / kernel-readiness outcome:",
             f"- same_run_valid: `{report['same_run_valid']}`",
             f"- minimum_stage_valid: `{report.get('minimum_stage_valid')}`",
             f"- stretch_stages_available: `{report.get('stretch_stages_available')}`",
@@ -2758,10 +3247,13 @@ def _decision_markdown(report: Mapping[str, Any]) -> str:
             "- lane_mixed_comparison_valid: `"
             f"{report.get('lane_mixed_comparison_valid')}`",
             f"- kernel_ready: `{report['kernel_ready']}`",
+            f"- kernel_readiness_reason: `{report.get('kernel_readiness_reason')}`",
+            f"- blocking_gates: `{p75_gate.get('blocking_gates')}`",
+            f"- warning_gates: `{p75_gate.get('warning_gates')}`",
             f"- recommended_next_phase: {report['recommended_next_phase']}",
             "- math_fix_recommended: `False`",
             "- pallas_gate_recommended: `False`",
-            "- residual_impact_gate_recommended: `False`",
+            "- residual_impact_gate_completed: `True`",
             "",
         ]
     )
@@ -3121,6 +3613,150 @@ def _p74_fix_note_markdown(report: Mapping[str, Any]) -> str:
             "No recurrence math, balance-prep math, dtype policy, tolerance, "
             "Pallas/kernel code, RADLADS upstream/vendor code, or default "
             "experimental balance_state behavior is changed.",
+            "",
+        ]
+    )
+
+
+def _p75_residual_gate_markdown(
+    report: Mapping[str, Any], gate: Mapping[str, Any]
+) -> str:
+    tolerances = gate.get("tolerances", {})
+    lines = [
+        "# P75 Residual-Impact Gate",
+        "",
+        "## Inputs",
+        "",
+        f"same_run_valid: `{gate.get('same_run_valid')}`",
+        f"fixture_id: `{gate.get('fixture_id')}`",
+        f"parameter_id: `{gate.get('parameter_id')}`",
+        f"lane_aware_keys: `{gate.get('lane_aware_keys')}`",
+        f"tolerances: `{json.dumps(tolerances, sort_keys=True)}`",
+        "",
+        "## Lane Comparisons",
+        "",
+    ]
+    for lane in (BALANCE_STATE_TERMS_LANE, DIRECT_BALANCE_STATE_LANE):
+        item = gate.get("lane_comparisons", {}).get(lane, {})
+        lines.extend(
+            [
+                f"{lane}:",
+                f"- left: `{item.get('left')}`",
+                f"- right: `{item.get('right')}`",
+                f"- valid: `{item.get('valid')}`",
+                f"- first_differing_stage: `{item.get('first_differing_stage')}`",
+                f"- math_conclusion_valid: `{item.get('math_conclusion_valid')}`",
+                "",
+            ]
+        )
+    lines.extend(["## Residual Measurements", ""])
+    for lane in (BALANCE_STATE_TERMS_LANE, DIRECT_BALANCE_STATE_LANE):
+        lane_report = gate.get("residuals", {}).get(lane, {})
+        lines.extend([f"{lane}:", ""])
+        measurements = lane_report.get("measurements", {})
+        for stage in P75_RESIDUAL_STAGES:
+            item = measurements.get(stage, {})
+            lines.append(
+                "- "
+                f"{stage}: status=`{item.get('status')}`, "
+                f"severity=`{item.get('severity')}`, "
+                f"max_abs=`{_fmt(item.get('max_abs'))}`, "
+                f"rms=`{_fmt(item.get('rms'))}`, "
+                f"reason=`{item.get('reason')}`"
+            )
+        lines.append("")
+    lines.extend(["## Output/State Gates", ""])
+    for gate_name, item in gate.get("output_gates", {}).items():
+        lines.append(
+            f"- {gate_name}: status=`{item.get('status')}`, "
+            f"required=`{item.get('required')}`, reason=`{item.get('reason')}`"
+        )
+    lines.extend(
+        [
+            "",
+            "## Blocking Conditions",
+            "",
+            f"blocking_gates: `{gate.get('blocking_gates')}`",
+            f"warning_gates: `{gate.get('warning_gates')}`",
+            "",
+            "## Decision",
+            "",
+            f"kernel_ready: `{gate.get('kernel_ready')}`",
+            f"reason: `{gate.get('kernel_readiness', {}).get('reason')}`",
+            f"recommended_next_phase: `{gate.get('recommended_next_phase')}`",
+            "",
+            "This gate preserves the P74 lane comparisons exactly: RADLADS "
+            "terms vs QRWKV off terms, and RADLADS direct vs QRWKV "
+            "experimental direct.",
+            f"P68 recommended_next_phase: `{report.get('recommended_next_phase')}`",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _p75_kernel_decision_markdown(
+    report: Mapping[str, Any], gate: Mapping[str, Any]
+) -> str:
+    del report
+    return "\n".join(
+        [
+            "# P75 Kernel Readiness Decision",
+            "",
+            f"kernel_ready: `{gate.get('kernel_ready')}`",
+            f"reason: `{gate.get('kernel_readiness', {}).get('reason')}`",
+            f"blocking_gates: `{gate.get('blocking_gates')}`",
+            f"warning_gates: `{gate.get('warning_gates')}`",
+            f"recommended_next_phase: `{gate.get('recommended_next_phase')}`",
+            "",
+            "why_this_is_not_a_math_fix: P75 only evaluates residual impact and "
+            "readiness evidence from lane-aligned live traces. It does not "
+            "change recurrence math, balance-state math, parameter mapping, "
+            "dtype policy, tolerances, fixture values, RADLADS upstream code, "
+            "or default experimental balance_state behavior.",
+            "",
+            "why_this_is_or_is_not_ready_for_Pallas: Pallas work is blocked "
+            "unless `kernel_ready` is `yes`. Missing or failing state/export, "
+            "full-vs-stepwise, or logits/output evidence keeps "
+            "`kernel_ready=no` with an exact blocking gate.",
+            "",
+        ]
+    )
+
+
+def _p75_blocker_report_markdown(gate: Mapping[str, Any]) -> str:
+    lines = [
+        "# P75 Blocker Report",
+        "",
+        f"kernel_ready: `{gate.get('kernel_ready')}`",
+        "",
+        "## Blocking Gates",
+        "",
+    ]
+    lines.extend(f"- `{item}`" for item in gate.get("blocking_gates", []))
+    lines.extend(
+        ["", f"recommended_next_phase: `{gate.get('recommended_next_phase')}`", ""]
+    )
+    return "\n".join(lines)
+
+
+def _p75_fix_note_markdown(report: Mapping[str, Any], gate: Mapping[str, Any]) -> str:
+    del report
+    return "\n".join(
+        [
+            "# P75 Fix Note",
+            "",
+            "P75 adds report-only residual-impact and kernel-readiness gates on "
+            "top of the existing P74 lane-aware trace comparison.",
+            "",
+            f"- kernel_ready: `{gate.get('kernel_ready')}`",
+            f"- recommended_next_phase: `{gate.get('recommended_next_phase')}`",
+            "- fix type: `reporting/gate only`",
+            "",
+            "No recurrence math, balance-state math, parameter mapping, dtype "
+            "policy, tolerances, Pallas/kernel code, RADLADS upstream/vendor "
+            "code, fixture values, hidden-state layout, or default "
+            "experimental balance_state behavior changed.",
             "",
         ]
     )

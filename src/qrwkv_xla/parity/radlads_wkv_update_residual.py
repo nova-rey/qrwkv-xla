@@ -116,6 +116,11 @@ def compare_update_residual_traces(
         "schema": WKV_UPDATE_RESIDUAL_COMPARISON_SCHEMA,
         "status": "pass" if all_required_available and all_compared_pass else "fail",
         "kernel_ready": "yes" if all_required_available and all_compared_pass else "no",
+        "kernel_ready_reason": "all_required_update_residual_rows_pass"
+        if all_required_available and all_compared_pass
+        else "missing_or_failing_required_update_residual_rows",
+        "all_required_available": all_required_available,
+        "all_compared_pass": all_compared_pass,
         "diagnostic_only": True,
         "claim": (
             "P62 traces WKV update-term/state-after residual surfaces from real "

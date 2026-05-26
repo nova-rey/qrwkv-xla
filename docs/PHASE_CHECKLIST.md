@@ -1,5 +1,20 @@
 # Phase Checklist
 
+## P75 — Residual-Impact / Kernel-Readiness Gate
+
+- [x] Preserve P74 terms lane comparison: RADLADS terms vs QRWKV off terms
+- [x] Preserve P74 direct lane comparison: RADLADS direct vs QRWKV experimental direct
+- [x] Add lane-aware residual-impact gate object
+- [x] Write `P75_RESIDUAL_IMPACT_GATE.md`
+- [x] Write `residual_impact_gate.json`
+- [x] Write `P75_KERNEL_READINESS_DECISION.md`
+- [x] Update `P68_DECISION.md` to report P75 outcome
+- [x] Report state/output gates with exact pass/fail/unavailable reasons
+- [x] Keep `kernel_ready=no` unless required evidence is present and passing
+- [x] Recommend exactly one allowed P76 next phase
+- [x] Avoid recurrence math, dtype policy, tolerance, Pallas, training, and default balance-state behavior changes
+- [x] Add focused P75 regression tests
+
 ## Phase 0 — Foundation
 
 ### P0A — Docs and skeleton
