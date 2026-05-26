@@ -15,6 +15,7 @@ from qrwkv_xla.parity.radlads_live_same_run_trace import (
     P71_STRETCH_STAGES,
     LiveTraceCollector,
     _capture_radlads_case,
+    _trace_key,
     build_live_same_run_trace,
     classify_balance_state_lane,
     compare_live_same_run_traces,
@@ -151,12 +152,25 @@ def _traces(
     contexts = [("tiny_no_mask", None, 0, 0, 0)]
     return {
         "radlads": build_live_same_run_trace(
-            _minimal_source(
-                "radlads",
-                group=group,
-                fixture=fixture,
-                parameter=parameter,
-            ),
+            [
+                *_minimal_source(
+                    "radlads",
+                    group=group,
+                    fixture=fixture,
+                    parameter=parameter,
+                ),
+                *[
+                    row
+                    for row in _minimal_source(
+                        "radlads",
+                        group=group,
+                        fixture=fixture,
+                        parameter=parameter,
+                        config=DIRECT_BALANCE_CONFIG,
+                    )
+                    if row["stage"] not in {"k_k", "k_a"}
+                ],
+            ],
             side="radlads",
             same_run_group_id=group,
             fixture_id=fixture,
@@ -171,7 +185,7 @@ def _traces(
                 parameter=off_parameter or parameter,
                 k_delta=k_delta,
                 decay_delta=decay_delta,
-                config=off_config,
+                config={**BALANCE_TERMS_CONFIG, **(off_config or {})},
             ),
             side="qrwkv_off",
             same_run_group_id=group,
@@ -180,15 +194,19 @@ def _traces(
             contexts=contexts,
         ),
         "qrwkv_experimental": build_live_same_run_trace(
-            _minimal_source(
-                "qrwkv_experimental",
-                group=group,
-                fixture=fixture,
-                parameter=parameter,
-                k_delta=k_delta,
-                decay_delta=decay_delta,
-                config=DIRECT_BALANCE_CONFIG,
-            ),
+            [
+                row
+                for row in _minimal_source(
+                    "qrwkv_experimental",
+                    group=group,
+                    fixture=fixture,
+                    parameter=parameter,
+                    k_delta=k_delta,
+                    decay_delta=decay_delta,
+                    config=DIRECT_BALANCE_CONFIG,
+                )
+                if row["stage"] not in {"k_k", "k_a"}
+            ],
             side="qrwkv_experimental",
             same_run_group_id=group,
             fixture_id=fixture,
@@ -439,8 +457,9 @@ def test_p73_direct_lane_not_applicable_does_not_block_terms_math() -> None:
     assert report["first_comparable_differing_stage"] is None
     assert report["balance_state_terms_lane_valid"] is True
     assert report["math_conclusion_valid"] is True
+    assert report["direct_balance_state_lane_valid"] is True
     assert report["recommended_next_phase"] == (
-        "P74 generate RADLADS direct-balance-state lane"
+        "P75 residual-impact / kernel-readiness gate"
     )
 
 
@@ -745,6 +764,73 @@ def test_p73_experimental_direct_lane_k_k_k_a_are_not_applicable() -> None:
     assert unavailable["k_k"]["balance_state_lane"] == "direct_balance_state"
 
 
+def test_p74_radlads_terms_and_direct_rows_do_not_collide() -> None:
+    traces = _traces()
+    radlads_rows = traces["radlads"]
+    lanes = {row["balance_state_lane"] for row in radlads_rows}
+
+    assert lanes == {"balance_state_terms", "direct_balance_state"}
+    assert len({_trace_key(row) for row in radlads_rows}) == len(radlads_rows)
+    same_context = [
+        row
+        for row in radlads_rows
+        if row["case"] == "tiny_no_mask"
+        and row["token"] == 0
+        and row["head"] == 0
+        and row["stage"] == "kk"
+    ]
+    assert {row["balance_state_lane"] for row in same_context} == {
+        "balance_state_terms",
+        "direct_balance_state",
+    }
+
+
+def test_p74_radlads_direct_k_k_k_a_are_not_applicable() -> None:
+    rows = [
+        row
+        for row in _traces()["radlads"]
+        if row["balance_state_lane"] == "direct_balance_state"
+        and row["stage"] in {"k_k", "k_a"}
+    ]
+
+    assert {row["stage"] for row in rows} == {"k_k", "k_a"}
+    assert {row["capture_kind"] for row in rows} == {"not_applicable"}
+    assert all(row["reason"].startswith("not_active_in_lane:") for row in rows)
+
+
+def test_p74_direct_lane_mismatch_recommends_direct_fix() -> None:
+    traces = _traces()
+    for row in traces["qrwkv_experimental"]:
+        if row["balance_state_lane"] == "direct_balance_state" and row["stage"] == "kk":
+            row["array"] = (np.asarray(row["array"]) + 1.0).tolist()
+            break
+
+    report = compare_live_same_run_traces(
+        traces=traces,
+        metadata=_metadata(),
+        strict_live=True,
+    )
+
+    assert report["direct_balance_state_first_differing_stage"] == "kk"
+    assert report["recommended_next_phase"] == (
+        "P75 targeted direct-lane kk construction fix"
+    )
+
+
+def test_p74_both_lanes_passing_recommends_residual_gate() -> None:
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata=_metadata(),
+        strict_live=True,
+    )
+
+    assert report["balance_state_terms_lane_valid"] is True
+    assert report["direct_balance_state_lane_valid"] is True
+    assert report["recommended_next_phase"] == (
+        "P75 residual-impact / kernel-readiness gate"
+    )
+
+
 def test_first_live_mismatch_in_k_for_update_recommends_balance_prep_fix() -> None:
     traces = _traces()
     for row in traces["qrwkv_off"]:
@@ -759,9 +845,8 @@ def test_first_live_mismatch_in_k_for_update_recommends_balance_prep_fix() -> No
     )
 
     assert report["first_divergent_stage"] == "k_for_update"
-    assert (
-        report["recommended_next_phase"]
-        == "P74 targeted k_for_update/v_for_update balance-prep fix"
+    assert report["recommended_next_phase"] == (
+        "P75 targeted terms-lane k_for_update/v_for_update balance-prep fix"
     )
 
 
@@ -813,7 +898,10 @@ def test_first_live_mismatch_in_kk_recommends_construction_fix() -> None:
     )
 
     assert report["first_divergent_stage"] == "kk"
-    assert report["recommended_next_phase"] == "P74 targeted kk construction fix"
+    assert (
+        report["recommended_next_phase"]
+        == "P75 targeted terms-lane kk construction fix"
+    )
 
 
 def test_first_live_mismatch_in_ab_recommends_ab_fix() -> None:
@@ -832,7 +920,7 @@ def test_first_live_mismatch_in_ab_recommends_ab_fix() -> None:
     assert report["first_divergent_stage"] == "ab"
     assert (
         report["recommended_next_phase"]
-        == "P74 targeted ab construction/orientation fix"
+        == "P75 targeted terms-lane ab construction/orientation fix"
     )
 
 
@@ -865,6 +953,8 @@ def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
     assert (out / "P68_DECISION.md").is_file()
     assert (out / "P73_BALANCE_STATE_LANE_MAP.md").is_file()
     assert (out / "balance_state_lane_map.json").is_file()
+    assert (out / "P74_DIRECT_BALANCE_LANE_REPORT.md").is_file()
+    assert (out / "direct_balance_lane_comparison.json").is_file()
     rows = load_live_same_run_trace_jsonl(out / "live_trace_radlads.jsonl")
     assert rows
     assert all(row["capture_kind"] == "unavailable" for row in rows)

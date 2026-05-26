@@ -294,8 +294,8 @@ radlads_balance_state_three_way_parity:
     - no_pallas_no_tolerance_loosening_no_default_promotion
 
 radlads_live_same_run_update_trace:
-  phase: P73
-  status: p73_balance_state_lane_mapping
+  phase: P74
+  status: direct_balance_state_lane_comparison
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   script: scripts/run_live_same_run_update_trace.py
   artifact_dir: artifacts/p68_live_same_run_trace
@@ -328,21 +328,32 @@ radlads_live_same_run_update_trace:
     - P73_BALANCE_STATE_LANE_MAP.md
     - balance_state_lane_map.json
     - P73_FIX_NOTE.md
-  recommendation: P74 generate RADLADS direct-balance-state lane
+    - P74_DIRECT_BALANCE_LANE_REPORT.md
+    - direct_balance_lane_comparison.json
+    - P74_FIX_NOTE.md
+  recommendation: P75 residual-impact / kernel-readiness gate
   balance_state_lane_map:
     radlads: balance_state_terms
+    radlads_terms: balance_state_terms
+    radlads_direct: direct_balance_state
     qrwkv_off: balance_state_terms
+    qrwkv_off_terms: balance_state_terms
     qrwkv_experimental: direct_balance_state
+    qrwkv_experimental_direct: direct_balance_state
   lane_mixed_comparison_valid: false
-  first_overall_non_applicable_stage: k_k
+  first_overall_non_applicable_stage: k_a
   first_comparable_differing_stage: null
   p70_minimum_stage_status:
     same_run_valid: true
     unavailable_minimum_stages: 0
     live_rows:
-      radlads: 272
+      radlads: 512
+      radlads_terms: 272
+      radlads_direct: 240
       qrwkv_off: 272
+      qrwkv_off_terms: 272
       qrwkv_experimental: 240
+      qrwkv_experimental_direct: 240
   p71_stretch_stage_names:
     - v_first
     - mixed_value
@@ -359,8 +370,17 @@ radlads_live_same_run_update_trace:
   p72_k_k_k_a_status:
     radlads: live_captured
     qrwkv_off: live_captured
-    qrwkv_experimental: not_active_in_fixture_path
-    first_remaining_gap: k_k
+    radlads_direct: not_applicable
+    qrwkv_experimental: not_applicable
+    first_remaining_gap: null
+  p74_direct_balance_state_lane:
+    implementation_shape: side_plus_lane_key
+    radlads_direct_generated: true
+    direct_balance_state_lane_valid: true
+    direct_balance_state_first_differing_stage: null
+    balance_state_terms_lane_valid: true
+    balance_state_terms_first_differing_stage: null
+    lane_aware_keys: true
   caveats:
     - source_stage_name_preserved
     - inactive_k_k_k_a_experimental_rows_remain_explicit

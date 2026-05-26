@@ -665,3 +665,23 @@ needs source-backed comparison.
 P73 is reporting and source-mapping clarification only. It does not change
 recurrence math, dtype policy, tolerances, Pallas/kernel code, RADLADS
 upstream/vendor code, or default experimental `balance_state` behavior.
+
+Current checkpoint: `direct_balance_state_lane_comparison`.
+
+P74 generates the missing RADLADS `direct_balance_state` lane with
+`radlads_balance_state=True`, keeps the existing RADLADS
+`balance_state_terms` lane, and makes trace row keys lane-aware so same-context
+RADLADS terms/direct rows do not collide. Reports now compare
+`radlads_terms` vs `qrwkv_off_terms` separately from `radlads_direct` vs
+`qrwkv_experimental_direct`.
+
+The regenerated same-run trace reports `same_run_valid=True`, no synthetic or
+mixed artifact lineage, 272 RADLADS terms live rows, 240 RADLADS direct live
+rows, 272 QRWKV off terms live rows, and 240 QRWKV experimental direct live
+rows. Both lane comparisons have no first comparable differing stage. The next
+phase is `P75 residual-impact / kernel-readiness gate`; kernel-ready remains
+`no`.
+
+P74 is lane generation and comparison hygiene only. It does not change
+recurrence math, balance math, dtype policy, tolerances, Pallas/kernel code,
+RADLADS upstream/vendor code, or default experimental `balance_state` behavior.

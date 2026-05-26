@@ -1285,8 +1285,8 @@ radlads_same_run_update_ingredients:
     - no_pallas_no_tolerance_loosening_no_recurrence_math_change
 
 radlads_live_same_run_update_trace:
-  phase: P73
-  status: p73_balance_state_lane_mapping
+  phase: P74
+  status: direct_balance_state_lane_comparison
   docs: docs/RADLADS_SAME_RUN_UPDATE_INGREDIENT_TRACE.md
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   trace_script: scripts/run_live_same_run_update_trace.py
@@ -1314,22 +1314,33 @@ radlads_live_same_run_update_trace:
     - P73_BALANCE_STATE_LANE_MAP.md
     - balance_state_lane_map.json
     - P73_FIX_NOTE.md
-  recommendation: P74 generate RADLADS direct-balance-state lane
+    - P74_DIRECT_BALANCE_LANE_REPORT.md
+    - direct_balance_lane_comparison.json
+    - P74_FIX_NOTE.md
+  recommendation: P75 residual-impact / kernel-readiness gate
   same_run_valid: true
   lane_mixed_comparison_valid: false
   unavailable_minimum_stages: 0
   live_rows_captured:
-    radlads: 272
+    radlads: 512
+    radlads_terms: 272
+    radlads_direct: 240
     qrwkv_off: 272
+    qrwkv_off_terms: 272
     qrwkv_experimental: 240
-  first_overall_non_applicable_stage: k_k
+    qrwkv_experimental_direct: 240
+  first_overall_non_applicable_stage: k_a
   first_comparable_differing_stage: null
-  first_divergent_stage: k_k
-  first_divergent_capture_kind: not_applicable
+  first_divergent_stage: wkv_decay_applied
+  first_divergent_capture_kind: unavailable
   balance_state_lane_map:
     radlads: balance_state_terms
+    radlads_terms: balance_state_terms
+    radlads_direct: direct_balance_state
     qrwkv_off: balance_state_terms
+    qrwkv_off_terms: balance_state_terms
     qrwkv_experimental: direct_balance_state
+    qrwkv_experimental_direct: direct_balance_state
   k_k_available:
     radlads: true
     qrwkv_off: true
@@ -1339,6 +1350,12 @@ radlads_live_same_run_update_trace:
     qrwkv_off: true
     qrwkv_experimental: false
   math_conclusion_valid: true
+  direct_balance_state_lane_valid: true
+  direct_balance_state_first_differing_stage: null
+  direct_balance_state_math_conclusion_valid: true
+  balance_state_terms_lane_valid: true
+  balance_state_terms_first_differing_stage: null
+  balance_state_terms_math_conclusion_valid: true
   caveats:
     - strict_live_required
     - old_p66_p67_rows_not_source_truth
@@ -1404,5 +1421,16 @@ radlads_live_same_run_update_trace:
     direct_lane_k_k_k_a_capture_kind: not_applicable
     lane_map_report: artifacts/p68_live_same_run_trace/P73_BALANCE_STATE_LANE_MAP.md
     lane_map_json: artifacts/p68_live_same_run_trace/balance_state_lane_map.json
+    no_recurrence_math_change: true
+    no_default_balance_state_promotion: true
+  p74_direct_balance_state_lane:
+    implementation_shape: side_plus_lane_key
+    radlads_direct_generated: true
+    radlads_direct_config:
+      radlads_balance_state: true
+    lane_aware_keys: true
+    direct_lane_k_k_k_a_capture_kind: not_applicable
+    direct_lane_report: artifacts/p68_live_same_run_trace/P74_DIRECT_BALANCE_LANE_REPORT.md
+    direct_lane_json: artifacts/p68_live_same_run_trace/direct_balance_lane_comparison.json
     no_recurrence_math_change: true
     no_default_balance_state_promotion: true

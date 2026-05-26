@@ -200,14 +200,22 @@ P73_AB_FIX = "P73 targeted ab construction/orientation fix"
 P73_SOURCE_MAPPING = "P73 targeted source mapping clarification for k_k/k_a"
 P73_RESIDUAL_GATE = "P73 residual-impact / kernel-readiness gate"
 P74_DIRECT_LANE = "P74 generate RADLADS direct-balance-state lane"
-P74_TERMS_LANE_ONLY = "P74 compare balance_state_terms lane only"
-P74_KK_FIX = "P74 targeted kk construction fix"
-P74_BALANCE_PREP_FIX = "P74 targeted k_for_update/v_for_update balance-prep fix"
-P74_AB_FIX = "P74 targeted ab construction/orientation fix"
-P74_VK_FIX = "P74 targeted vk/outer-product orientation fix"
-P74_STATE_AFTER_FIX = "P74 targeted state_after assembly/dtype fix"
-P74_RESIDUAL_GATE = "P74 residual-impact / kernel-readiness gate"
-P74_PALLAS = "P74 Pallas prototype behind known-caveat flag"
+P75_DIRECT_LANE_REPAIR = "P75 targeted RADLADS direct-lane generation repair"
+P75_DIRECT_KK_FIX = "P75 targeted direct-lane kk construction fix"
+P75_DIRECT_BALANCE_PREP_FIX = (
+    "P75 targeted direct-lane k_for_update/v_for_update balance-prep fix"
+)
+P75_DIRECT_AB_FIX = "P75 targeted direct-lane ab construction/orientation fix"
+P75_DIRECT_VK_FIX = "P75 targeted direct-lane vk/outer-product orientation fix"
+P75_DIRECT_STATE_AFTER_FIX = "P75 targeted direct-lane state_after assembly/dtype fix"
+P75_TERMS_KK_FIX = "P75 targeted terms-lane kk construction fix"
+P75_TERMS_BALANCE_PREP_FIX = (
+    "P75 targeted terms-lane k_for_update/v_for_update balance-prep fix"
+)
+P75_TERMS_AB_FIX = "P75 targeted terms-lane ab construction/orientation fix"
+P75_TERMS_VK_FIX = "P75 targeted terms-lane vk/outer-product orientation fix"
+P75_RESIDUAL_GATE = "P75 residual-impact / kernel-readiness gate"
+P75_PALLAS = "P75 Pallas prototype behind known-caveat flag"
 
 
 def classify_balance_state_lane(config: Mapping[str, Any] | Any) -> str:
@@ -435,29 +443,20 @@ def build_live_same_run_trace(
     contexts: Iterable[tuple[str, str | None, int | None, int | None, int | None]],
 ) -> list[dict[str, Any]]:
     rows = [dict(entry) for entry in source_entries if _side_matches(entry, side)]
-    side_lane = _lane_from_rows(rows, side=side)
-    side_live_config = _live_config_from_rows(rows)
+    lanes = _lanes_from_rows(rows, side=side)
     output: list[dict[str, Any]] = []
-    for context in sorted(contexts, key=_context_sort_key):
-        by_stage = _rows_by_source_stage(rows, context)
-        for dependency_index, stage in enumerate(DEPENDENCY_ORDER):
-            source = _source_for_stage(by_stage, stage)
-            if source is None:
-                reconstructed = _exact_reconstruction_for_stage(
-                    by_stage,
-                    side=side,
-                    context=context,
-                    stage=stage,
-                    dependency_index=dependency_index,
-                    same_run_group_id=same_run_group_id,
-                    fixture_id=fixture_id,
-                    parameter_id=parameter_id,
-                )
-                if reconstructed is not None:
-                    output.append(reconstructed)
-                    continue
-                output.append(
-                    _unavailable_row(
+    for side_lane in lanes:
+        lane_rows = [
+            row for row in rows if _row_balance_state_lane(row, side=side) == side_lane
+        ]
+        side_live_config = _live_config_from_rows(lane_rows)
+        for context in sorted(contexts, key=_context_sort_key):
+            by_stage = _rows_by_source_stage(lane_rows, context)
+            for dependency_index, stage in enumerate(DEPENDENCY_ORDER):
+                source = _source_for_stage(by_stage, stage)
+                if source is None:
+                    reconstructed = _exact_reconstruction_for_stage(
+                        by_stage,
                         side=side,
                         context=context,
                         stage=stage,
@@ -465,28 +464,41 @@ def build_live_same_run_trace(
                         same_run_group_id=same_run_group_id,
                         fixture_id=fixture_id,
                         parameter_id=parameter_id,
-                        reason=_missing_stage_reason(
-                            side=side, stage=stage, lane=side_lane
-                        ),
-                        capture_kind=_missing_stage_capture_kind(
-                            stage=stage, lane=side_lane
-                        ),
-                        balance_state_lane=side_lane,
-                        live_config=side_live_config,
                     )
-                )
-            else:
-                output.append(
-                    _available_row(
-                        source,
-                        side=side,
-                        stage=stage,
-                        dependency_index=dependency_index,
-                        same_run_group_id=same_run_group_id,
-                        fixture_id=fixture_id,
-                        parameter_id=parameter_id,
+                    if reconstructed is not None:
+                        output.append(reconstructed)
+                        continue
+                    output.append(
+                        _unavailable_row(
+                            side=side,
+                            context=context,
+                            stage=stage,
+                            dependency_index=dependency_index,
+                            same_run_group_id=same_run_group_id,
+                            fixture_id=fixture_id,
+                            parameter_id=parameter_id,
+                            reason=_missing_stage_reason(
+                                side=side, stage=stage, lane=side_lane
+                            ),
+                            capture_kind=_missing_stage_capture_kind(
+                                stage=stage, lane=side_lane
+                            ),
+                            balance_state_lane=side_lane,
+                            live_config=side_live_config,
+                        )
                     )
-                )
+                else:
+                    output.append(
+                        _available_row(
+                            source,
+                            side=side,
+                            stage=stage,
+                            dependency_index=dependency_index,
+                            same_run_group_id=same_run_group_id,
+                            fixture_id=fixture_id,
+                            parameter_id=parameter_id,
+                        )
+                    )
     return sorted(output, key=_entry_sort_key)
 
 
@@ -534,6 +546,7 @@ def compare_live_same_run_traces(
         and minimum_stage_valid
         and stretch_stages_available
         and lane_validity["balance_state_terms_lane_valid"]
+        and lane_validity["direct_balance_state_lane_valid"]
         and first_comparable is None
     )
     recommendation = _recommendation(
@@ -578,6 +591,34 @@ def compare_live_same_run_traces(
         "direct_balance_state_lane_valid": lane_validity[
             "direct_balance_state_lane_valid"
         ],
+        "balance_state_terms_first_differing_stage": None
+        if lane_validity.get("balance_state_terms_first_failure") is None
+        else lane_validity["balance_state_terms_first_failure"].get("stage"),
+        "balance_state_terms_first_differing_capture_kind": None
+        if lane_validity.get("balance_state_terms_first_failure") is None
+        else lane_validity["balance_state_terms_first_failure"].get("status"),
+        "balance_state_terms_math_conclusion_valid": lane_validity[
+            "balance_state_terms_math_conclusion_valid"
+        ],
+        "balance_state_terms_recommended_next_phase": _lane_specific_recommendation(
+            lane=BALANCE_STATE_TERMS_LANE,
+            first=lane_validity.get("balance_state_terms_first_failure"),
+            valid=lane_validity["balance_state_terms_lane_valid"],
+        ),
+        "direct_balance_state_first_differing_stage": None
+        if lane_validity.get("direct_balance_state_first_failure") is None
+        else lane_validity["direct_balance_state_first_failure"].get("stage"),
+        "direct_balance_state_first_differing_capture_kind": None
+        if lane_validity.get("direct_balance_state_first_failure") is None
+        else lane_validity["direct_balance_state_first_failure"].get("status"),
+        "direct_balance_state_math_conclusion_valid": lane_validity[
+            "direct_balance_state_math_conclusion_valid"
+        ],
+        "direct_balance_state_recommended_next_phase": _lane_specific_recommendation(
+            lane=DIRECT_BALANCE_STATE_LANE,
+            first=lane_validity.get("direct_balance_state_first_failure"),
+            valid=lane_validity["direct_balance_state_lane_valid"],
+        ),
         "lane_mixed_comparison_valid": lane_validity["lane_mixed_comparison_valid"],
         "lane_validity": lane_validity,
         "same_run_validity": {
@@ -599,8 +640,14 @@ def compare_live_same_run_traces(
         "trace_counts": {side: len(traces.get(side, [])) for side in SIDES},
         "live_rows_captured": live_counts,
         "live_rows_captured_radlads": live_counts["radlads"],
+        "live_rows_captured_radlads_terms": live_counts["radlads_terms"],
+        "live_rows_captured_radlads_direct": live_counts["radlads_direct"],
         "live_rows_captured_qrwkv_off": live_counts["qrwkv_off"],
+        "live_rows_captured_qrwkv_off_terms": live_counts["qrwkv_off_terms"],
         "live_rows_captured_qrwkv_experimental": live_counts["qrwkv_experimental"],
+        "live_rows_captured_qrwkv_experimental_direct": live_counts[
+            "qrwkv_experimental_direct"
+        ],
         "minimum_stage_availability": minimum_availability,
         "minimum_stage_valid": minimum_stage_valid,
         "unavailable_minimum_stages": unavailable_minimum,
@@ -767,6 +814,8 @@ def run_live_same_run_trace(
             hook_status.get("_parameter_import_report")
         ),
         "radlads_config_snapshot": config_snapshots.get("radlads"),
+        "radlads_terms_config": config_snapshots.get("radlads_terms"),
+        "radlads_direct_config": config_snapshots.get("radlads_direct"),
         "qrwkv_off_config": config_snapshots.get("qrwkv_off"),
         "qrwkv_experimental_config": config_snapshots.get("qrwkv_experimental"),
         "radlads_parameter_source": str(parameter_path)
@@ -822,6 +871,15 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
         + "\n",
         encoding="utf-8",
     )
+    (out_dir / "direct_balance_lane_comparison.json").write_text(
+        json.dumps(
+            _jsonable(_p74_direct_lane_comparison(report)),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     (out_dir / "P68_RESULTS.md").write_text(_results_markdown(report), encoding="utf-8")
     (out_dir / "LIVE_SAME_RUN_VALIDITY.md").write_text(
         _validity_markdown(report), encoding="utf-8"
@@ -852,6 +910,12 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
     )
     (out_dir / "P73_FIX_NOTE.md").write_text(
         _p73_fix_note_markdown(report), encoding="utf-8"
+    )
+    (out_dir / "P74_DIRECT_BALANCE_LANE_REPORT.md").write_text(
+        _p74_direct_lane_markdown(report), encoding="utf-8"
+    )
+    (out_dir / "P74_FIX_NOTE.md").write_text(
+        _p74_fix_note_markdown(report), encoding="utf-8"
     )
     if not report.get("same_run_valid"):
         (out_dir / "P68_FIX_NOTE.md").write_text(
@@ -927,6 +991,7 @@ def _capture_live_sources(
             radlads_balance_state=False,
         )
         config_snapshots.setdefault("radlads", _config_snapshot(radlads_config))
+        config_snapshots.setdefault("radlads_terms", _config_snapshot(radlads_config))
         radlads_collector = LiveTraceCollector(
             same_run_group_id=same_run_group_id,
             fixture_id=fixture_id,
@@ -952,6 +1017,41 @@ def _capture_live_sources(
             }
         else:
             sources["radlads"].extend(radlads_collector.entries)
+        radlads_direct_config = replace(
+            base_student.config,
+            radlads_balance_state_terms=True,
+            radlads_balance_state=True,
+        )
+        config_snapshots.setdefault(
+            "radlads_direct", _config_snapshot(radlads_direct_config)
+        )
+        radlads_direct_collector = LiveTraceCollector(
+            same_run_group_id=same_run_group_id,
+            fixture_id=fixture_id,
+            parameter_id=parameter_id,
+            case=str(case["name"]),
+            side="radlads",
+            mode=None if mode in {"both", "full", "stepwise"} else mode,
+            live_config=_config_snapshot(radlads_direct_config),
+        )
+        try:
+            _capture_radlads_case(
+                fixture_manifest=fixture_manifest,
+                case=case,
+                params=import_result.params,
+                config=radlads_direct_config,
+                collector=radlads_direct_collector,
+                max_tokens=max_tokens,
+            )
+        except Exception as exc:  # pragma: no cover - environment dependent
+            status["radlads_direct"] = {
+                "status": "failed",
+                "reason": (
+                    f"RADLADS direct live capture failed: {type(exc).__name__}: {exc}"
+                ),
+            }
+        else:
+            sources["radlads"].extend(radlads_direct_collector.entries)
         off_config = replace(
             base_student.config,
             radlads_balance_state_terms=True,
@@ -998,6 +1098,18 @@ def _capture_live_sources(
             status[side]["reason"] = f"missing_live_hook:{side}:pre_attention_norm"
     if sources["radlads"]:
         status["radlads"] = {"status": "captured", "reason": None}
+        if "radlads_direct" not in status:
+            direct_rows = [
+                row
+                for row in sources["radlads"]
+                if row.get("balance_state_lane") == DIRECT_BALANCE_STATE_LANE
+            ]
+            status["radlads_direct"] = {
+                "status": "captured" if direct_rows else "missing",
+                "reason": None
+                if direct_rows
+                else "missing_live_hook:radlads_direct:pre_attention_norm",
+            }
     elif status["radlads"]["status"] != "failed":
         status["radlads"] = {
             "status": "missing",
@@ -1142,6 +1254,27 @@ def _lane_from_rows(
     if side == "qrwkv_experimental":
         return DIRECT_BALANCE_STATE_LANE
     return NATIVE_OR_UNKNOWN_LANE
+
+
+def _row_balance_state_lane(row: Mapping[str, Any], *, side: str | None = None) -> str:
+    lane = row.get("balance_state_lane")
+    if lane is not None:
+        return str(lane)
+    config = row.get("live_config") or row.get("config")
+    if isinstance(config, Mapping):
+        return classify_balance_state_lane(config)
+    if side == "qrwkv_experimental":
+        return DIRECT_BALANCE_STATE_LANE
+    return NATIVE_OR_UNKNOWN_LANE
+
+
+def _lanes_from_rows(
+    rows: Iterable[Mapping[str, Any]], *, side: str | None = None
+) -> list[str]:
+    lanes = sorted({_row_balance_state_lane(row, side=side) for row in rows})
+    if lanes:
+        return lanes
+    return [_lane_from_rows([], side=side)]
 
 
 def _parameter_mapping_summary(report: Mapping[str, Any] | None) -> dict[str, int]:
@@ -1427,9 +1560,10 @@ def _compare_key(
         "layer": key[2],
         "token": key[3],
         "head": key[4],
-        "stage": key[5],
-        "dependency_index": DEPENDENCY_ORDER.index(key[5])
-        if key[5] in DEPENDENCY_ORDER
+        "balance_state_lane": key[5],
+        "stage": key[6],
+        "dependency_index": DEPENDENCY_ORDER.index(key[6])
+        if key[6] in DEPENDENCY_ORDER
         else 999,
         "radlads_capture_kind": None if rad is None else rad.get("capture_kind"),
         "qrwkv_off_capture_kind": None if off is None else off.get("capture_kind"),
@@ -1529,12 +1663,12 @@ def _validate_live_config(
             configs.setdefault(_trace_key(row), {})[side] = dict(config)
     mismatches = {}
     for key, value in configs.items():
-        off = value.get("qrwkv_off")
-        exp = value.get("qrwkv_experimental")
-        if off is not None and exp is not None:
-            delta = _config_delta(off, exp)
-            if delta["status"] != "pass":
-                mismatches[key] = delta
+        sides = sorted(value)
+        for index, left_side in enumerate(sides):
+            for right_side in sides[index + 1 :]:
+                delta = _config_delta(value[left_side], value[right_side])
+                if delta["status"] != "pass":
+                    mismatches[(key, left_side, right_side)] = delta
     return {
         "status": "pass" if not mismatches else "fail",
         "reason": None if not mismatches else "unrelated strict-live config delta",
@@ -1569,7 +1703,7 @@ def _validate_critical_availability(
 
 
 def _live_row_counts(traces: Mapping[str, list[dict[str, Any]]]) -> dict[str, int]:
-    return {
+    counts = {
         side: sum(
             1
             for row in traces.get(side, [])
@@ -1577,6 +1711,38 @@ def _live_row_counts(traces: Mapping[str, list[dict[str, Any]]]) -> dict[str, in
         )
         for side in SIDES
     }
+    counts["radlads_terms"] = _live_row_count_for_lane(
+        traces,
+        side="radlads",
+        lane=BALANCE_STATE_TERMS_LANE,
+    )
+    counts["radlads_direct"] = _live_row_count_for_lane(
+        traces,
+        side="radlads",
+        lane=DIRECT_BALANCE_STATE_LANE,
+    )
+    counts["qrwkv_off_terms"] = _live_row_count_for_lane(
+        traces,
+        side="qrwkv_off",
+        lane=BALANCE_STATE_TERMS_LANE,
+    )
+    counts["qrwkv_experimental_direct"] = _live_row_count_for_lane(
+        traces,
+        side="qrwkv_experimental",
+        lane=DIRECT_BALANCE_STATE_LANE,
+    )
+    return counts
+
+
+def _live_row_count_for_lane(
+    traces: Mapping[str, list[dict[str, Any]]], *, side: str, lane: str
+) -> int:
+    return sum(
+        1
+        for row in traces.get(side, [])
+        if row.get("capture_kind") == "live_captured"
+        and row.get("balance_state_lane") == lane
+    )
 
 
 def _minimum_stage_availability(
@@ -1708,31 +1874,66 @@ def _balance_state_lane_map(
 ) -> dict[str, dict[str, Any]]:
     config_by_side = {
         "radlads": metadata.get("radlads_config_snapshot"),
+        "radlads_terms": metadata.get("radlads_terms_config")
+        or metadata.get("radlads_config_snapshot"),
+        "radlads_direct": metadata.get("radlads_direct_config"),
         "qrwkv_off": metadata.get("qrwkv_off_config"),
+        "qrwkv_off_terms": metadata.get("qrwkv_off_config"),
         "qrwkv_experimental": metadata.get("qrwkv_experimental_config"),
+        "qrwkv_experimental_direct": metadata.get("qrwkv_experimental_config"),
     }
     result: dict[str, dict[str, Any]] = {}
-    for side in SIDES:
-        config = config_by_side.get(side)
+    surfaces = (
+        ("radlads", "radlads", BALANCE_STATE_TERMS_LANE),
+        ("qrwkv_off", "qrwkv_off", BALANCE_STATE_TERMS_LANE),
+        ("qrwkv_experimental", "qrwkv_experimental", DIRECT_BALANCE_STATE_LANE),
+        ("radlads_terms", "radlads", BALANCE_STATE_TERMS_LANE),
+        ("qrwkv_off_terms", "qrwkv_off", BALANCE_STATE_TERMS_LANE),
+        ("radlads_direct", "radlads", DIRECT_BALANCE_STATE_LANE),
+        (
+            "qrwkv_experimental_direct",
+            "qrwkv_experimental",
+            DIRECT_BALANCE_STATE_LANE,
+        ),
+    )
+    surface_lanes: dict[str, str] = {}
+    for surface, side, fallback_lane in surfaces:
+        config = config_by_side.get(surface)
         if not isinstance(config, Mapping):
-            config = _live_config_from_rows(traces.get(side, [])) or {}
+            lane_rows = [
+                row
+                for row in traces.get(side, [])
+                if row.get("balance_state_lane") == fallback_lane
+            ]
+            config = _live_config_from_rows(lane_rows) or {}
         lane = classify_balance_state_lane(config)
+        if lane == NATIVE_OR_UNKNOWN_LANE and any(
+            row.get("balance_state_lane") == fallback_lane
+            for row in traces.get(side, [])
+        ):
+            lane = fallback_lane
+        surface_lanes[surface] = lane
+    for surface, side, fallback_lane in surfaces:
+        config = config_by_side.get(surface)
+        if not isinstance(config, Mapping):
+            lane_rows = [
+                row
+                for row in traces.get(side, [])
+                if row.get("balance_state_lane") == fallback_lane
+            ]
+            config = _live_config_from_rows(lane_rows) or {}
+        lane = surface_lanes[surface]
         excluded = (
             sorted(LANE_A_ONLY_STAGES) if lane == DIRECT_BALANCE_STATE_LANE else []
         )
         comparable_to = [
             other
-            for other in SIDES
-            if other != side
-            and classify_balance_state_lane(
-                config_by_side.get(other)
-                if isinstance(config_by_side.get(other), Mapping)
-                else (_live_config_from_rows(traces.get(other, [])) or {})
-            )
-            == lane
+            for other, other_lane in surface_lanes.items()
+            if other != surface and other_lane == lane
         ]
-        result[side] = {
+        result[surface] = {
             "side": side,
+            "surface": surface,
             "lane": lane,
             "radlads_balance_state_terms": bool(
                 _config_bool(config, "radlads_balance_state_terms")
@@ -1757,6 +1958,15 @@ def _lane_validity(
     lane_map: Mapping[str, Mapping[str, Any]],
 ) -> dict[str, Any]:
     lanes = {side: lane_map.get(side, {}).get("lane") for side in SIDES}
+    surface_lanes = {
+        surface: lane_map.get(surface, {}).get("lane")
+        for surface in (
+            "radlads_terms",
+            "qrwkv_off_terms",
+            "radlads_direct",
+            "qrwkv_experimental_direct",
+        )
+    }
     classification_valid = all(
         lane
         in {
@@ -1767,34 +1977,58 @@ def _lane_validity(
         for lane in lanes.values()
     )
     terms_pair_available = (
-        lanes.get("radlads") == BALANCE_STATE_TERMS_LANE
-        and lanes.get("qrwkv_off") == BALANCE_STATE_TERMS_LANE
+        surface_lanes.get("radlads_terms") == BALANCE_STATE_TERMS_LANE
+        and surface_lanes.get("qrwkv_off_terms") == BALANCE_STATE_TERMS_LANE
+        and _lane_has_rows(traces, side="radlads", lane=BALANCE_STATE_TERMS_LANE)
+        and _lane_has_rows(traces, side="qrwkv_off", lane=BALANCE_STATE_TERMS_LANE)
     )
-    terms_first = _first_pair_failure(rows, "radlads_vs_qrwkv_off")
-    direct_pair_available = any(
-        lanes.get(side) == DIRECT_BALANCE_STATE_LANE for side in ("radlads",)
-    ) and any(
-        lanes.get(side) == DIRECT_BALANCE_STATE_LANE
-        for side in ("qrwkv_experimental", "qrwkv_off")
+    terms_first = _first_pair_failure(
+        rows,
+        "radlads_vs_qrwkv_off",
+        lane=BALANCE_STATE_TERMS_LANE,
+    )
+    direct_pair_available = (
+        surface_lanes.get("radlads_direct") == DIRECT_BALANCE_STATE_LANE
+        and surface_lanes.get("qrwkv_experimental_direct") == DIRECT_BALANCE_STATE_LANE
+        and _lane_has_rows(traces, side="radlads", lane=DIRECT_BALANCE_STATE_LANE)
+        and _lane_has_rows(
+            traces,
+            side="qrwkv_experimental",
+            lane=DIRECT_BALANCE_STATE_LANE,
+        )
+    )
+    direct_first = _first_pair_failure(
+        rows,
+        "radlads_vs_qrwkv_experimental",
+        lane=DIRECT_BALANCE_STATE_LANE,
     )
     direct_lane_present = any(
-        lanes.get(side) == DIRECT_BALANCE_STATE_LANE for side in SIDES
+        row.get("balance_state_lane") == DIRECT_BALANCE_STATE_LANE
+        for side in SIDES
+        for row in traces.get(side, [])
     )
+    terms_valid = bool(terms_pair_available and terms_first is None)
+    direct_valid = bool(direct_pair_available and direct_first is None)
     return {
         "lane_classification_valid": classification_valid,
         "overall_same_run_valid": None,
-        "balance_state_terms_lane_valid": bool(
-            terms_pair_available and terms_first is None
-        ),
+        "balance_state_terms_lane_valid": terms_valid,
         "balance_state_terms_lane_pair_available": terms_pair_available,
         "balance_state_terms_first_failure": None
         if terms_first is None
         else _primary_gap(terms_first),
-        "direct_balance_state_lane_valid": bool(direct_pair_available),
+        "balance_state_terms_math_conclusion_valid": terms_valid,
+        "direct_balance_state_lane_valid": direct_valid,
         "direct_balance_state_lane_present": direct_lane_present,
         "direct_balance_state_radlads_available": (
-            lanes.get("radlads") == DIRECT_BALANCE_STATE_LANE
+            surface_lanes.get("radlads_direct") == DIRECT_BALANCE_STATE_LANE
+            and _lane_has_rows(traces, side="radlads", lane=DIRECT_BALANCE_STATE_LANE)
         ),
+        "direct_balance_state_lane_pair_available": direct_pair_available,
+        "direct_balance_state_first_failure": None
+        if direct_first is None
+        else _primary_gap(direct_first),
+        "direct_balance_state_math_conclusion_valid": direct_valid,
         "lane_mixed_comparison_valid": len(set(lanes.values())) <= 1,
         "not_applicable_rows": [
             _trace_row_summary(row)
@@ -1805,11 +2039,21 @@ def _lane_validity(
     }
 
 
+def _lane_has_rows(
+    traces: Mapping[str, list[dict[str, Any]]], *, side: str, lane: str
+) -> bool:
+    return any(row.get("balance_state_lane") == lane for row in traces.get(side, []))
+
+
 def _first_pair_failure(
-    rows: Iterable[Mapping[str, Any]], pair: str
+    rows: Iterable[Mapping[str, Any]], pair: str, *, lane: str
 ) -> Mapping[str, Any] | None:
     for row in rows:
+        if row.get("balance_state_lane") != lane:
+            continue
         if row.get("stage") not in {*MINIMUM_STAGES, *P71_STRETCH_STAGES}:
+            continue
+        if lane == DIRECT_BALANCE_STATE_LANE and row.get("stage") in LANE_A_ONLY_STAGES:
             continue
         comparison = row.get(pair, {})
         if comparison.get("status") != "pass":
@@ -1834,25 +2078,23 @@ def _first_comparable_differing_row(
     rows: Iterable[Mapping[str, Any]],
     lane_map: Mapping[str, Mapping[str, Any]],
 ) -> dict[str, Any] | None:
-    pairs = (
-        ("radlads_vs_qrwkv_off", "radlads", "qrwkv_off"),
-        ("radlads_vs_qrwkv_experimental", "radlads", "qrwkv_experimental"),
-        ("qrwkv_off_vs_qrwkv_experimental", "qrwkv_off", "qrwkv_experimental"),
-    )
+    del lane_map
     for row in rows:
         if row.get("stage") not in {*MINIMUM_STAGES, *P71_STRETCH_STAGES}:
             continue
-        for pair, left, right in pairs:
-            lane = lane_map.get(left, {}).get("lane")
-            if lane != lane_map.get(right, {}).get("lane"):
-                continue
-            if row.get(pair, {}).get("status") == "pass":
-                continue
-            payload = _primary_gap(row)
-            payload["lane"] = lane
-            payload["pair"] = pair
-            payload["max_abs_error"] = row.get(pair, {}).get("max_abs_error")
-            return payload
+        lane = row.get("balance_state_lane")
+        if lane == DIRECT_BALANCE_STATE_LANE and row.get("stage") in LANE_A_ONLY_STAGES:
+            continue
+        pair = _lane_primary_pair(row)
+        if pair is None or row.get(pair, {}).get("status") == "pass":
+            continue
+        if row.get(pair, {}).get("status") == "unavailable":
+            continue
+        payload = _primary_gap(row)
+        payload["lane"] = lane
+        payload["pair"] = pair
+        payload["max_abs_error"] = row.get(pair, {}).get("max_abs_error")
+        return payload
     return None
 
 
@@ -1880,27 +2122,70 @@ def _lane_recommendation(
         return P73_SOURCE_MAPPING
     if not same_run_valid:
         return P72_HOOK_COMPLETION
+    terms_first = lane_validity.get("balance_state_terms_first_failure")
+    if terms_first is not None:
+        return _lane_specific_recommendation(
+            lane=BALANCE_STATE_TERMS_LANE,
+            first=terms_first,
+            valid=False,
+        )
     if first_comparable is not None:
-        if first_comparable.get("max_abs_error") is None:
-            return P72_HOOK_COMPLETION
-        stage = first_comparable.get("stage")
-        if stage == "kk":
-            return P74_KK_FIX
-        if stage in {"k_for_update", "v_for_update"}:
-            return P74_BALANCE_PREP_FIX
-        if stage == "ab":
-            return P74_AB_FIX
-        if stage == "vk":
-            return P74_VK_FIX
-        if stage == "state_after_live":
-            return P74_STATE_AFTER_FIX
+        return _lane_specific_recommendation(
+            lane=str(first_comparable.get("lane")),
+            first=first_comparable,
+            valid=False,
+        )
     if lane_validity.get("direct_balance_state_lane_present") and not lane_validity.get(
         "direct_balance_state_radlads_available"
     ):
-        return P74_DIRECT_LANE
-    if lane_validity.get("balance_state_terms_lane_valid"):
-        return P74_RESIDUAL_GATE
-    return P74_TERMS_LANE_ONLY
+        return P75_DIRECT_LANE_REPAIR
+    direct_first = lane_validity.get("direct_balance_state_first_failure")
+    if direct_first is not None:
+        return _lane_specific_recommendation(
+            lane=DIRECT_BALANCE_STATE_LANE,
+            first=direct_first,
+            valid=False,
+        )
+    if lane_validity.get("balance_state_terms_lane_valid") and lane_validity.get(
+        "direct_balance_state_lane_valid"
+    ):
+        return P75_RESIDUAL_GATE
+    return P75_DIRECT_LANE_REPAIR
+
+
+def _lane_specific_recommendation(
+    *, lane: str, first: Mapping[str, Any] | None, valid: bool
+) -> str:
+    if valid and first is None:
+        return P75_RESIDUAL_GATE
+    if first is None:
+        if lane == DIRECT_BALANCE_STATE_LANE:
+            return P75_DIRECT_LANE_REPAIR
+        return P72_HOOK_COMPLETION
+    if first.get("max_abs_error") is None:
+        return P72_HOOK_COMPLETION
+    stage = first.get("stage")
+    if lane == DIRECT_BALANCE_STATE_LANE:
+        if stage == "kk":
+            return P75_DIRECT_KK_FIX
+        if stage in {"k_for_update", "v_for_update"}:
+            return P75_DIRECT_BALANCE_PREP_FIX
+        if stage == "ab":
+            return P75_DIRECT_AB_FIX
+        if stage == "vk":
+            return P75_DIRECT_VK_FIX
+        if stage == "state_after_live":
+            return P75_DIRECT_STATE_AFTER_FIX
+        return P75_DIRECT_LANE_REPAIR
+    if stage == "kk":
+        return P75_TERMS_KK_FIX
+    if stage in {"k_for_update", "v_for_update"}:
+        return P75_TERMS_BALANCE_PREP_FIX
+    if stage == "ab":
+        return P75_TERMS_AB_FIX
+    if stage == "vk":
+        return P75_TERMS_VK_FIX
+    return P72_HOOK_COMPLETION
 
 
 def _recommendation(
@@ -2008,6 +2293,9 @@ def _manifest_token_count(manifest: Mapping[str, Any]) -> int:
 
 
 def _row_status(row: Mapping[str, Any]) -> str:
+    pair = _lane_primary_pair(row)
+    if pair is not None:
+        return str(row[pair]["status"])
     statuses = {
         row["radlads_vs_qrwkv_off"]["status"],
         row["radlads_vs_qrwkv_experimental"]["status"],
@@ -2017,6 +2305,9 @@ def _row_status(row: Mapping[str, Any]) -> str:
 
 
 def _row_has_unavailable(row: Mapping[str, Any]) -> bool:
+    pair = _lane_primary_pair(row)
+    if pair is not None:
+        return row[pair]["status"] == "unavailable"
     return any(
         row[name]["status"] == "unavailable"
         for name in (
@@ -2028,14 +2319,32 @@ def _row_has_unavailable(row: Mapping[str, Any]) -> bool:
 
 
 def _row_capture_kind(row: Mapping[str, Any]) -> str:
-    kinds = [
-        row.get("radlads_capture_kind"),
-        row.get("qrwkv_off_capture_kind"),
-        row.get("qrwkv_experimental_capture_kind"),
-    ]
+    lane = row.get("balance_state_lane")
+    if lane == BALANCE_STATE_TERMS_LANE:
+        kinds = [row.get("radlads_capture_kind"), row.get("qrwkv_off_capture_kind")]
+    elif lane == DIRECT_BALANCE_STATE_LANE:
+        kinds = [
+            row.get("radlads_capture_kind"),
+            row.get("qrwkv_experimental_capture_kind"),
+        ]
+    else:
+        kinds = [
+            row.get("radlads_capture_kind"),
+            row.get("qrwkv_off_capture_kind"),
+            row.get("qrwkv_experimental_capture_kind"),
+        ]
     if any(kind in {None, "unavailable"} for kind in kinds):
         return "unavailable"
     return ",".join(str(kind) for kind in kinds)
+
+
+def _lane_primary_pair(row: Mapping[str, Any]) -> str | None:
+    lane = row.get("balance_state_lane")
+    if lane == BALANCE_STATE_TERMS_LANE:
+        return "radlads_vs_qrwkv_off"
+    if lane == DIRECT_BALANCE_STATE_LANE:
+        return "radlads_vs_qrwkv_experimental"
+    return None
 
 
 def _first_samples(
@@ -2048,6 +2357,7 @@ def _first_samples(
         first.get("layer"),
         first.get("token"),
         first.get("head"),
+        first.get("balance_state_lane", NATIVE_OR_UNKNOWN_LANE),
         first.get("stage"),
     )
     for side in SIDES:
@@ -2060,6 +2370,9 @@ def _first_samples(
 
 
 def _first_error(row: Mapping[str, Any]) -> float | None:
+    pair = _lane_primary_pair(row)
+    if pair is not None:
+        return row[pair]["max_abs_error"]
     errors = [
         row[name]["max_abs_error"]
         for name in (
@@ -2079,6 +2392,7 @@ def _primary_gap(row: Mapping[str, Any]) -> dict[str, Any]:
         "layer": row["layer"],
         "token": row["token"],
         "head": row["head"],
+        "balance_state_lane": row.get("balance_state_lane"),
         "stage": row["stage"],
         "dependency_index": row["dependency_index"],
         "status": _row_status(row),
@@ -2119,6 +2433,7 @@ def _trace_key(entry: Mapping[str, Any]) -> tuple[Any, ...]:
         entry.get("layer"),
         entry.get("token"),
         entry.get("head"),
+        entry.get("balance_state_lane", NATIVE_OR_UNKNOWN_LANE),
         entry.get("stage"),
     )
 
@@ -2134,7 +2449,8 @@ def _key_sort_key(key: tuple[Any, ...]) -> tuple[Any, ...]:
         -1 if key[2] is None else int(key[2]),
         -1 if key[3] is None else int(key[3]),
         -1 if key[4] is None else int(key[4]),
-        DEPENDENCY_ORDER.index(key[5]) if key[5] in DEPENDENCY_ORDER else 999,
+        str(key[5]),
+        DEPENDENCY_ORDER.index(key[6]) if key[6] in DEPENDENCY_ORDER else 999,
     )
 
 
@@ -2223,6 +2539,8 @@ def _results_markdown(report: Mapping[str, Any]) -> str:
     radlads_lane = lane_map.get("radlads", {}).get("lane")
     off_lane = lane_map.get("qrwkv_off", {}).get("lane")
     experimental_lane = lane_map.get("qrwkv_experimental", {}).get("lane")
+    terms_first = report.get("balance_state_terms_first_differing_stage")
+    direct_first = report.get("direct_balance_state_first_differing_stage")
     minimum_availability = json.dumps(
         report.get("minimum_stage_availability", {}),
         sort_keys=True,
@@ -2247,6 +2565,16 @@ def _results_markdown(report: Mapping[str, Any]) -> str:
             f"{report.get('first_overall_non_applicable_stage')}`",
             "- First comparable differing stage: `"
             f"{report.get('first_comparable_differing_stage')}`",
+            "- Lane comparisons:",
+            "  - balance_state_terms: `"
+            f"{report.get('balance_state_terms_lane_valid')}`",
+            "  - direct_balance_state: `"
+            f"{report.get('direct_balance_state_lane_valid')}`",
+            "- First comparable differing stage by lane:",
+            f"  - balance_state_terms: `{terms_first}`",
+            f"  - direct_balance_state: `{direct_first}`",
+            f"- Overall recommended next phase: {report['recommended_next_phase']}",
+            f"- Kernel-ready: `{report['kernel_ready']}`",
             f"- Minimum stages valid: `{report.get('minimum_stage_valid')}`",
             f"- Stretch stages available: `{report.get('stretch_stages_available')}`",
             f"- k_k available: `{report.get('k_k_available')}`",
@@ -2423,6 +2751,10 @@ def _decision_markdown(report: Mapping[str, Any]) -> str:
             f"{report.get('balance_state_terms_lane_valid')}`",
             "- direct_balance_state_lane_valid: `"
             f"{report.get('direct_balance_state_lane_valid')}`",
+            "- balance_state_terms_first_differing_stage: `"
+            f"{report.get('balance_state_terms_first_differing_stage')}`",
+            "- direct_balance_state_first_differing_stage: `"
+            f"{report.get('direct_balance_state_first_differing_stage')}`",
             "- lane_mixed_comparison_valid: `"
             f"{report.get('lane_mixed_comparison_valid')}`",
             f"- kernel_ready: `{report['kernel_ready']}`",
@@ -2655,6 +2987,140 @@ def _p73_fix_note_markdown(report: Mapping[str, Any]) -> str:
             "No recurrence math, dtype policy, tolerance, Pallas/kernel code, "
             "RADLADS upstream/vendor code, or default experimental "
             "balance_state behavior is changed.",
+            "",
+        ]
+    )
+
+
+def _p74_direct_lane_comparison(report: Mapping[str, Any]) -> dict[str, Any]:
+    direct = report.get("lane_validity", {}).get("direct_balance_state_first_failure")
+    terms = report.get("lane_validity", {}).get("balance_state_terms_first_failure")
+    return {
+        "schema": "qrwkv_xla.p74_direct_balance_lane_comparison.v1",
+        "same_run_valid": bool(report.get("same_run_valid")),
+        "fixture_id": report.get("fixture_id"),
+        "parameter_id": report.get("parameter_id"),
+        "lane_aware_keys": True,
+        "terms_lane": {
+            "left": "radlads_terms",
+            "right": "qrwkv_off_terms",
+            "valid": bool(report.get("balance_state_terms_lane_valid")),
+            "first_differing_stage": report.get(
+                "balance_state_terms_first_differing_stage"
+            ),
+            "first_differing_capture_kind": report.get(
+                "balance_state_terms_first_differing_capture_kind"
+            ),
+            "math_conclusion_valid": bool(
+                report.get("balance_state_terms_math_conclusion_valid")
+            ),
+            "recommended_next_phase": report.get(
+                "balance_state_terms_recommended_next_phase"
+            ),
+            "first_failure": terms,
+        },
+        "direct_lane": {
+            "left": "radlads_direct",
+            "right": "qrwkv_experimental_direct",
+            "valid": bool(report.get("direct_balance_state_lane_valid")),
+            "first_differing_stage": report.get(
+                "direct_balance_state_first_differing_stage"
+            ),
+            "first_differing_capture_kind": report.get(
+                "direct_balance_state_first_differing_capture_kind"
+            ),
+            "math_conclusion_valid": bool(
+                report.get("direct_balance_state_math_conclusion_valid")
+            ),
+            "not_applicable_stages": sorted(LANE_A_ONLY_STAGES),
+            "recommended_next_phase": report.get(
+                "direct_balance_state_recommended_next_phase"
+            ),
+            "first_failure": direct,
+        },
+        "recommended_next_phase": report.get("recommended_next_phase"),
+        "kernel_ready": report.get("kernel_ready"),
+    }
+
+
+def _p74_direct_lane_markdown(report: Mapping[str, Any]) -> str:
+    lane_map = report.get("balance_state_lane_map", {})
+    counts = report.get("live_rows_captured", {})
+    not_applicable = report.get("lane_validity", {}).get("not_applicable_rows", [])
+    return "\n".join(
+        [
+            "# P74 Direct Balance-State Lane Report",
+            "",
+            "## Lane Inventory",
+            "",
+            f"RADLADS terms: `{lane_map.get('radlads_terms', {}).get('lane')}`",
+            f"QRWKV off terms: `{lane_map.get('qrwkv_off_terms', {}).get('lane')}`",
+            f"RADLADS direct: `{lane_map.get('radlads_direct', {}).get('lane')}`",
+            "QRWKV experimental direct: `"
+            f"{lane_map.get('qrwkv_experimental_direct', {}).get('lane')}`",
+            "",
+            "## Direct Lane Comparison",
+            "",
+            f"same_run_valid: `{report.get('same_run_valid')}`",
+            f"fixture_id: `{report.get('fixture_id')}`",
+            f"parameter_id: `{report.get('parameter_id')}`",
+            f"RADLADS direct live rows: `{counts.get('radlads_direct', 0)}`",
+            "QRWKV experimental direct live rows: `"
+            f"{counts.get('qrwkv_experimental_direct', 0)}`",
+            f"not-applicable stages: `{sorted(LANE_A_ONLY_STAGES)}`",
+            "first comparable differing stage: `"
+            f"{report.get('direct_balance_state_first_differing_stage')}`",
+            "math conclusion valid: `"
+            f"{report.get('direct_balance_state_math_conclusion_valid')}`",
+            "recommended next phase: `"
+            f"{report.get('direct_balance_state_recommended_next_phase')}`",
+            "",
+            "## Terms Lane Comparison",
+            "",
+            f"RADLADS terms live rows: `{counts.get('radlads_terms', 0)}`",
+            f"QRWKV off terms live rows: `{counts.get('qrwkv_off_terms', 0)}`",
+            "first comparable differing stage: `"
+            f"{report.get('balance_state_terms_first_differing_stage')}`",
+            "math conclusion valid: `"
+            f"{report.get('balance_state_terms_math_conclusion_valid')}`",
+            "recommended next phase: `"
+            f"{report.get('balance_state_terms_recommended_next_phase')}`",
+            "",
+            "## Overall Decision",
+            "",
+            f"recommended next phase: `{report.get('recommended_next_phase')}`",
+            f"kernel_ready: `{report.get('kernel_ready')}`",
+            "lane-aware row keys: `True`",
+            f"not_applicable_rows: `{len(not_applicable)}`",
+            "",
+        ]
+    )
+
+
+def _p74_fix_note_markdown(report: Mapping[str, Any]) -> str:
+    return "\n".join(
+        [
+            "# P74 Fix Note",
+            "",
+            "P74 adds the missing RADLADS direct-balance-state capture by "
+            "running the same local reference path with "
+            "`radlads_balance_state=True`. It preserves the existing RADLADS "
+            "balance-state-terms capture.",
+            "",
+            "Row identity is lane-aware via `balance_state_lane`, so RADLADS "
+            "terms rows and RADLADS direct rows for the same fixture/context "
+            "do not collide in comparison maps.",
+            "",
+            f"- same_run_valid: `{report.get('same_run_valid')}`",
+            "- direct_balance_state_lane_valid: `"
+            f"{report.get('direct_balance_state_lane_valid')}`",
+            "- balance_state_terms_lane_valid: `"
+            f"{report.get('balance_state_terms_lane_valid')}`",
+            f"- recommended_next_phase: `{report.get('recommended_next_phase')}`",
+            "",
+            "No recurrence math, balance-prep math, dtype policy, tolerance, "
+            "Pallas/kernel code, RADLADS upstream/vendor code, or default "
+            "experimental balance_state behavior is changed.",
             "",
         ]
     )

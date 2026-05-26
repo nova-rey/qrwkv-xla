@@ -86,3 +86,20 @@ Direct-lane `k_k` and `k_a` rows are `not_applicable` with
 P73 is reporting/source mapping only. It does not change recurrence math,
 tolerances, dtype policy, Pallas/kernel code, RADLADS upstream/vendor code, or
 default experimental `balance_state` behavior.
+
+## P74 direct-balance-state lane
+P74 adds the missing RADLADS `direct_balance_state` lane by running the same
+local reference capture path with `radlads_balance_state=True`. The existing
+RADLADS `balance_state_terms` lane is preserved, and trace keys include
+`balance_state_lane` so same-context terms/direct RADLADS rows do not collide.
+
+Reports now compare `radlads_terms` vs `qrwkv_off_terms` separately from
+`radlads_direct` vs `qrwkv_experimental_direct`. The direct lane still marks
+`k_k` and `k_a` as `not_applicable`; no copied or synthetic direct-lane rows
+are used.
+
+P74 writes `P74_DIRECT_BALANCE_LANE_REPORT.md`,
+`direct_balance_lane_comparison.json`, and `P74_FIX_NOTE.md` under
+`artifacts/p68_live_same_run_trace/`. It does not change recurrence math,
+balance-prep math, tolerances, dtype policy, Pallas/kernel code, RADLADS
+upstream/vendor code, or default experimental `balance_state` behavior.

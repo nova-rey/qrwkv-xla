@@ -1377,3 +1377,31 @@ there is not yet a RADLADS direct-balance lane, P73 recommends
 lane is otherwise valid. P73 does not change recurrence math, loosen
 tolerances, change dtype policy, implement Pallas, edit RADLADS upstream/vendor
 code, or promote experimental `balance_state` behavior by default.
+
+## Phase 74 — RADLADS Direct Balance-State Lane Generation
+
+P74 generates the missing RADLADS direct-balance-state lane identified by P73.
+P73 showed that RADLADS and QRWKV off occupied the `balance_state_terms` lane
+while QRWKV experimental occupied `direct_balance_state`, making mixed-lane
+comparison invalid for math conclusions.
+
+P74 adds a second RADLADS capture with `radlads_balance_state=True` while
+preserving the existing RADLADS `balance_state_terms` capture. Trace row keys
+are lane-aware through `balance_state_lane`, so RADLADS terms and RADLADS
+direct rows for the same case/layer/token/head/stage both survive comparison
+maps. Direct-lane `k_k` and `k_a` rows remain `not_applicable`; they are not
+fabricated and do not invalidate direct-lane comparison.
+
+The regenerated `artifacts/p68_live_same_run_trace/` reports
+`same_run_valid=True`, `mixed_artifact_lineage_used=False`,
+`synthetic_fallback_used=False`, 272 RADLADS terms live rows, 240 RADLADS
+direct live rows, 272 QRWKV off terms live rows, and 240 QRWKV experimental
+direct live rows. Both lane comparisons are valid with no first comparable
+differing stage, and the recommendation is
+`P75 residual-impact / kernel-readiness gate`; `kernel_ready` remains `no`.
+
+P74 adds `P74_DIRECT_BALANCE_LANE_REPORT.md`,
+`direct_balance_lane_comparison.json`, and `P74_FIX_NOTE.md`. It does not
+change recurrence math, balance-prep math, dtype policy, tolerances, Pallas
+code, RADLADS upstream/vendor code, fixture values, or default experimental
+`balance_state` behavior.

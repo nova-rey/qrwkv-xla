@@ -1044,3 +1044,26 @@
 - [x] Preserve scope: no recurrence math change, dtype-policy change,
   tolerance loosening, Pallas work, RADLADS upstream/vendor edit, or default
   experimental `balance_state` promotion.
+
+## P74 — RADLADS Direct Balance-State Lane
+
+- [x] Generate a second RADLADS lane with `radlads_balance_state=True`.
+- [x] Preserve the RADLADS `balance_state_terms` lane with
+  `radlads_balance_state_terms=True` and `radlads_balance_state=False`.
+- [x] Make trace row keys lane-aware so RADLADS terms and direct rows do not
+  collide.
+- [x] Mark direct-lane `k_k` / `k_a` rows as `not_applicable` without
+  fabricating copied direct-lane values.
+- [x] Report `radlads_terms` vs `qrwkv_off_terms` separately from
+  `radlads_direct` vs `qrwkv_experimental_direct`.
+- [x] Emit `P74_DIRECT_BALANCE_LANE_REPORT.md`,
+  `direct_balance_lane_comparison.json`, and `P74_FIX_NOTE.md`.
+- [x] Regenerate `artifacts/p68_live_same_run_trace/` with
+  `same_run_valid=True`, RADLADS terms/direct live rows at 272/240, QRWKV
+  off/experimental direct live rows at 272/240, and no first comparable
+  differing stage in either lane.
+- [x] Recommend exactly `P75 residual-impact / kernel-readiness gate`.
+- [x] Preserve scope: no recurrence math change, balance math rewrite,
+  dtype-policy change, tolerance loosening, Pallas work, RADLADS
+  upstream/vendor edit, fake direct-lane rows, or default experimental
+  `balance_state` promotion.
