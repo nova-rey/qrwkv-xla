@@ -1285,8 +1285,8 @@ radlads_same_run_update_ingredients:
     - no_pallas_no_tolerance_loosening_no_recurrence_math_change
 
 radlads_live_same_run_update_trace:
-  phase: P72
-  status: p72_radlads_off_k_k_k_a_live_experimental_inactive
+  phase: P73
+  status: p73_balance_state_lane_mapping
   docs: docs/RADLADS_SAME_RUN_UPDATE_INGREDIENT_TRACE.md
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   trace_script: scripts/run_live_same_run_update_trace.py
@@ -1311,15 +1311,25 @@ radlads_live_same_run_update_trace:
     - P71_BALANCE_PREP_HOOK_NOTE.md
     - P71_FIX_NOTE.md
     - P72_KK_KA_HOOK_NOTE.md
-  recommendation: P73 targeted source mapping clarification for k_k/k_a
+    - P73_BALANCE_STATE_LANE_MAP.md
+    - balance_state_lane_map.json
+    - P73_FIX_NOTE.md
+  recommendation: P74 generate RADLADS direct-balance-state lane
   same_run_valid: true
+  lane_mixed_comparison_valid: false
   unavailable_minimum_stages: 0
   live_rows_captured:
     radlads: 272
     qrwkv_off: 272
     qrwkv_experimental: 240
+  first_overall_non_applicable_stage: k_k
+  first_comparable_differing_stage: null
   first_divergent_stage: k_k
-  first_divergent_capture_kind: unavailable
+  first_divergent_capture_kind: not_applicable
+  balance_state_lane_map:
+    radlads: balance_state_terms
+    qrwkv_off: balance_state_terms
+    qrwkv_experimental: direct_balance_state
   k_k_available:
     radlads: true
     qrwkv_off: true
@@ -1328,7 +1338,7 @@ radlads_live_same_run_update_trace:
     radlads: true
     qrwkv_off: true
     qrwkv_experimental: false
-  math_conclusion_valid: false
+  math_conclusion_valid: true
   caveats:
     - strict_live_required
     - old_p66_p67_rows_not_source_truth
@@ -1384,4 +1394,15 @@ radlads_live_same_run_update_trace:
     source_semantics_note: artifacts/p68_live_same_run_trace/P72_KK_KA_HOOK_NOTE.md
     no_fake_rows: true
     no_exact_reconstruction_for_k_k_or_k_a: true
+    no_default_balance_state_promotion: true
+  p73_balance_state_lane_mapping:
+    classifier: classify_balance_state_lane
+    radlads_lane: balance_state_terms
+    qrwkv_off_lane: balance_state_terms
+    qrwkv_experimental_lane: direct_balance_state
+    direct_lane_k_k_k_a_reason: not_active_in_lane
+    direct_lane_k_k_k_a_capture_kind: not_applicable
+    lane_map_report: artifacts/p68_live_same_run_trace/P73_BALANCE_STATE_LANE_MAP.md
+    lane_map_json: artifacts/p68_live_same_run_trace/balance_state_lane_map.json
+    no_recurrence_math_change: true
     no_default_balance_state_promotion: true

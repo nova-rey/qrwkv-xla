@@ -16,6 +16,7 @@ from qrwkv_xla.parity.radlads_live_same_run_trace import (
     LiveTraceCollector,
     _capture_radlads_case,
     build_live_same_run_trace,
+    classify_balance_state_lane,
     compare_live_same_run_traces,
     deterministic_fixture_id,
     deterministic_parameter_id,
@@ -27,6 +28,18 @@ from qrwkv_xla.students import RWKV7QwenReferenceConfig, RWKV7QwenReferenceStude
 
 ROOT = Path(__file__).resolve().parents[1]
 RUN_SCRIPT = ROOT / "scripts" / "run_live_same_run_update_trace.py"
+BALANCE_TERMS_CONFIG = {
+    "seed": 7,
+    "dtype": "float32",
+    "radlads_balance_state_terms": True,
+    "radlads_balance_state": False,
+}
+DIRECT_BALANCE_CONFIG = {
+    "seed": 7,
+    "dtype": "float32",
+    "radlads_balance_state_terms": True,
+    "radlads_balance_state": True,
+}
 
 
 def _write_live_case_fixture(tmp_path: Path) -> tuple[Path, dict[str, object]]:
@@ -70,7 +83,7 @@ def _source_row(
         "shape": list(array.shape),
         "dtype": str(array.dtype),
         "array": array.tolist(),
-        "live_config": config or {"seed": 7, "dtype": "float32"},
+        "live_config": config or BALANCE_TERMS_CONFIG,
     }
 
 
@@ -174,6 +187,7 @@ def _traces(
                 parameter=parameter,
                 k_delta=k_delta,
                 decay_delta=decay_delta,
+                config=DIRECT_BALANCE_CONFIG,
             ),
             side="qrwkv_experimental",
             same_run_group_id=group,
@@ -197,6 +211,16 @@ def _metadata(
     }
 
 
+def test_p73_balance_state_lane_classifier() -> None:
+    assert classify_balance_state_lane(BALANCE_TERMS_CONFIG) == "balance_state_terms"
+    assert classify_balance_state_lane(DIRECT_BALANCE_CONFIG) == "direct_balance_state"
+    assert classify_balance_state_lane({"seed": 7}) == "native_or_unknown"
+    assert (
+        classify_balance_state_lane({"use_radlads_balance_state_terms": True})
+        == "balance_state_terms"
+    )
+
+
 def test_same_run_group_id_reused_and_schema_valid() -> None:
     traces = _traces()
     ids = {row["same_run_group_id"] for rows in traces.values() for row in rows}
@@ -217,6 +241,7 @@ def test_same_run_group_id_reused_and_schema_valid() -> None:
         "stage",
         "source_stage_name",
         "capture_kind",
+        "balance_state_lane",
         "shape",
         "dtype",
         "array",
@@ -369,6 +394,54 @@ def test_minimum_stages_are_counted_separately_from_stretch() -> None:
     assert set(report["minimum_stage_availability"]) == set(MINIMUM_STAGES)
     assert "v_first" not in report["minimum_stage_availability"]
     assert report["live_rows_captured_radlads"] > len(MINIMUM_STAGES)
+
+
+def test_p73_lane_map_classifies_all_three_sides() -> None:
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata=_metadata(),
+        strict_live=True,
+    )
+
+    lane_map = report["balance_state_lane_map"]
+    assert lane_map["radlads"]["lane"] == "balance_state_terms"
+    assert lane_map["qrwkv_off"]["lane"] == "balance_state_terms"
+    assert lane_map["qrwkv_experimental"]["lane"] == "direct_balance_state"
+    assert report["lane_mixed_comparison_valid"] is False
+
+
+def test_p73_direct_lane_not_applicable_does_not_block_terms_math() -> None:
+    contexts = [("tiny_no_mask", None, 0, 0, 0)]
+    traces = _traces()
+    traces["qrwkv_experimental"] = build_live_same_run_trace(
+        [
+            row
+            for row in _minimal_source(
+                "qrwkv_experimental",
+                config=DIRECT_BALANCE_CONFIG,
+            )
+            if row["stage"] not in {"k_k", "k_a"}
+        ],
+        side="qrwkv_experimental",
+        same_run_group_id="group-a",
+        fixture_id="fixture-a",
+        parameter_id="parameter-a",
+        contexts=contexts,
+    )
+
+    report = compare_live_same_run_traces(
+        traces=traces,
+        metadata=_metadata(),
+        strict_live=True,
+    )
+
+    assert report["first_overall_non_applicable_stage"] == "k_k"
+    assert report["first_comparable_differing_stage"] is None
+    assert report["balance_state_terms_lane_valid"] is True
+    assert report["math_conclusion_valid"] is True
+    assert report["recommended_next_phase"] == (
+        "P74 generate RADLADS direct-balance-state lane"
+    )
 
 
 def test_strict_live_invalidates_mixed_ids_and_config_deltas() -> None:
@@ -641,9 +714,35 @@ def test_p72_experimental_missing_k_k_k_a_uses_inactive_path_reason() -> None:
     assert unavailable["k_k"]["reason"] == (
         "not_active_in_fixture_path:qrwkv_experimental:k_k"
     )
-    assert unavailable["k_a"]["reason"] == (
-        "not_active_in_fixture_path:qrwkv_experimental:k_a"
+
+
+def test_p73_experimental_direct_lane_k_k_k_a_are_not_applicable() -> None:
+    contexts = [("tiny_no_mask", None, 0, 0, 0)]
+    rows = build_live_same_run_trace(
+        [
+            row
+            for row in _minimal_source(
+                "qrwkv_experimental",
+                config=DIRECT_BALANCE_CONFIG,
+            )
+            if row["stage"] not in {"k_k", "k_a"}
+        ],
+        side="qrwkv_experimental",
+        same_run_group_id="group-a",
+        fixture_id="fixture-a",
+        parameter_id="parameter-a",
+        contexts=contexts,
     )
+
+    unavailable = {row["stage"]: row for row in rows if row["stage"] in {"k_k", "k_a"}}
+    assert unavailable["k_k"]["capture_kind"] == "not_applicable"
+    assert unavailable["k_k"]["reason"] == (
+        "not_active_in_lane:direct_balance_state:k_k"
+    )
+    assert unavailable["k_a"]["reason"] == (
+        "not_active_in_lane:direct_balance_state:k_a"
+    )
+    assert unavailable["k_k"]["balance_state_lane"] == "direct_balance_state"
 
 
 def test_first_live_mismatch_in_k_for_update_recommends_balance_prep_fix() -> None:
@@ -662,7 +761,7 @@ def test_first_live_mismatch_in_k_for_update_recommends_balance_prep_fix() -> No
     assert report["first_divergent_stage"] == "k_for_update"
     assert (
         report["recommended_next_phase"]
-        == "P73 targeted k_for_update/v_for_update balance-prep fix"
+        == "P74 targeted k_for_update/v_for_update balance-prep fix"
     )
 
 
@@ -680,7 +779,7 @@ def test_first_live_mismatch_in_k_k_recommends_p73_k_k_k_a_fix() -> None:
     )
 
     assert report["first_divergent_stage"] == "k_k"
-    assert report["recommended_next_phase"] == "P73 targeted k_k/k_a construction fix"
+    assert report["recommendation"] == "P73 targeted k_k/k_a construction fix"
 
 
 def test_first_live_mismatch_in_k_a_recommends_p73_k_k_k_a_fix() -> None:
@@ -697,7 +796,7 @@ def test_first_live_mismatch_in_k_a_recommends_p73_k_k_k_a_fix() -> None:
     )
 
     assert report["first_divergent_stage"] == "k_a"
-    assert report["recommended_next_phase"] == "P73 targeted k_k/k_a construction fix"
+    assert report["recommendation"] == "P73 targeted k_k/k_a construction fix"
 
 
 def test_first_live_mismatch_in_kk_recommends_construction_fix() -> None:
@@ -714,7 +813,7 @@ def test_first_live_mismatch_in_kk_recommends_construction_fix() -> None:
     )
 
     assert report["first_divergent_stage"] == "kk"
-    assert report["recommended_next_phase"] == "P73 targeted kk construction fix"
+    assert report["recommended_next_phase"] == "P74 targeted kk construction fix"
 
 
 def test_first_live_mismatch_in_ab_recommends_ab_fix() -> None:
@@ -733,7 +832,7 @@ def test_first_live_mismatch_in_ab_recommends_ab_fix() -> None:
     assert report["first_divergent_stage"] == "ab"
     assert (
         report["recommended_next_phase"]
-        == "P73 targeted ab construction/orientation fix"
+        == "P74 targeted ab construction/orientation fix"
     )
 
 
@@ -764,6 +863,8 @@ def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
     assert (out / "STAGE_AVAILABILITY_MATRIX.md").is_file()
     assert (out / "FIRST_DIFFERING_INGREDIENT.md").is_file()
     assert (out / "P68_DECISION.md").is_file()
+    assert (out / "P73_BALANCE_STATE_LANE_MAP.md").is_file()
+    assert (out / "balance_state_lane_map.json").is_file()
     rows = load_live_same_run_trace_jsonl(out / "live_trace_radlads.jsonl")
     assert rows
     assert all(row["capture_kind"] == "unavailable" for row in rows)

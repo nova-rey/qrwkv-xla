@@ -1027,3 +1027,20 @@
 - [x] Preserve scope: no fake `k_k`/`k_a` rows, no exact reconstruction for
   those stages, no recurrence math change, Pallas, tolerance loosening,
   RADLADS upstream/vendor edit, or default balance-state promotion.
+
+## P73 — Balance-State Lane Mapping
+
+- [x] Add explicit `balance_state_terms`, `direct_balance_state`, and
+  `native_or_unknown` lane classification to the live same-run trace helper.
+- [x] Add `balance_state_lane` metadata to trace rows, reports, and metadata.
+- [x] Mark direct-balance `k_k` / `k_a` rows as `not_applicable` with
+  `not_active_in_lane` reasons instead of ordinary missing hooks.
+- [x] Split mixed-lane non-applicable reporting from first comparable
+  like-lane differences.
+- [x] Emit `P73_BALANCE_STATE_LANE_MAP.md` and
+  `balance_state_lane_map.json` under `artifacts/p68_live_same_run_trace/`.
+- [x] Recommend `P74 generate RADLADS direct-balance-state lane` when QRWKV
+  experimental is direct-balance and no RADLADS direct lane exists.
+- [x] Preserve scope: no recurrence math change, dtype-policy change,
+  tolerance loosening, Pallas work, RADLADS upstream/vendor edit, or default
+  experimental `balance_state` promotion.

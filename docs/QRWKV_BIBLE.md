@@ -1352,3 +1352,28 @@ P72 completes the targeted live trace hook work for `k_k` and `k_a` where the so
 The regenerated `artifacts/p68_live_same_run_trace/` reports `same_run_valid=True`, `mixed_artifact_lineage_used=False`, `synthetic_fallback_used=False`, zero unavailable minimum stages, 272 live rows for RADLADS, 272 live rows for QRWKV off, and 240 live rows for QRWKV experimental. RADLADS and QRWKV off now show `k_k` and `k_a` as `live_captured`; QRWKV experimental keeps explicit `not_active_in_fixture_path` unavailable rows because `radlads_balance_state=True` bypasses those factors and computes `kk` directly from `k`.
 
 P72 adds `P72_KK_KA_HOOK_NOTE.md` and updates the decision to `P73 targeted source mapping clarification for k_k/k_a`. It does not fabricate `k_k`/`k_a`, exact-reconstruct those stages, loosen tolerances, change dtype policy, rewrite recurrence, add Pallas/kernel work, edit or vendor RADLADS upstream code, or promote experimental balance-state behavior by default.
+
+## Phase 73 — Balance-State Lane Mapping
+
+P73 clarifies the source mapping and comparison lanes for `k_k`/`k_a` after
+P72. P72 showed that RADLADS and QRWKV off live-capture `k_k`/`k_a` in the
+`balance_state_terms` lane, while QRWKV experimental with
+`radlads_balance_state=True` bypasses those factors and computes `kk` directly
+from `k`.
+
+P73 adds explicit lane classification to
+`src/qrwkv_xla/parity/radlads_live_same_run_trace.py`, writes
+`balance_state_lane` on trace rows, emits
+`P73_BALANCE_STATE_LANE_MAP.md` plus `balance_state_lane_map.json`, and marks
+direct-lane `k_k`/`k_a` as `not_applicable` with `not_active_in_lane` reasons
+instead of treating them as ordinary missing hooks. First-difference and
+decision reports now distinguish mixed-lane non-applicable stages from
+like-lane comparable differences.
+
+The expected lane map is RADLADS `balance_state_terms`, QRWKV off
+`balance_state_terms`, and QRWKV experimental `direct_balance_state`. Because
+there is not yet a RADLADS direct-balance lane, P73 recommends
+`P74 generate RADLADS direct-balance-state lane` when the balance-state-terms
+lane is otherwise valid. P73 does not change recurrence math, loosen
+tolerances, change dtype policy, implement Pallas, edit RADLADS upstream/vendor
+code, or promote experimental `balance_state` behavior by default.

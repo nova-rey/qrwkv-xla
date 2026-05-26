@@ -294,8 +294,8 @@ radlads_balance_state_three_way_parity:
     - no_pallas_no_tolerance_loosening_no_default_promotion
 
 radlads_live_same_run_update_trace:
-  phase: P72
-  status: p72_radlads_off_k_k_k_a_live_experimental_inactive
+  phase: P73
+  status: p73_balance_state_lane_mapping
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   script: scripts/run_live_same_run_update_trace.py
   artifact_dir: artifacts/p68_live_same_run_trace
@@ -325,7 +325,17 @@ radlads_live_same_run_update_trace:
     - P71_BALANCE_PREP_HOOK_NOTE.md
     - P71_FIX_NOTE.md
     - P72_KK_KA_HOOK_NOTE.md
-  recommendation: P73 targeted source mapping clarification for k_k/k_a
+    - P73_BALANCE_STATE_LANE_MAP.md
+    - balance_state_lane_map.json
+    - P73_FIX_NOTE.md
+  recommendation: P74 generate RADLADS direct-balance-state lane
+  balance_state_lane_map:
+    radlads: balance_state_terms
+    qrwkv_off: balance_state_terms
+    qrwkv_experimental: direct_balance_state
+  lane_mixed_comparison_valid: false
+  first_overall_non_applicable_stage: k_k
+  first_comparable_differing_stage: null
   p70_minimum_stage_status:
     same_run_valid: true
     unavailable_minimum_stages: 0

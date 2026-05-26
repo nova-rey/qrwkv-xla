@@ -651,3 +651,17 @@ P72 is observe-only targeted trace hook completion. It does not add Pallas, TPU
 optimization, real training, recurrence math changes, tolerance loosening,
 RADLADS upstream/vendor edits, fake `k_k`/`k_a` rows, exact reconstruction for
 those stages, or default balance-state promotion.
+
+Current checkpoint: `balance_state_lane_mapping`.
+
+P73 labels the live same-run trace lanes explicitly: RADLADS and QRWKV off are
+`balance_state_terms`, while QRWKV experimental is `direct_balance_state`.
+Direct-lane `k_k` and `k_a` rows are now `not_applicable` with
+`not_active_in_lane` reasons, so mixed-lane non-applicability is separated from
+like-lane live mismatches. The next phase is
+`P74 generate RADLADS direct-balance-state lane` if experimental direct mode
+needs source-backed comparison.
+
+P73 is reporting and source-mapping clarification only. It does not change
+recurrence math, dtype policy, tolerances, Pallas/kernel code, RADLADS
+upstream/vendor code, or default experimental `balance_state` behavior.

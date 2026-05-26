@@ -68,3 +68,21 @@ marks `same_run_valid: false`, and recommends only targeted live RADLADS trace
 hook completion. It does not recommend math fixes, promotion, Pallas work, or a
 residual-impact gate while strict-live validity or decay/log_w preconditions
 fail.
+
+## P73 balance-state lane mapping
+P73 extends the live same-run report with explicit balance-state lane
+classification. RADLADS and QRWKV off are the `balance_state_terms` lane, where
+`k_k` and `k_a` are active. QRWKV experimental is the
+`direct_balance_state` lane, where `radlads_balance_state=True` bypasses
+`k_k`/`k_a` and computes `kk` directly from `k`.
+
+Direct-lane `k_k` and `k_a` rows are `not_applicable` with
+`not_active_in_lane` reasons, not missing hooks. The reports now separate
+`first_overall_non_applicable_stage` from
+`first_comparable_differing_stage` and write
+`P73_BALANCE_STATE_LANE_MAP.md` plus `balance_state_lane_map.json` under
+`artifacts/p68_live_same_run_trace/`.
+
+P73 is reporting/source mapping only. It does not change recurrence math,
+tolerances, dtype policy, Pallas/kernel code, RADLADS upstream/vendor code, or
+default experimental `balance_state` behavior.
