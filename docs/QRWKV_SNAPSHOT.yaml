@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 71
-checkpoint: live_balance_prep_ingredient_trace
+phase: 72
+checkpoint: targeted_live_k_k_k_a_hook_completion
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,10 +55,13 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Extend the strict-live same-run RADLADS/QRWKV trace beyond P70 minimum WKV
-  update stages into balance-prep/update-prep ingredients, preserving default
-  behavior without recurrence-math changes, Pallas work, tolerance loosening,
-  or default promotion of experimental balance-state mode.
+  Preserve the completed strict-live same-run P72 trace where RADLADS and
+  QRWKV-off capture source-backed k_k/k_a rows while QRWKV experimental keeps
+  explicit not_active_in_fixture_path rows; next recommended work is P73
+  targeted source mapping clarification for k_k/k_a, still without recurrence
+  math changes, Pallas work, tolerance loosening, RADLADS upstream/vendor edits,
+  fake rows, exact k_k/k_a reconstruction, or default promotion of experimental
+  balance-state mode.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays

@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 70
-  checkpoint: radlads_live_same_run_hook_completion
-  title: Live RADLADS same-run WKV hook completion
+  phase: 72
+  checkpoint: targeted_live_k_k_k_a_hook_completion
+  title: Targeted live k_k / k_a hook completion
 
 workflow:
   primary_agent: Nyx
@@ -47,6 +47,7 @@ instructions:
   - Keep P62 diagnostic-only unless a source-backed update-term fix is proven; unavailable WKV stages must be reported explicitly, not synthesized.
   - Keep P64 scoped to composite/balance-state hook extraction and comparison; preserve P58/P61/P63 behavior, do not loosen tolerances, and do not change recurrence math.
   - Keep P70 scoped to observe-only RADLADS live trace hook wiring; do not change recurrence math, loosen tolerances, implement Pallas, or promote experimental balance_state mode.
+  - Keep P72 scoped to observe-only source-backed k_k/k_a live trace hooks; RADLADS and QRWKV off rows are live, QRWKV experimental k_k/k_a rows remain explicit not_active_in_fixture_path, and P73 is the next recommended source-mapping clarification.
 
 radlads_qrwkv_head_to_head_parity:
   phase: P53
