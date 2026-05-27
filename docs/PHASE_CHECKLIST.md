@@ -1119,3 +1119,25 @@
 - [x] Preserve scope: no recurrence or balance math change, Pallas work,
   dtype-policy change, tolerance loosening, fixture changes, RADLADS
   upstream/vendor edit, or default experimental `balance_state` promotion.
+
+## P78 — Targeted Logits / Output Residual Evidence
+
+- [x] Document output semantics: hidden/output evidence is not true logits.
+- [x] Capture P78 rows from the existing full and token-step student paths for
+  `post_block_hidden_output`, true LM-head logits when available, and
+  selected-token logits when available.
+- [x] Preserve fair lane pairs: RADLADS terms vs QRWKV off terms, and RADLADS
+  direct vs QRWKV experimental direct.
+- [x] Feed the P75 `logits_output` gate from the P78 residual status.
+- [x] Emit `P78_LOGITS_OUTPUT_REPORT.md` and
+  `logits_output_residual.json`.
+- [x] Regenerate `artifacts/p68_live_same_run_trace/` with
+  `state_after=pass`, `exported_state=pass`, `full_vs_stepwise=pass`, and
+  `logits_output=pass`; P75 reports `kernel_ready=yes` for the tiny same-run
+  fixture and recommends `P79 broader fixture residual-impact validation`.
+- [x] Mark unavailable output/logits evidence with exact reasons instead of
+  fabricating logits or copying cross-run artifacts.
+- [x] Preserve scope: no recurrence math change, balance-state math change,
+  dtype-policy change, tolerance loosening, fixture value change, Pallas/kernel
+  code change, RADLADS upstream/vendor edit, or default experimental
+  `balance_state` promotion.

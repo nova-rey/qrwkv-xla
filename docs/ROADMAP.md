@@ -1,5 +1,18 @@
 # QRWKV-XLA Roadmap
 
+## Phase 78 — Targeted Logits / Output Residual Evidence
+
+Goal: close the P77/P75 logits-output readiness blocker by adding same-run,
+lane-aware hidden/output/logits residual evidence without changing recurrence
+math.
+
+Current checkpoint: `targeted_logits_output_residual_evidence`. P78 records
+post-block hidden/output rows plus true LM-head logits and selected-token logits
+when `StudentOutput.logits` is present. The regenerated artifacts report
+`state_after=pass`, `exported_state=pass`, `full_vs_stepwise=pass`, and
+`logits_output=pass`; `kernel_ready=yes` for the tiny same-run fixture evidence.
+The next phase is `P79 broader fixture residual-impact validation`.
+
 ## Phase 77 — Full-vs-Stepwise Residual Evidence
 
 Goal: close the P76 full-vs-stepwise readiness blocker by adding same-fixture,
@@ -754,6 +767,30 @@ evidence is unavailable, and the next phase is
 `P78 targeted logits/output residual fix`.
 
 P77 is evidence and gating only. It does not change recurrence math,
+balance-state math, dtype policy, tolerances, fixture values, RADLADS
+upstream/vendor code, Pallas/kernel code, training paths, or default
+experimental `balance_state` behavior.
+
+## Phase 78 — Targeted Logits / Output Residual Evidence
+
+Goal: close the logits/output readiness blocker with same-run, lane-aware
+hidden/output/logits evidence, while preserving P74/P75/P76/P77 lane
+boundaries and previously passing state gates.
+
+Current checkpoint: `targeted_logits_output_residual_evidence`. P78 adds
+report-only output rows to the full-vs-stepwise capture path. It compares
+post-block hidden/output surfaces and, when present, true LM-head logits plus
+selected-token logits. Hidden/output surfaces are reported separately from
+logits, and absent logits are marked unavailable with exact reasons.
+
+The regenerated artifact directory now contains
+`P78_LOGITS_OUTPUT_REPORT.md` and `logits_output_residual.json` and refreshes
+the P75 gate artifacts. Available hidden/output and true LM-head logits pass
+across RADLADS terms vs QRWKV off terms and RADLADS direct vs QRWKV experimental
+direct. P75 now reports all required evidence gates passing and recommends
+`P79 broader fixture residual-impact validation` as the next coverage step.
+
+P78 is evidence and gating only. It does not change recurrence math,
 balance-state math, dtype policy, tolerances, fixture values, RADLADS
 upstream/vendor code, Pallas/kernel code, training paths, or default
 experimental `balance_state` behavior.

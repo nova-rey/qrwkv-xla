@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 77
-checkpoint: full_vs_stepwise_residual_evidence
+phase: 78
+checkpoint: targeted_logits_output_residual_evidence
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,8 +55,8 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Close the P75 exported-state blocker by adding source-backed, lane-aware
-  state export/import residual evidence to the live same-run trace, while
+  Close the P75 logits/output blocker by adding same-run, lane-aware
+  hidden/output/logits residual evidence to the live same-run trace, while
   preserving terms/direct fair lane comparisons and avoiding recurrence math,
   Pallas, training, tolerance, dtype-policy, fixture, or default balance-state
   behavior changes.
@@ -1327,9 +1327,11 @@ radlads_live_same_run_update_trace:
     - state_export_import_residual.json
     - P77_FULL_VS_STEPWISE_REPORT.md
     - full_vs_stepwise_residual.json
-  recommendation: P78 targeted logits/output residual fix
-  kernel_ready: no
-  kernel_ready_reason: missing_evidence:logits_output
+    - P78_LOGITS_OUTPUT_REPORT.md
+    - logits_output_residual.json
+  recommendation: P79 broader fixture residual-impact validation
+  kernel_ready: yes
+  kernel_ready_reason: all_required_gates_pass
   same_run_valid: true
   lane_mixed_comparison_valid: false
   unavailable_minimum_stages: 0
@@ -1351,8 +1353,8 @@ radlads_live_same_run_update_trace:
       state_after: pass
       exported_state: pass
       full_vs_stepwise: pass
-      logits_output: unavailable
-    next_phase: P78 targeted logits/output residual fix
+      logits_output: pass
+    next_phase: P79 broader fixture residual-impact validation
   p76_state_export_import:
     status: pass
     schema: qrwkv_xla.p76_state_export_import_residual.v1
@@ -1371,6 +1373,18 @@ radlads_live_same_run_update_trace:
       balance_state_terms: pass
       direct_balance_state: pass
     next_phase: P78 targeted logits/output residual fix
+  p78_logits_output:
+    status: pass
+    schema: qrwkv_xla.p78_logits_output_residual.v1
+    hidden_path: pass
+    output_path: unavailable
+    logits_path: pass
+    true_logits_available: true
+    selected_token_logits_available: true
+    fair_lane_pairs:
+      balance_state_terms: pass
+      direct_balance_state: pass
+    next_phase: P79 broader fixture residual-impact validation
   first_divergent_capture_kind: unavailable
   balance_state_lane_map:
     radlads: balance_state_terms

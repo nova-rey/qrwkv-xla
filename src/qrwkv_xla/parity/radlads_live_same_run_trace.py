@@ -44,6 +44,7 @@ P76_STATE_EXPORT_IMPORT_RESIDUAL_SCHEMA = (
     "qrwkv_xla.p76_state_export_import_residual.v1"
 )
 P77_FULL_VS_STEPWISE_RESIDUAL_SCHEMA = "qrwkv_xla.p77_full_vs_stepwise_residual.v1"
+P78_LOGITS_OUTPUT_RESIDUAL_SCHEMA = "qrwkv_xla.p78_logits_output_residual.v1"
 DEFAULT_OUT = Path("artifacts/p68_live_same_run_trace")
 SIDES = ("radlads", "qrwkv_off", "qrwkv_experimental")
 BALANCE_STATE_TERMS_LANE = "balance_state_terms"
@@ -236,6 +237,13 @@ P75_PALLAS = "P75 Pallas prototype behind known-caveat flag"
 P77_BROADER_FIXTURE_VALIDATION = "P77 broader fixture residual-impact validation"
 P77_STATE_AFTER_FIX = "P77 targeted lane-aware state layout fix"
 P77_LOGITS_OUTPUT_FIX = "P78 targeted logits/output residual fix"
+P78_BROADER_FIXTURE_VALIDATION = "P79 broader fixture residual-impact validation"
+P78_LOGITS_OUTPUT_HOOK_COMPLETION = "P79 targeted logits/output hook completion"
+P78_LOGITS_OUTPUT_RESIDUAL_FIX = "P79 targeted logits/output residual fix"
+P78_OUTPUT_HEAD_LAYOUT_FIX = "P79 targeted output-head/layout fix"
+P78_LANE_AWARE_OUTPUT_COMPARISON_FIX = "P79 targeted lane-aware output comparison fix"
+P78_KERNEL_GATE_HARDENING = "P79 kernel-readiness hardening gate"
+P78_PALLAS_PROTOTYPE = "P79 Pallas prototype behind known-caveat flag"
 P77_STATE_EXPORT_FIX = "P77 targeted state export/import convention fix"
 P77_FULL_VS_STEPWISE_FIX = "P77 targeted full-vs-stepwise residual fix"
 P77_LANE_LAYOUT_FIX = "P77 targeted lane-aware state layout fix"
@@ -783,6 +791,15 @@ def compare_live_same_run_traces(
         atol=atol,
         rtol=rtol,
     )
+    report["p78_logits_output_residual"] = build_p78_logits_output_residual(
+        evidence=metadata.get(
+            "p78_logits_output_evidence",
+            metadata.get("p77_full_vs_stepwise_evidence", []),
+        ),
+        report=report,
+        atol=atol,
+        rtol=rtol,
+    )
     p75_gate = build_p75_residual_impact_gate(report)
     report["p75_residual_impact_gate"] = p75_gate
     report["p76_state_export_import_residual"] = build_p76_state_export_import_residual(
@@ -907,6 +924,7 @@ def build_p75_residual_impact_gate(report: Mapping[str, Any]) -> dict[str, Any]:
         "recommended_next_phase": _p75_recommended_next_phase(
             blocking_gates=blocking_gates,
             warning_gates=warning_gates,
+            report=report,
         ),
     }
 
@@ -1246,6 +1264,421 @@ def _p77_failure_summary(row: Mapping[str, Any] | None) -> dict[str, Any] | None
     }
 
 
+def build_p78_logits_output_residual(
+    *,
+    evidence: Iterable[Mapping[str, Any]],
+    report: Mapping[str, Any],
+    atol: float,
+    rtol: float,
+) -> dict[str, Any]:
+    rows = [
+        dict(row)
+        for row in evidence
+        if row.get("comparison") == "full_vs_stepwise_output"
+        or row.get("stage")
+        in {
+            "post_block_hidden_output",
+            "final_normalized_hidden",
+            "final_lm_head_logits",
+            "selected_token_logits",
+        }
+    ]
+    full_vs_stepwise = _p78_full_vs_stepwise_summary(rows)
+    inter_rows = _p78_inter_side_rows(rows, atol=atol, rtol=rtol)
+    inter_side = _p78_inter_side_summary(inter_rows)
+    hidden_path = _p78_stage_path(rows, "post_block_hidden_output")
+    output_path = _p78_stage_path(rows, "final_normalized_hidden")
+    logits_path = _p78_logits_path(rows)
+    status = _p78_overall_status(
+        hidden_path=hidden_path,
+        output_path=output_path,
+        logits_path=logits_path,
+        inter_side=inter_side,
+        full_vs_stepwise=full_vs_stepwise,
+    )
+    blocking_gates = []
+    if status == "fail":
+        blocking_gates.append("logits_output_residual")
+    elif status == "unavailable":
+        if logits_path.get("status") == "unavailable":
+            blocking_gates.append(
+                str(logits_path.get("reason", "missing_lm_head_logits_path"))
+            )
+        else:
+            blocking_gates.append("missing_stepwise_output_capture")
+    return {
+        "schema": P78_LOGITS_OUTPUT_RESIDUAL_SCHEMA,
+        "phase": "P78",
+        "status": status,
+        "same_run_valid": bool(report.get("same_run_valid")),
+        "lane_aware_keys": True,
+        "same_run_group_id": report.get("same_run_group_id"),
+        "fixture_id": report.get("fixture_id"),
+        "parameter_id": report.get("parameter_id"),
+        "tolerances": {"atol": atol, "rtol": rtol},
+        "hidden_path": hidden_path,
+        "output_path": output_path,
+        "logits_path": logits_path,
+        "lanes": {
+            BALANCE_STATE_TERMS_LANE: {
+                "left": "RADLADS terms",
+                "right": "QRWKV off terms",
+                "status": inter_side[BALANCE_STATE_TERMS_LANE]["status"],
+            },
+            DIRECT_BALANCE_STATE_LANE: {
+                "left": "RADLADS direct",
+                "right": "QRWKV experimental direct",
+                "status": inter_side[DIRECT_BALANCE_STATE_LANE]["status"],
+            },
+        },
+        "inter_side_parity": inter_side,
+        "inter_side_rows": inter_rows,
+        "full_vs_stepwise_output": full_vs_stepwise,
+        "blocking_gates": blocking_gates,
+        "p75_logits_output_gate": _p78_gate_from_status(status, logits_path),
+        "row_count": len(rows),
+        "rows": rows,
+        "recommended_next_phase": _p78_recommended_next_phase(status),
+    }
+
+
+def _p78_full_vs_stepwise_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    surface_status = {}
+    required_surfaces = {
+        "radlads_terms": ("radlads", BALANCE_STATE_TERMS_LANE),
+        "qrwkv_off_terms": ("qrwkv_off", BALANCE_STATE_TERMS_LANE),
+        "radlads_direct": ("radlads", DIRECT_BALANCE_STATE_LANE),
+        "qrwkv_experimental_direct": (
+            "qrwkv_experimental",
+            DIRECT_BALANCE_STATE_LANE,
+        ),
+    }
+    for surface, (side, lane) in required_surfaces.items():
+        surface_rows = [
+            row
+            for row in rows
+            if row.get("side") == side
+            and row.get("balance_state_lane") == lane
+            and row.get("stage") in {"post_block_hidden_output", "final_lm_head_logits"}
+        ]
+        hidden_rows = [
+            row
+            for row in surface_rows
+            if row.get("stage") == "post_block_hidden_output"
+        ]
+        comparable = [row for row in surface_rows if row.get("status") != "unavailable"]
+        if not hidden_rows:
+            surface_status[surface] = {
+                "status": "unavailable",
+                "reason": "missing_stepwise_output_capture",
+            }
+        elif any(
+            row.get("status") not in {"pass", "unavailable"} for row in surface_rows
+        ):
+            surface_status[surface] = {
+                "status": "fail",
+                "reason": "full_vs_stepwise_output_residual",
+            }
+        elif comparable and all(row.get("status") == "pass" for row in comparable):
+            surface_status[surface] = {
+                "status": "pass",
+                "reason": "hidden_output_allclose",
+            }
+        else:
+            surface_status[surface] = {
+                "status": "unavailable",
+                "reason": "missing_stepwise_output_capture",
+            }
+    statuses = [item["status"] for item in surface_status.values()]
+    overall = (
+        "pass"
+        if statuses and all(status == "pass" for status in statuses)
+        else "fail"
+        if any(status == "fail" for status in statuses)
+        else "unavailable"
+    )
+    return {
+        "status": overall,
+        "reason": "all_surfaces_pass"
+        if overall == "pass"
+        else "surface_residual"
+        if overall == "fail"
+        else "missing_stepwise_output_capture",
+        "surface_status": surface_status,
+    }
+
+
+def _p78_inter_side_rows(
+    rows: list[dict[str, Any]], *, atol: float, rtol: float
+) -> list[dict[str, Any]]:
+    result = []
+    pairs = {
+        BALANCE_STATE_TERMS_LANE: ("radlads", "qrwkv_off", "radlads_vs_qrwkv_off"),
+        DIRECT_BALANCE_STATE_LANE: (
+            "radlads",
+            "qrwkv_experimental",
+            "radlads_vs_qrwkv_experimental",
+        ),
+    }
+    keys = sorted(
+        {
+            (
+                row.get("case"),
+                row.get("balance_state_lane"),
+                row.get("stage"),
+                row.get("final_token"),
+            )
+            for row in rows
+            if row.get("full_array") is not None
+        }
+    )
+    for case, lane, stage, final_token in keys:
+        if lane not in pairs:
+            continue
+        left_side, right_side, pair = pairs[str(lane)]
+        left = _p78_find_output_row(
+            rows,
+            case=case,
+            side=left_side,
+            lane=str(lane),
+            stage=stage,
+            final_token=final_token,
+        )
+        right = _p78_find_output_row(
+            rows,
+            case=case,
+            side=right_side,
+            lane=str(lane),
+            stage=stage,
+            final_token=final_token,
+        )
+        if left is None or right is None:
+            comparison = {
+                "status": "unavailable",
+                "shape_match": False,
+                "dtype_match": False,
+                "finite_both": False,
+                "max_abs_error": None,
+                "mean_abs_error": None,
+                "max_relative_error": None,
+                "allclose": False,
+            }
+            reason = "missing_inter_side_output_capture"
+        else:
+            comparison = compare_trace_arrays(
+                left["full_array"], right["full_array"], atol=atol, rtol=rtol
+            )
+            reason = (
+                "allclose" if comparison["status"] == "pass" else comparison["status"]
+            )
+        result.append(
+            {
+                "case": case,
+                "lane": lane,
+                "stage": stage,
+                "final_token": final_token,
+                "pair": pair,
+                "left_side": left_side,
+                "right_side": right_side,
+                "status": comparison["status"],
+                "reason": reason,
+                **comparison,
+            }
+        )
+    return result
+
+
+def _p78_find_output_row(
+    rows: list[dict[str, Any]],
+    *,
+    case: Any,
+    side: str,
+    lane: str,
+    stage: Any,
+    final_token: Any,
+) -> dict[str, Any] | None:
+    return next(
+        (
+            row
+            for row in rows
+            if row.get("case") == case
+            and row.get("side") == side
+            and row.get("balance_state_lane") == lane
+            and row.get("stage") == stage
+            and row.get("final_token") == final_token
+            and row.get("full_array") is not None
+        ),
+        None,
+    )
+
+
+def _p78_inter_side_summary(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    result = {}
+    for lane in (BALANCE_STATE_TERMS_LANE, DIRECT_BALANCE_STATE_LANE):
+        lane_rows = [row for row in rows if row.get("lane") == lane]
+        hidden_rows = [
+            row for row in lane_rows if row.get("stage") == "post_block_hidden_output"
+        ]
+        available = [row for row in lane_rows if row.get("status") != "unavailable"]
+        if not hidden_rows:
+            result[lane] = {
+                "status": "unavailable",
+                "reason": "missing_inter_side_output_capture",
+                "row_count": len(lane_rows),
+            }
+        elif any(row.get("status") != "pass" for row in available):
+            result[lane] = {
+                "status": "fail",
+                "reason": "inter_side_output_residual",
+                "row_count": len(lane_rows),
+            }
+        elif available:
+            result[lane] = {
+                "status": "pass",
+                "reason": "hidden_output_allclose",
+                "row_count": len(lane_rows),
+            }
+        else:
+            result[lane] = {
+                "status": "unavailable",
+                "reason": "missing_inter_side_output_capture",
+                "row_count": len(lane_rows),
+            }
+    return result
+
+
+def _p78_stage_path(rows: list[dict[str, Any]], stage: str) -> dict[str, Any]:
+    stage_rows = [row for row in rows if row.get("stage") == stage]
+    if not stage_rows:
+        reason = (
+            "missing_final_normalized_hidden_capture"
+            if stage == "final_normalized_hidden"
+            else "missing_stepwise_output_capture"
+        )
+        return {"status": "unavailable", "reason": reason, "row_count": 0}
+    statuses = [str(row.get("status", "unavailable")) for row in stage_rows]
+    if any(status not in {"pass", "unavailable"} for status in statuses):
+        status = "fail"
+        reason = "output_residual_or_shape_mismatch"
+    elif any(status == "pass" for status in statuses):
+        status = "pass"
+        reason = "allclose"
+    else:
+        status = "unavailable"
+        reason = next(
+            (
+                str(row.get("reason"))
+                for row in stage_rows
+                if row.get("reason") is not None
+            ),
+            "missing_stepwise_output_capture",
+        )
+    return {"status": status, "reason": reason, "row_count": len(stage_rows)}
+
+
+def _p78_logits_path(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    logits_rows = [
+        row
+        for row in rows
+        if row.get("stage") in {"final_lm_head_logits", "selected_token_logits"}
+    ]
+    if not logits_rows:
+        return {
+            "status": "unavailable",
+            "reason": "missing_stepwise_output_capture",
+            "row_count": 0,
+        }
+    statuses = [str(row.get("status", "unavailable")) for row in logits_rows]
+    if any(status not in {"pass", "unavailable"} for status in statuses):
+        status = "fail"
+        reason = "logits_residual_or_shape_mismatch"
+    elif any(status == "pass" for status in statuses):
+        status = "pass"
+        reason = "true_lm_head_logits_allclose"
+    else:
+        status = "unavailable"
+        reason = next(
+            (
+                str(row.get("reason"))
+                for row in logits_rows
+                if row.get("reason") is not None
+            ),
+            "missing_lm_head_logits_path",
+        )
+    return {"status": status, "reason": reason, "row_count": len(logits_rows)}
+
+
+def _p78_overall_status(
+    *,
+    hidden_path: Mapping[str, Any],
+    output_path: Mapping[str, Any],
+    logits_path: Mapping[str, Any],
+    inter_side: Mapping[str, Mapping[str, Any]],
+    full_vs_stepwise: Mapping[str, Any],
+) -> str:
+    statuses = [
+        str(hidden_path.get("status")),
+        str(full_vs_stepwise.get("status")),
+        *(str(item.get("status")) for item in inter_side.values()),
+    ]
+    optional_statuses = [str(output_path.get("status")), str(logits_path.get("status"))]
+    if any(status == "fail" for status in [*statuses, *optional_statuses]):
+        return "fail"
+    if str(logits_path.get("status")) == "unavailable":
+        return "unavailable"
+    if statuses and all(status == "pass" for status in statuses):
+        return "pass"
+    return "unavailable"
+
+
+def _p78_gate_from_report(value: Any) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        return _p78_gate_from_status(
+            str(value.get("status", "unavailable")),
+            value.get("logits_path"),
+        )
+    return {
+        "status": "unavailable",
+        "required": True,
+        "reason": "missing_evidence:logits_output",
+    }
+
+
+def _p78_gate_from_status(status: str, logits_path: Any = None) -> dict[str, Any]:
+    if status == "pass":
+        reason = "all_lanes_pass"
+        if (
+            isinstance(logits_path, Mapping)
+            and logits_path.get("status") == "unavailable"
+        ):
+            reason = (
+                f"hidden_output_pass_logits_unavailable:{logits_path.get('reason')}"
+            )
+        return {"status": "pass", "required": True, "reason": reason}
+    if status == "fail":
+        return {
+            "status": "fail",
+            "required": True,
+            "reason": "logits_output_residual",
+        }
+    reason = "missing_evidence:logits_output"
+    if isinstance(logits_path, Mapping) and logits_path.get("status") == "unavailable":
+        reason = str(logits_path.get("reason", "missing_lm_head_logits_path"))
+    return {
+        "status": "unavailable",
+        "required": True,
+        "reason": reason,
+    }
+
+
+def _p78_recommended_next_phase(status: str) -> str:
+    if status == "pass":
+        return P78_BROADER_FIXTURE_VALIDATION
+    if status == "unavailable":
+        return P78_LOGITS_OUTPUT_HOOK_COMPLETION
+    return P78_LOGITS_OUTPUT_RESIDUAL_FIX
+
+
 def run_live_same_run_trace(
     *,
     fixture_manifest: Path,
@@ -1371,6 +1804,11 @@ def run_live_same_run_trace(
             config_snapshots.get("qrwkv_experimental"),
         ),
         "p77_full_vs_stepwise_evidence": full_vs_stepwise_evidence,
+        "p78_logits_output_evidence": [
+            row
+            for row in full_vs_stepwise_evidence
+            if row.get("comparison") == "full_vs_stepwise_output"
+        ],
     }
     trace_metadata["balance_state_lane_map"] = _balance_state_lane_map(
         traces=traces,
@@ -1607,11 +2045,9 @@ def _p75_output_gates(
                 )
             )
         ),
-        "logits_output": {
-            "status": "unavailable",
-            "required": True,
-            "reason": "missing_evidence:logits_output",
-        },
+        "logits_output": _p78_gate_from_report(
+            report.get("p78_logits_output_residual")
+        ),
     }
 
 
@@ -1670,7 +2106,11 @@ def _p75_blocking_gates(
         if item.get("status") == "fail":
             blockers.append(f"output_gate_failed:{gate}")
         elif item.get("status") == "unavailable":
-            blockers.append(f"missing_evidence:{gate}")
+            reason = str(item.get("reason", "missing_evidence"))
+            if reason.startswith("missing_evidence"):
+                blockers.append(f"missing_evidence:{gate}")
+            else:
+                blockers.append(f"output_gate_unavailable:{gate}:{reason}")
     return blockers
 
 
@@ -1688,7 +2128,10 @@ def _p75_warning_gates(
 
 
 def _p75_recommended_next_phase(
-    *, blocking_gates: list[str], warning_gates: list[str]
+    *,
+    blocking_gates: list[str],
+    warning_gates: list[str],
+    report: Mapping[str, Any] | None = None,
 ) -> str:
     del warning_gates
     for blocker in blocking_gates:
@@ -1705,9 +2148,17 @@ def _p75_recommended_next_phase(
             return P77_FULL_VS_STEPWISE_FIX
     for blocker in blocking_gates:
         if "logits_output" in blocker:
-            return P77_LOGITS_OUTPUT_FIX
+            return (
+                P78_LOGITS_OUTPUT_HOOK_COMPLETION
+                if "unavailable" in blocker or "missing" in blocker
+                else P78_LOGITS_OUTPUT_RESIDUAL_FIX
+            )
     if blocking_gates:
-        return P77_KERNEL_GATE_HARDENING
+        return P78_KERNEL_GATE_HARDENING
+    if isinstance(report, Mapping) and isinstance(
+        report.get("p78_logits_output_residual"), Mapping
+    ):
+        return P78_BROADER_FIXTURE_VALIDATION
     return P77_BROADER_FIXTURE_VALIDATION
 
 
@@ -1905,6 +2356,12 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
             json.dumps(_jsonable(p77_report), indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+    p78_report = report.get("p78_logits_output_residual")
+    if isinstance(p78_report, Mapping):
+        (out_dir / "logits_output_residual.json").write_text(
+            json.dumps(_jsonable(p78_report), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     (out_dir / "P68_RESULTS.md").write_text(_results_markdown(report), encoding="utf-8")
     (out_dir / "LIVE_SAME_RUN_VALIDITY.md").write_text(
         _validity_markdown(report), encoding="utf-8"
@@ -1991,6 +2448,15 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
             stale_blocker = out_dir / "P77_BLOCKER_REPORT.md"
             if stale_blocker.exists():
                 stale_blocker.unlink()
+    if isinstance(p78_report, Mapping):
+        (out_dir / "P78_LOGITS_OUTPUT_REPORT.md").write_text(
+            _p78_logits_output_markdown(p78_report, p75_gate),
+            encoding="utf-8",
+        )
+        (out_dir / "P78_FIX_NOTE.md").write_text(
+            _p78_fix_note_markdown(p78_report, p75_gate),
+            encoding="utf-8",
+        )
     if not report.get("same_run_valid"):
         (out_dir / "P68_FIX_NOTE.md").write_text(
             "# P68 Fix Note\n\n"
@@ -2380,25 +2846,13 @@ def _capture_full_vs_stepwise_case(
                 final_token=int(input_ids.shape[1]) - 1,
             )
         )
-        rows.append(
-            {
-                **base,
-                "layer": None,
-                "head": None,
-                "token": int(input_ids.shape[1]) - 1,
-                "final_token": int(input_ids.shape[1]) - 1,
-                "stage": "logits_output",
-                "state_slot": None,
-                "status": "unavailable",
-                "reason": "logits_output_gate_reserved_for_P78",
-                "mode": "full_vs_stepwise",
-                "full_shape": None
-                if full_output.logits is None
-                else list(np.asarray(full_output.logits).shape),
-                "stepwise_shape": None
-                if not step_outputs or step_outputs[-1].logits is None
-                else list(np.asarray(step_outputs[-1].logits).shape),
-            }
+        rows.extend(
+            _full_vs_stepwise_output_rows(
+                base=base,
+                full_output=full_output,
+                step_outputs=step_outputs,
+                final_token=int(input_ids.shape[1]) - 1,
+            )
         )
         return rows
     except Exception as exc:  # pragma: no cover - defensive evidence path
@@ -2416,6 +2870,189 @@ def _capture_full_vs_stepwise_case(
                 "mode": "full_vs_stepwise",
             }
         ]
+
+
+def _full_vs_stepwise_output_rows(
+    *,
+    base: Mapping[str, Any],
+    full_output: Any,
+    step_outputs: list[Any],
+    final_token: int,
+) -> list[dict[str, Any]]:
+    rows = []
+    full_hidden = np.asarray(full_output.hidden_states)[:, -1, :, :]
+    step_hidden_parts = [
+        np.asarray(output.hidden_states)[:, -1, :, :] for output in step_outputs
+    ]
+    if step_hidden_parts:
+        step_hidden = np.concatenate(step_hidden_parts, axis=1)
+        rows.append(
+            _full_vs_stepwise_output_row(
+                base=base,
+                stage="post_block_hidden_output",
+                full_value=full_hidden,
+                stepwise_value=step_hidden,
+                final_token=final_token,
+                reason_if_unavailable=None,
+            )
+        )
+    else:
+        rows.append(
+            _full_vs_stepwise_unavailable_output_row(
+                base=base,
+                stage="post_block_hidden_output",
+                final_token=final_token,
+                reason="missing_stepwise_output_capture",
+                full_shape=list(full_hidden.shape),
+            )
+        )
+    rows.append(
+        _full_vs_stepwise_unavailable_output_row(
+            base=base,
+            stage="final_normalized_hidden",
+            final_token=final_token,
+            reason="missing_stepwise_final_norm_capture",
+            full_shape=None,
+        )
+    )
+    full_logits = None if full_output.logits is None else np.asarray(full_output.logits)
+    step_logits_parts = [
+        np.asarray(output.logits)
+        for output in step_outputs
+        if getattr(output, "logits", None) is not None
+    ]
+    if full_logits is None:
+        rows.append(
+            _full_vs_stepwise_unavailable_output_row(
+                base=base,
+                stage="final_lm_head_logits",
+                final_token=final_token,
+                reason="missing_lm_head_logits_path",
+                full_shape=None,
+            )
+        )
+        rows.append(
+            _full_vs_stepwise_unavailable_output_row(
+                base=base,
+                stage="selected_token_logits",
+                final_token=final_token,
+                reason="missing_lm_head_logits_path",
+                full_shape=None,
+            )
+        )
+        return rows
+    if len(step_logits_parts) != len(step_outputs):
+        rows.append(
+            _full_vs_stepwise_unavailable_output_row(
+                base=base,
+                stage="final_lm_head_logits",
+                final_token=final_token,
+                reason="missing_stepwise_logits_capture",
+                full_shape=list(full_logits.shape),
+            )
+        )
+        rows.append(
+            _full_vs_stepwise_unavailable_output_row(
+                base=base,
+                stage="selected_token_logits",
+                final_token=final_token,
+                reason="missing_stepwise_logits_capture",
+                full_shape=list(full_logits[:, -1, :].shape),
+            )
+        )
+        return rows
+    step_logits = np.concatenate(step_logits_parts, axis=1)
+    rows.append(
+        _full_vs_stepwise_output_row(
+            base=base,
+            stage="final_lm_head_logits",
+            full_value=full_logits,
+            stepwise_value=step_logits,
+            final_token=final_token,
+            reason_if_unavailable=None,
+        )
+    )
+    rows.append(
+        _full_vs_stepwise_output_row(
+            base=base,
+            stage="selected_token_logits",
+            full_value=full_logits[:, -1, :],
+            stepwise_value=step_logits[:, -1, :],
+            final_token=final_token,
+            reason_if_unavailable=None,
+        )
+    )
+    return rows
+
+
+def _full_vs_stepwise_output_row(
+    *,
+    base: Mapping[str, Any],
+    stage: str,
+    full_value: Any,
+    stepwise_value: Any,
+    final_token: int,
+    reason_if_unavailable: str | None,
+) -> dict[str, Any]:
+    full_array = np.asarray(full_value)
+    step_array = np.asarray(stepwise_value)
+    comparison = compare_trace_arrays(full_array, step_array)
+    status = str(comparison["status"])
+    return {
+        **base,
+        "comparison": "full_vs_stepwise_output",
+        "layer": None,
+        "head": None,
+        "token": final_token,
+        "final_token": final_token,
+        "stage": stage,
+        "state_slot": None,
+        "status": status,
+        "reason": "allclose"
+        if status == "pass"
+        else reason_if_unavailable
+        if status == "unavailable"
+        else status,
+        "mode": "full_vs_stepwise",
+        "full_mode": "full",
+        "stepwise_mode": "stepwise",
+        "full_shape": list(full_array.shape),
+        "stepwise_shape": list(step_array.shape),
+        "full_dtype": str(full_array.dtype),
+        "stepwise_dtype": str(step_array.dtype),
+        "full_array": full_array.tolist(),
+        "stepwise_array": step_array.tolist(),
+        **comparison,
+    }
+
+
+def _full_vs_stepwise_unavailable_output_row(
+    *,
+    base: Mapping[str, Any],
+    stage: str,
+    final_token: int,
+    reason: str,
+    full_shape: list[int] | None,
+) -> dict[str, Any]:
+    return {
+        **base,
+        "comparison": "full_vs_stepwise_output",
+        "layer": None,
+        "head": None,
+        "token": final_token,
+        "final_token": final_token,
+        "stage": stage,
+        "state_slot": None,
+        "status": "unavailable",
+        "reason": reason,
+        "mode": "full_vs_stepwise",
+        "full_mode": "full",
+        "stepwise_mode": "stepwise",
+        "full_shape": full_shape,
+        "stepwise_shape": None,
+        "full_array": None,
+        "stepwise_array": None,
+    }
 
 
 def _full_vs_stepwise_state_rows(
@@ -4632,6 +5269,110 @@ def _p77_fix_note_markdown(report: Mapping[str, Any], gate: Mapping[str, Any]) -
             f"`{after_gate.get('status')}` / `{after_gate.get('reason')}`",
             f"p77_status: `{report.get('status')}`",
             f"recommended_next_phase: `{report.get('recommended_next_phase')}`",
+            "",
+        ]
+    )
+
+
+def _p78_logits_output_markdown(
+    report: Mapping[str, Any], gate: Mapping[str, Any]
+) -> str:
+    logits_gate = gate.get("output_gates", {}).get("logits_output", {})
+    logits_available = (
+        "yes" if report.get("logits_path", {}).get("status") == "pass" else "no"
+    )
+    lines = [
+        "# P78 Logits / Output Report",
+        "",
+        f"status: `{report.get('status')}`",
+        f"schema: `{report.get('schema')}`",
+        f"fixture_id: `{report.get('fixture_id')}`",
+        f"parameter_id: `{report.get('parameter_id')}`",
+        f"same_run_group_id: `{report.get('same_run_group_id')}`",
+        "",
+        "## Output Semantics",
+        "",
+        "hidden path: `RWKV7QwenReferenceStudent.apply_with_state` and "
+        "`RWKV7QwenReferenceStudent.step` returned hidden states, reported as "
+        "`post_block_hidden_output`.",
+        "output path: `post_block_hidden_output` compares returned hidden/output "
+        "tensors; `final_normalized_hidden` is reported separately when captured.",
+        "logits path: `StudentOutput.logits` from the existing student full and "
+        "stepwise paths, never synthesized from hidden states.",
+        "LM head path: existing student LM-head emission behind `emit_logits`; "
+        "missing logits are marked unavailable with an exact reason.",
+        "normalization path: `final_normalized_hidden` is not captured by this "
+        "P78 hook and remains separate from logits.",
+        "tokens compared: final token plus full emitted logits sequence where "
+        "available.",
+        "lanes compared: RADLADS terms vs QRWKV off terms; RADLADS direct vs "
+        "QRWKV experimental direct.",
+        f"full-vocab logits available: `{logits_available}`",
+        f"selected-token logits available: `{logits_available}`",
+        "top-k logits/logprobs available: `no`",
+        "",
+        "## Lane Surfaces",
+        "",
+    ]
+    for lane, item in report.get("lanes", {}).items():
+        lines.append(
+            f"- {lane}: left=`{item.get('left')}`, right=`{item.get('right')}`, "
+            f"status=`{item.get('status')}`"
+        )
+    lines.extend(["", "## Inter-side Output Parity", ""])
+    for lane, item in report.get("inter_side_parity", {}).items():
+        lines.append(
+            f"- {lane}: status=`{item.get('status')}`, "
+            f"reason=`{item.get('reason')}`, row_count=`{item.get('row_count')}`"
+        )
+    lines.extend(["", "## Full-vs-Stepwise Output Parity", ""])
+    fvs = report.get("full_vs_stepwise_output", {})
+    lines.append(f"overall: `{fvs.get('status')}` / `{fvs.get('reason')}`")
+    for surface, item in fvs.get("surface_status", {}).items():
+        lines.append(
+            f"- {surface}: status=`{item.get('status')}`, reason=`{item.get('reason')}`"
+        )
+    lines.extend(
+        [
+            "",
+            "## P75 Gate Update",
+            "",
+            f"- logits_output gate: status=`{logits_gate.get('status')}`, "
+            f"reason=`{logits_gate.get('reason')}`",
+            f"- kernel_ready: `{gate.get('kernel_ready')}`",
+            f"- blocking_gates: `{gate.get('blocking_gates')}`",
+            "",
+            "## Decision",
+            "",
+            f"recommended_next_phase: `{report.get('recommended_next_phase')}`",
+            "",
+            "No recurrence math, balance-state math, dtype policy, tolerances, "
+            "fixture values, RADLADS source, Pallas code, training path, or "
+            "default experimental balance_state behavior changed.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _p78_fix_note_markdown(report: Mapping[str, Any], gate: Mapping[str, Any]) -> str:
+    logits_gate = gate.get("output_gates", {}).get("logits_output", {})
+    return "\n".join(
+        [
+            "# P78 Fix Note",
+            "",
+            "P78 adds same-run, lane-aware hidden/output/logits evidence to the "
+            "existing P75 residual gate.",
+            "",
+            "It compares RADLADS terms vs QRWKV off terms and RADLADS direct vs "
+            "QRWKV experimental direct. Hidden/output evidence remains separate "
+            "from true LM-head logits; logits are marked unavailable when "
+            "`StudentOutput.logits` is absent.",
+            "",
+            f"- p78_status: `{report.get('status')}`",
+            f"- logits_output gate: `{logits_gate.get('status')}` / "
+            f"`{logits_gate.get('reason')}`",
+            f"- recommended_next_phase: `{report.get('recommended_next_phase')}`",
             "",
         ]
     )

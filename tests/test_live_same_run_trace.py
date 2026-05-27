@@ -277,6 +277,135 @@ def _p77_evidence_rows(
     return rows
 
 
+def _p78_output_evidence_rows(
+    *,
+    group: str = "group-a",
+    fixture: str = "fixture-a",
+    parameter: str = "parameter-a",
+    hidden_delta: float = 0.0,
+    include_logits: bool = False,
+) -> list[dict[str, object]]:
+    rows = _p77_evidence_rows(group=group, fixture=fixture, parameter=parameter)
+    surfaces = (
+        ("radlads", "balance_state_terms"),
+        ("qrwkv_off", "balance_state_terms"),
+        ("radlads", "direct_balance_state"),
+        ("qrwkv_experimental", "direct_balance_state"),
+    )
+    for side, lane in surfaces:
+        delta = hidden_delta if side in {"qrwkv_off", "qrwkv_experimental"} else 0.0
+        full_hidden = np.array([[[1.0 + delta, 2.0]]], dtype=np.float32)
+        rows.append(
+            {
+                "same_run_group_id": group,
+                "fixture_id": fixture,
+                "parameter_id": parameter,
+                "case": "tiny_no_mask",
+                "side": side,
+                "balance_state_lane": lane,
+                "comparison": "full_vs_stepwise_output",
+                "mode": "full_vs_stepwise",
+                "full_mode": "full",
+                "stepwise_mode": "stepwise",
+                "layer": None,
+                "head": None,
+                "token": 1,
+                "final_token": 1,
+                "stage": "post_block_hidden_output",
+                "status": "pass" if delta == 0.0 else "fail",
+                "reason": "allclose" if delta == 0.0 else "fail",
+                "max_abs_error": abs(delta),
+                "mean_abs_error": abs(delta) / 2.0,
+                "max_relative_error": abs(delta),
+                "shape_match": True,
+                "dtype_match": True,
+                "finite_both": True,
+                "allclose": delta == 0.0,
+                "full_array": full_hidden.tolist(),
+                "stepwise_array": full_hidden.tolist(),
+            }
+        )
+        rows.append(
+            {
+                "same_run_group_id": group,
+                "fixture_id": fixture,
+                "parameter_id": parameter,
+                "case": "tiny_no_mask",
+                "side": side,
+                "balance_state_lane": lane,
+                "comparison": "full_vs_stepwise_output",
+                "mode": "full_vs_stepwise",
+                "layer": None,
+                "head": None,
+                "token": 1,
+                "final_token": 1,
+                "stage": "final_normalized_hidden",
+                "status": "unavailable",
+                "reason": "missing_stepwise_final_norm_capture",
+                "full_array": None,
+                "stepwise_array": None,
+            }
+        )
+        if include_logits:
+            logits = np.array([[[0.1, 0.2, 0.3]]], dtype=np.float32)
+            selected = logits[:, -1, :]
+            for stage, value in (
+                ("final_lm_head_logits", logits),
+                ("selected_token_logits", selected),
+            ):
+                rows.append(
+                    {
+                        "same_run_group_id": group,
+                        "fixture_id": fixture,
+                        "parameter_id": parameter,
+                        "case": "tiny_no_mask",
+                        "side": side,
+                        "balance_state_lane": lane,
+                        "comparison": "full_vs_stepwise_output",
+                        "mode": "full_vs_stepwise",
+                        "layer": None,
+                        "head": None,
+                        "token": 1,
+                        "final_token": 1,
+                        "stage": stage,
+                        "status": "pass",
+                        "reason": "allclose",
+                        "max_abs_error": 0.0,
+                        "mean_abs_error": 0.0,
+                        "max_relative_error": 0.0,
+                        "shape_match": True,
+                        "dtype_match": True,
+                        "finite_both": True,
+                        "allclose": True,
+                        "full_array": value.tolist(),
+                        "stepwise_array": value.tolist(),
+                    }
+                )
+        else:
+            rows.append(
+                {
+                    "same_run_group_id": group,
+                    "fixture_id": fixture,
+                    "parameter_id": parameter,
+                    "case": "tiny_no_mask",
+                    "side": side,
+                    "balance_state_lane": lane,
+                    "comparison": "full_vs_stepwise_output",
+                    "mode": "full_vs_stepwise",
+                    "layer": None,
+                    "head": None,
+                    "token": 1,
+                    "final_token": 1,
+                    "stage": "final_lm_head_logits",
+                    "status": "unavailable",
+                    "reason": "missing_lm_head_logits_path",
+                    "full_array": None,
+                    "stepwise_array": None,
+                }
+            )
+    return rows
+
+
 def test_p73_balance_state_lane_classifier() -> None:
     assert classify_balance_state_lane(BALANCE_TERMS_CONFIG) == "balance_state_terms"
     assert classify_balance_state_lane(DIRECT_BALANCE_CONFIG) == "direct_balance_state"
@@ -986,7 +1115,10 @@ def test_p75_missing_required_output_evidence_blocks_kernel_ready() -> None:
 
     assert gate["kernel_ready"] == "no"
     assert "missing_evidence:full_vs_stepwise" in gate["blocking_gates"]
-    assert "missing_evidence:logits_output" in gate["blocking_gates"]
+    assert (
+        "output_gate_unavailable:logits_output:missing_stepwise_output_capture"
+        in gate["blocking_gates"]
+    )
     assert gate["recommended_next_phase"] == (
         "P77 targeted full-vs-stepwise residual fix"
     )
@@ -1023,8 +1155,114 @@ def test_p77_full_vs_stepwise_evidence_feeds_p75_gate() -> None:
     assert gate["output_gates"]["exported_state"]["status"] == "pass"
     assert gate["output_gates"]["full_vs_stepwise"]["status"] == "pass"
     assert gate["output_gates"]["logits_output"]["status"] == "unavailable"
-    assert gate["blocking_gates"] == ["missing_evidence:logits_output"]
-    assert gate["recommended_next_phase"] == "P78 targeted logits/output residual fix"
+    assert gate["blocking_gates"] == [
+        "output_gate_unavailable:logits_output:missing_stepwise_output_capture"
+    ]
+    assert gate["recommended_next_phase"] == (
+        "P79 targeted logits/output hook completion"
+    )
+
+
+def test_p78_hidden_output_evidence_feeds_p75_gate_without_fake_logits() -> None:
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata={
+            **_metadata(),
+            "p77_full_vs_stepwise_evidence": _p78_output_evidence_rows(),
+        },
+        strict_live=True,
+    )
+    p78 = report["p78_logits_output_residual"]
+    gate = report["p75_residual_impact_gate"]
+
+    assert p78["schema"] == "qrwkv_xla.p78_logits_output_residual.v1"
+    assert p78["status"] == "unavailable"
+    assert p78["lane_aware_keys"] is True
+    assert p78["hidden_path"]["status"] == "pass"
+    assert p78["logits_path"] == {
+        "status": "unavailable",
+        "reason": "missing_lm_head_logits_path",
+        "row_count": 4,
+    }
+    assert p78["lanes"]["balance_state_terms"]["left"] == "RADLADS terms"
+    assert p78["lanes"]["balance_state_terms"]["right"] == "QRWKV off terms"
+    assert p78["lanes"]["direct_balance_state"]["left"] == "RADLADS direct"
+    assert p78["lanes"]["direct_balance_state"]["right"] == (
+        "QRWKV experimental direct"
+    )
+    assert gate["output_gates"]["full_vs_stepwise"]["status"] == "pass"
+    assert gate["output_gates"]["logits_output"]["status"] == "unavailable"
+    assert gate["output_gates"]["logits_output"]["reason"] == (
+        "missing_lm_head_logits_path"
+    )
+    assert "missing_evidence:logits_output" not in gate["blocking_gates"]
+    assert (
+        "output_gate_unavailable:logits_output:missing_lm_head_logits_path"
+        in gate["blocking_gates"]
+    )
+    assert gate["kernel_ready"] == "no"
+    assert p78["recommended_next_phase"] == (
+        "P79 targeted logits/output hook completion"
+    )
+
+
+def test_p78_true_logits_availability_is_reported_separately() -> None:
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata={
+            **_metadata(),
+            "p77_full_vs_stepwise_evidence": _p78_output_evidence_rows(
+                include_logits=True
+            ),
+        },
+        strict_live=True,
+    )
+    p78 = report["p78_logits_output_residual"]
+
+    assert p78["status"] == "pass"
+    assert p78["hidden_path"]["status"] == "pass"
+    assert p78["logits_path"]["status"] == "pass"
+    assert p78["logits_path"]["reason"] == "true_lm_head_logits_allclose"
+    assert p78["full_vs_stepwise_output"]["status"] == "pass"
+
+
+def test_p78_output_mismatch_blocks_p75_gate_and_recommends_p78() -> None:
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata={
+            **_metadata(),
+            "p77_full_vs_stepwise_evidence": _p78_output_evidence_rows(
+                hidden_delta=1.0
+            ),
+        },
+        strict_live=True,
+    )
+    p78 = report["p78_logits_output_residual"]
+    gate = report["p75_residual_impact_gate"]
+
+    assert p78["status"] == "fail"
+    assert p78["inter_side_parity"]["balance_state_terms"]["status"] == "fail"
+    assert gate["output_gates"]["logits_output"]["status"] == "fail"
+    assert "output_gate_failed:logits_output" in gate["blocking_gates"]
+    assert gate["recommended_next_phase"] == "P79 targeted logits/output residual fix"
+
+
+def test_p78_missing_output_evidence_remains_unavailable() -> None:
+    report = compare_live_same_run_traces(
+        traces=_traces(),
+        metadata={**_metadata(), "p77_full_vs_stepwise_evidence": _p77_evidence_rows()},
+        strict_live=True,
+    )
+    p78 = report["p78_logits_output_residual"]
+    gate = report["p75_residual_impact_gate"]
+
+    assert p78["status"] == "unavailable"
+    assert p78["blocking_gates"] == ["missing_stepwise_output_capture"]
+    assert gate["output_gates"]["logits_output"]["status"] == "unavailable"
+    assert (
+        "output_gate_unavailable:logits_output:missing_stepwise_output_capture"
+        in gate["blocking_gates"]
+    )
 
 
 def test_p77_full_vs_stepwise_mismatch_blocks_gate() -> None:
@@ -1089,7 +1327,7 @@ def test_p75_kernel_ready_yes_requires_all_output_gates_passing() -> None:
     assert gate["kernel_ready"] == "yes"
     assert gate["blocking_gates"] == []
     assert gate["recommended_next_phase"] == (
-        "P77 broader fixture residual-impact validation"
+        "P79 broader fixture residual-impact validation"
     )
 
 
@@ -1153,7 +1391,7 @@ def test_p75_logits_failure_recommends_output_fix() -> None:
         }
     )
 
-    assert gate["recommended_next_phase"] == ("P78 targeted logits/output residual fix")
+    assert gate["recommended_next_phase"] == ("P79 targeted logits/output residual fix")
 
 
 def test_first_live_mismatch_in_k_for_update_recommends_balance_prep_fix() -> None:
@@ -1285,6 +1523,8 @@ def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
     assert (out / "P75_KERNEL_READINESS_DECISION.md").is_file()
     assert (out / "P77_FULL_VS_STEPWISE_REPORT.md").is_file()
     assert (out / "full_vs_stepwise_residual.json").is_file()
+    assert (out / "P78_LOGITS_OUTPUT_REPORT.md").is_file()
+    assert (out / "logits_output_residual.json").is_file()
     rows = load_live_same_run_trace_jsonl(out / "live_trace_radlads.jsonl")
     assert rows
     assert all(row["capture_kind"] == "unavailable" for row in rows)

@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 77
-  checkpoint: full_vs_stepwise_residual_evidence
-  title: Full-vs-stepwise residual evidence
+  phase: 78
+  checkpoint: targeted_logits_output_residual_evidence
+  title: Targeted logits / output residual evidence
 
 workflow:
   primary_agent: Nyx
@@ -48,6 +48,7 @@ instructions:
   - Keep P64 scoped to composite/balance-state hook extraction and comparison; preserve P58/P61/P63 behavior, do not loosen tolerances, and do not change recurrence math.
   - Keep P70 scoped to observe-only RADLADS live trace hook wiring; do not change recurrence math, loosen tolerances, implement Pallas, or promote experimental balance_state mode.
   - Keep P76 scoped to source-backed state export/import evidence; preserve P74/P75 fair lane comparisons, report remaining full-vs-stepwise and logits/output evidence gaps explicitly, and do not implement Pallas, real training, recurrence rewrites, tolerance changes, or default experimental balance_state promotion.
+  - Keep P78 scoped to same-run output/logits evidence; do not label hidden states as logits, do not copy QRWKV logits into RADLADS, do not compare historical artifacts across runs, and preserve P74/P75/P76/P77 lane integrity.
 
 radlads_qrwkv_head_to_head_parity:
   phase: P53

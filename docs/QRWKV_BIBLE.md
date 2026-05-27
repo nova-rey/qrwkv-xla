@@ -1485,3 +1485,32 @@ teacher export, HF `PreTrainedModel`, `lm_eval`, recurrence math changes,
 balance-state math changes, parameter mapping changes, dtype policy changes,
 tolerance changes, fixture value changes, RADLADS upstream/vendor changes, or
 default promotion of experimental `balance_state`.
+
+## Phase 78 — Targeted Logits / Output Residual Evidence
+
+P78 extends the P77 full-vs-stepwise evidence path to hidden/output/logits
+surfaces without changing recurrence math. Fresh live runs now capture
+full-sequence and token-step output rows from `RWKV7QwenReferenceStudent` for
+each P74 fair lane surface: RADLADS terms, QRWKV off terms, RADLADS direct, and
+QRWKV experimental direct.
+
+Output semantics are explicit. `post_block_hidden_output` is returned hidden
+state evidence, not logits. `final_lm_head_logits` and `selected_token_logits`
+are only true logits when `StudentOutput.logits` is present; otherwise the
+logits path is marked unavailable with the exact reason instead of copying or
+renaming hidden states.
+
+The regenerated `artifacts/p68_live_same_run_trace/` adds
+`P78_LOGITS_OUTPUT_REPORT.md` and `logits_output_residual.json`, and refreshes
+the P75 gate artifacts. In the P78 run, available hidden/output and true
+LM-head logits pass across both fair lane pairs, with selected-token logits
+reported separately from full-vocab logits. The P75 gate now reports
+`state_after=pass`, `exported_state=pass`, `full_vs_stepwise=pass`, and
+`logits_output=pass`; `kernel_ready=yes` for the tiny same-run fixture evidence,
+and the next phase is `P79 broader fixture residual-impact validation`.
+
+P78 does not implement Pallas, TPU optimization, real training, Qwen-scale
+teacher export, HF `PreTrainedModel`, `lm_eval`, recurrence math changes,
+balance-state math changes, parameter mapping changes, dtype policy changes,
+tolerance changes, fixture value changes, RADLADS upstream/vendor changes, or
+default promotion of experimental `balance_state`.
