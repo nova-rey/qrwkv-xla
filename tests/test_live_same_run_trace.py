@@ -15,9 +15,11 @@ from qrwkv_xla.parity.radlads_live_same_run_trace import (
     P71_STRETCH_STAGES,
     LiveTraceCollector,
     _capture_radlads_case,
+    _p79_matrix_markdown,
     _trace_key,
     build_live_same_run_trace,
     build_p75_residual_impact_gate,
+    build_p79_broader_fixture_residual_matrix,
     classify_balance_state_lane,
     compare_live_same_run_traces,
     deterministic_fixture_id,
@@ -404,6 +406,36 @@ def _p78_output_evidence_rows(
                 }
             )
     return rows
+
+
+def _p79_matrix(
+    *,
+    traces: dict[str, list[dict[str, object]]] | None = None,
+    manifest_cases: list[str] | None = None,
+    expected_cases: tuple[str, ...] = ("tiny_no_mask",),
+    p77_rows: list[dict[str, object]] | None = None,
+    p78_rows: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    metadata = _metadata()
+    metadata["p77_full_vs_stepwise_evidence"] = (
+        p77_rows if p77_rows is not None else _p77_evidence_rows()
+    )
+    metadata["p78_logits_output_evidence"] = (
+        p78_rows
+        if p78_rows is not None
+        else _p78_output_evidence_rows(include_logits=True)
+    )
+    return build_p79_broader_fixture_residual_matrix(
+        fixture_manifest_data={
+            "cases": [{"name": case} for case in (manifest_cases or ["tiny_no_mask"])]
+        },
+        traces=traces or _traces(),
+        metadata=metadata,
+        strict_live=True,
+        atol=1e-5,
+        rtol=1e-5,
+        expected_cases=expected_cases,
+    )
 
 
 def test_p73_balance_state_lane_classifier() -> None:
@@ -1487,6 +1519,81 @@ def test_first_live_mismatch_in_ab_recommends_ab_fix() -> None:
     )
 
 
+def test_p79_matrix_includes_requested_found_and_missing_cases() -> None:
+    matrix = _p79_matrix(
+        manifest_cases=["tiny_no_mask"],
+        expected_cases=("tiny_no_mask", "missing_case"),
+    )
+
+    by_case = matrix["cases"]
+    assert by_case["tiny_no_mask"]["kernel_ready_for_case"] == "yes"
+    assert by_case["missing_case"]["kernel_ready_for_case"] == "unavailable"
+    assert by_case["missing_case"]["blocking_gates"] == ["fixture_case_not_found"]
+    assert by_case["missing_case"]["recommended_action"] == (
+        "P80 targeted fixture lineage/harness repair"
+    )
+    assert matrix["summary"]["cases_unavailable"] == 1
+    assert (
+        matrix["recommended_next_phase"]
+        == "P80 targeted fixture lineage/harness repair"
+    )
+
+
+def test_p79_same_run_invalid_marks_lineage_repair() -> None:
+    matrix = _p79_matrix(traces=_traces(off_group="group-b"))
+    row = matrix["case_rows"][0]
+
+    assert row["same_run_valid"] is False
+    assert row["recommended_action"] == "P80 targeted fixture lineage/harness repair"
+
+
+def test_p79_gate_failures_recommend_exact_p80_fixes() -> None:
+    state_traces = _traces()
+    for row in state_traces["qrwkv_off"]:
+        if row["stage"] == "state_after_live":
+            row["array"] = (np.asarray(row["array"]) + 1.0).tolist()
+    assert _p79_matrix(traces=state_traces)["case_rows"][0]["recommended_action"] == (
+        "P80 targeted broader-fixture state_after residual fix"
+    )
+
+    exported_traces = _traces()
+    for row in exported_traces["qrwkv_off"]:
+        if row["stage"] == "state_after_exported":
+            row["array"] = (np.asarray(row["array"]) + 1.0).tolist()
+    assert _p79_matrix(traces=exported_traces)["case_rows"][0][
+        "recommended_action"
+    ] == ("P80 targeted broader-fixture exported_state residual fix")
+
+    p77_rows = _p77_evidence_rows()
+    p77_rows[0]["status"] = "fail"
+    p77_rows[0]["max_abs_error"] = 1.0
+    assert _p79_matrix(p77_rows=p77_rows)["case_rows"][0]["recommended_action"] == (
+        "P80 targeted broader-fixture full-vs-stepwise residual fix"
+    )
+
+    p78_rows = _p78_output_evidence_rows(hidden_delta=1.0, include_logits=True)
+    assert _p79_matrix(p78_rows=p78_rows)["case_rows"][0]["recommended_action"] == (
+        "P80 targeted broader-fixture logits/output residual fix"
+    )
+
+
+def test_p79_all_expected_passing_recommends_pallas_or_scaffold() -> None:
+    matrix = _p79_matrix()
+
+    assert matrix["all_expected_cases_pass"] is True
+    assert matrix["recommended_action"] in {
+        "P80 Pallas prototype behind known-caveat flag",
+        "P80 kernel/reference parity scaffold",
+    }
+
+
+def test_p79_matrix_markdown_table_renders() -> None:
+    markdown = _p79_matrix_markdown(_p79_matrix())
+
+    assert "| case | fixture_id | same_run_valid |" in markdown
+    assert "tiny_no_mask" in markdown
+
+
 def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
     fixture = tmp_path / "manifest.json"
     params = tmp_path / "params.json"
@@ -1499,6 +1606,7 @@ def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
         out_dir=tmp_path / "out",
         strict_live=True,
         overwrite=True,
+        broader_fixture_report=True,
     )
 
     assert report["same_run_valid"] is False
@@ -1525,6 +1633,12 @@ def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
     assert (out / "full_vs_stepwise_residual.json").is_file()
     assert (out / "P78_LOGITS_OUTPUT_REPORT.md").is_file()
     assert (out / "logits_output_residual.json").is_file()
+    assert (out / "P79_BROADER_FIXTURE_VALIDATION_REPORT.md").is_file()
+    assert (out / "broader_fixture_residual_matrix.json").is_file()
+    assert (out / "broader_fixture_residual_matrix.md").is_file()
+    assert "| case | fixture_id | same_run_valid |" in (
+        out / "broader_fixture_residual_matrix.md"
+    ).read_text(encoding="utf-8")
     rows = load_live_same_run_trace_jsonl(out / "live_trace_radlads.jsonl")
     assert rows
     assert all(row["capture_kind"] == "unavailable" for row in rows)
@@ -1575,3 +1689,4 @@ def test_script_help_works() -> None:
     )
     assert "P68" in result.stdout
     assert "--strict-live" in result.stdout
+    assert "--broader-fixture-report" in result.stdout

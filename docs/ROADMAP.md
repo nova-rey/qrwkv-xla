@@ -1,5 +1,21 @@
 # QRWKV-XLA Roadmap
 
+## Phase 79 — Broader Fixture Residual-Impact Validation
+
+Goal: expand the P78 same-run readiness result across the existing fixture
+family with explicit case-by-case gates, without reopening recurrence math.
+
+Current checkpoint: `broader_fixture_residual_impact_validation`. P79 writes
+`P79_BROADER_FIXTURE_VALIDATION_REPORT.md`,
+`broader_fixture_residual_matrix.json`, and
+`broader_fixture_residual_matrix.md`. Five discovered cases pass
+`state_after`, `exported_state`, `full_vs_stepwise`, and `logits_output` with
+`kernel_ready_for_case=yes`. The expected alias
+`tiny_prefix_padding_or_left_padding` is absent from the manifest and is
+reported unavailable with `fixture_case_not_found`.
+
+The next phase is `P80 targeted fixture lineage/harness repair`.
+
 ## Phase 78 — Targeted Logits / Output Residual Evidence
 
 Goal: close the P77/P75 logits-output readiness blocker by adding same-run,

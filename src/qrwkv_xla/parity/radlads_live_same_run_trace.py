@@ -244,6 +244,25 @@ P78_OUTPUT_HEAD_LAYOUT_FIX = "P79 targeted output-head/layout fix"
 P78_LANE_AWARE_OUTPUT_COMPARISON_FIX = "P79 targeted lane-aware output comparison fix"
 P78_KERNEL_GATE_HARDENING = "P79 kernel-readiness hardening gate"
 P78_PALLAS_PROTOTYPE = "P79 Pallas prototype behind known-caveat flag"
+P79_BROADER_FIXTURE_RESIDUAL_MATRIX_SCHEMA = (
+    "qrwkv_xla.p79_broader_fixture_residual_matrix.v1"
+)
+P79_EXPECTED_CASES = (
+    "tiny_no_mask",
+    "tiny_attention_mask",
+    "tiny_stepwise_state",
+    "tiny_prefix_or_left_padding",
+    "tiny_prefix_padding_or_left_padding",
+    "tiny_all_radlads_math_enabled",
+)
+P80_PALLAS_PROTOTYPE = "P80 Pallas prototype behind known-caveat flag"
+P80_KERNEL_REFERENCE_PARITY = "P80 kernel/reference parity scaffold"
+P80_STATE_AFTER_FIX = "P80 targeted broader-fixture state_after residual fix"
+P80_EXPORTED_STATE_FIX = "P80 targeted broader-fixture exported_state residual fix"
+P80_FULL_VS_STEPWISE_FIX = "P80 targeted broader-fixture full-vs-stepwise residual fix"
+P80_LOGITS_OUTPUT_FIX = "P80 targeted broader-fixture logits/output residual fix"
+P80_LINEAGE_REPAIR = "P80 targeted fixture lineage/harness repair"
+P80_KERNEL_GATE_HARDENING = "P80 kernel-readiness hardening gate"
 P77_STATE_EXPORT_FIX = "P77 targeted state export/import convention fix"
 P77_FULL_VS_STEPWISE_FIX = "P77 targeted full-vs-stepwise residual fix"
 P77_LANE_LAYOUT_FIX = "P77 targeted lane-aware state layout fix"
@@ -1696,8 +1715,11 @@ def run_live_same_run_trace(
     overwrite: bool = False,
     atol: float = 1e-5,
     rtol: float = 1e-5,
+    broader_fixture_report: bool = False,
 ) -> dict[str, Any]:
     del radlads_repo
+    if cases == ["all"]:
+        cases = None
     _prepare_out_dir(out_dir, overwrite=overwrite)
     fixture_manifest_data = load_numerical_manifest(fixture_manifest)
     fixture_id = deterministic_fixture_id(fixture_manifest)
@@ -1825,8 +1847,264 @@ def run_live_same_run_trace(
         atol=atol,
         rtol=rtol,
     )
+    if broader_fixture_report:
+        report["p79_broader_fixture_residual_matrix"] = (
+            build_p79_broader_fixture_residual_matrix(
+                fixture_manifest_data=fixture_manifest_data,
+                traces=traces,
+                metadata=trace_metadata,
+                strict_live=strict_live,
+                atol=atol,
+                rtol=rtol,
+                fixture_manifest_path=fixture_manifest,
+                parameters_path=parameter_manifest or parameters,
+            )
+        )
+        report["recommended_next_phase"] = report[
+            "p79_broader_fixture_residual_matrix"
+        ]["recommended_action"]
     write_live_same_run_reports(report, out_dir)
     return report
+
+
+def build_p79_broader_fixture_residual_matrix(
+    *,
+    fixture_manifest_data: Mapping[str, Any],
+    traces: Mapping[str, list[dict[str, Any]]],
+    metadata: Mapping[str, Any],
+    strict_live: bool,
+    atol: float,
+    rtol: float,
+    fixture_manifest_path: Path | str | None = None,
+    parameters_path: Path | str | None = None,
+    expected_cases: tuple[str, ...] = P79_EXPECTED_CASES,
+) -> dict[str, Any]:
+    manifest_cases = set(_manifest_case_names(fixture_manifest_data))
+    rows = []
+    for case in expected_cases:
+        if case not in manifest_cases:
+            rows.append(_p79_missing_case_row(case, metadata=metadata))
+            continue
+        case_traces = {
+            side: [row for row in side_rows if row.get("case") == case]
+            for side, side_rows in traces.items()
+        }
+        case_metadata = dict(metadata)
+        case_metadata["p77_full_vs_stepwise_evidence"] = [
+            row
+            for row in metadata.get("p77_full_vs_stepwise_evidence", [])
+            if isinstance(row, Mapping) and row.get("case") == case
+        ]
+        case_metadata["p78_logits_output_evidence"] = [
+            row
+            for row in metadata.get("p78_logits_output_evidence", [])
+            if isinstance(row, Mapping) and row.get("case") == case
+        ]
+        case_report = compare_live_same_run_traces(
+            traces=case_traces,
+            metadata=case_metadata,
+            strict_live=strict_live,
+            atol=atol,
+            rtol=rtol,
+        )
+        rows.append(_p79_case_row(case, case_report))
+    all_found = all(
+        row.get("unavailable_reason") != "fixture_case_not_found" for row in rows
+    )
+    all_pass = all(row["kernel_ready_for_case"] == "yes" for row in rows)
+    recommended = (
+        P80_PALLAS_PROTOTYPE
+        if all_found and all_pass
+        else rows[0]["recommended_action"]
+    )
+    for row in rows:
+        if row["recommended_action"] != P80_PALLAS_PROTOTYPE:
+            recommended = row["recommended_action"]
+            break
+    cases_found = [
+        row["case"]
+        for row in rows
+        if row.get("unavailable_reason") != "fixture_case_not_found"
+    ]
+    cases_missing = [
+        row["case"]
+        for row in rows
+        if row.get("unavailable_reason") == "fixture_case_not_found"
+    ]
+    cases_pass = sum(row["kernel_ready_for_case"] == "yes" for row in rows)
+    cases_unavailable = sum(
+        row["kernel_ready_for_case"] == "unavailable" for row in rows
+    )
+    cases_fail = sum(
+        row["kernel_ready_for_case"] not in {"yes", "unavailable"} for row in rows
+    )
+    cases_by_name = {row["case"]: row for row in rows}
+    return {
+        "schema": P79_BROADER_FIXTURE_RESIDUAL_MATRIX_SCHEMA,
+        "phase": "P79",
+        "fixture_manifest": str(fixture_manifest_path)
+        if fixture_manifest_path is not None
+        else metadata.get("fixture_manifest_path"),
+        "parameters": str(parameters_path)
+        if parameters_path is not None
+        else metadata.get("parameter_manifest_or_npz_path"),
+        "same_run_policy": "strict" if strict_live else "non_strict",
+        "tolerances": {"atol": atol, "rtol": rtol},
+        "expected_cases": list(expected_cases),
+        "cases_requested": list(expected_cases),
+        "cases_found": cases_found,
+        "cases_missing": cases_missing,
+        "same_run_group_id": metadata.get("same_run_group_id"),
+        "fixture_id": metadata.get("fixture_id"),
+        "parameter_id": metadata.get("parameter_id"),
+        "same_run_valid": all(
+            row["same_run_valid"] for row in rows if row["fixture_id"] is not None
+        ),
+        "all_expected_cases_present": all_found,
+        "all_expected_cases_pass": all_found and all_pass,
+        "recommended_action": recommended,
+        "recommended_next_phase": recommended,
+        "kernel_ready_scope": "covered_fixture_family",
+        "summary": {
+            "cases_total": len(rows),
+            "cases_pass": cases_pass,
+            "cases_fail": cases_fail,
+            "cases_unavailable": cases_unavailable,
+            "all_expected_cases_pass": all_found and all_pass,
+        },
+        "case_rows": rows,
+        "cases": cases_by_name,
+    }
+
+
+def _p79_missing_case_row(case: str, *, metadata: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "case": case,
+        "fixture_id": metadata.get("fixture_id"),
+        "parameter_id": metadata.get("parameter_id"),
+        "same_run_group_id": metadata.get("same_run_group_id"),
+        "lanes_checked": [BALANCE_STATE_TERMS_LANE, DIRECT_BALANCE_STATE_LANE],
+        "same_run_valid": False,
+        "mixed_artifact_lineage_used": False,
+        "synthetic_fallback_used": False,
+        "state_after": "unavailable",
+        "exported_state": "unavailable",
+        "full_vs_stepwise": "unavailable",
+        "logits_output": "unavailable",
+        "kernel_ready_for_case": "unavailable",
+        "blocking_gates": ["fixture_case_not_found"],
+        "warning_gates": [],
+        "recommended_action": P80_LINEAGE_REPAIR,
+        "unavailable_reason": "fixture_case_not_found",
+        "lane_details": _p79_unavailable_lane_details(),
+    }
+
+
+def _p79_case_row(case: str, report: Mapping[str, Any]) -> dict[str, Any]:
+    gate = report.get("p75_residual_impact_gate", {})
+    output_gates = gate.get("output_gates", {})
+    blocking = list(gate.get("blocking_gates", []))
+    row = {
+        "case": case,
+        "fixture_id": report.get("fixture_id"),
+        "parameter_id": report.get("parameter_id"),
+        "same_run_group_id": report.get("same_run_group_id"),
+        "lanes_checked": [BALANCE_STATE_TERMS_LANE, DIRECT_BALANCE_STATE_LANE],
+        "same_run_valid": bool(report.get("same_run_valid")),
+        "mixed_artifact_lineage_used": bool(report.get("mixed_artifact_lineage_used")),
+        "synthetic_fallback_used": bool(report.get("synthetic_fallback_used")),
+        "state_after": _p79_gate_status(output_gates, "state_after"),
+        "exported_state": _p79_gate_status(output_gates, "exported_state"),
+        "full_vs_stepwise": _p79_gate_status(output_gates, "full_vs_stepwise"),
+        "logits_output": _p79_gate_status(output_gates, "logits_output"),
+        "kernel_ready_for_case": gate.get("kernel_ready"),
+        "blocking_gates": blocking,
+        "warning_gates": list(gate.get("warning_gates", [])),
+        "lane_details": _p79_lane_details(report, gate),
+    }
+    row["recommended_action"] = _p79_recommended_action(row)
+    return row
+
+
+def _p79_gate_status(output_gates: Mapping[str, Any], gate: str) -> str:
+    item = output_gates.get(gate, {})
+    if isinstance(item, Mapping):
+        return str(item.get("status", "unavailable"))
+    return "unavailable"
+
+
+def _p79_unavailable_lane_details() -> dict[str, dict[str, Any]]:
+    return {
+        lane: {
+            "valid": False,
+            "first_differing_stage": None,
+            "state_after": "unavailable",
+            "exported_state": "unavailable",
+            "full_vs_stepwise": "unavailable",
+            "logits_output": "unavailable",
+        }
+        for lane in (BALANCE_STATE_TERMS_LANE, DIRECT_BALANCE_STATE_LANE)
+    }
+
+
+def _p79_lane_details(
+    report: Mapping[str, Any], gate: Mapping[str, Any]
+) -> dict[str, dict[str, Any]]:
+    lane_details = {}
+    p77 = report.get("p77_full_vs_stepwise_residual", {})
+    p78 = report.get("p78_logits_output_residual", {})
+    for lane in (BALANCE_STATE_TERMS_LANE, DIRECT_BALANCE_STATE_LANE):
+        lane_gate = gate.get("lane_comparisons", {}).get(lane, {})
+        lane_details[lane] = {
+            "valid": bool(lane_gate.get("valid")),
+            "first_differing_stage": lane_gate.get("first_differing_stage"),
+            "state_after": _p79_lane_measurement_status(gate, lane, "state_after_live"),
+            "exported_state": _p79_lane_measurement_status(
+                gate, lane, "state_after_exported"
+            ),
+            "full_vs_stepwise": _p79_nested_lane_status(p77, lane),
+            "logits_output": _p79_nested_lane_status(p78, lane),
+        }
+    return lane_details
+
+
+def _p79_lane_measurement_status(gate: Mapping[str, Any], lane: str, stage: str) -> str:
+    item = (
+        gate.get("residuals", {}).get(lane, {}).get("measurements", {}).get(stage, {})
+    )
+    if isinstance(item, Mapping):
+        return str(item.get("status", "unavailable"))
+    return "unavailable"
+
+
+def _p79_nested_lane_status(report: Any, lane: str) -> str:
+    if isinstance(report, Mapping):
+        lane_status = report.get("lane_status", report.get("inter_side_parity", {}))
+        item = lane_status.get(lane, {}) if isinstance(lane_status, Mapping) else {}
+        if isinstance(item, Mapping):
+            return str(item.get("status", "unavailable"))
+    return "unavailable"
+
+
+def _p79_recommended_action(row: Mapping[str, Any]) -> str:
+    if (
+        not row.get("same_run_valid")
+        or row.get("mixed_artifact_lineage_used")
+        or row.get("synthetic_fallback_used")
+        or "fixture_case_not_found" in row.get("blocking_gates", [])
+    ):
+        return P80_LINEAGE_REPAIR
+    if row.get("state_after") != "pass":
+        return P80_STATE_AFTER_FIX
+    if row.get("exported_state") != "pass":
+        return P80_EXPORTED_STATE_FIX
+    if row.get("full_vs_stepwise") != "pass":
+        return P80_FULL_VS_STEPWISE_FIX
+    if row.get("logits_output") != "pass":
+        return P80_LOGITS_OUTPUT_FIX
+    if row.get("kernel_ready_for_case") == "yes":
+        return P80_PALLAS_PROTOTYPE
+    return P80_KERNEL_GATE_HARDENING
 
 
 def _p75_lane_residuals(
@@ -2362,6 +2640,12 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
             json.dumps(_jsonable(p78_report), indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+    p79_report = report.get("p79_broader_fixture_residual_matrix")
+    if isinstance(p79_report, Mapping):
+        (out_dir / "broader_fixture_residual_matrix.json").write_text(
+            json.dumps(_jsonable(p79_report), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     (out_dir / "P68_RESULTS.md").write_text(_results_markdown(report), encoding="utf-8")
     (out_dir / "LIVE_SAME_RUN_VALIDITY.md").write_text(
         _validity_markdown(report), encoding="utf-8"
@@ -2455,6 +2739,33 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
         )
         (out_dir / "P78_FIX_NOTE.md").write_text(
             _p78_fix_note_markdown(p78_report, p75_gate),
+            encoding="utf-8",
+        )
+    if isinstance(p79_report, Mapping):
+        matrix_md = _p79_matrix_markdown(p79_report)
+        (out_dir / "broader_fixture_residual_matrix.md").write_text(
+            matrix_md,
+            encoding="utf-8",
+        )
+        (out_dir / "P79_BROADER_FIXTURE_VALIDATION_REPORT.md").write_text(
+            _p79_validation_report_markdown(p79_report),
+            encoding="utf-8",
+        )
+        blockers = [
+            row
+            for row in _p79_case_rows(p79_report)
+            if row.get("kernel_ready_for_case") != "yes"
+        ]
+        blocker_path = out_dir / "P79_BLOCKER_REPORT.md"
+        if blockers:
+            blocker_path.write_text(
+                _p79_blocker_report_markdown(p79_report),
+                encoding="utf-8",
+            )
+        elif blocker_path.exists():
+            blocker_path.unlink()
+        (out_dir / "P79_FIX_NOTE.md").write_text(
+            _p79_fix_note_markdown(p79_report),
             encoding="utf-8",
         )
     if not report.get("same_run_valid"):
@@ -4778,36 +5089,46 @@ def _first_markdown(report: Mapping[str, Any]) -> str:
 
 def _decision_markdown(report: Mapping[str, Any]) -> str:
     p75_gate = report.get("p75_residual_impact_gate", {})
-    return "\n".join(
-        [
-            "# P68 Decision",
-            "",
-            "P75 residual-impact / kernel-readiness outcome:",
-            f"- same_run_valid: `{report['same_run_valid']}`",
-            f"- minimum_stage_valid: `{report.get('minimum_stage_valid')}`",
-            f"- stretch_stages_available: `{report.get('stretch_stages_available')}`",
-            f"- math_conclusion_valid: `{report.get('math_conclusion_valid')}`",
-            "- balance_state_terms_lane_valid: `"
-            f"{report.get('balance_state_terms_lane_valid')}`",
-            "- direct_balance_state_lane_valid: `"
-            f"{report.get('direct_balance_state_lane_valid')}`",
-            "- balance_state_terms_first_differing_stage: `"
-            f"{report.get('balance_state_terms_first_differing_stage')}`",
-            "- direct_balance_state_first_differing_stage: `"
-            f"{report.get('direct_balance_state_first_differing_stage')}`",
-            "- lane_mixed_comparison_valid: `"
-            f"{report.get('lane_mixed_comparison_valid')}`",
-            f"- kernel_ready: `{report['kernel_ready']}`",
-            f"- kernel_readiness_reason: `{report.get('kernel_readiness_reason')}`",
-            f"- blocking_gates: `{p75_gate.get('blocking_gates')}`",
-            f"- warning_gates: `{p75_gate.get('warning_gates')}`",
-            f"- recommended_next_phase: {report['recommended_next_phase']}",
-            "- math_fix_recommended: `False`",
-            "- pallas_gate_recommended: `False`",
-            "- residual_impact_gate_completed: `True`",
-            "",
-        ]
-    )
+    lines = [
+        "# P68 Decision",
+        "",
+        "P75 residual-impact / kernel-readiness outcome:",
+        f"- same_run_valid: `{report['same_run_valid']}`",
+        f"- minimum_stage_valid: `{report.get('minimum_stage_valid')}`",
+        f"- stretch_stages_available: `{report.get('stretch_stages_available')}`",
+        f"- math_conclusion_valid: `{report.get('math_conclusion_valid')}`",
+        "- balance_state_terms_lane_valid: `"
+        f"{report.get('balance_state_terms_lane_valid')}`",
+        "- direct_balance_state_lane_valid: `"
+        f"{report.get('direct_balance_state_lane_valid')}`",
+        "- balance_state_terms_first_differing_stage: `"
+        f"{report.get('balance_state_terms_first_differing_stage')}`",
+        "- direct_balance_state_first_differing_stage: `"
+        f"{report.get('direct_balance_state_first_differing_stage')}`",
+        f"- lane_mixed_comparison_valid: `{report.get('lane_mixed_comparison_valid')}`",
+        f"- kernel_ready: `{report['kernel_ready']}`",
+        f"- kernel_readiness_reason: `{report.get('kernel_readiness_reason')}`",
+        f"- blocking_gates: `{p75_gate.get('blocking_gates')}`",
+        f"- warning_gates: `{p75_gate.get('warning_gates')}`",
+        f"- recommended_next_phase: {report['recommended_next_phase']}",
+        "- math_fix_recommended: `False`",
+        "- pallas_gate_recommended: `False`",
+        "- residual_impact_gate_completed: `True`",
+        "",
+    ]
+    p79 = report.get("p79_broader_fixture_residual_matrix")
+    if isinstance(p79, Mapping):
+        lines.extend(
+            [
+                "P79 broader fixture validation outcome:",
+                "- all_expected_cases_present: `"
+                f"{p79.get('all_expected_cases_present')}`",
+                f"- all_expected_cases_pass: `{p79.get('all_expected_cases_pass')}`",
+                f"- recommended_action: `{p79.get('recommended_action')}`",
+                "",
+            ]
+        )
+    return "\n".join(lines)
 
 
 def _p70_hook_note_markdown(report: Mapping[str, Any]) -> str:
@@ -5592,17 +5913,29 @@ def _p75_residual_gate_markdown(
 def _p75_kernel_decision_markdown(
     report: Mapping[str, Any], gate: Mapping[str, Any]
 ) -> str:
-    del report
-    return "\n".join(
+    lines = [
+        "# P75 Kernel Readiness Decision",
+        "",
+        f"kernel_ready: `{gate.get('kernel_ready')}`",
+        f"reason: `{gate.get('kernel_readiness', {}).get('reason')}`",
+        f"blocking_gates: `{gate.get('blocking_gates')}`",
+        f"warning_gates: `{gate.get('warning_gates')}`",
+        f"recommended_next_phase: `{gate.get('recommended_next_phase')}`",
+        "",
+    ]
+    p79 = report.get("p79_broader_fixture_residual_matrix")
+    if isinstance(p79, Mapping):
+        lines.extend(
+            [
+                "P79 broader_fixture_recommendation:",
+                f"- all_expected_cases_pass: `{p79.get('all_expected_cases_pass')}`",
+                f"- recommended_action: `{p79.get('recommended_action')}`",
+                f"- effective_next_phase: `{p79.get('recommended_action')}`",
+                "",
+            ]
+        )
+    lines.extend(
         [
-            "# P75 Kernel Readiness Decision",
-            "",
-            f"kernel_ready: `{gate.get('kernel_ready')}`",
-            f"reason: `{gate.get('kernel_readiness', {}).get('reason')}`",
-            f"blocking_gates: `{gate.get('blocking_gates')}`",
-            f"warning_gates: `{gate.get('warning_gates')}`",
-            f"recommended_next_phase: `{gate.get('recommended_next_phase')}`",
-            "",
             "why_this_is_not_a_math_fix: P75 only evaluates residual impact and "
             "readiness evidence from lane-aligned live traces. It does not "
             "change recurrence math, balance-state math, parameter mapping, "
@@ -5611,11 +5944,12 @@ def _p75_kernel_decision_markdown(
             "",
             "why_this_is_or_is_not_ready_for_Pallas: Pallas work is blocked "
             "unless `kernel_ready` is `yes`. Missing or failing state/export, "
-            "full-vs-stepwise, or logits/output evidence keeps "
-            "`kernel_ready=no` with an exact blocking gate.",
+            "full-vs-stepwise, logits/output evidence, or P79 broader fixture "
+            "coverage keeps the recommendation on the exact P80 follow-up.",
             "",
         ]
     )
+    return "\n".join(lines)
 
 
 def _p75_blocker_report_markdown(gate: Mapping[str, Any]) -> str:
@@ -5651,6 +5985,198 @@ def _p75_fix_note_markdown(report: Mapping[str, Any], gate: Mapping[str, Any]) -
             "policy, tolerances, Pallas/kernel code, RADLADS upstream/vendor "
             "code, fixture values, hidden-state layout, or default "
             "experimental balance_state behavior changed.",
+            "",
+        ]
+    )
+
+
+def _p79_matrix_markdown(report: Mapping[str, Any]) -> str:
+    lines = [
+        "# P79 Broader Fixture Residual Matrix",
+        "",
+        "| case | fixture_id | same_run_valid | state_after | exported_state | "
+        "full_vs_stepwise | logits_output | kernel_ready_for_case | "
+        "recommended_action |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for row in _p79_case_rows(report):
+        lines.append(
+            "| "
+            f"{row.get('case')} | "
+            f"{row.get('fixture_id')} | "
+            f"{row.get('same_run_valid')} | "
+            f"{row.get('state_after')} | "
+            f"{row.get('exported_state')} | "
+            f"{row.get('full_vs_stepwise')} | "
+            f"{row.get('logits_output')} | "
+            f"{row.get('kernel_ready_for_case')} | "
+            f"{row.get('recommended_action')} |"
+        )
+    lines.extend(
+        [
+            "",
+            f"overall_recommended_action: `{report.get('recommended_action')}`",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _p79_case_rows(report: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    rows = report.get("case_rows")
+    if isinstance(rows, list):
+        return [row for row in rows if isinstance(row, Mapping)]
+    cases = report.get("cases", {})
+    if isinstance(cases, Mapping):
+        return [row for row in cases.values() if isinstance(row, Mapping)]
+    if isinstance(cases, list):
+        return [row for row in cases if isinstance(row, Mapping)]
+    return []
+
+
+def _p79_validation_report_markdown(report: Mapping[str, Any]) -> str:
+    cases_missing = report.get("cases_missing", [])
+    cases_found = report.get("cases_found", [])
+    lines = [
+        "# P79 Broader Fixture Residual-Impact Validation",
+        "",
+        "## Inputs",
+        "",
+        f"schema: `{report.get('schema')}`",
+        f"fixture_manifest: `{report.get('fixture_manifest')}`",
+        f"parameters: `{report.get('parameters')}`",
+        f"cases_requested: `{report.get('cases_requested')}`",
+        f"cases_found: `{cases_found}`",
+        f"cases_missing: `{cases_missing}`",
+        f"same_run_policy: `{report.get('same_run_policy')}`",
+        f"tolerances: `{report.get('tolerances')}`",
+        f"fixture_id: `{report.get('fixture_id')}`",
+        f"parameter_id: `{report.get('parameter_id')}`",
+        f"same_run_group_id: `{report.get('same_run_group_id')}`",
+        f"all_expected_cases_present: `{report.get('all_expected_cases_present')}`",
+        f"all_expected_cases_pass: `{report.get('all_expected_cases_pass')}`",
+        f"recommended_action: `{report.get('recommended_action')}`",
+        "",
+        "## Fixture Matrix",
+        "",
+        _p79_matrix_markdown(report),
+        "## Lane Details",
+        "",
+        *_p79_lane_detail_lines(report),
+        "## Blocking Gates",
+        "",
+        *(
+            [f"- {case}: fixture_case_not_found" for case in cases_missing]
+            if cases_missing
+            else ["None"]
+        ),
+        "",
+        "## Warnings",
+        "",
+        "None",
+        "",
+        "## Decision",
+        "",
+        f"recommended_next_phase: `{report.get('recommended_next_phase')}`",
+        f"kernel_ready_scope: `{report.get('kernel_ready_scope')}`",
+        "",
+        "## Lane Policy",
+        "",
+        "P79 preserves the fair lanes from P74-P78: RADLADS terms vs QRWKV "
+        "off terms, and RADLADS direct vs QRWKV experimental direct.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def _p79_lane_detail_lines(report: Mapping[str, Any]) -> list[str]:
+    lines: list[str] = []
+    for row in _p79_case_rows(report):
+        lines.append(f"### {row.get('case')}")
+        lines.append("")
+        lane_details = row.get("lane_details", {})
+        if not isinstance(lane_details, Mapping):
+            lines.append("lane_details: `unavailable`")
+            lines.append("")
+            continue
+        for lane in (BALANCE_STATE_TERMS_LANE, DIRECT_BALANCE_STATE_LANE):
+            detail = lane_details.get(lane, {})
+            lines.append(f"{lane}:")
+            if isinstance(detail, Mapping):
+                lines.extend(
+                    [
+                        f"- valid: `{detail.get('valid')}`",
+                        "- first_differing_stage: `"
+                        f"{detail.get('first_differing_stage')}`",
+                        f"- state_after: `{detail.get('state_after')}`",
+                        f"- exported_state: `{detail.get('exported_state')}`",
+                        f"- full_vs_stepwise: `{detail.get('full_vs_stepwise')}`",
+                        f"- logits_output: `{detail.get('logits_output')}`",
+                    ]
+                )
+            else:
+                lines.append("- unavailable")
+        lines.append("")
+    return lines
+
+
+def _p79_blocker_report_markdown(report: Mapping[str, Any]) -> str:
+    lines = [
+        "# P79 Blocker Report",
+        "",
+        f"recommended_action: `{report.get('recommended_action')}`",
+        "",
+        "## Blocking Cases",
+        "",
+    ]
+    for row in _p79_case_rows(report):
+        if row.get("kernel_ready_for_case") == "yes":
+            continue
+        lane_details = row.get("lane_details", {})
+        lane_items = lane_details.items() if isinstance(lane_details, Mapping) else []
+        first_lane = next(
+            (
+                lane
+                for lane, detail in lane_items
+                if isinstance(detail, Mapping) and not detail.get("valid")
+            ),
+            None,
+        )
+        lines.append(
+            "- "
+            f"fixture_case=`{row.get('case')}`, lane=`{first_lane}`, "
+            f"gate=`{row.get('blocking_gates')}`, stage=`{row.get('state_after')}/"
+            f"{row.get('exported_state')}/{row.get('full_vs_stepwise')}/"
+            f"{row.get('logits_output')}`, first_failure=`"
+            f"{row.get('unavailable_reason') or row.get('blocking_gates')}`, "
+            "max_abs=`None`, shape_match=`None`, finite=`None`, reason=`"
+            f"{row.get('unavailable_reason') or row.get('blocking_gates')}`, "
+            f"kernel_ready_for_case=`"
+            f"{row.get('kernel_ready_for_case')}`, blocking_gates=`"
+            f"{row.get('blocking_gates')}`, recommended_next_phase=`"
+            f"{row.get('recommended_action')}`"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _p79_fix_note_markdown(report: Mapping[str, Any]) -> str:
+    return "\n".join(
+        [
+            "# P79 Fix Note",
+            "",
+            "P79 adds breadth validation and reporting over the existing fixture "
+            "family using the same P75-P78 gates.",
+            "",
+            "- all_expected_cases_present: `"
+            f"{report.get('all_expected_cases_present')}`",
+            f"- all_expected_cases_pass: `{report.get('all_expected_cases_pass')}`",
+            f"- recommended_action: `{report.get('recommended_action')}`",
+            "- fix type: `reporting/breadth validation only`",
+            "",
+            "No recurrence math, parameter remapping, dtype policy, tolerance, "
+            "fixture values, RADLADS upstream code, Pallas code, training path, "
+            "or default experimental balance_state behavior changed.",
             "",
         ]
     )

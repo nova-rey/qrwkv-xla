@@ -1141,3 +1141,26 @@
   dtype-policy change, tolerance loosening, fixture value change, Pallas/kernel
   code change, RADLADS upstream/vendor edit, or default experimental
   `balance_state` promotion.
+
+## P79 — Broader Fixture Residual-Impact Validation
+
+- [x] Add P79 broader fixture matrix generation behind
+  `--broader-fixture-report`.
+- [x] Preserve fair lane pairs: RADLADS terms vs QRWKV off terms, and RADLADS
+  direct vs QRWKV experimental direct.
+- [x] Report each expected case separately with `state_after`,
+  `exported_state`, `full_vs_stepwise`, `logits_output`, and
+  `kernel_ready_for_case`.
+- [x] Mark absent expected cases unavailable with `fixture_case_not_found`
+  instead of renaming or faking evidence.
+- [x] Emit `P79_BROADER_FIXTURE_VALIDATION_REPORT.md`,
+  `broader_fixture_residual_matrix.json`, and
+  `broader_fixture_residual_matrix.md`.
+- [x] Regenerate `artifacts/p68_live_same_run_trace/`: five discovered cases
+  pass all readiness gates, while `tiny_prefix_padding_or_left_padding` is
+  absent from the manifest.
+- [x] Recommend exactly `P80 targeted fixture lineage/harness repair`.
+- [x] Preserve scope: no recurrence math change, broad balance-prep rewrite,
+  parameter remapping overhaul, tolerance loosening, dtype-policy change,
+  fixture value change, RADLADS upstream/vendor edit, Pallas/kernel work, or
+  default experimental `balance_state` promotion.

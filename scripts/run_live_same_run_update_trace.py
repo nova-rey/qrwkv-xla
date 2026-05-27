@@ -42,6 +42,11 @@ def main() -> int:
     parser.add_argument("--head", default="all")
     parser.add_argument("--max-tokens", type=int, default=None)
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument(
+        "--broader-fixture-report",
+        action="store_true",
+        help="write P79 broader fixture residual matrix artifacts",
+    )
     parser.add_argument("--atol", type=float, default=1e-5)
     parser.add_argument("--rtol", type=float, default=1e-5)
     parser.add_argument("--fail-on-missing-critical-stage", action="store_true")
@@ -54,6 +59,8 @@ def main() -> int:
         )
 
     cases = [item for item in args.cases.split(",") if item] or None
+    if cases == ["all"]:
+        cases = None
     report = run_live_same_run_trace(
         fixture_manifest=args.fixture_manifest,
         out_dir=args.out,
@@ -70,6 +77,7 @@ def main() -> int:
         overwrite=args.overwrite,
         atol=args.atol,
         rtol=args.rtol,
+        broader_fixture_report=args.broader_fixture_report,
     )
     print(f"wrote P68 live same-run trace to {args.out}")
     print(f"same_run_valid={report['same_run_valid']}")

@@ -296,8 +296,8 @@ radlads_balance_state_three_way_parity:
     - no_pallas_no_tolerance_loosening_no_default_promotion
 
 radlads_live_same_run_update_trace:
-  phase: P77
-  status: full_vs_stepwise_residual_evidence
+  phase: P79
+  status: broader_fixture_residual_impact_validation
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   script: scripts/run_live_same_run_update_trace.py
   artifact_dir: artifacts/p68_live_same_run_trace
@@ -342,8 +342,15 @@ radlads_live_same_run_update_trace:
     - state_export_import_residual.json
     - P77_FULL_VS_STEPWISE_REPORT.md
     - full_vs_stepwise_residual.json
-  recommendation: P78 targeted logits/output residual fix
-  kernel_ready: no
+    - P78_LOGITS_OUTPUT_REPORT.md
+    - logits_output_residual.json
+    - P79_BROADER_FIXTURE_VALIDATION_REPORT.md
+    - broader_fixture_residual_matrix.json
+    - broader_fixture_residual_matrix.md
+    - P79_BLOCKER_REPORT.md
+    - P79_FIX_NOTE.md
+  recommendation: P80 targeted fixture lineage/harness repair
+  kernel_ready: yes
   p76_state_export_import:
     status: pass
     exported_state_gate: pass
@@ -352,6 +359,21 @@ radlads_live_same_run_update_trace:
     status: pass
     full_vs_stepwise_gate: pass
     next_phase: P78 targeted logits/output residual fix
+  p78_logits_output:
+    status: pass
+    logits_output_gate: pass
+    next_phase: P79 broader fixture residual-impact validation
+  p79_broader_fixture_residual_matrix:
+    status: blocked_by_missing_expected_fixture_alias
+    passed_cases:
+      - tiny_no_mask
+      - tiny_attention_mask
+      - tiny_stepwise_state
+      - tiny_prefix_or_left_padding
+      - tiny_all_radlads_math_enabled
+    unavailable_cases:
+      tiny_prefix_padding_or_left_padding: fixture_case_not_found
+    next_phase: P80 targeted fixture lineage/harness repair
   balance_state_lane_map:
     radlads: balance_state_terms
     radlads_terms: balance_state_terms
@@ -367,13 +389,13 @@ radlads_live_same_run_update_trace:
     same_run_valid: true
     unavailable_minimum_stages: 0
     live_rows:
-      radlads: 512
-      radlads_terms: 272
-      radlads_direct: 240
-      qrwkv_off: 272
-      qrwkv_off_terms: 272
-      qrwkv_experimental: 240
-      qrwkv_experimental_direct: 240
+      radlads: 640
+      radlads_terms: 340
+      radlads_direct: 300
+      qrwkv_off: 340
+      qrwkv_off_terms: 340
+      qrwkv_experimental: 300
+      qrwkv_experimental_direct: 300
   p71_stretch_stage_names:
     - v_first
     - mixed_value

@@ -1514,3 +1514,30 @@ teacher export, HF `PreTrainedModel`, `lm_eval`, recurrence math changes,
 balance-state math changes, parameter mapping changes, dtype policy changes,
 tolerance changes, fixture value changes, RADLADS upstream/vendor changes, or
 default promotion of experimental `balance_state`.
+
+## Phase 79 — Broader Fixture Residual-Impact Validation
+
+P79 expands the P78 same-run readiness result across the existing fixture
+family without changing recurrence math. The live same-run runner can now write
+`broader_fixture_residual_matrix.json`,
+`broader_fixture_residual_matrix.md`, and
+`P79_BROADER_FIXTURE_VALIDATION_REPORT.md` under
+`artifacts/p68_live_same_run_trace/`.
+
+The regenerated matrix preserves the fair lane pairs: RADLADS terms vs QRWKV
+off terms, and RADLADS direct vs QRWKV experimental direct. The discovered
+cases `tiny_no_mask`, `tiny_attention_mask`, `tiny_stepwise_state`,
+`tiny_prefix_or_left_padding`, and `tiny_all_radlads_math_enabled` pass
+`state_after`, `exported_state`, `full_vs_stepwise`, and `logits_output` with
+`kernel_ready_for_case=yes`.
+
+The expected alias `tiny_prefix_padding_or_left_padding` is not present in the
+fixture manifest, so P79 reports it as unavailable with
+`fixture_case_not_found` instead of renaming or faking evidence. The overall
+recommendation is `P80 targeted fixture lineage/harness repair`.
+
+P79 does not implement Pallas, TPU optimization, real training, Qwen-scale
+teacher export, HF `PreTrainedModel`, `lm_eval`, recurrence math changes,
+balance-state math changes, parameter mapping changes, dtype policy changes,
+tolerance changes, fixture value changes, RADLADS upstream/vendor changes, or
+default promotion of experimental `balance_state`.

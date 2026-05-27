@@ -1286,8 +1286,8 @@ radlads_same_run_update_ingredients:
     - no_pallas_no_tolerance_loosening_no_recurrence_math_change
 
 radlads_live_same_run_update_trace:
-  phase: P77
-  status: full_vs_stepwise_residual_evidence
+  phase: P79
+  status: broader_fixture_residual_impact_validation
   docs: docs/RADLADS_SAME_RUN_UPDATE_INGREDIENT_TRACE.md
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   trace_script: scripts/run_live_same_run_update_trace.py
@@ -1329,20 +1329,25 @@ radlads_live_same_run_update_trace:
     - full_vs_stepwise_residual.json
     - P78_LOGITS_OUTPUT_REPORT.md
     - logits_output_residual.json
-  recommendation: P79 broader fixture residual-impact validation
+    - P79_BROADER_FIXTURE_VALIDATION_REPORT.md
+    - broader_fixture_residual_matrix.json
+    - broader_fixture_residual_matrix.md
+    - P79_BLOCKER_REPORT.md
+    - P79_FIX_NOTE.md
+  recommendation: P80 targeted fixture lineage/harness repair
   kernel_ready: yes
   kernel_ready_reason: all_required_gates_pass
   same_run_valid: true
   lane_mixed_comparison_valid: false
   unavailable_minimum_stages: 0
   live_rows_captured:
-    radlads: 512
-    radlads_terms: 272
-    radlads_direct: 240
-    qrwkv_off: 272
-    qrwkv_off_terms: 272
-    qrwkv_experimental: 240
-    qrwkv_experimental_direct: 240
+    radlads: 640
+    radlads_terms: 340
+    radlads_direct: 300
+    qrwkv_off: 340
+    qrwkv_off_terms: 340
+    qrwkv_experimental: 300
+    qrwkv_experimental_direct: 300
   first_overall_non_applicable_stage: k_a
   first_comparable_differing_stage: null
   first_divergent_stage: wkv_decay_applied
@@ -1385,6 +1390,24 @@ radlads_live_same_run_update_trace:
       balance_state_terms: pass
       direct_balance_state: pass
     next_phase: P79 broader fixture residual-impact validation
+  p79_broader_fixture_residual_matrix:
+    schema: qrwkv_xla.p79_broader_fixture_residual_matrix.v1
+    all_expected_cases_present: false
+    all_expected_cases_pass: false
+    passed_cases:
+      - tiny_no_mask
+      - tiny_attention_mask
+      - tiny_stepwise_state
+      - tiny_prefix_or_left_padding
+      - tiny_all_radlads_math_enabled
+    unavailable_cases:
+      tiny_prefix_padding_or_left_padding: fixture_case_not_found
+    required_output_gates:
+      state_after: pass_for_found_cases
+      exported_state: pass_for_found_cases
+      full_vs_stepwise: pass_for_found_cases
+      logits_output: pass_for_found_cases
+    next_phase: P80 targeted fixture lineage/harness repair
   first_divergent_capture_kind: unavailable
   balance_state_lane_map:
     radlads: balance_state_terms
