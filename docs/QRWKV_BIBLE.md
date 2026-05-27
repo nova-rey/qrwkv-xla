@@ -1572,3 +1572,29 @@ teacher export, HF `PreTrainedModel`, `lm_eval`, recurrence math changes,
 balance-state math changes, parameter remapping changes, tolerance changes,
 dtype-policy changes, fixture value changes, RADLADS upstream/vendor changes,
 or default promotion of experimental `balance_state`.
+
+## Phase 81 — Opt-In Pallas Runtime Prototype Scaffold
+
+P81 begins Pallas work after P80 resolved the broader fixture alias lineage and
+preserved `kernel_ready=yes` for the covered fixture family. P81 adds a runtime
+selector with `reference` as the default and `pallas` as an explicit opt-in
+path. The selector is exposed through `RWKV7QwenReferenceConfig.wkv_runtime`
+and `scripts/run_live_same_run_update_trace.py --wkv-runtime`.
+
+The reference path remains the source of truth. Default calls and explicit
+`wkv_runtime=reference` calls use the existing slow JAX recurrence. Explicit
+`wkv_runtime=pallas` requests fail closed through an unavailable prototype
+status; they do not silently fall back to reference. The live trace report now
+writes `P81_PALLAS_PROTOTYPE_REPORT.md`, `pallas_runtime_probe.json`,
+`P81_FIX_NOTE.md`, and, while the Pallas runtime is scaffold-only,
+`P81_BLOCKER_REPORT.md`.
+
+P81 does not claim Pallas/reference parity. The probe records
+`kernel_parity_claimed=false`, `prototype_status=unavailable`, and recommends
+`P82 targeted Pallas runtime scaffold completion` until a real Pallas WKV path
+is implemented and compared.
+
+P81 does not promote Pallas as default, prove real training throughput, prove
+model quality, promote experimental `balance_state`, change recurrence math,
+change balance math, loosen tolerances, change dtype policy, edit fixture
+tensors, vendor RADLADS source, or change RADLADS upstream code.

@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 80
-checkpoint: fixture_lineage_harness_repair
+phase: 81
+checkpoint: opt_in_pallas_runtime_scaffold
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,11 +55,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Repair P79 fixture lineage and harness reporting by distinguishing active
-  expected cases, accepted aliases, deprecated cases, optional cases, and
-  remaining missing cases, while avoiding recurrence math, Pallas, training,
-  tolerance, dtype-policy, fixture tensor, RADLADS upstream, or default
-  balance-state behavior changes.
+  Add a Pallas WKV runtime selector and explicit opt-in probe scaffold while
+  preserving the trusted reference path as the default and avoiding recurrence
+  math, balance math, training, tolerance, dtype-policy, fixture tensor,
+  RADLADS upstream, or default balance-state behavior changes.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays

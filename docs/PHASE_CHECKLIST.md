@@ -1176,3 +1176,37 @@
   parameter remapping overhaul, tolerance loosening, dtype-policy change,
   fixture value change, RADLADS upstream/vendor edit, Pallas/kernel work, or
   default experimental `balance_state` promotion.
+
+## P80 — Fixture Lineage / Harness Repair
+
+- [x] Distinguish active expected cases, accepted aliases, deprecated cases,
+  optional cases, and remaining missing cases.
+- [x] Treat `tiny_prefix_padding_or_left_padding` as an accepted alias for
+  canonical `tiny_prefix_or_left_padding`.
+- [x] Preserve canonical fixture evidence without duplicating fixture-run proof.
+- [x] Emit `P80_FIXTURE_LINEAGE_REPAIR_REPORT.md`,
+  `fixture_lineage_resolution.json`, and `P80_FIX_NOTE.md`.
+- [x] Preserve `kernel_ready=yes` for the covered reference fixture family and
+  recommend `P81 Pallas prototype behind known-caveat flag`.
+
+## P81 — Opt-In Pallas Runtime Scaffold
+
+- [x] Add `WKVRuntime` selector with allowed values `reference` and `pallas`.
+- [x] Preserve `reference` as the default runtime.
+- [x] Add `RWKV7QwenReferenceConfig.wkv_runtime` with clear invalid-value
+  errors.
+- [x] Add `--wkv-runtime reference|pallas` to the live same-run trace CLI.
+- [x] Make explicit `pallas` requests fail closed while the prototype runtime
+  is unavailable; do not silently fall back to reference.
+- [x] Emit `P81_PALLAS_PROTOTYPE_REPORT.md`,
+  `pallas_runtime_probe.json`, `P81_FIX_NOTE.md`, and unavailable-path
+  `P81_BLOCKER_REPORT.md`.
+- [x] Keep `kernel_parity_claimed=false`; P81 does not prove Pallas/reference
+  numerical parity.
+- [x] Recommend exactly `P82 targeted Pallas runtime scaffold completion` for
+  the scaffold-only Pallas path.
+- [x] Preserve scope: no recurrence math change, balance-state math change,
+  dtype-policy change, tolerance loosening, fixture value change, RADLADS
+  upstream/vendor edit, Pallas default promotion, real training, throughput
+  claim, model-quality claim, or default experimental `balance_state`
+  promotion.

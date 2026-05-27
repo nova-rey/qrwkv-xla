@@ -27,6 +27,12 @@ from qrwkv_xla.students.rwkv7_reference import (
     rwkv7_reference_layer,
 )
 from qrwkv_xla.students.tiny import TinyStudent, TinyStudentConfig
+from qrwkv_xla.students.wkv_runtime import (
+    PallasRuntimeUnavailableError,
+    WKVRuntime,
+    build_pallas_runtime_probe,
+    normalize_wkv_runtime,
+)
 
 __all__ = [
     "RWKV7ReferenceConfig",
@@ -36,14 +42,18 @@ __all__ = [
     "RWKV7QwenReferenceConfig",
     "RWKV7QwenReferenceState",
     "RWKV7QwenReferenceStudent",
+    "PallasRuntimeUnavailableError",
     "StudentModel",
     "StudentOutput",
     "TinyStudent",
     "TinyStudentConfig",
+    "WKVRuntime",
     "apply_lm_head",
     "apply_tied_lm_head",
+    "build_pallas_runtime_probe",
     "create_student",
     "init_lm_head_params",
+    "normalize_wkv_runtime",
     "rwkv7_radlads_reference_initial_state",
     "rwkv7_radlads_reference_layer",
     "rwkv7_qwen_reference_group_kv",

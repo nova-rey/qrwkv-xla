@@ -36,6 +36,11 @@ from qrwkv_xla.parity.radlads_wkv_state_convention import (
     import_reference_state_object,
 )
 from qrwkv_xla.parity.radlads_wkv_trace import compare_trace_arrays, load_trace_jsonl
+from qrwkv_xla.students.wkv_runtime import (
+    WKVRuntime,
+    build_pallas_runtime_probe,
+    normalize_wkv_runtime,
+)
 
 LIVE_SAME_RUN_TRACE_SCHEMA = "qrwkv_xla.p68_live_same_run_trace.v1"
 LIVE_SAME_RUN_REPORT_SCHEMA = "qrwkv_xla.p68_live_same_run_trace_report.v1"
@@ -274,6 +279,13 @@ P80_FULL_VS_STEPWISE_FIX = "P80 targeted broader-fixture full-vs-stepwise residu
 P80_LOGITS_OUTPUT_FIX = "P80 targeted broader-fixture logits/output residual fix"
 P80_LINEAGE_REPAIR = "P80 targeted fixture lineage/harness repair"
 P80_KERNEL_GATE_HARDENING = "P80 kernel-readiness hardening gate"
+P82_REFERENCE_VS_PALLAS_PARITY_GATE = "P82 reference-vs-Pallas parity gate"
+P82_PALLAS_RUNTIME_SCAFFOLD_COMPLETION = (
+    "P82 targeted Pallas runtime scaffold completion"
+)
+P82_PALLAS_DEPENDENCY_BACKEND_FIX = (
+    "P82 targeted Pallas dependency/backend availability fix"
+)
 P77_STATE_EXPORT_FIX = "P77 targeted state export/import convention fix"
 P77_FULL_VS_STEPWISE_FIX = "P77 targeted full-vs-stepwise residual fix"
 P77_LANE_LAYOUT_FIX = "P77 targeted lane-aware state layout fix"
@@ -1759,8 +1771,10 @@ def run_live_same_run_trace(
     atol: float = 1e-5,
     rtol: float = 1e-5,
     broader_fixture_report: bool = False,
+    wkv_runtime: str | WKVRuntime = WKVRuntime.REFERENCE,
 ) -> dict[str, Any]:
     del radlads_repo
+    selected_wkv_runtime = normalize_wkv_runtime(wkv_runtime)
     if cases == ["all"]:
         cases = None
     _prepare_out_dir(out_dir, overwrite=overwrite)
@@ -1874,6 +1888,9 @@ def run_live_same_run_trace(
             for row in full_vs_stepwise_evidence
             if row.get("comparison") == "full_vs_stepwise_output"
         ],
+        "default_wkv_runtime": WKVRuntime.REFERENCE.value,
+        "allowed_wkv_runtimes": [runtime.value for runtime in WKVRuntime],
+        "wkv_runtime_requested": selected_wkv_runtime.value,
     }
     trace_metadata["balance_state_lane_map"] = _balance_state_lane_map(
         traces=traces,
@@ -1906,6 +1923,14 @@ def run_live_same_run_trace(
         report["recommended_next_phase"] = report[
             "p79_broader_fixture_residual_matrix"
         ]["recommended_action"]
+    report["p81_pallas_runtime_probe"] = build_pallas_runtime_probe(
+        requested=selected_wkv_runtime,
+        reference_default_preserved=True,
+    )
+    if selected_wkv_runtime is WKVRuntime.PALLAS:
+        report["recommended_next_phase"] = report["p81_pallas_runtime_probe"][
+            "recommended_next_phase"
+        ]
     write_live_same_run_reports(report, out_dir)
     return report
 
@@ -2829,6 +2854,12 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
             json.dumps(_jsonable(p79_report), indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+    p81_probe = report.get("p81_pallas_runtime_probe")
+    if isinstance(p81_probe, Mapping):
+        (out_dir / "pallas_runtime_probe.json").write_text(
+            json.dumps(_jsonable(p81_probe), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     (out_dir / "P68_RESULTS.md").write_text(_results_markdown(report), encoding="utf-8")
     (out_dir / "LIVE_SAME_RUN_VALIDITY.md").write_text(
         _validity_markdown(report), encoding="utf-8"
@@ -2972,6 +3003,23 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
             )
         elif blocker_path.exists():
             blocker_path.unlink()
+    if isinstance(p81_probe, Mapping):
+        (out_dir / "P81_PALLAS_PROTOTYPE_REPORT.md").write_text(
+            _p81_pallas_prototype_report_markdown(report, p81_probe),
+            encoding="utf-8",
+        )
+        (out_dir / "P81_FIX_NOTE.md").write_text(
+            _p81_fix_note_markdown(p81_probe),
+            encoding="utf-8",
+        )
+        blocker_path = out_dir / "P81_BLOCKER_REPORT.md"
+        if p81_probe.get("prototype_status") == "unavailable":
+            blocker_path.write_text(
+                _p81_blocker_report_markdown(p81_probe),
+                encoding="utf-8",
+            )
+        elif blocker_path.exists():
+            blocker_path.unlink()
     if not report.get("same_run_valid"):
         (out_dir / "P68_FIX_NOTE.md").write_text(
             "# P68 Fix Note\n\n"
@@ -2983,6 +3031,99 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
         stale_fix_note = out_dir / "P68_FIX_NOTE.md"
         if stale_fix_note.exists():
             stale_fix_note.unlink()
+
+
+def _p81_pallas_prototype_report_markdown(
+    report: Mapping[str, Any],
+    probe: Mapping[str, Any],
+) -> str:
+    requested = probe.get("wkv_runtime_requested")
+    p79 = report.get("p79_broader_fixture_residual_matrix")
+    p80_resolution = (
+        _p80_fixture_lineage_resolution(p79) if isinstance(p79, Mapping) else {}
+    )
+    if isinstance(p79, Mapping) and p79.get("all_expected_cases_pass") is True:
+        p80_status = "pass"
+        alias_lineage = "pass"
+    elif isinstance(p79, Mapping) and p79.get("same_run_valid") is True:
+        p80_missing = p80_resolution.get("remaining_missing_cases", [])
+        p80_status = "blocked"
+        alias_lineage = f"remaining_missing_cases={p80_missing}"
+    else:
+        p80_status = "not_rerun_by_p81_probe"
+        alias_lineage = "preserved_from_p80_reference_path"
+    return "\n".join(
+        [
+            "# P81 Pallas Prototype Report",
+            "",
+            "## Runtime Selector",
+            f"- default runtime: `{probe.get('default_runtime')}`",
+            f"- allowed runtimes: `{probe.get('allowed_runtimes')}`",
+            "- reference default preserved: "
+            f"`{probe.get('reference_default_preserved')}`",
+            "- CLI/config path: `--wkv-runtime reference|pallas`, `wkv_runtime`",
+            "",
+            "## Pallas Path",
+            f"- pallas requested: `{requested == WKVRuntime.PALLAS.value}`",
+            f"- pallas available: `{probe.get('pallas_available')}`",
+            f"- pallas effective runtime: `{probe.get('wkv_runtime_effective')}`",
+            f"- fallback used: `{probe.get('fallback_used')}`",
+            f"- fallback reason: `{probe.get('fallback_reason')}`",
+            "",
+            "## Prototype Probe",
+            f"- prototype_status: `{probe.get('prototype_status')}`",
+            f"- prototype_scope: `{probe.get('prototype_scope')}`",
+            f"- kernel_parity_claimed: `{probe.get('kernel_parity_claimed')}`",
+            "- reason parity not claimed: `P81 only establishes the opt-in "
+            "runtime/probe path; no reference-vs-Pallas numerical comparison ran.`",
+            "",
+            "## Previous Gate Preservation",
+            f"- P78/P79/P80 readiness: `{p80_status}`",
+            f"- fixture alias lineage: `{alias_lineage}`",
+            "- covered fixture family: `preserved for reference path`",
+            "",
+            "## Decision",
+            f"- recommended_next_phase: `{probe.get('recommended_next_phase')}`",
+            "",
+        ]
+    )
+
+
+def _p81_blocker_report_markdown(probe: Mapping[str, Any]) -> str:
+    return "\n".join(
+        [
+            "# P81 Blocker Report",
+            "",
+            f"- pallas_requested: `{probe.get('wkv_runtime_requested') == 'pallas'}`",
+            f"- pallas_available: `{probe.get('pallas_available')}`",
+            f"- status: `{probe.get('prototype_status')}`",
+            f"- reason: `{probe.get('reason')}`",
+            f"- recommended_next_phase: `{probe.get('recommended_next_phase')}`",
+            "",
+        ]
+    )
+
+
+def _p81_fix_note_markdown(probe: Mapping[str, Any]) -> str:
+    return "\n".join(
+        [
+            "# P81 Fix Note",
+            "",
+            "- problem: Pallas work needed an explicit opt-in runtime selector "
+            "without changing the trusted reference path.",
+            "- exact file/function changed: "
+            "`qrwkv_xla.students.wkv_runtime`, "
+            "`RWKV7QwenReferenceConfig.__post_init__`, "
+            "`RWKV7QwenReferenceStudent._attention`, "
+            "`run_live_same_run_trace`, `write_live_same_run_reports`.",
+            "- why this is runtime scaffold only: P81 validates the selector and "
+            "writes an explicit Pallas probe report; recurrence math is unchanged.",
+            "- before/after behavior: default calls use `reference`; explicit "
+            "`pallas` requests report unavailable instead of silently falling back.",
+            f"- prototype_status: `{probe.get('prototype_status')}`",
+            "",
+        ]
+    )
 
 
 def _capture_live_sources(

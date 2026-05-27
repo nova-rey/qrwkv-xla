@@ -826,3 +826,25 @@ P78 is evidence and gating only. It does not change recurrence math,
 balance-state math, dtype policy, tolerances, fixture values, RADLADS
 upstream/vendor code, Pallas/kernel code, training paths, or default
 experimental `balance_state` behavior.
+
+## Phase 81 — Opt-In Pallas Runtime Scaffold
+
+Current checkpoint: `opt_in_pallas_runtime_scaffold`.
+
+P81 starts Pallas runtime work behind an explicit selector. The default WKV
+runtime remains `reference`; `pallas` is accepted only through
+`wkv_runtime`/`--wkv-runtime pallas`. While the prototype Pallas WKV path is not
+implemented, explicit Pallas requests report `prototype_status=unavailable`,
+`fallback_used=false`, and `kernel_parity_claimed=false`.
+
+The regenerated P68 trace-report path now emits P81 probe/report artifacts:
+`P81_PALLAS_PROTOTYPE_REPORT.md`, `pallas_runtime_probe.json`,
+`P81_FIX_NOTE.md`, and `P81_BLOCKER_REPORT.md` for the unavailable scaffold.
+The recommended next phase is
+`P82 targeted Pallas runtime scaffold completion`.
+
+P81 is runtime scaffolding only. It does not promote Pallas as default, prove
+Pallas/reference parity, prove training throughput, prove model quality, change
+recurrence math, change balance-state math, loosen tolerances, change dtype
+policy, edit fixture tensors, vendor RADLADS source, or promote experimental
+`balance_state` behavior by default.

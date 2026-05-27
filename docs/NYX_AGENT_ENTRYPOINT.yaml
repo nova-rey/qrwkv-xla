@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 80
-  checkpoint: fixture_lineage_harness_repair
-  title: Fixture lineage / harness repair
+  phase: 81
+  checkpoint: opt_in_pallas_runtime_scaffold
+  title: Opt-in Pallas runtime scaffold
 
 workflow:
   primary_agent: Nyx
@@ -50,6 +50,7 @@ instructions:
   - Keep P76 scoped to source-backed state export/import evidence; preserve P74/P75 fair lane comparisons, report remaining full-vs-stepwise and logits/output evidence gaps explicitly, and do not implement Pallas, real training, recurrence rewrites, tolerance changes, or default experimental balance_state promotion.
   - Keep P78 scoped to same-run output/logits evidence; do not label hidden states as logits, do not copy QRWKV logits into RADLADS, do not compare historical artifacts across runs, and preserve P74/P75/P76/P77 lane integrity.
   - Keep P80 scoped to fixture lineage and report aggregation; accepted aliases must point to canonical evidence and must not duplicate fixture-run proof.
+  - Keep P81 scoped to runtime selection and explicit Pallas unavailable/probe reporting; reference remains default and Pallas must not be promoted or claimed parity-ready.
 
 radlads_qrwkv_head_to_head_parity:
   phase: P53

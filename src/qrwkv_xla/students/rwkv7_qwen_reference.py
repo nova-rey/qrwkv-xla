@@ -12,6 +12,12 @@ from qrwkv_xla.students.lm_head import (
     apply_tied_lm_head,
     init_lm_head_params,
 )
+from qrwkv_xla.students.wkv_runtime import (
+    PallasRuntimeUnavailableError,
+    WKVRuntime,
+    normalize_wkv_runtime,
+    pallas_unavailable_reason,
+)
 
 
 @jax.tree_util.register_pytree_node_class
@@ -78,8 +84,14 @@ class RWKV7QwenReferenceConfig:
     lora_rank_iclr: int | None = None
     lora_rank_value_residual_mix: int | None = None
     lora_rank_gate: int | None = None
+    wkv_runtime: str | WKVRuntime = WKVRuntime.REFERENCE
 
     def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "wkv_runtime",
+            normalize_wkv_runtime(self.wkv_runtime),
+        )
         for name in ("vocab_size", "hidden_size", "num_layers", "num_heads"):
             value = getattr(self, name)
             if value <= 0:
@@ -178,6 +190,10 @@ class RWKV7QwenReferenceConfig:
     @property
     def use_radlads_attention_output_scale(self) -> bool:
         return self.radlads_compatible_math or self.radlads_attention_group_norm
+
+    @property
+    def effective_wkv_runtime(self) -> WKVRuntime:
+        return normalize_wkv_runtime(self.wkv_runtime)
 
     @property
     def effective_lora_rank_decay(self) -> int:
@@ -797,6 +813,12 @@ class RWKV7QwenReferenceStudent:
         v_first: jax.Array | None,
         diagnostics: Any | None,
     ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array | None]:
+        if self.config.effective_wkv_runtime is WKVRuntime.PALLAS:
+            reason = pallas_unavailable_reason()
+            raise PallasRuntimeUnavailableError(
+                "wkv_runtime='pallas' was requested, but the P81 Pallas WKV "
+                f"runtime is unavailable: {reason}"
+            )
         batch_size, _sequence_length, hidden = x.shape
         head_size = self.config.head_size
         num_heads = self.config.num_heads

@@ -29,7 +29,12 @@ from qrwkv_xla.parity.radlads_live_same_run_trace import (
     new_same_run_group_id,
     run_live_same_run_trace,
 )
-from qrwkv_xla.students import RWKV7QwenReferenceConfig, RWKV7QwenReferenceStudent
+from qrwkv_xla.students import (
+    PallasRuntimeUnavailableError,
+    RWKV7QwenReferenceConfig,
+    RWKV7QwenReferenceStudent,
+    WKVRuntime,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 RUN_SCRIPT = ROOT / "scripts" / "run_live_same_run_update_trace.py"
@@ -1807,6 +1812,76 @@ def test_all_active_expected_cases_passing_recommends_p81_pallas() -> None:
     )
 
 
+def test_wkv_runtime_reference_is_default_and_preserves_outputs() -> None:
+    default_config = RWKV7QwenReferenceConfig(
+        vocab_size=16,
+        hidden_size=4,
+        num_layers=1,
+        num_heads=1,
+        num_kv_heads=1,
+        emit_logits=True,
+    )
+    explicit_config = RWKV7QwenReferenceConfig(
+        vocab_size=16,
+        hidden_size=4,
+        num_layers=1,
+        num_heads=1,
+        num_kv_heads=1,
+        emit_logits=True,
+        wkv_runtime="reference",
+    )
+    assert default_config.wkv_runtime is WKVRuntime.REFERENCE
+    assert explicit_config.wkv_runtime is WKVRuntime.REFERENCE
+
+    params = RWKV7QwenReferenceStudent(default_config).init_params(
+        jax.random.PRNGKey(0)
+    )
+    tokens = np.array([[1, 2]], dtype=np.int32)
+    default_output, default_state = RWKV7QwenReferenceStudent(
+        default_config
+    ).apply_with_state(params, tokens)
+    explicit_output, explicit_state = RWKV7QwenReferenceStudent(
+        explicit_config
+    ).apply_with_state(params, tokens)
+
+    np.testing.assert_allclose(
+        default_output.hidden_states, explicit_output.hidden_states
+    )
+    np.testing.assert_allclose(default_output.logits, explicit_output.logits)
+    np.testing.assert_allclose(
+        default_state.wkv_matrix_state, explicit_state.wkv_matrix_state
+    )
+
+
+def test_wkv_runtime_invalid_value_fails_clearly() -> None:
+    try:
+        RWKV7QwenReferenceConfig(wkv_runtime="bogus")
+    except ValueError as exc:
+        assert "wkv_runtime must be one of reference, pallas" in str(exc)
+    else:  # pragma: no cover - defensive
+        raise AssertionError("invalid wkv_runtime should fail")
+
+
+def test_wkv_runtime_pallas_is_explicit_unavailable_opt_in() -> None:
+    config = RWKV7QwenReferenceConfig(
+        vocab_size=16,
+        hidden_size=4,
+        num_layers=1,
+        num_heads=1,
+        num_kv_heads=1,
+        wkv_runtime="pallas",
+    )
+    student = RWKV7QwenReferenceStudent(config)
+    params = student.init_params(jax.random.PRNGKey(0))
+
+    try:
+        student.apply_with_state(params, np.array([[1]], dtype=np.int32))
+    except PallasRuntimeUnavailableError as exc:
+        assert "wkv_runtime='pallas' was requested" in str(exc)
+    else:  # pragma: no cover - defensive
+        raise AssertionError("Pallas runtime should fail closed while unavailable")
+
+
 def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
     fixture = tmp_path / "manifest.json"
     params = tmp_path / "params.json"
@@ -1852,6 +1927,9 @@ def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
     assert (out / "P80_FIXTURE_LINEAGE_REPAIR_REPORT.md").is_file()
     assert (out / "fixture_lineage_resolution.json").is_file()
     assert (out / "P80_FIX_NOTE.md").is_file()
+    assert (out / "P81_PALLAS_PROTOTYPE_REPORT.md").is_file()
+    assert (out / "pallas_runtime_probe.json").is_file()
+    assert (out / "P81_FIX_NOTE.md").is_file()
     assert "| requested_case | canonical_case | resolved_case | resolution |" in (
         out / "broader_fixture_residual_matrix.md"
     ).read_text(encoding="utf-8")
@@ -1859,6 +1937,13 @@ def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
         (out / "fixture_lineage_resolution.json").read_text(encoding="utf-8")
     )
     assert resolution["schema"] == "qrwkv_xla.p80_fixture_lineage_resolution.v1"
+    probe = json.loads((out / "pallas_runtime_probe.json").read_text(encoding="utf-8"))
+    assert probe["schema"] == "qrwkv_xla.p81_pallas_runtime_probe.v1"
+    assert probe["default_runtime"] == "reference"
+    assert probe["allowed_runtimes"] == ["reference", "pallas"]
+    assert probe["wkv_runtime_requested"] == "reference"
+    assert probe["fallback_used"] is False
+    assert probe["kernel_parity_claimed"] is False
     rows = load_live_same_run_trace_jsonl(out / "live_trace_radlads.jsonl")
     assert rows
     assert all(row["capture_kind"] == "unavailable" for row in rows)
@@ -1900,6 +1985,31 @@ def test_runner_reuses_same_run_group_id_for_same_inputs(tmp_path: Path) -> None
     assert first["same_run_group_id"] == second["same_run_group_id"]
 
 
+def test_runner_accepts_pallas_opt_in_and_reports_unavailable(tmp_path: Path) -> None:
+    fixture = tmp_path / "manifest.json"
+    params = tmp_path / "params.json"
+    fixture.write_text(json.dumps({"cases": ["tiny_no_mask"]}), encoding="utf-8")
+    params.write_text(json.dumps({"a": 1}), encoding="utf-8")
+
+    report = run_live_same_run_trace(
+        fixture_manifest=fixture,
+        parameters=params,
+        out_dir=tmp_path / "out",
+        strict_live=True,
+        overwrite=True,
+        wkv_runtime="pallas",
+    )
+
+    probe = report["p81_pallas_runtime_probe"]
+    assert probe["wkv_runtime_requested"] == "pallas"
+    assert probe["wkv_runtime_effective"] == "unavailable"
+    assert probe["pallas_available"] is False
+    assert probe["fallback_used"] is False
+    assert probe["prototype_status"] == "unavailable"
+    assert probe["kernel_parity_claimed"] is False
+    assert (tmp_path / "out" / "P81_BLOCKER_REPORT.md").is_file()
+
+
 def test_script_help_works() -> None:
     result = subprocess.run(
         [sys.executable, str(RUN_SCRIPT), "--help"],
@@ -1910,3 +2020,29 @@ def test_script_help_works() -> None:
     assert "P68" in result.stdout
     assert "--strict-live" in result.stdout
     assert "--broader-fixture-report" in result.stdout
+    assert "--wkv-runtime" in result.stdout
+
+
+def test_script_invalid_wkv_runtime_fails_clearly(tmp_path: Path) -> None:
+    fixture = tmp_path / "manifest.json"
+    params = tmp_path / "params.json"
+    fixture.write_text(json.dumps({"cases": ["tiny_no_mask"]}), encoding="utf-8")
+    params.write_text(json.dumps({"a": 1}), encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(RUN_SCRIPT),
+            "--fixture-manifest",
+            str(fixture),
+            "--parameters",
+            str(params),
+            "--strict-live",
+            "--wkv-runtime",
+            "bogus",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "invalid choice: 'bogus'" in result.stderr

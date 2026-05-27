@@ -16,6 +16,7 @@ from qrwkv_xla.parity.radlads_wkv_update_residual import (
     write_update_residual_reports,
     write_update_residual_trace,
 )
+from qrwkv_xla.students import RWKV7QwenReferenceConfig, WKVRuntime
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -87,6 +88,14 @@ def test_build_update_residual_trace_marks_required_stages_and_unavailable() -> 
     update_term = next(row for row in rows if row["stage"] == "update_term")
     assert update_term["available"] is False
     assert "Composite update_term" in update_term["unavailable_reason"]
+
+
+def test_p81_runtime_selector_default_does_not_change_update_residual_surface() -> None:
+    default_config = RWKV7QwenReferenceConfig()
+    explicit_config = RWKV7QwenReferenceConfig(wkv_runtime="reference")
+
+    assert default_config.wkv_runtime is WKVRuntime.REFERENCE
+    assert explicit_config.wkv_runtime is WKVRuntime.REFERENCE
 
 
 def test_compare_update_residual_traces_reports_first_residual() -> None:

@@ -16,6 +16,7 @@ from qrwkv_xla.parity.radlads_live_same_run_trace import (
     DEFAULT_OUT,
     run_live_same_run_trace,
 )
+from qrwkv_xla.students import WKVRuntime
 
 
 def _optional_int(value: str) -> int | None:
@@ -50,6 +51,12 @@ def main() -> int:
     parser.add_argument("--atol", type=float, default=1e-5)
     parser.add_argument("--rtol", type=float, default=1e-5)
     parser.add_argument("--fail-on-missing-critical-stage", action="store_true")
+    parser.add_argument(
+        "--wkv-runtime",
+        choices=[runtime.value for runtime in WKVRuntime],
+        default=WKVRuntime.REFERENCE.value,
+        help="WKV runtime selector. Defaults to the trusted reference path.",
+    )
     args = parser.parse_args()
 
     if not (args.parameters or args.parameter_manifest or args.fixture_parameter_key):
@@ -78,6 +85,7 @@ def main() -> int:
         atol=args.atol,
         rtol=args.rtol,
         broader_fixture_report=args.broader_fixture_report,
+        wkv_runtime=args.wkv_runtime,
     )
     print(f"wrote P68 live same-run trace to {args.out}")
     print(f"same_run_valid={report['same_run_valid']}")
