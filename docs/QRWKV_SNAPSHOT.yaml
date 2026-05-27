@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 78
-checkpoint: targeted_logits_output_residual_evidence
+phase: 80
+checkpoint: fixture_lineage_harness_repair
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,11 +55,11 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Close the P75 logits/output blocker by adding same-run, lane-aware
-  hidden/output/logits residual evidence to the live same-run trace, while
-  preserving terms/direct fair lane comparisons and avoiding recurrence math,
-  Pallas, training, tolerance, dtype-policy, fixture, or default balance-state
-  behavior changes.
+  Repair P79 fixture lineage and harness reporting by distinguishing active
+  expected cases, accepted aliases, deprecated cases, optional cases, and
+  remaining missing cases, while avoiding recurrence math, Pallas, training,
+  tolerance, dtype-policy, fixture tensor, RADLADS upstream, or default
+  balance-state behavior changes.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -1286,8 +1286,8 @@ radlads_same_run_update_ingredients:
     - no_pallas_no_tolerance_loosening_no_recurrence_math_change
 
 radlads_live_same_run_update_trace:
-  phase: P79
-  status: broader_fixture_residual_impact_validation
+  phase: P80
+  status: fixture_lineage_harness_repair
   docs: docs/RADLADS_SAME_RUN_UPDATE_INGREDIENT_TRACE.md
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   trace_script: scripts/run_live_same_run_update_trace.py
@@ -1332,9 +1332,11 @@ radlads_live_same_run_update_trace:
     - P79_BROADER_FIXTURE_VALIDATION_REPORT.md
     - broader_fixture_residual_matrix.json
     - broader_fixture_residual_matrix.md
-    - P79_BLOCKER_REPORT.md
     - P79_FIX_NOTE.md
-  recommendation: P80 targeted fixture lineage/harness repair
+    - P80_FIXTURE_LINEAGE_REPAIR_REPORT.md
+    - fixture_lineage_resolution.json
+    - P80_FIX_NOTE.md
+  recommendation: P81 Pallas prototype behind known-caveat flag
   kernel_ready: yes
   kernel_ready_reason: all_required_gates_pass
   same_run_valid: true
@@ -1392,22 +1394,42 @@ radlads_live_same_run_update_trace:
     next_phase: P79 broader fixture residual-impact validation
   p79_broader_fixture_residual_matrix:
     schema: qrwkv_xla.p79_broader_fixture_residual_matrix.v1
-    all_expected_cases_present: false
-    all_expected_cases_pass: false
+    all_expected_cases_present: true
+    all_expected_cases_pass: true
+    active_expected_cases:
+      - tiny_no_mask
+      - tiny_attention_mask
+      - tiny_stepwise_state
+      - tiny_prefix_or_left_padding
+      - tiny_all_radlads_math_enabled
+    accepted_aliases:
+      tiny_prefix_padding_or_left_padding: tiny_prefix_or_left_padding
     passed_cases:
       - tiny_no_mask
       - tiny_attention_mask
       - tiny_stepwise_state
       - tiny_prefix_or_left_padding
       - tiny_all_radlads_math_enabled
-    unavailable_cases:
-      tiny_prefix_padding_or_left_padding: fixture_case_not_found
+    alias_cases:
+      tiny_prefix_padding_or_left_padding:
+        canonical_case: tiny_prefix_or_left_padding
+        resolved_case: tiny_prefix_or_left_padding
+        resolution: alias
+    remaining_missing_cases: []
     required_output_gates:
-      state_after: pass_for_found_cases
-      exported_state: pass_for_found_cases
-      full_vs_stepwise: pass_for_found_cases
-      logits_output: pass_for_found_cases
-    next_phase: P80 targeted fixture lineage/harness repair
+      state_after: pass_for_active_and_alias_cases
+      exported_state: pass_for_active_and_alias_cases
+      full_vs_stepwise: pass_for_active_and_alias_cases
+      logits_output: pass_for_active_and_alias_cases
+    next_phase: P81 Pallas prototype behind known-caveat flag
+  p80_fixture_lineage_resolution:
+    schema: qrwkv_xla.p80_fixture_lineage_resolution.v1
+    missing_expected_case: tiny_prefix_padding_or_left_padding
+    resolution: alias
+    canonical_case: tiny_prefix_or_left_padding
+    remaining_missing_cases: []
+    kernel_ready: yes
+    kernel_ready_scope: covered_fixture_family
   first_divergent_capture_kind: unavailable
   balance_state_lane_map:
     radlads: balance_state_terms

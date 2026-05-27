@@ -1,5 +1,17 @@
 # Phase Checklist
 
+## P80 — Fixture Lineage / Harness Repair
+
+- [x] Replace flat P79 expected-case handling with structured active, alias, deprecated, optional, and missing fixture metadata
+- [x] Resolve `tiny_prefix_padding_or_left_padding` to canonical `tiny_prefix_or_left_padding` only as a documented alias
+- [x] Preserve canonical case pass gates for the alias row without duplicating or fabricating fixture evidence
+- [x] Report `requested_case`, `canonical_case`, `resolved_case`, and `resolution` in the broader fixture matrix
+- [x] Regenerate `P79_BROADER_FIXTURE_VALIDATION_REPORT.md`, `broader_fixture_residual_matrix.json`, and `broader_fixture_residual_matrix.md`
+- [x] Emit `P80_FIXTURE_LINEAGE_REPAIR_REPORT.md`, `fixture_lineage_resolution.json`, and `P80_FIX_NOTE.md`
+- [x] Remove stale P79/P80 blocker reports when no missing cases remain
+- [x] Recommend `P81 Pallas prototype behind known-caveat flag` after all active expected cases pass
+- [x] Preserve scope: no recurrence math, balance-state math, parameter remapping, tolerance, dtype-policy, fixture tensor, Pallas/kernel, training, or RADLADS upstream/vendor changes
+
 ## P76 — State Export / Import Residual Evidence
 
 - [x] Identify current export/import path as local reference state slot export

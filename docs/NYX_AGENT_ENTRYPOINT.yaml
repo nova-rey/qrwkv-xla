@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 78
-  checkpoint: targeted_logits_output_residual_evidence
-  title: Targeted logits / output residual evidence
+  phase: 80
+  checkpoint: fixture_lineage_harness_repair
+  title: Fixture lineage / harness repair
 
 workflow:
   primary_agent: Nyx
@@ -49,6 +49,7 @@ instructions:
   - Keep P70 scoped to observe-only RADLADS live trace hook wiring; do not change recurrence math, loosen tolerances, implement Pallas, or promote experimental balance_state mode.
   - Keep P76 scoped to source-backed state export/import evidence; preserve P74/P75 fair lane comparisons, report remaining full-vs-stepwise and logits/output evidence gaps explicitly, and do not implement Pallas, real training, recurrence rewrites, tolerance changes, or default experimental balance_state promotion.
   - Keep P78 scoped to same-run output/logits evidence; do not label hidden states as logits, do not copy QRWKV logits into RADLADS, do not compare historical artifacts across runs, and preserve P74/P75/P76/P77 lane integrity.
+  - Keep P80 scoped to fixture lineage and report aggregation; accepted aliases must point to canonical evidence and must not duplicate fixture-run proof.
 
 radlads_qrwkv_head_to_head_parity:
   phase: P53
@@ -296,8 +297,8 @@ radlads_balance_state_three_way_parity:
     - no_pallas_no_tolerance_loosening_no_default_promotion
 
 radlads_live_same_run_update_trace:
-  phase: P79
-  status: broader_fixture_residual_impact_validation
+  phase: P80
+  status: fixture_lineage_harness_repair
   helper_module: src/qrwkv_xla/parity/radlads_live_same_run_trace.py
   script: scripts/run_live_same_run_update_trace.py
   artifact_dir: artifacts/p68_live_same_run_trace
@@ -347,9 +348,11 @@ radlads_live_same_run_update_trace:
     - P79_BROADER_FIXTURE_VALIDATION_REPORT.md
     - broader_fixture_residual_matrix.json
     - broader_fixture_residual_matrix.md
-    - P79_BLOCKER_REPORT.md
     - P79_FIX_NOTE.md
-  recommendation: P80 targeted fixture lineage/harness repair
+    - P80_FIXTURE_LINEAGE_REPAIR_REPORT.md
+    - fixture_lineage_resolution.json
+    - P80_FIX_NOTE.md
+  recommendation: P81 Pallas prototype behind known-caveat flag
   kernel_ready: yes
   p76_state_export_import:
     status: pass
@@ -364,16 +367,23 @@ radlads_live_same_run_update_trace:
     logits_output_gate: pass
     next_phase: P79 broader fixture residual-impact validation
   p79_broader_fixture_residual_matrix:
-    status: blocked_by_missing_expected_fixture_alias
+    status: pass_with_documented_alias
     passed_cases:
       - tiny_no_mask
       - tiny_attention_mask
       - tiny_stepwise_state
       - tiny_prefix_or_left_padding
       - tiny_all_radlads_math_enabled
-    unavailable_cases:
-      tiny_prefix_padding_or_left_padding: fixture_case_not_found
-    next_phase: P80 targeted fixture lineage/harness repair
+    accepted_aliases:
+      tiny_prefix_padding_or_left_padding: tiny_prefix_or_left_padding
+    remaining_missing_cases: []
+    next_phase: P81 Pallas prototype behind known-caveat flag
+  p80_fixture_lineage_resolution:
+    schema: qrwkv_xla.p80_fixture_lineage_resolution.v1
+    missing_expected_case: tiny_prefix_padding_or_left_padding
+    resolution: alias
+    canonical_case: tiny_prefix_or_left_padding
+    remaining_missing_cases: []
   balance_state_lane_map:
     radlads: balance_state_terms
     radlads_terms: balance_state_terms

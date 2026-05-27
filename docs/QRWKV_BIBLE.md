@@ -1541,3 +1541,34 @@ teacher export, HF `PreTrainedModel`, `lm_eval`, recurrence math changes,
 balance-state math changes, parameter mapping changes, dtype policy changes,
 tolerance changes, fixture value changes, RADLADS upstream/vendor changes, or
 default promotion of experimental `balance_state`.
+
+## Phase 80 — Fixture Lineage / Harness Repair
+
+P80 repairs the P79 fixture expectation model without changing fixture tensors
+or recurrence math. The broader fixture report now distinguishes active
+expected cases, accepted aliases, deprecated cases, optional cases, and
+remaining missing cases. Matrix rows include `requested_case`,
+`canonical_case`, `resolved_case`, and `resolution` so alias lineage is visible
+instead of hidden in a flat case list.
+
+Repository evidence supports treating historical
+`tiny_prefix_padding_or_left_padding` as an accepted alias for canonical
+`tiny_prefix_or_left_padding`: the historical P40/P65 artifacts use the longer
+name with `attention_mask.kind=prefix_or_left_padding`, while the current P54
+QRWKV/RADLADS manifests and live fixture manifest use the shorter name for the
+same mask family. The alias row is marked `resolution=alias` and
+`resolved_by_alias=True`; it points to the canonical case evidence and does not
+create duplicate fixture-run evidence.
+
+The regenerated `artifacts/p68_live_same_run_trace/` now includes
+`P80_FIXTURE_LINEAGE_REPAIR_REPORT.md`,
+`fixture_lineage_resolution.json`, and `P80_FIX_NOTE.md`. The P79 broader
+matrix reports all active expected cases passing, the alias resolved, no
+remaining missing cases, `kernel_ready=yes`, and
+`recommended_next_phase=P81 Pallas prototype behind known-caveat flag`.
+
+P80 does not implement Pallas, TPU optimization, real training, Qwen-scale
+teacher export, HF `PreTrainedModel`, `lm_eval`, recurrence math changes,
+balance-state math changes, parameter remapping changes, tolerance changes,
+dtype-policy changes, fixture value changes, RADLADS upstream/vendor changes,
+or default promotion of experimental `balance_state`.

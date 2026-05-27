@@ -13,6 +13,7 @@ from qrwkv_xla.parity.radlads_live_same_run_trace import (
     LIVE_SAME_RUN_TRACE_SCHEMA,
     MINIMUM_STAGES,
     P71_STRETCH_STAGES,
+    FixtureExpectationMetadata,
     LiveTraceCollector,
     _capture_radlads_case,
     _p79_matrix_markdown,
@@ -219,6 +220,23 @@ def _traces(
     }
 
 
+def _traces_for_case(case: str) -> dict[str, list[dict[str, object]]]:
+    traces = _traces()
+    for rows in traces.values():
+        for row in rows:
+            row["case"] = case
+    return traces
+
+
+def _evidence_rows_for_case(
+    rows: list[dict[str, object]], case: str
+) -> list[dict[str, object]]:
+    copied = [dict(row) for row in rows]
+    for row in copied:
+        row["case"] = case
+    return copied
+
+
 def _metadata(
     *,
     group: str = "group-a",
@@ -412,7 +430,7 @@ def _p79_matrix(
     *,
     traces: dict[str, list[dict[str, object]]] | None = None,
     manifest_cases: list[str] | None = None,
-    expected_cases: tuple[str, ...] = ("tiny_no_mask",),
+    expected_cases: tuple[str, ...] | None = ("tiny_no_mask",),
     p77_rows: list[dict[str, object]] | None = None,
     p78_rows: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
@@ -1539,6 +1557,168 @@ def test_p79_matrix_includes_requested_found_and_missing_cases() -> None:
     )
 
 
+def test_structured_expected_fixture_cases_support_aliases() -> None:
+    matrix = _p79_matrix(
+        manifest_cases=["tiny_no_mask", "tiny_prefix_or_left_padding"],
+        expected_cases=None,
+    )
+
+    assert matrix["active_expected_cases"] == [
+        "tiny_no_mask",
+        "tiny_attention_mask",
+        "tiny_stepwise_state",
+        "tiny_prefix_or_left_padding",
+        "tiny_all_radlads_math_enabled",
+    ]
+    assert matrix["accepted_aliases"] == {
+        "tiny_prefix_padding_or_left_padding": "tiny_prefix_or_left_padding"
+    }
+    assert matrix["deprecated_cases"] == []
+    assert matrix["optional_cases"] == []
+    assert matrix["cases"]["tiny_prefix_padding_or_left_padding"]["resolution"] in {
+        "alias",
+        "missing",
+    }
+
+
+def test_tiny_prefix_padding_alias_resolves_to_current_case() -> None:
+    matrix = _p79_matrix(
+        traces=_traces_for_case("tiny_prefix_or_left_padding"),
+        manifest_cases=["tiny_no_mask", "tiny_prefix_or_left_padding"],
+        expected_cases=("tiny_prefix_padding_or_left_padding",),
+        p77_rows=_evidence_rows_for_case(
+            _p77_evidence_rows(), "tiny_prefix_or_left_padding"
+        ),
+        p78_rows=_evidence_rows_for_case(
+            _p78_output_evidence_rows(include_logits=True),
+            "tiny_prefix_or_left_padding",
+        ),
+    )
+    row = matrix["cases"]["tiny_prefix_padding_or_left_padding"]
+
+    assert row["canonical_case"] == "tiny_prefix_or_left_padding"
+    assert row["resolved_case"] == "tiny_prefix_or_left_padding"
+    assert row["resolution"] == "alias"
+    assert row["resolved_by_alias"] is True
+    assert row["kernel_ready_for_case"] == "yes"
+
+
+def test_alias_resolution_reuses_canonical_evidence_without_duplication() -> None:
+    matrix = _p79_matrix(
+        traces=_traces_for_case("tiny_prefix_or_left_padding"),
+        manifest_cases=["tiny_no_mask", "tiny_prefix_or_left_padding"],
+        expected_cases=("tiny_prefix_padding_or_left_padding",),
+        p77_rows=_evidence_rows_for_case(
+            _p77_evidence_rows(), "tiny_prefix_or_left_padding"
+        ),
+        p78_rows=_evidence_rows_for_case(
+            _p78_output_evidence_rows(include_logits=True),
+            "tiny_prefix_or_left_padding",
+        ),
+    )
+    row = matrix["cases"]["tiny_prefix_padding_or_left_padding"]
+
+    assert row["evidence_source_case"] == "tiny_prefix_or_left_padding"
+    assert row["duplicates_fixture_evidence"] is False
+    assert row["fixture_id"] == "fixture-a"
+    assert row["same_run_group_id"] == "group-a"
+
+
+def test_missing_active_fixture_without_alias_remains_unavailable() -> None:
+    matrix = _p79_matrix(
+        manifest_cases=["tiny_no_mask"],
+        expected_cases=("tiny_no_mask", "not_an_alias"),
+    )
+    row = matrix["cases"]["not_an_alias"]
+
+    assert row["resolution"] == "missing"
+    assert row["blocking_gates"] == ["fixture_case_not_found"]
+    assert row["kernel_ready_for_case"] == "unavailable"
+    assert matrix["remaining_missing_cases"] == ["not_an_alias"]
+
+
+def test_deprecated_fixture_does_not_block_active_matrix() -> None:
+    matrix = build_p79_broader_fixture_residual_matrix(
+        fixture_manifest_data={"cases": [{"name": "tiny_no_mask"}]},
+        traces=_traces(),
+        metadata={
+            **_metadata(),
+            "p77_full_vs_stepwise_evidence": _p77_evidence_rows(),
+            "p78_logits_output_evidence": _p78_output_evidence_rows(
+                include_logits=True
+            ),
+        },
+        strict_live=True,
+        atol=1e-5,
+        rtol=1e-5,
+        fixture_expectations=FixtureExpectationMetadata(
+            active_expected_cases=("tiny_no_mask",),
+            accepted_aliases={},
+            deprecated_cases=("old_case",),
+        ),
+    )
+
+    assert matrix["cases"]["old_case"]["resolution"] == "deprecated"
+    assert matrix["cases"]["old_case"]["blocking_gates"] == []
+    assert matrix["all_expected_cases_pass"] is True
+
+
+def test_optional_absent_fixture_does_not_block_active_matrix() -> None:
+    matrix = build_p79_broader_fixture_residual_matrix(
+        fixture_manifest_data={"cases": [{"name": "tiny_no_mask"}]},
+        traces=_traces(),
+        metadata={
+            **_metadata(),
+            "p77_full_vs_stepwise_evidence": _p77_evidence_rows(),
+            "p78_logits_output_evidence": _p78_output_evidence_rows(
+                include_logits=True
+            ),
+        },
+        strict_live=True,
+        atol=1e-5,
+        rtol=1e-5,
+        fixture_expectations=FixtureExpectationMetadata(
+            active_expected_cases=("tiny_no_mask",),
+            accepted_aliases={},
+            optional_cases=("optional_case",),
+        ),
+    )
+
+    assert matrix["cases"]["optional_case"]["resolution"] == "optional_absent"
+    assert matrix["cases"]["optional_case"]["blocking_gates"] == []
+    assert matrix["all_expected_cases_pass"] is True
+
+
+def test_matrix_reports_direct_and_alias_resolution_separately() -> None:
+    traces = _traces()
+    prefix_traces = _traces_for_case("tiny_prefix_or_left_padding")
+    for side in traces:
+        traces[side].extend(prefix_traces[side])
+    matrix = _p79_matrix(
+        traces=traces,
+        manifest_cases=["tiny_no_mask", "tiny_prefix_or_left_padding"],
+        expected_cases=("tiny_no_mask", "tiny_prefix_padding_or_left_padding"),
+        p77_rows=[
+            *_p77_evidence_rows(),
+            *_evidence_rows_for_case(
+                _p77_evidence_rows(), "tiny_prefix_or_left_padding"
+            ),
+        ],
+        p78_rows=[
+            *_p78_output_evidence_rows(include_logits=True),
+            *_evidence_rows_for_case(
+                _p78_output_evidence_rows(include_logits=True),
+                "tiny_prefix_or_left_padding",
+            ),
+        ],
+    )
+
+    assert matrix["cases"]["tiny_no_mask"]["resolution"] == "direct"
+    assert (
+        matrix["cases"]["tiny_prefix_padding_or_left_padding"]["resolution"] == "alias"
+    )
+
+
 def test_p79_same_run_invalid_marks_lineage_repair() -> None:
     matrix = _p79_matrix(traces=_traces(off_group="group-b"))
     row = matrix["case_rows"][0]
@@ -1582,16 +1762,49 @@ def test_p79_all_expected_passing_recommends_pallas_or_scaffold() -> None:
 
     assert matrix["all_expected_cases_pass"] is True
     assert matrix["recommended_action"] in {
-        "P80 Pallas prototype behind known-caveat flag",
-        "P80 kernel/reference parity scaffold",
+        "P81 Pallas prototype behind known-caveat flag",
+        "P81 kernel/reference parity scaffold",
     }
 
 
 def test_p79_matrix_markdown_table_renders() -> None:
     markdown = _p79_matrix_markdown(_p79_matrix())
 
-    assert "| case | fixture_id | same_run_valid |" in markdown
+    assert (
+        "| requested_case | canonical_case | resolved_case | resolution |" in markdown
+    )
     assert "tiny_no_mask" in markdown
+
+
+def test_all_active_expected_cases_passing_recommends_p81_pallas() -> None:
+    traces = _traces()
+    prefix_traces = _traces_for_case("tiny_prefix_or_left_padding")
+    for side in traces:
+        traces[side].extend(prefix_traces[side])
+    matrix = _p79_matrix(
+        traces=traces,
+        manifest_cases=["tiny_no_mask", "tiny_prefix_or_left_padding"],
+        expected_cases=("tiny_no_mask", "tiny_prefix_padding_or_left_padding"),
+        p77_rows=[
+            *_p77_evidence_rows(),
+            *_evidence_rows_for_case(
+                _p77_evidence_rows(), "tiny_prefix_or_left_padding"
+            ),
+        ],
+        p78_rows=[
+            *_p78_output_evidence_rows(include_logits=True),
+            *_evidence_rows_for_case(
+                _p78_output_evidence_rows(include_logits=True),
+                "tiny_prefix_or_left_padding",
+            ),
+        ],
+    )
+
+    assert matrix["all_expected_cases_pass"] is True
+    assert (
+        matrix["recommended_next_phase"]
+        == "P81 Pallas prototype behind known-caveat flag"
+    )
 
 
 def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
@@ -1636,9 +1849,16 @@ def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
     assert (out / "P79_BROADER_FIXTURE_VALIDATION_REPORT.md").is_file()
     assert (out / "broader_fixture_residual_matrix.json").is_file()
     assert (out / "broader_fixture_residual_matrix.md").is_file()
-    assert "| case | fixture_id | same_run_valid |" in (
+    assert (out / "P80_FIXTURE_LINEAGE_REPAIR_REPORT.md").is_file()
+    assert (out / "fixture_lineage_resolution.json").is_file()
+    assert (out / "P80_FIX_NOTE.md").is_file()
+    assert "| requested_case | canonical_case | resolved_case | resolution |" in (
         out / "broader_fixture_residual_matrix.md"
     ).read_text(encoding="utf-8")
+    resolution = json.loads(
+        (out / "fixture_lineage_resolution.json").read_text(encoding="utf-8")
+    )
+    assert resolution["schema"] == "qrwkv_xla.p80_fixture_lineage_resolution.v1"
     rows = load_live_same_run_trace_jsonl(out / "live_trace_radlads.jsonl")
     assert rows
     assert all(row["capture_kind"] == "unavailable" for row in rows)

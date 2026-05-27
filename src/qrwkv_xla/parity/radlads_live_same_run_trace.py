@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterable, Mapping
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -247,16 +247,27 @@ P78_PALLAS_PROTOTYPE = "P79 Pallas prototype behind known-caveat flag"
 P79_BROADER_FIXTURE_RESIDUAL_MATRIX_SCHEMA = (
     "qrwkv_xla.p79_broader_fixture_residual_matrix.v1"
 )
-P79_EXPECTED_CASES = (
+P80_FIXTURE_LINEAGE_RESOLUTION_SCHEMA = "qrwkv_xla.p80_fixture_lineage_resolution.v1"
+P79_ACTIVE_EXPECTED_CASES = (
     "tiny_no_mask",
     "tiny_attention_mask",
     "tiny_stepwise_state",
     "tiny_prefix_or_left_padding",
-    "tiny_prefix_padding_or_left_padding",
     "tiny_all_radlads_math_enabled",
 )
-P80_PALLAS_PROTOTYPE = "P80 Pallas prototype behind known-caveat flag"
-P80_KERNEL_REFERENCE_PARITY = "P80 kernel/reference parity scaffold"
+P79_ACCEPTED_ALIASES = {
+    "tiny_prefix_padding_or_left_padding": "tiny_prefix_or_left_padding",
+}
+P79_DEPRECATED_CASES: tuple[str, ...] = ()
+P79_OPTIONAL_CASES: tuple[str, ...] = ()
+P79_EXPECTED_CASES = (
+    *P79_ACTIVE_EXPECTED_CASES,
+    *P79_ACCEPTED_ALIASES.keys(),
+)
+P81_PALLAS_PROTOTYPE = "P81 Pallas prototype behind known-caveat flag"
+P81_KERNEL_REFERENCE_PARITY = "P81 kernel/reference parity scaffold"
+P80_PALLAS_PROTOTYPE = P81_PALLAS_PROTOTYPE
+P80_KERNEL_REFERENCE_PARITY = P81_KERNEL_REFERENCE_PARITY
 P80_STATE_AFTER_FIX = "P80 targeted broader-fixture state_after residual fix"
 P80_EXPORTED_STATE_FIX = "P80 targeted broader-fixture exported_state residual fix"
 P80_FULL_VS_STEPWISE_FIX = "P80 targeted broader-fixture full-vs-stepwise residual fix"
@@ -284,6 +295,38 @@ P75_REQUIRED_OUTPUT_GATES = (
     "full_vs_stepwise",
     "logits_output",
 )
+
+
+@dataclass(frozen=True)
+class FixtureExpectationMetadata:
+    active_expected_cases: tuple[str, ...] = P79_ACTIVE_EXPECTED_CASES
+    accepted_aliases: Mapping[str, str] | None = None
+    deprecated_cases: tuple[str, ...] = P79_DEPRECATED_CASES
+    optional_cases: tuple[str, ...] = P79_OPTIONAL_CASES
+
+    def alias_map(self) -> dict[str, str]:
+        if self.accepted_aliases is None:
+            return dict(P79_ACCEPTED_ALIASES)
+        return dict(self.accepted_aliases)
+
+    def requested_cases(self) -> list[str]:
+        return [
+            *self.active_expected_cases,
+            *self.alias_map().keys(),
+            *self.deprecated_cases,
+            *self.optional_cases,
+        ]
+
+
+@dataclass(frozen=True)
+class FixtureCaseResolution:
+    requested_case: str
+    canonical_case: str | None
+    resolved_case: str | None
+    resolution: str
+    category: str
+
+
 P75_WARNING_MAX_ABS = 1e-5
 
 
@@ -1877,14 +1920,21 @@ def build_p79_broader_fixture_residual_matrix(
     rtol: float,
     fixture_manifest_path: Path | str | None = None,
     parameters_path: Path | str | None = None,
-    expected_cases: tuple[str, ...] = P79_EXPECTED_CASES,
+    expected_cases: tuple[str, ...] | None = None,
+    fixture_expectations: FixtureExpectationMetadata | None = None,
 ) -> dict[str, Any]:
+    expectations = _p79_fixture_expectations(
+        expected_cases=expected_cases,
+        fixture_expectations=fixture_expectations,
+    )
     manifest_cases = set(_manifest_case_names(fixture_manifest_data))
     rows = []
-    for case in expected_cases:
-        if case not in manifest_cases:
-            rows.append(_p79_missing_case_row(case, metadata=metadata))
+    case_resolutions = _p79_case_resolutions(expectations, manifest_cases)
+    for resolution in case_resolutions:
+        if resolution.resolution in {"missing", "optional_absent", "deprecated"}:
+            rows.append(_p79_unavailable_case_row(resolution, metadata=metadata))
             continue
+        case = resolution.resolved_case or resolution.requested_case
         case_traces = {
             side: [row for row in side_rows if row.get("case") == case]
             for side, side_rows in traces.items()
@@ -1907,38 +1957,61 @@ def build_p79_broader_fixture_residual_matrix(
             atol=atol,
             rtol=rtol,
         )
-        rows.append(_p79_case_row(case, case_report))
-    all_found = all(
-        row.get("unavailable_reason") != "fixture_case_not_found" for row in rows
+        rows.append(_p79_case_row(resolution, case_report))
+    active_rows = [row for row in rows if row.get("expectation_category") == "active"]
+    blocking_rows = [
+        row
+        for row in rows
+        if row.get("expectation_category") in {"active", "alias"}
+        and row.get("resolution") == "missing"
+    ]
+    required_rows = [
+        row for row in rows if row.get("expectation_category") in {"active", "alias"}
+    ]
+    all_found = not blocking_rows
+    all_pass = all(
+        row["kernel_ready_for_case"] == "yes"
+        for row in required_rows
+        if row.get("resolution") != "missing"
     )
-    all_pass = all(row["kernel_ready_for_case"] == "yes" for row in rows)
     recommended = (
         P80_PALLAS_PROTOTYPE
         if all_found and all_pass
         else rows[0]["recommended_action"]
     )
     for row in rows:
+        if row.get("expectation_category") in {"deprecated", "optional"}:
+            continue
         if row["recommended_action"] != P80_PALLAS_PROTOTYPE:
             recommended = row["recommended_action"]
             break
     cases_found = [
-        row["case"]
+        row["requested_case"]
         for row in rows
-        if row.get("unavailable_reason") != "fixture_case_not_found"
+        if row.get("resolution") in {"direct", "alias"}
     ]
     cases_missing = [
-        row["case"]
-        for row in rows
-        if row.get("unavailable_reason") == "fixture_case_not_found"
+        row["requested_case"] for row in rows if row.get("resolution") == "missing"
     ]
     cases_pass = sum(row["kernel_ready_for_case"] == "yes" for row in rows)
     cases_unavailable = sum(
         row["kernel_ready_for_case"] == "unavailable" for row in rows
     )
     cases_fail = sum(
-        row["kernel_ready_for_case"] not in {"yes", "unavailable"} for row in rows
+        row["kernel_ready_for_case"] not in {"yes", "unavailable", "not_applicable"}
+        for row in rows
     )
-    cases_by_name = {row["case"]: row for row in rows}
+    cases_by_name = {row["requested_case"]: row for row in rows}
+    active_expected_cases = list(expectations.active_expected_cases)
+    accepted_aliases = expectations.alias_map()
+    deprecated_cases = list(expectations.deprecated_cases)
+    optional_cases = list(expectations.optional_cases)
+    remaining_missing_cases = [
+        row["requested_case"]
+        for row in rows
+        if row.get("expectation_category") == "active"
+        and row.get("resolution") == "missing"
+    ]
     return {
         "schema": P79_BROADER_FIXTURE_RESIDUAL_MATRIX_SCHEMA,
         "phase": "P79",
@@ -1950,18 +2023,29 @@ def build_p79_broader_fixture_residual_matrix(
         else metadata.get("parameter_manifest_or_npz_path"),
         "same_run_policy": "strict" if strict_live else "non_strict",
         "tolerances": {"atol": atol, "rtol": rtol},
-        "expected_cases": list(expected_cases),
-        "cases_requested": list(expected_cases),
+        "active_expected_cases": active_expected_cases,
+        "accepted_aliases": accepted_aliases,
+        "deprecated_cases": deprecated_cases,
+        "optional_cases": optional_cases,
+        "missing_cases": remaining_missing_cases,
+        "expected_cases": active_expected_cases,
+        "cases_requested": expectations.requested_cases(),
         "cases_found": cases_found,
         "cases_missing": cases_missing,
+        "remaining_missing_cases": remaining_missing_cases,
         "same_run_group_id": metadata.get("same_run_group_id"),
         "fixture_id": metadata.get("fixture_id"),
         "parameter_id": metadata.get("parameter_id"),
         "same_run_valid": all(
-            row["same_run_valid"] for row in rows if row["fixture_id"] is not None
+            row["same_run_valid"]
+            for row in required_rows
+            if row["fixture_id"] is not None
         ),
         "all_expected_cases_present": all_found,
+        "all_active_expected_cases_pass": all_found
+        and all(row["kernel_ready_for_case"] == "yes" for row in active_rows),
         "all_expected_cases_pass": all_found and all_pass,
+        "kernel_ready": "yes" if all_found and all_pass else "no",
         "recommended_action": recommended,
         "recommended_next_phase": recommended,
         "kernel_ready_scope": "covered_fixture_family",
@@ -1977,9 +2061,96 @@ def build_p79_broader_fixture_residual_matrix(
     }
 
 
-def _p79_missing_case_row(case: str, *, metadata: Mapping[str, Any]) -> dict[str, Any]:
+def _p79_fixture_expectations(
+    *,
+    expected_cases: tuple[str, ...] | None,
+    fixture_expectations: FixtureExpectationMetadata | None,
+) -> FixtureExpectationMetadata:
+    if fixture_expectations is not None:
+        return fixture_expectations
+    if expected_cases is None:
+        return FixtureExpectationMetadata(accepted_aliases=P79_ACCEPTED_ALIASES)
+    aliases = {
+        requested: canonical
+        for requested, canonical in P79_ACCEPTED_ALIASES.items()
+        if requested in expected_cases
+    }
+    active = tuple(case for case in expected_cases if case not in aliases)
+    return FixtureExpectationMetadata(
+        active_expected_cases=active,
+        accepted_aliases=aliases,
+    )
+
+
+def _p79_case_resolutions(
+    expectations: FixtureExpectationMetadata, manifest_cases: set[str]
+) -> list[FixtureCaseResolution]:
+    rows: list[FixtureCaseResolution] = []
+    for case in expectations.active_expected_cases:
+        rows.append(
+            FixtureCaseResolution(
+                requested_case=case,
+                canonical_case=case,
+                resolved_case=case if case in manifest_cases else None,
+                resolution="direct" if case in manifest_cases else "missing",
+                category="active",
+            )
+        )
+    for requested, canonical in expectations.alias_map().items():
+        rows.append(
+            FixtureCaseResolution(
+                requested_case=requested,
+                canonical_case=canonical,
+                resolved_case=canonical if canonical in manifest_cases else None,
+                resolution="alias" if canonical in manifest_cases else "missing",
+                category="alias",
+            )
+        )
+    for case in expectations.deprecated_cases:
+        rows.append(
+            FixtureCaseResolution(
+                requested_case=case,
+                canonical_case=case,
+                resolved_case=case if case in manifest_cases else None,
+                resolution="deprecated",
+                category="deprecated",
+            )
+        )
+    for case in expectations.optional_cases:
+        present = case in manifest_cases
+        rows.append(
+            FixtureCaseResolution(
+                requested_case=case,
+                canonical_case=case,
+                resolved_case=case if present else None,
+                resolution="direct" if present else "optional_absent",
+                category="optional",
+            )
+        )
+    return rows
+
+
+def _p79_unavailable_case_row(
+    resolution: FixtureCaseResolution, *, metadata: Mapping[str, Any]
+) -> dict[str, Any]:
+    reason = (
+        "optional_case_absent"
+        if resolution.resolution == "optional_absent"
+        else "deprecated_case"
+        if resolution.resolution == "deprecated"
+        else "fixture_case_not_found"
+    )
+    kernel_ready = (
+        "not_applicable" if resolution.resolution != "missing" else "unavailable"
+    )
+    blocking = ["fixture_case_not_found"] if resolution.resolution == "missing" else []
     return {
-        "case": case,
+        "case": resolution.requested_case,
+        "requested_case": resolution.requested_case,
+        "canonical_case": resolution.canonical_case,
+        "resolved_case": resolution.resolved_case,
+        "resolution": resolution.resolution,
+        "expectation_category": resolution.category,
         "fixture_id": metadata.get("fixture_id"),
         "parameter_id": metadata.get("parameter_id"),
         "same_run_group_id": metadata.get("same_run_group_id"),
@@ -1991,21 +2162,33 @@ def _p79_missing_case_row(case: str, *, metadata: Mapping[str, Any]) -> dict[str
         "exported_state": "unavailable",
         "full_vs_stepwise": "unavailable",
         "logits_output": "unavailable",
-        "kernel_ready_for_case": "unavailable",
-        "blocking_gates": ["fixture_case_not_found"],
+        "kernel_ready_for_case": kernel_ready,
+        "blocking_gates": blocking,
         "warning_gates": [],
-        "recommended_action": P80_LINEAGE_REPAIR,
-        "unavailable_reason": "fixture_case_not_found",
+        "recommended_action": P80_LINEAGE_REPAIR
+        if resolution.resolution == "missing"
+        else P80_PALLAS_PROTOTYPE,
+        "unavailable_reason": reason,
         "lane_details": _p79_unavailable_lane_details(),
     }
 
 
-def _p79_case_row(case: str, report: Mapping[str, Any]) -> dict[str, Any]:
+def _p79_case_row(
+    resolution: FixtureCaseResolution, report: Mapping[str, Any]
+) -> dict[str, Any]:
     gate = report.get("p75_residual_impact_gate", {})
     output_gates = gate.get("output_gates", {})
     blocking = list(gate.get("blocking_gates", []))
     row = {
-        "case": case,
+        "case": resolution.requested_case,
+        "requested_case": resolution.requested_case,
+        "canonical_case": resolution.canonical_case,
+        "resolved_case": resolution.resolved_case,
+        "resolution": resolution.resolution,
+        "expectation_category": resolution.category,
+        "evidence_source_case": resolution.resolved_case,
+        "resolved_by_alias": resolution.resolution == "alias",
+        "duplicates_fixture_evidence": False,
         "fixture_id": report.get("fixture_id"),
         "parameter_id": report.get("parameter_id"),
         "same_run_group_id": report.get("same_run_group_id"),
@@ -2768,6 +2951,27 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
             _p79_fix_note_markdown(p79_report),
             encoding="utf-8",
         )
+        p80_resolution = _p80_fixture_lineage_resolution(p79_report)
+        (out_dir / "fixture_lineage_resolution.json").write_text(
+            json.dumps(_jsonable(p80_resolution), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        (out_dir / "P80_FIXTURE_LINEAGE_REPAIR_REPORT.md").write_text(
+            _p80_fixture_lineage_report_markdown(p80_resolution, p79_report),
+            encoding="utf-8",
+        )
+        (out_dir / "P80_FIX_NOTE.md").write_text(
+            _p80_fix_note_markdown(p80_resolution),
+            encoding="utf-8",
+        )
+        blocker_path = out_dir / "P80_BLOCKER_REPORT.md"
+        if p80_resolution.get("remaining_missing_cases"):
+            blocker_path.write_text(
+                _p80_blocker_report_markdown(p80_resolution),
+                encoding="utf-8",
+            )
+        elif blocker_path.exists():
+            blocker_path.unlink()
     if not report.get("same_run_valid"):
         (out_dir / "P68_FIX_NOTE.md").write_text(
             "# P68 Fix Note\n\n"
@@ -5994,15 +6198,19 @@ def _p79_matrix_markdown(report: Mapping[str, Any]) -> str:
     lines = [
         "# P79 Broader Fixture Residual Matrix",
         "",
-        "| case | fixture_id | same_run_valid | state_after | exported_state | "
+        "| requested_case | canonical_case | resolved_case | resolution | "
+        "fixture_id | same_run_valid | state_after | exported_state | "
         "full_vs_stepwise | logits_output | kernel_ready_for_case | "
         "recommended_action |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in _p79_case_rows(report):
         lines.append(
             "| "
-            f"{row.get('case')} | "
+            f"{row.get('requested_case', row.get('case'))} | "
+            f"{row.get('canonical_case')} | "
+            f"{row.get('resolved_case')} | "
+            f"{row.get('resolution')} | "
             f"{row.get('fixture_id')} | "
             f"{row.get('same_run_valid')} | "
             f"{row.get('state_after')} | "
@@ -6050,6 +6258,11 @@ def _p79_validation_report_markdown(report: Mapping[str, Any]) -> str:
         f"cases_missing: `{cases_missing}`",
         f"same_run_policy: `{report.get('same_run_policy')}`",
         f"tolerances: `{report.get('tolerances')}`",
+        f"active_expected_cases: `{report.get('active_expected_cases')}`",
+        f"accepted_aliases: `{report.get('accepted_aliases')}`",
+        f"deprecated_cases: `{report.get('deprecated_cases')}`",
+        f"optional_cases: `{report.get('optional_cases')}`",
+        f"remaining_missing_cases: `{report.get('remaining_missing_cases')}`",
         f"fixture_id: `{report.get('fixture_id')}`",
         f"parameter_id: `{report.get('parameter_id')}`",
         f"same_run_group_id: `{report.get('same_run_group_id')}`",
@@ -6092,8 +6305,16 @@ def _p79_validation_report_markdown(report: Mapping[str, Any]) -> str:
 def _p79_lane_detail_lines(report: Mapping[str, Any]) -> list[str]:
     lines: list[str] = []
     for row in _p79_case_rows(report):
-        lines.append(f"### {row.get('case')}")
+        lines.append(f"### {row.get('requested_case', row.get('case'))}")
         lines.append("")
+        lines.extend(
+            [
+                f"- canonical_case: `{row.get('canonical_case')}`",
+                f"- resolved_case: `{row.get('resolved_case')}`",
+                f"- resolution: `{row.get('resolution')}`",
+                "",
+            ]
+        )
         lane_details = row.get("lane_details", {})
         if not isinstance(lane_details, Mapping):
             lines.append("lane_details: `unavailable`")
@@ -6158,6 +6379,168 @@ def _p79_blocker_report_markdown(report: Mapping[str, Any]) -> str:
         )
     lines.append("")
     return "\n".join(lines)
+
+
+def _p80_fixture_lineage_resolution(report: Mapping[str, Any]) -> dict[str, Any]:
+    alias_rows = [
+        row for row in _p79_case_rows(report) if row.get("resolution") == "alias"
+    ]
+    missing_case = (
+        alias_rows[0].get("requested_case")
+        if alias_rows
+        else (report.get("cases_missing") or [None])[0]
+    )
+    canonical_case = alias_rows[0].get("canonical_case") if alias_rows else None
+    resolution = "alias" if alias_rows else "missing"
+    evidence = [
+        {
+            "artifact": "artifacts/parity/radlads_source_bridge/manifest.json",
+            "case": "tiny_prefix_padding_or_left_padding",
+            "finding": (
+                "historical case uses attention_mask.kind prefix_or_left_padding"
+            ),
+        },
+        {
+            "artifact": (
+                "artifacts/p54_radlads_loader_export_repair/qrwkv_outputs/manifest.json"
+            ),
+            "case": "tiny_prefix_or_left_padding",
+            "finding": (
+                "current QRWKV export case uses attention_mask.kind "
+                "prefix_or_left_padding"
+            ),
+        },
+        {
+            "artifact": (
+                "artifacts/p54_radlads_loader_export_repair/"
+                "radlads_outputs/manifest.json"
+            ),
+            "case": "tiny_prefix_or_left_padding",
+            "finding": (
+                "current RADLADS export case uses attention_mask.kind "
+                "prefix_or_left_padding"
+            ),
+        },
+        {
+            "artifact": "artifacts/p65_balance_state_experiment/off/mode_report.json",
+            "case": "tiny_prefix_padding_or_left_padding",
+            "finding": (
+                "historical experiment retained the longer case name for the same "
+                "mask kind"
+            ),
+        },
+        {
+            "artifact": str(report.get("fixture_manifest")),
+            "case": canonical_case,
+            "finding": "current live fixture manifest contains the canonical case",
+        },
+    ]
+    remaining_missing = list(report.get("remaining_missing_cases") or [])
+    return {
+        "schema": P80_FIXTURE_LINEAGE_RESOLUTION_SCHEMA,
+        "phase": "P80",
+        "missing_expected_case": missing_case,
+        "resolution": resolution,
+        "canonical_case": canonical_case,
+        "evidence": evidence,
+        "active_expected_cases": list(report.get("active_expected_cases") or []),
+        "accepted_aliases": dict(report.get("accepted_aliases") or {}),
+        "deprecated_cases": list(report.get("deprecated_cases") or []),
+        "optional_cases": list(report.get("optional_cases") or []),
+        "remaining_missing_cases": remaining_missing,
+        "kernel_ready": "yes" if report.get("all_expected_cases_pass") else "no",
+        "kernel_ready_scope": report.get("kernel_ready_scope"),
+        "recommended_next_phase": report.get("recommended_next_phase"),
+    }
+
+
+def _p80_fixture_lineage_report_markdown(
+    resolution: Mapping[str, Any], p79_report: Mapping[str, Any]
+) -> str:
+    evidence = resolution.get("evidence", [])
+    evidence_lines = [
+        f"- `{item.get('artifact')}`: `{item.get('case')}` - {item.get('finding')}"
+        for item in evidence
+        if isinstance(item, Mapping)
+    ]
+    alias_rows = [
+        row for row in _p79_case_rows(p79_report) if row.get("resolution") == "alias"
+    ]
+    alias_lines = [
+        "- requested_case: `"
+        f"{row.get('requested_case')}`, canonical_case: "
+        f"`{row.get('canonical_case')}`, resolved_case: "
+        f"`{row.get('resolved_case')}`, resolution: `{row.get('resolution')}`"
+        for row in alias_rows
+    ]
+    return "\n".join(
+        [
+            "# P80 Fixture Lineage / Harness Repair Report",
+            "",
+            "## Problem",
+            "",
+            "P79 used a flat expected-case list and treated the historical "
+            "`tiny_prefix_padding_or_left_padding` name as a missing fixture, "
+            "even though the current manifest carries the same fixture family "
+            "under `tiny_prefix_or_left_padding`.",
+            "",
+            "## Evidence Inspected",
+            "",
+            *(evidence_lines or ["None"]),
+            "",
+            "## Resolution",
+            "",
+            f"missing_expected_case: `{resolution.get('missing_expected_case')}`",
+            f"resolution: `{resolution.get('resolution')}`",
+            f"canonical_case: `{resolution.get('canonical_case')}`",
+            f"accepted_aliases: `{resolution.get('accepted_aliases')}`",
+            "",
+            "Alias rows reuse the canonical case evidence and are marked "
+            "`resolved_by_alias`; no duplicate fixture run evidence is created.",
+            "",
+            *(alias_lines or ["No alias rows were resolved."]),
+            "",
+            "## Regenerated Broader Fixture Matrix",
+            "",
+            f"active_expected_cases: `{resolution.get('active_expected_cases')}`",
+            f"remaining_missing_cases: `{resolution.get('remaining_missing_cases')}`",
+            f"kernel_ready: `{resolution.get('kernel_ready')}`",
+            f"kernel_ready_scope: `{resolution.get('kernel_ready_scope')}`",
+            "",
+            "## Decision",
+            "",
+            f"recommended_next_phase: `{resolution.get('recommended_next_phase')}`",
+            "",
+        ]
+    )
+
+
+def _p80_fix_note_markdown(resolution: Mapping[str, Any]) -> str:
+    return "\n".join(
+        [
+            "# P80 Fix Note",
+            "",
+            "Harness/reporting now uses structured fixture expectation metadata "
+            "with active, alias, deprecated, optional, and missing case buckets.",
+            "",
+            f"resolution: `{resolution.get('resolution')}`",
+            f"canonical_case: `{resolution.get('canonical_case')}`",
+            f"remaining_missing_cases: `{resolution.get('remaining_missing_cases')}`",
+            "",
+        ]
+    )
+
+
+def _p80_blocker_report_markdown(resolution: Mapping[str, Any]) -> str:
+    return "\n".join(
+        [
+            "# P80 Blocker Report",
+            "",
+            f"remaining_missing_cases: `{resolution.get('remaining_missing_cases')}`",
+            f"recommended_next_phase: `{resolution.get('recommended_next_phase')}`",
+            "",
+        ]
+    )
 
 
 def _p79_fix_note_markdown(report: Mapping[str, Any]) -> str:

@@ -1,5 +1,21 @@
 # QRWKV-XLA Roadmap
 
+## Phase 80 — Fixture Lineage / Harness Repair
+
+Goal: repair fixture expectation lineage and reporting without changing math,
+tolerances, or fixture values.
+
+Current checkpoint: `fixture_lineage_harness_repair`. P80 replaces the flat P79
+expected-case handling with structured active, alias, deprecated, optional, and
+missing case buckets. The historical
+`tiny_prefix_padding_or_left_padding` request is accepted as an alias for
+canonical `tiny_prefix_or_left_padding`, based on repository artifact evidence
+showing both names refer to the `prefix_or_left_padding` fixture family.
+
+The regenerated P79 matrix marks direct and alias resolutions separately,
+keeps the alias row tied to canonical case evidence, reports no remaining
+missing cases, and recommends `P81 Pallas prototype behind known-caveat flag`.
+
 ## Phase 79 — Broader Fixture Residual-Impact Validation
 
 Goal: expand the P78 same-run readiness result across the existing fixture
