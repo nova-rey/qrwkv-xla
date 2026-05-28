@@ -1291,6 +1291,35 @@
   upstream/vendor edit, real training, throughput claim, model-quality claim,
   or default experimental `balance_state` promotion.
 
+## P86 — Fused/Scan-Style Pallas WKV Sequence Scaffold
+
+- [x] Add `pallas_wkv_sequence_update_fused_or_scan()` as an explicit
+  `jax_scan_pallas_step_scaffold` over the interpreted one-step Pallas WKV
+  update.
+- [x] Reuse the P85 deterministic B/H/D/T sequence case surface for the P86
+  fused/scan-style parity gate.
+- [x] Add `run_pallas_wkv_fused_sequence_parity_matrix()` with per-case
+  sequence method, fused sequence scaffold status, final-state and per-step
+  shape, finite, max absolute error, max relative error, tolerance, status,
+  reason, and required-case fields.
+- [x] Set fused/scan-style `kernel_parity_claimed=true` only when all required
+  P86 cases pass.
+- [x] Preserve the P85 repeated-step matrix inside the P86 matrix for
+  continuity.
+- [x] Emit `P86_PALLAS_FUSED_SEQUENCE_SCAFFOLD_REPORT.md` and
+  `pallas_fused_sequence_parity_matrix.json`.
+- [x] Preserve P85/P84/P83/P82/P81 compatibility artifacts.
+- [x] Keep Pallas-requested runs probe-only with
+  `pallas_requested_reference_trace_contamination=false` and
+  `reference_trace_capture_skipped=true`.
+- [x] Recommend `P87 fixture-family opt-in Pallas runtime integration` when
+  required fused/scan-style cases pass.
+- [x] Preserve scope: no Pallas default promotion, no fixture-family Pallas
+  integration yet, no TPU/performance claim, no real training, no
+  balance-state math change, dtype-policy change, tolerance loosening, fixture
+  value change, RADLADS upstream/vendor edit, model-quality claim, or default
+  experimental `balance_state` promotion.
+
 ## P82 — Real Opt-In Pallas Runtime Probe
 
 - [x] Add `qrwkv_xla.students.pallas_wkv` with `pallas_available()` and

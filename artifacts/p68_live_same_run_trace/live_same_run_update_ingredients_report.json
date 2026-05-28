@@ -736,6 +736,775 @@
       "wkv_runtime_effective": "pallas",
       "wkv_runtime_requested": "pallas"
     },
+    "p86_pallas_fused_sequence_parity_matrix": {
+      "backend": "pallas_call_interpret",
+      "cases": [
+        {
+          "atol": 1e-06,
+          "batch": 1,
+          "case_id": "float32_b1_h1_d2_t2",
+          "decay_seq_shape": [
+            2,
+            1,
+            1,
+            2
+          ],
+          "dim": 2,
+          "dtype": "float32",
+          "final_max_abs_error": 0.0,
+          "final_max_rel_error": 0.0,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 1,
+          "initial_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            2,
+            1,
+            1,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            2,
+            1,
+            1,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 2,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            2,
+            1,
+            1,
+            2
+          ],
+          "worst_step_max_abs_error": 0.0,
+          "worst_step_max_rel_error": 0.0
+        },
+        {
+          "atol": 1e-06,
+          "batch": 1,
+          "case_id": "float32_b1_h1_d2_t4",
+          "decay_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "dim": 2,
+          "dtype": "float32",
+          "final_max_abs_error": 7.450580596923828e-09,
+          "final_max_rel_error": 7.876759866576322e-08,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 1,
+          "initial_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            1,
+            1,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 4,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "worst_step_max_abs_error": 7.450580596923828e-09,
+          "worst_step_max_rel_error": 7.876759866576322e-08
+        },
+        {
+          "atol": 1e-06,
+          "batch": 1,
+          "case_id": "float32_b1_h2_d2_t4",
+          "decay_seq_shape": [
+            4,
+            1,
+            2,
+            2
+          ],
+          "dim": 2,
+          "dtype": "float32",
+          "final_max_abs_error": 1.4901161193847656e-08,
+          "final_max_rel_error": 1.0148435336532202e-07,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            2,
+            2,
+            2
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 2,
+          "initial_state_shape": [
+            1,
+            2,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            4,
+            1,
+            2,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            1,
+            2,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 4,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            4,
+            1,
+            2,
+            2
+          ],
+          "worst_step_max_abs_error": 2.9802322387695312e-08,
+          "worst_step_max_rel_error": 1.1450320158701288e-07
+        },
+        {
+          "atol": 1e-06,
+          "batch": 2,
+          "case_id": "float32_b2_h2_d4_t4",
+          "decay_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "dim": 4,
+          "dtype": "float32",
+          "final_max_abs_error": 1.1920928955078125e-07,
+          "final_max_rel_error": 2.211218514958091e-07,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 2,
+          "initial_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "k_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            2,
+            2,
+            4,
+            4
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 4,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "worst_step_max_abs_error": 2.384185791015625e-07,
+          "worst_step_max_rel_error": 2.2789797071709472e-07
+        },
+        {
+          "atol": 0.05,
+          "batch": 1,
+          "case_id": "bfloat16_b1_h1_d2_t4",
+          "decay_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "dim": 2,
+          "dtype": "bfloat16",
+          "final_max_abs_error": 0.0,
+          "final_max_rel_error": 0.0,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 1,
+          "initial_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            1,
+            1,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": false,
+          "rtol": 0.05,
+          "seq_len": 4,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "worst_step_max_abs_error": 0.0,
+          "worst_step_max_rel_error": 0.0
+        },
+        {
+          "atol": 0.05,
+          "batch": 2,
+          "case_id": "bfloat16_b2_h2_d4_t4",
+          "decay_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "dim": 4,
+          "dtype": "bfloat16",
+          "final_max_abs_error": 0.0,
+          "final_max_rel_error": 0.0,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 2,
+          "initial_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "k_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            2,
+            2,
+            4,
+            4
+          ],
+          "reason": null,
+          "required": false,
+          "rtol": 0.05,
+          "seq_len": 4,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "worst_step_max_abs_error": 0.0,
+          "worst_step_max_rel_error": 0.0
+        }
+      ],
+      "default_runtime": "reference",
+      "kernel_parity_claimed": true,
+      "one_step_formula": "state * decay[..., None, :] + k[..., :, None] * v[..., None, :]",
+      "p85_repeated_step_parity": {
+        "backend": "pallas_call_interpret",
+        "cases": [
+          {
+            "atol": 1e-06,
+            "batch": 1,
+            "case_id": "float32_b1_h1_d2_t2",
+            "decay_seq_shape": [
+              2,
+              1,
+              1,
+              2
+            ],
+            "dim": 2,
+            "dtype": "float32",
+            "final_max_abs_error": 0.0,
+            "final_max_rel_error": 0.0,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "heads": 1,
+            "initial_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "k_seq_shape": [
+              2,
+              1,
+              1,
+              2
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              2,
+              1,
+              1,
+              2,
+              2
+            ],
+            "reason": null,
+            "required": true,
+            "rtol": 1e-06,
+            "seq_len": 2,
+            "v_seq_shape": [
+              2,
+              1,
+              1,
+              2
+            ],
+            "worst_step_max_abs_error": 0.0,
+            "worst_step_max_rel_error": 0.0
+          },
+          {
+            "atol": 1e-06,
+            "batch": 1,
+            "case_id": "float32_b1_h1_d2_t4",
+            "decay_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "dim": 2,
+            "dtype": "float32",
+            "final_max_abs_error": 7.450580596923828e-09,
+            "final_max_rel_error": 7.876759866576322e-08,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "heads": 1,
+            "initial_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "k_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              4,
+              1,
+              1,
+              2,
+              2
+            ],
+            "reason": null,
+            "required": true,
+            "rtol": 1e-06,
+            "seq_len": 4,
+            "v_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "worst_step_max_abs_error": 7.450580596923828e-09,
+            "worst_step_max_rel_error": 7.876759866576322e-08
+          },
+          {
+            "atol": 1e-06,
+            "batch": 1,
+            "case_id": "float32_b1_h2_d2_t4",
+            "decay_seq_shape": [
+              4,
+              1,
+              2,
+              2
+            ],
+            "dim": 2,
+            "dtype": "float32",
+            "final_max_abs_error": 1.4901161193847656e-08,
+            "final_max_rel_error": 1.0148435336532202e-07,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              1,
+              2,
+              2,
+              2
+            ],
+            "heads": 2,
+            "initial_state_shape": [
+              1,
+              2,
+              2,
+              2
+            ],
+            "k_seq_shape": [
+              4,
+              1,
+              2,
+              2
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              4,
+              1,
+              2,
+              2,
+              2
+            ],
+            "reason": null,
+            "required": true,
+            "rtol": 1e-06,
+            "seq_len": 4,
+            "v_seq_shape": [
+              4,
+              1,
+              2,
+              2
+            ],
+            "worst_step_max_abs_error": 2.9802322387695312e-08,
+            "worst_step_max_rel_error": 1.1450320158701288e-07
+          },
+          {
+            "atol": 1e-06,
+            "batch": 2,
+            "case_id": "float32_b2_h2_d4_t4",
+            "decay_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "dim": 4,
+            "dtype": "float32",
+            "final_max_abs_error": 1.1920928955078125e-07,
+            "final_max_rel_error": 2.211218514958091e-07,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              2,
+              2,
+              4,
+              4
+            ],
+            "heads": 2,
+            "initial_state_shape": [
+              2,
+              2,
+              4,
+              4
+            ],
+            "k_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              4,
+              2,
+              2,
+              4,
+              4
+            ],
+            "reason": null,
+            "required": true,
+            "rtol": 1e-06,
+            "seq_len": 4,
+            "v_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "worst_step_max_abs_error": 2.384185791015625e-07,
+            "worst_step_max_rel_error": 2.2789797071709472e-07
+          },
+          {
+            "atol": 0.05,
+            "batch": 1,
+            "case_id": "bfloat16_b1_h1_d2_t4",
+            "decay_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "dim": 2,
+            "dtype": "bfloat16",
+            "final_max_abs_error": 0.0,
+            "final_max_rel_error": 0.0,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "heads": 1,
+            "initial_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "k_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              4,
+              1,
+              1,
+              2,
+              2
+            ],
+            "reason": null,
+            "required": false,
+            "rtol": 0.05,
+            "seq_len": 4,
+            "v_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "worst_step_max_abs_error": 0.0,
+            "worst_step_max_rel_error": 0.0
+          },
+          {
+            "atol": 0.05,
+            "batch": 2,
+            "case_id": "bfloat16_b2_h2_d4_t4",
+            "decay_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "dim": 4,
+            "dtype": "bfloat16",
+            "final_max_abs_error": 0.0,
+            "final_max_rel_error": 0.0,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              2,
+              2,
+              4,
+              4
+            ],
+            "heads": 2,
+            "initial_state_shape": [
+              2,
+              2,
+              4,
+              4
+            ],
+            "k_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              4,
+              2,
+              2,
+              4,
+              4
+            ],
+            "reason": null,
+            "required": false,
+            "rtol": 0.05,
+            "seq_len": 4,
+            "v_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "worst_step_max_abs_error": 0.0,
+            "worst_step_max_rel_error": 0.0
+          }
+        ],
+        "default_runtime": "reference",
+        "fused_sequence_kernel_status": "not_implemented",
+        "kernel_parity_claimed": true,
+        "one_step_formula": "state * decay[..., None, :] + k[..., :, None] * v[..., None, :]",
+        "pallas_available": true,
+        "parity_scope": "short_sequence_repeated_one_step_wkv",
+        "phase": "P85",
+        "reason": null,
+        "recommended_next_phase": "P86 fused/scan Pallas WKV kernel scaffold",
+        "schema": "qrwkv_xla.p85_pallas_sequence_parity_matrix.v1",
+        "sequence_method": "repeated_one_step_pallas",
+        "summary": {
+          "all_required_cases_pass": true,
+          "cases_fail": 0,
+          "cases_pass": 6,
+          "cases_total": 6,
+          "cases_unavailable": 0,
+          "kernel_parity_claimed": true,
+          "worst_final_max_abs_error": 1.1920928955078125e-07,
+          "worst_final_max_rel_error": 2.211218514958091e-07,
+          "worst_step_max_abs_error": 2.384185791015625e-07,
+          "worst_step_max_rel_error": 2.2789797071709472e-07
+        },
+        "wkv_runtime_effective": "pallas",
+        "wkv_runtime_requested": "pallas"
+      },
+      "pallas_available": true,
+      "parity_scope": "fused_or_scan_style_wkv_sequence",
+      "phase": "P86",
+      "reason": null,
+      "recommended_next_phase": "P87 fixture-family opt-in Pallas runtime integration",
+      "schema": "qrwkv_xla.p86_pallas_fused_sequence_parity_matrix.v1",
+      "sequence_method": "jax_scan_pallas_step_scaffold",
+      "summary": {
+        "all_required_cases_pass": true,
+        "cases_fail": 0,
+        "cases_pass": 6,
+        "cases_total": 6,
+        "cases_unavailable": 0,
+        "fused_sequence_kernel_status": "scan_scaffold_pass",
+        "kernel_parity_claimed": true,
+        "sequence_method": "jax_scan_pallas_step_scaffold",
+        "worst_final_max_abs_error": 1.1920928955078125e-07,
+        "worst_final_max_rel_error": 2.211218514958091e-07,
+        "worst_step_max_abs_error": 2.384185791015625e-07,
+        "worst_step_max_rel_error": 2.2789797071709472e-07
+      },
+      "wkv_runtime_effective": "pallas",
+      "wkv_runtime_requested": "pallas"
+    },
     "pallas_available": true,
     "parity_scope": "tiny_one_step_wkv_update",
     "parity_status": "pass",
@@ -773,7 +1542,7 @@
     "prototype_scope": "minimal_pallas_wkv_execution_probe",
     "prototype_status": "pass",
     "reason": null,
-    "recommended_next_phase": "P86 fused/scan Pallas WKV kernel scaffold",
+    "recommended_next_phase": "P87 fixture-family opt-in Pallas runtime integration",
     "reference_default_preserved": true,
     "rtol": 1e-06,
     "schema": "qrwkv_xla.p83_pallas_wkv_parity_probe.v1",
@@ -1499,6 +2268,775 @@
       "wkv_runtime_effective": "pallas",
       "wkv_runtime_requested": "pallas"
     },
+    "p86_pallas_fused_sequence_parity_matrix": {
+      "backend": "pallas_call_interpret",
+      "cases": [
+        {
+          "atol": 1e-06,
+          "batch": 1,
+          "case_id": "float32_b1_h1_d2_t2",
+          "decay_seq_shape": [
+            2,
+            1,
+            1,
+            2
+          ],
+          "dim": 2,
+          "dtype": "float32",
+          "final_max_abs_error": 0.0,
+          "final_max_rel_error": 0.0,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 1,
+          "initial_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            2,
+            1,
+            1,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            2,
+            1,
+            1,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 2,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            2,
+            1,
+            1,
+            2
+          ],
+          "worst_step_max_abs_error": 0.0,
+          "worst_step_max_rel_error": 0.0
+        },
+        {
+          "atol": 1e-06,
+          "batch": 1,
+          "case_id": "float32_b1_h1_d2_t4",
+          "decay_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "dim": 2,
+          "dtype": "float32",
+          "final_max_abs_error": 7.450580596923828e-09,
+          "final_max_rel_error": 7.876759866576322e-08,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 1,
+          "initial_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            1,
+            1,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 4,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "worst_step_max_abs_error": 7.450580596923828e-09,
+          "worst_step_max_rel_error": 7.876759866576322e-08
+        },
+        {
+          "atol": 1e-06,
+          "batch": 1,
+          "case_id": "float32_b1_h2_d2_t4",
+          "decay_seq_shape": [
+            4,
+            1,
+            2,
+            2
+          ],
+          "dim": 2,
+          "dtype": "float32",
+          "final_max_abs_error": 1.4901161193847656e-08,
+          "final_max_rel_error": 1.0148435336532202e-07,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            2,
+            2,
+            2
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 2,
+          "initial_state_shape": [
+            1,
+            2,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            4,
+            1,
+            2,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            1,
+            2,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 4,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            4,
+            1,
+            2,
+            2
+          ],
+          "worst_step_max_abs_error": 2.9802322387695312e-08,
+          "worst_step_max_rel_error": 1.1450320158701288e-07
+        },
+        {
+          "atol": 1e-06,
+          "batch": 2,
+          "case_id": "float32_b2_h2_d4_t4",
+          "decay_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "dim": 4,
+          "dtype": "float32",
+          "final_max_abs_error": 1.1920928955078125e-07,
+          "final_max_rel_error": 2.211218514958091e-07,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 2,
+          "initial_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "k_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            2,
+            2,
+            4,
+            4
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 4,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "worst_step_max_abs_error": 2.384185791015625e-07,
+          "worst_step_max_rel_error": 2.2789797071709472e-07
+        },
+        {
+          "atol": 0.05,
+          "batch": 1,
+          "case_id": "bfloat16_b1_h1_d2_t4",
+          "decay_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "dim": 2,
+          "dtype": "bfloat16",
+          "final_max_abs_error": 0.0,
+          "final_max_rel_error": 0.0,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 1,
+          "initial_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            1,
+            1,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": false,
+          "rtol": 0.05,
+          "seq_len": 4,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "worst_step_max_abs_error": 0.0,
+          "worst_step_max_rel_error": 0.0
+        },
+        {
+          "atol": 0.05,
+          "batch": 2,
+          "case_id": "bfloat16_b2_h2_d4_t4",
+          "decay_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "dim": 4,
+          "dtype": "bfloat16",
+          "final_max_abs_error": 0.0,
+          "final_max_rel_error": 0.0,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 2,
+          "initial_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "k_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            2,
+            2,
+            4,
+            4
+          ],
+          "reason": null,
+          "required": false,
+          "rtol": 0.05,
+          "seq_len": 4,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "worst_step_max_abs_error": 0.0,
+          "worst_step_max_rel_error": 0.0
+        }
+      ],
+      "default_runtime": "reference",
+      "kernel_parity_claimed": true,
+      "one_step_formula": "state * decay[..., None, :] + k[..., :, None] * v[..., None, :]",
+      "p85_repeated_step_parity": {
+        "backend": "pallas_call_interpret",
+        "cases": [
+          {
+            "atol": 1e-06,
+            "batch": 1,
+            "case_id": "float32_b1_h1_d2_t2",
+            "decay_seq_shape": [
+              2,
+              1,
+              1,
+              2
+            ],
+            "dim": 2,
+            "dtype": "float32",
+            "final_max_abs_error": 0.0,
+            "final_max_rel_error": 0.0,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "heads": 1,
+            "initial_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "k_seq_shape": [
+              2,
+              1,
+              1,
+              2
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              2,
+              1,
+              1,
+              2,
+              2
+            ],
+            "reason": null,
+            "required": true,
+            "rtol": 1e-06,
+            "seq_len": 2,
+            "v_seq_shape": [
+              2,
+              1,
+              1,
+              2
+            ],
+            "worst_step_max_abs_error": 0.0,
+            "worst_step_max_rel_error": 0.0
+          },
+          {
+            "atol": 1e-06,
+            "batch": 1,
+            "case_id": "float32_b1_h1_d2_t4",
+            "decay_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "dim": 2,
+            "dtype": "float32",
+            "final_max_abs_error": 7.450580596923828e-09,
+            "final_max_rel_error": 7.876759866576322e-08,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "heads": 1,
+            "initial_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "k_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              4,
+              1,
+              1,
+              2,
+              2
+            ],
+            "reason": null,
+            "required": true,
+            "rtol": 1e-06,
+            "seq_len": 4,
+            "v_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "worst_step_max_abs_error": 7.450580596923828e-09,
+            "worst_step_max_rel_error": 7.876759866576322e-08
+          },
+          {
+            "atol": 1e-06,
+            "batch": 1,
+            "case_id": "float32_b1_h2_d2_t4",
+            "decay_seq_shape": [
+              4,
+              1,
+              2,
+              2
+            ],
+            "dim": 2,
+            "dtype": "float32",
+            "final_max_abs_error": 1.4901161193847656e-08,
+            "final_max_rel_error": 1.0148435336532202e-07,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              1,
+              2,
+              2,
+              2
+            ],
+            "heads": 2,
+            "initial_state_shape": [
+              1,
+              2,
+              2,
+              2
+            ],
+            "k_seq_shape": [
+              4,
+              1,
+              2,
+              2
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              4,
+              1,
+              2,
+              2,
+              2
+            ],
+            "reason": null,
+            "required": true,
+            "rtol": 1e-06,
+            "seq_len": 4,
+            "v_seq_shape": [
+              4,
+              1,
+              2,
+              2
+            ],
+            "worst_step_max_abs_error": 2.9802322387695312e-08,
+            "worst_step_max_rel_error": 1.1450320158701288e-07
+          },
+          {
+            "atol": 1e-06,
+            "batch": 2,
+            "case_id": "float32_b2_h2_d4_t4",
+            "decay_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "dim": 4,
+            "dtype": "float32",
+            "final_max_abs_error": 1.1920928955078125e-07,
+            "final_max_rel_error": 2.211218514958091e-07,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              2,
+              2,
+              4,
+              4
+            ],
+            "heads": 2,
+            "initial_state_shape": [
+              2,
+              2,
+              4,
+              4
+            ],
+            "k_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              4,
+              2,
+              2,
+              4,
+              4
+            ],
+            "reason": null,
+            "required": true,
+            "rtol": 1e-06,
+            "seq_len": 4,
+            "v_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "worst_step_max_abs_error": 2.384185791015625e-07,
+            "worst_step_max_rel_error": 2.2789797071709472e-07
+          },
+          {
+            "atol": 0.05,
+            "batch": 1,
+            "case_id": "bfloat16_b1_h1_d2_t4",
+            "decay_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "dim": 2,
+            "dtype": "bfloat16",
+            "final_max_abs_error": 0.0,
+            "final_max_rel_error": 0.0,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "heads": 1,
+            "initial_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "k_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              4,
+              1,
+              1,
+              2,
+              2
+            ],
+            "reason": null,
+            "required": false,
+            "rtol": 0.05,
+            "seq_len": 4,
+            "v_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "worst_step_max_abs_error": 0.0,
+            "worst_step_max_rel_error": 0.0
+          },
+          {
+            "atol": 0.05,
+            "batch": 2,
+            "case_id": "bfloat16_b2_h2_d4_t4",
+            "decay_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "dim": 4,
+            "dtype": "bfloat16",
+            "final_max_abs_error": 0.0,
+            "final_max_rel_error": 0.0,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              2,
+              2,
+              4,
+              4
+            ],
+            "heads": 2,
+            "initial_state_shape": [
+              2,
+              2,
+              4,
+              4
+            ],
+            "k_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              4,
+              2,
+              2,
+              4,
+              4
+            ],
+            "reason": null,
+            "required": false,
+            "rtol": 0.05,
+            "seq_len": 4,
+            "v_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "worst_step_max_abs_error": 0.0,
+            "worst_step_max_rel_error": 0.0
+          }
+        ],
+        "default_runtime": "reference",
+        "fused_sequence_kernel_status": "not_implemented",
+        "kernel_parity_claimed": true,
+        "one_step_formula": "state * decay[..., None, :] + k[..., :, None] * v[..., None, :]",
+        "pallas_available": true,
+        "parity_scope": "short_sequence_repeated_one_step_wkv",
+        "phase": "P85",
+        "reason": null,
+        "recommended_next_phase": "P86 fused/scan Pallas WKV kernel scaffold",
+        "schema": "qrwkv_xla.p85_pallas_sequence_parity_matrix.v1",
+        "sequence_method": "repeated_one_step_pallas",
+        "summary": {
+          "all_required_cases_pass": true,
+          "cases_fail": 0,
+          "cases_pass": 6,
+          "cases_total": 6,
+          "cases_unavailable": 0,
+          "kernel_parity_claimed": true,
+          "worst_final_max_abs_error": 1.1920928955078125e-07,
+          "worst_final_max_rel_error": 2.211218514958091e-07,
+          "worst_step_max_abs_error": 2.384185791015625e-07,
+          "worst_step_max_rel_error": 2.2789797071709472e-07
+        },
+        "wkv_runtime_effective": "pallas",
+        "wkv_runtime_requested": "pallas"
+      },
+      "pallas_available": true,
+      "parity_scope": "fused_or_scan_style_wkv_sequence",
+      "phase": "P86",
+      "reason": null,
+      "recommended_next_phase": "P87 fixture-family opt-in Pallas runtime integration",
+      "schema": "qrwkv_xla.p86_pallas_fused_sequence_parity_matrix.v1",
+      "sequence_method": "jax_scan_pallas_step_scaffold",
+      "summary": {
+        "all_required_cases_pass": true,
+        "cases_fail": 0,
+        "cases_pass": 6,
+        "cases_total": 6,
+        "cases_unavailable": 0,
+        "fused_sequence_kernel_status": "scan_scaffold_pass",
+        "kernel_parity_claimed": true,
+        "sequence_method": "jax_scan_pallas_step_scaffold",
+        "worst_final_max_abs_error": 1.1920928955078125e-07,
+        "worst_final_max_rel_error": 2.211218514958091e-07,
+        "worst_step_max_abs_error": 2.384185791015625e-07,
+        "worst_step_max_rel_error": 2.2789797071709472e-07
+      },
+      "wkv_runtime_effective": "pallas",
+      "wkv_runtime_requested": "pallas"
+    },
     "pallas_available": true,
     "parity_scope": "tiny_one_step_wkv_update",
     "parity_status": "pass",
@@ -1536,7 +3074,7 @@
     "prototype_scope": "minimal_pallas_wkv_execution_probe",
     "prototype_status": "pass",
     "reason": null,
-    "recommended_next_phase": "P86 fused/scan Pallas WKV kernel scaffold",
+    "recommended_next_phase": "P87 fixture-family opt-in Pallas runtime integration",
     "reference_default_preserved": true,
     "rtol": 1e-06,
     "schema": "qrwkv_xla.p83_pallas_wkv_parity_probe.v1",
@@ -2262,6 +3800,775 @@
       "wkv_runtime_effective": "pallas",
       "wkv_runtime_requested": "pallas"
     },
+    "p86_pallas_fused_sequence_parity_matrix": {
+      "backend": "pallas_call_interpret",
+      "cases": [
+        {
+          "atol": 1e-06,
+          "batch": 1,
+          "case_id": "float32_b1_h1_d2_t2",
+          "decay_seq_shape": [
+            2,
+            1,
+            1,
+            2
+          ],
+          "dim": 2,
+          "dtype": "float32",
+          "final_max_abs_error": 0.0,
+          "final_max_rel_error": 0.0,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 1,
+          "initial_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            2,
+            1,
+            1,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            2,
+            1,
+            1,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 2,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            2,
+            1,
+            1,
+            2
+          ],
+          "worst_step_max_abs_error": 0.0,
+          "worst_step_max_rel_error": 0.0
+        },
+        {
+          "atol": 1e-06,
+          "batch": 1,
+          "case_id": "float32_b1_h1_d2_t4",
+          "decay_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "dim": 2,
+          "dtype": "float32",
+          "final_max_abs_error": 7.450580596923828e-09,
+          "final_max_rel_error": 7.876759866576322e-08,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 1,
+          "initial_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            1,
+            1,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 4,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "worst_step_max_abs_error": 7.450580596923828e-09,
+          "worst_step_max_rel_error": 7.876759866576322e-08
+        },
+        {
+          "atol": 1e-06,
+          "batch": 1,
+          "case_id": "float32_b1_h2_d2_t4",
+          "decay_seq_shape": [
+            4,
+            1,
+            2,
+            2
+          ],
+          "dim": 2,
+          "dtype": "float32",
+          "final_max_abs_error": 1.4901161193847656e-08,
+          "final_max_rel_error": 1.0148435336532202e-07,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            2,
+            2,
+            2
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 2,
+          "initial_state_shape": [
+            1,
+            2,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            4,
+            1,
+            2,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            1,
+            2,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 4,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            4,
+            1,
+            2,
+            2
+          ],
+          "worst_step_max_abs_error": 2.9802322387695312e-08,
+          "worst_step_max_rel_error": 1.1450320158701288e-07
+        },
+        {
+          "atol": 1e-06,
+          "batch": 2,
+          "case_id": "float32_b2_h2_d4_t4",
+          "decay_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "dim": 4,
+          "dtype": "float32",
+          "final_max_abs_error": 1.1920928955078125e-07,
+          "final_max_rel_error": 2.211218514958091e-07,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 2,
+          "initial_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "k_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            2,
+            2,
+            4,
+            4
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 4,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "worst_step_max_abs_error": 2.384185791015625e-07,
+          "worst_step_max_rel_error": 2.2789797071709472e-07
+        },
+        {
+          "atol": 0.05,
+          "batch": 1,
+          "case_id": "bfloat16_b1_h1_d2_t4",
+          "decay_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "dim": 2,
+          "dtype": "bfloat16",
+          "final_max_abs_error": 0.0,
+          "final_max_rel_error": 0.0,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 1,
+          "initial_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            1,
+            1,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": false,
+          "rtol": 0.05,
+          "seq_len": 4,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "worst_step_max_abs_error": 0.0,
+          "worst_step_max_rel_error": 0.0
+        },
+        {
+          "atol": 0.05,
+          "batch": 2,
+          "case_id": "bfloat16_b2_h2_d4_t4",
+          "decay_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "dim": 4,
+          "dtype": "bfloat16",
+          "final_max_abs_error": 0.0,
+          "final_max_rel_error": 0.0,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "fused_sequence_kernel_status": "scan_scaffold_pass",
+          "heads": 2,
+          "initial_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "k_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            2,
+            2,
+            4,
+            4
+          ],
+          "reason": null,
+          "required": false,
+          "rtol": 0.05,
+          "seq_len": 4,
+          "sequence_method": "jax_scan_pallas_step_scaffold",
+          "v_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "worst_step_max_abs_error": 0.0,
+          "worst_step_max_rel_error": 0.0
+        }
+      ],
+      "default_runtime": "reference",
+      "kernel_parity_claimed": true,
+      "one_step_formula": "state * decay[..., None, :] + k[..., :, None] * v[..., None, :]",
+      "p85_repeated_step_parity": {
+        "backend": "pallas_call_interpret",
+        "cases": [
+          {
+            "atol": 1e-06,
+            "batch": 1,
+            "case_id": "float32_b1_h1_d2_t2",
+            "decay_seq_shape": [
+              2,
+              1,
+              1,
+              2
+            ],
+            "dim": 2,
+            "dtype": "float32",
+            "final_max_abs_error": 0.0,
+            "final_max_rel_error": 0.0,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "heads": 1,
+            "initial_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "k_seq_shape": [
+              2,
+              1,
+              1,
+              2
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              2,
+              1,
+              1,
+              2,
+              2
+            ],
+            "reason": null,
+            "required": true,
+            "rtol": 1e-06,
+            "seq_len": 2,
+            "v_seq_shape": [
+              2,
+              1,
+              1,
+              2
+            ],
+            "worst_step_max_abs_error": 0.0,
+            "worst_step_max_rel_error": 0.0
+          },
+          {
+            "atol": 1e-06,
+            "batch": 1,
+            "case_id": "float32_b1_h1_d2_t4",
+            "decay_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "dim": 2,
+            "dtype": "float32",
+            "final_max_abs_error": 7.450580596923828e-09,
+            "final_max_rel_error": 7.876759866576322e-08,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "heads": 1,
+            "initial_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "k_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              4,
+              1,
+              1,
+              2,
+              2
+            ],
+            "reason": null,
+            "required": true,
+            "rtol": 1e-06,
+            "seq_len": 4,
+            "v_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "worst_step_max_abs_error": 7.450580596923828e-09,
+            "worst_step_max_rel_error": 7.876759866576322e-08
+          },
+          {
+            "atol": 1e-06,
+            "batch": 1,
+            "case_id": "float32_b1_h2_d2_t4",
+            "decay_seq_shape": [
+              4,
+              1,
+              2,
+              2
+            ],
+            "dim": 2,
+            "dtype": "float32",
+            "final_max_abs_error": 1.4901161193847656e-08,
+            "final_max_rel_error": 1.0148435336532202e-07,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              1,
+              2,
+              2,
+              2
+            ],
+            "heads": 2,
+            "initial_state_shape": [
+              1,
+              2,
+              2,
+              2
+            ],
+            "k_seq_shape": [
+              4,
+              1,
+              2,
+              2
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              4,
+              1,
+              2,
+              2,
+              2
+            ],
+            "reason": null,
+            "required": true,
+            "rtol": 1e-06,
+            "seq_len": 4,
+            "v_seq_shape": [
+              4,
+              1,
+              2,
+              2
+            ],
+            "worst_step_max_abs_error": 2.9802322387695312e-08,
+            "worst_step_max_rel_error": 1.1450320158701288e-07
+          },
+          {
+            "atol": 1e-06,
+            "batch": 2,
+            "case_id": "float32_b2_h2_d4_t4",
+            "decay_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "dim": 4,
+            "dtype": "float32",
+            "final_max_abs_error": 1.1920928955078125e-07,
+            "final_max_rel_error": 2.211218514958091e-07,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              2,
+              2,
+              4,
+              4
+            ],
+            "heads": 2,
+            "initial_state_shape": [
+              2,
+              2,
+              4,
+              4
+            ],
+            "k_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              4,
+              2,
+              2,
+              4,
+              4
+            ],
+            "reason": null,
+            "required": true,
+            "rtol": 1e-06,
+            "seq_len": 4,
+            "v_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "worst_step_max_abs_error": 2.384185791015625e-07,
+            "worst_step_max_rel_error": 2.2789797071709472e-07
+          },
+          {
+            "atol": 0.05,
+            "batch": 1,
+            "case_id": "bfloat16_b1_h1_d2_t4",
+            "decay_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "dim": 2,
+            "dtype": "bfloat16",
+            "final_max_abs_error": 0.0,
+            "final_max_rel_error": 0.0,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "heads": 1,
+            "initial_state_shape": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "k_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              4,
+              1,
+              1,
+              2,
+              2
+            ],
+            "reason": null,
+            "required": false,
+            "rtol": 0.05,
+            "seq_len": 4,
+            "v_seq_shape": [
+              4,
+              1,
+              1,
+              2
+            ],
+            "worst_step_max_abs_error": 0.0,
+            "worst_step_max_rel_error": 0.0
+          },
+          {
+            "atol": 0.05,
+            "batch": 2,
+            "case_id": "bfloat16_b2_h2_d4_t4",
+            "decay_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "dim": 4,
+            "dtype": "bfloat16",
+            "final_max_abs_error": 0.0,
+            "final_max_rel_error": 0.0,
+            "final_shape_match": true,
+            "final_state_finite": true,
+            "final_state_shape": [
+              2,
+              2,
+              4,
+              4
+            ],
+            "heads": 2,
+            "initial_state_shape": [
+              2,
+              2,
+              4,
+              4
+            ],
+            "k_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "parity_status": "pass",
+            "per_step_finite": true,
+            "per_step_shape_match": true,
+            "per_step_states_shape": [
+              4,
+              2,
+              2,
+              4,
+              4
+            ],
+            "reason": null,
+            "required": false,
+            "rtol": 0.05,
+            "seq_len": 4,
+            "v_seq_shape": [
+              4,
+              2,
+              2,
+              4
+            ],
+            "worst_step_max_abs_error": 0.0,
+            "worst_step_max_rel_error": 0.0
+          }
+        ],
+        "default_runtime": "reference",
+        "fused_sequence_kernel_status": "not_implemented",
+        "kernel_parity_claimed": true,
+        "one_step_formula": "state * decay[..., None, :] + k[..., :, None] * v[..., None, :]",
+        "pallas_available": true,
+        "parity_scope": "short_sequence_repeated_one_step_wkv",
+        "phase": "P85",
+        "reason": null,
+        "recommended_next_phase": "P86 fused/scan Pallas WKV kernel scaffold",
+        "schema": "qrwkv_xla.p85_pallas_sequence_parity_matrix.v1",
+        "sequence_method": "repeated_one_step_pallas",
+        "summary": {
+          "all_required_cases_pass": true,
+          "cases_fail": 0,
+          "cases_pass": 6,
+          "cases_total": 6,
+          "cases_unavailable": 0,
+          "kernel_parity_claimed": true,
+          "worst_final_max_abs_error": 1.1920928955078125e-07,
+          "worst_final_max_rel_error": 2.211218514958091e-07,
+          "worst_step_max_abs_error": 2.384185791015625e-07,
+          "worst_step_max_rel_error": 2.2789797071709472e-07
+        },
+        "wkv_runtime_effective": "pallas",
+        "wkv_runtime_requested": "pallas"
+      },
+      "pallas_available": true,
+      "parity_scope": "fused_or_scan_style_wkv_sequence",
+      "phase": "P86",
+      "reason": null,
+      "recommended_next_phase": "P87 fixture-family opt-in Pallas runtime integration",
+      "schema": "qrwkv_xla.p86_pallas_fused_sequence_parity_matrix.v1",
+      "sequence_method": "jax_scan_pallas_step_scaffold",
+      "summary": {
+        "all_required_cases_pass": true,
+        "cases_fail": 0,
+        "cases_pass": 6,
+        "cases_total": 6,
+        "cases_unavailable": 0,
+        "fused_sequence_kernel_status": "scan_scaffold_pass",
+        "kernel_parity_claimed": true,
+        "sequence_method": "jax_scan_pallas_step_scaffold",
+        "worst_final_max_abs_error": 1.1920928955078125e-07,
+        "worst_final_max_rel_error": 2.211218514958091e-07,
+        "worst_step_max_abs_error": 2.384185791015625e-07,
+        "worst_step_max_rel_error": 2.2789797071709472e-07
+      },
+      "wkv_runtime_effective": "pallas",
+      "wkv_runtime_requested": "pallas"
+    },
     "pallas_available": true,
     "parity_scope": "tiny_one_step_wkv_update",
     "parity_status": "pass",
@@ -2299,7 +4606,7 @@
     "prototype_scope": "minimal_pallas_wkv_execution_probe",
     "prototype_status": "pass",
     "reason": null,
-    "recommended_next_phase": "P86 fused/scan Pallas WKV kernel scaffold",
+    "recommended_next_phase": "P87 fixture-family opt-in Pallas runtime integration",
     "reference_default_preserved": true,
     "rtol": 1e-06,
     "schema": "qrwkv_xla.p83_pallas_wkv_parity_probe.v1",
@@ -3010,12 +5317,781 @@
     "wkv_runtime_effective": "pallas",
     "wkv_runtime_requested": "pallas"
   },
+  "p86_pallas_fused_sequence_parity_matrix": {
+    "backend": "pallas_call_interpret",
+    "cases": [
+      {
+        "atol": 1e-06,
+        "batch": 1,
+        "case_id": "float32_b1_h1_d2_t2",
+        "decay_seq_shape": [
+          2,
+          1,
+          1,
+          2
+        ],
+        "dim": 2,
+        "dtype": "float32",
+        "final_max_abs_error": 0.0,
+        "final_max_rel_error": 0.0,
+        "final_shape_match": true,
+        "final_state_finite": true,
+        "final_state_shape": [
+          1,
+          1,
+          2,
+          2
+        ],
+        "fused_sequence_kernel_status": "scan_scaffold_pass",
+        "heads": 1,
+        "initial_state_shape": [
+          1,
+          1,
+          2,
+          2
+        ],
+        "k_seq_shape": [
+          2,
+          1,
+          1,
+          2
+        ],
+        "parity_status": "pass",
+        "per_step_finite": true,
+        "per_step_shape_match": true,
+        "per_step_states_shape": [
+          2,
+          1,
+          1,
+          2,
+          2
+        ],
+        "reason": null,
+        "required": true,
+        "rtol": 1e-06,
+        "seq_len": 2,
+        "sequence_method": "jax_scan_pallas_step_scaffold",
+        "v_seq_shape": [
+          2,
+          1,
+          1,
+          2
+        ],
+        "worst_step_max_abs_error": 0.0,
+        "worst_step_max_rel_error": 0.0
+      },
+      {
+        "atol": 1e-06,
+        "batch": 1,
+        "case_id": "float32_b1_h1_d2_t4",
+        "decay_seq_shape": [
+          4,
+          1,
+          1,
+          2
+        ],
+        "dim": 2,
+        "dtype": "float32",
+        "final_max_abs_error": 7.450580596923828e-09,
+        "final_max_rel_error": 7.876759866576322e-08,
+        "final_shape_match": true,
+        "final_state_finite": true,
+        "final_state_shape": [
+          1,
+          1,
+          2,
+          2
+        ],
+        "fused_sequence_kernel_status": "scan_scaffold_pass",
+        "heads": 1,
+        "initial_state_shape": [
+          1,
+          1,
+          2,
+          2
+        ],
+        "k_seq_shape": [
+          4,
+          1,
+          1,
+          2
+        ],
+        "parity_status": "pass",
+        "per_step_finite": true,
+        "per_step_shape_match": true,
+        "per_step_states_shape": [
+          4,
+          1,
+          1,
+          2,
+          2
+        ],
+        "reason": null,
+        "required": true,
+        "rtol": 1e-06,
+        "seq_len": 4,
+        "sequence_method": "jax_scan_pallas_step_scaffold",
+        "v_seq_shape": [
+          4,
+          1,
+          1,
+          2
+        ],
+        "worst_step_max_abs_error": 7.450580596923828e-09,
+        "worst_step_max_rel_error": 7.876759866576322e-08
+      },
+      {
+        "atol": 1e-06,
+        "batch": 1,
+        "case_id": "float32_b1_h2_d2_t4",
+        "decay_seq_shape": [
+          4,
+          1,
+          2,
+          2
+        ],
+        "dim": 2,
+        "dtype": "float32",
+        "final_max_abs_error": 1.4901161193847656e-08,
+        "final_max_rel_error": 1.0148435336532202e-07,
+        "final_shape_match": true,
+        "final_state_finite": true,
+        "final_state_shape": [
+          1,
+          2,
+          2,
+          2
+        ],
+        "fused_sequence_kernel_status": "scan_scaffold_pass",
+        "heads": 2,
+        "initial_state_shape": [
+          1,
+          2,
+          2,
+          2
+        ],
+        "k_seq_shape": [
+          4,
+          1,
+          2,
+          2
+        ],
+        "parity_status": "pass",
+        "per_step_finite": true,
+        "per_step_shape_match": true,
+        "per_step_states_shape": [
+          4,
+          1,
+          2,
+          2,
+          2
+        ],
+        "reason": null,
+        "required": true,
+        "rtol": 1e-06,
+        "seq_len": 4,
+        "sequence_method": "jax_scan_pallas_step_scaffold",
+        "v_seq_shape": [
+          4,
+          1,
+          2,
+          2
+        ],
+        "worst_step_max_abs_error": 2.9802322387695312e-08,
+        "worst_step_max_rel_error": 1.1450320158701288e-07
+      },
+      {
+        "atol": 1e-06,
+        "batch": 2,
+        "case_id": "float32_b2_h2_d4_t4",
+        "decay_seq_shape": [
+          4,
+          2,
+          2,
+          4
+        ],
+        "dim": 4,
+        "dtype": "float32",
+        "final_max_abs_error": 1.1920928955078125e-07,
+        "final_max_rel_error": 2.211218514958091e-07,
+        "final_shape_match": true,
+        "final_state_finite": true,
+        "final_state_shape": [
+          2,
+          2,
+          4,
+          4
+        ],
+        "fused_sequence_kernel_status": "scan_scaffold_pass",
+        "heads": 2,
+        "initial_state_shape": [
+          2,
+          2,
+          4,
+          4
+        ],
+        "k_seq_shape": [
+          4,
+          2,
+          2,
+          4
+        ],
+        "parity_status": "pass",
+        "per_step_finite": true,
+        "per_step_shape_match": true,
+        "per_step_states_shape": [
+          4,
+          2,
+          2,
+          4,
+          4
+        ],
+        "reason": null,
+        "required": true,
+        "rtol": 1e-06,
+        "seq_len": 4,
+        "sequence_method": "jax_scan_pallas_step_scaffold",
+        "v_seq_shape": [
+          4,
+          2,
+          2,
+          4
+        ],
+        "worst_step_max_abs_error": 2.384185791015625e-07,
+        "worst_step_max_rel_error": 2.2789797071709472e-07
+      },
+      {
+        "atol": 0.05,
+        "batch": 1,
+        "case_id": "bfloat16_b1_h1_d2_t4",
+        "decay_seq_shape": [
+          4,
+          1,
+          1,
+          2
+        ],
+        "dim": 2,
+        "dtype": "bfloat16",
+        "final_max_abs_error": 0.0,
+        "final_max_rel_error": 0.0,
+        "final_shape_match": true,
+        "final_state_finite": true,
+        "final_state_shape": [
+          1,
+          1,
+          2,
+          2
+        ],
+        "fused_sequence_kernel_status": "scan_scaffold_pass",
+        "heads": 1,
+        "initial_state_shape": [
+          1,
+          1,
+          2,
+          2
+        ],
+        "k_seq_shape": [
+          4,
+          1,
+          1,
+          2
+        ],
+        "parity_status": "pass",
+        "per_step_finite": true,
+        "per_step_shape_match": true,
+        "per_step_states_shape": [
+          4,
+          1,
+          1,
+          2,
+          2
+        ],
+        "reason": null,
+        "required": false,
+        "rtol": 0.05,
+        "seq_len": 4,
+        "sequence_method": "jax_scan_pallas_step_scaffold",
+        "v_seq_shape": [
+          4,
+          1,
+          1,
+          2
+        ],
+        "worst_step_max_abs_error": 0.0,
+        "worst_step_max_rel_error": 0.0
+      },
+      {
+        "atol": 0.05,
+        "batch": 2,
+        "case_id": "bfloat16_b2_h2_d4_t4",
+        "decay_seq_shape": [
+          4,
+          2,
+          2,
+          4
+        ],
+        "dim": 4,
+        "dtype": "bfloat16",
+        "final_max_abs_error": 0.0,
+        "final_max_rel_error": 0.0,
+        "final_shape_match": true,
+        "final_state_finite": true,
+        "final_state_shape": [
+          2,
+          2,
+          4,
+          4
+        ],
+        "fused_sequence_kernel_status": "scan_scaffold_pass",
+        "heads": 2,
+        "initial_state_shape": [
+          2,
+          2,
+          4,
+          4
+        ],
+        "k_seq_shape": [
+          4,
+          2,
+          2,
+          4
+        ],
+        "parity_status": "pass",
+        "per_step_finite": true,
+        "per_step_shape_match": true,
+        "per_step_states_shape": [
+          4,
+          2,
+          2,
+          4,
+          4
+        ],
+        "reason": null,
+        "required": false,
+        "rtol": 0.05,
+        "seq_len": 4,
+        "sequence_method": "jax_scan_pallas_step_scaffold",
+        "v_seq_shape": [
+          4,
+          2,
+          2,
+          4
+        ],
+        "worst_step_max_abs_error": 0.0,
+        "worst_step_max_rel_error": 0.0
+      }
+    ],
+    "default_runtime": "reference",
+    "kernel_parity_claimed": true,
+    "one_step_formula": "state * decay[..., None, :] + k[..., :, None] * v[..., None, :]",
+    "p85_repeated_step_parity": {
+      "backend": "pallas_call_interpret",
+      "cases": [
+        {
+          "atol": 1e-06,
+          "batch": 1,
+          "case_id": "float32_b1_h1_d2_t2",
+          "decay_seq_shape": [
+            2,
+            1,
+            1,
+            2
+          ],
+          "dim": 2,
+          "dtype": "float32",
+          "final_max_abs_error": 0.0,
+          "final_max_rel_error": 0.0,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "heads": 1,
+          "initial_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            2,
+            1,
+            1,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            2,
+            1,
+            1,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 2,
+          "v_seq_shape": [
+            2,
+            1,
+            1,
+            2
+          ],
+          "worst_step_max_abs_error": 0.0,
+          "worst_step_max_rel_error": 0.0
+        },
+        {
+          "atol": 1e-06,
+          "batch": 1,
+          "case_id": "float32_b1_h1_d2_t4",
+          "decay_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "dim": 2,
+          "dtype": "float32",
+          "final_max_abs_error": 7.450580596923828e-09,
+          "final_max_rel_error": 7.876759866576322e-08,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "heads": 1,
+          "initial_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            1,
+            1,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 4,
+          "v_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "worst_step_max_abs_error": 7.450580596923828e-09,
+          "worst_step_max_rel_error": 7.876759866576322e-08
+        },
+        {
+          "atol": 1e-06,
+          "batch": 1,
+          "case_id": "float32_b1_h2_d2_t4",
+          "decay_seq_shape": [
+            4,
+            1,
+            2,
+            2
+          ],
+          "dim": 2,
+          "dtype": "float32",
+          "final_max_abs_error": 1.4901161193847656e-08,
+          "final_max_rel_error": 1.0148435336532202e-07,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            2,
+            2,
+            2
+          ],
+          "heads": 2,
+          "initial_state_shape": [
+            1,
+            2,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            4,
+            1,
+            2,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            1,
+            2,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 4,
+          "v_seq_shape": [
+            4,
+            1,
+            2,
+            2
+          ],
+          "worst_step_max_abs_error": 2.9802322387695312e-08,
+          "worst_step_max_rel_error": 1.1450320158701288e-07
+        },
+        {
+          "atol": 1e-06,
+          "batch": 2,
+          "case_id": "float32_b2_h2_d4_t4",
+          "decay_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "dim": 4,
+          "dtype": "float32",
+          "final_max_abs_error": 1.1920928955078125e-07,
+          "final_max_rel_error": 2.211218514958091e-07,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "heads": 2,
+          "initial_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "k_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            2,
+            2,
+            4,
+            4
+          ],
+          "reason": null,
+          "required": true,
+          "rtol": 1e-06,
+          "seq_len": 4,
+          "v_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "worst_step_max_abs_error": 2.384185791015625e-07,
+          "worst_step_max_rel_error": 2.2789797071709472e-07
+        },
+        {
+          "atol": 0.05,
+          "batch": 1,
+          "case_id": "bfloat16_b1_h1_d2_t4",
+          "decay_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "dim": 2,
+          "dtype": "bfloat16",
+          "final_max_abs_error": 0.0,
+          "final_max_rel_error": 0.0,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "heads": 1,
+          "initial_state_shape": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "k_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            1,
+            1,
+            2,
+            2
+          ],
+          "reason": null,
+          "required": false,
+          "rtol": 0.05,
+          "seq_len": 4,
+          "v_seq_shape": [
+            4,
+            1,
+            1,
+            2
+          ],
+          "worst_step_max_abs_error": 0.0,
+          "worst_step_max_rel_error": 0.0
+        },
+        {
+          "atol": 0.05,
+          "batch": 2,
+          "case_id": "bfloat16_b2_h2_d4_t4",
+          "decay_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "dim": 4,
+          "dtype": "bfloat16",
+          "final_max_abs_error": 0.0,
+          "final_max_rel_error": 0.0,
+          "final_shape_match": true,
+          "final_state_finite": true,
+          "final_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "heads": 2,
+          "initial_state_shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "k_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "parity_status": "pass",
+          "per_step_finite": true,
+          "per_step_shape_match": true,
+          "per_step_states_shape": [
+            4,
+            2,
+            2,
+            4,
+            4
+          ],
+          "reason": null,
+          "required": false,
+          "rtol": 0.05,
+          "seq_len": 4,
+          "v_seq_shape": [
+            4,
+            2,
+            2,
+            4
+          ],
+          "worst_step_max_abs_error": 0.0,
+          "worst_step_max_rel_error": 0.0
+        }
+      ],
+      "default_runtime": "reference",
+      "fused_sequence_kernel_status": "not_implemented",
+      "kernel_parity_claimed": true,
+      "one_step_formula": "state * decay[..., None, :] + k[..., :, None] * v[..., None, :]",
+      "pallas_available": true,
+      "parity_scope": "short_sequence_repeated_one_step_wkv",
+      "phase": "P85",
+      "reason": null,
+      "recommended_next_phase": "P86 fused/scan Pallas WKV kernel scaffold",
+      "schema": "qrwkv_xla.p85_pallas_sequence_parity_matrix.v1",
+      "sequence_method": "repeated_one_step_pallas",
+      "summary": {
+        "all_required_cases_pass": true,
+        "cases_fail": 0,
+        "cases_pass": 6,
+        "cases_total": 6,
+        "cases_unavailable": 0,
+        "kernel_parity_claimed": true,
+        "worst_final_max_abs_error": 1.1920928955078125e-07,
+        "worst_final_max_rel_error": 2.211218514958091e-07,
+        "worst_step_max_abs_error": 2.384185791015625e-07,
+        "worst_step_max_rel_error": 2.2789797071709472e-07
+      },
+      "wkv_runtime_effective": "pallas",
+      "wkv_runtime_requested": "pallas"
+    },
+    "pallas_available": true,
+    "parity_scope": "fused_or_scan_style_wkv_sequence",
+    "phase": "P86",
+    "reason": null,
+    "recommended_next_phase": "P87 fixture-family opt-in Pallas runtime integration",
+    "schema": "qrwkv_xla.p86_pallas_fused_sequence_parity_matrix.v1",
+    "sequence_method": "jax_scan_pallas_step_scaffold",
+    "summary": {
+      "all_required_cases_pass": true,
+      "cases_fail": 0,
+      "cases_pass": 6,
+      "cases_total": 6,
+      "cases_unavailable": 0,
+      "fused_sequence_kernel_status": "scan_scaffold_pass",
+      "kernel_parity_claimed": true,
+      "sequence_method": "jax_scan_pallas_step_scaffold",
+      "worst_final_max_abs_error": 1.1920928955078125e-07,
+      "worst_final_max_rel_error": 2.211218514958091e-07,
+      "worst_step_max_abs_error": 2.384185791015625e-07,
+      "worst_step_max_rel_error": 2.2789797071709472e-07
+    },
+    "wkv_runtime_effective": "pallas",
+    "wkv_runtime_requested": "pallas"
+  },
   "pallas_requested_reference_trace_contamination": false,
   "pallas_runtime_status": "prototype_pass",
   "parameter_id": "parameter-ab787da0cfde0189",
   "parameter_manifest_or_npz_path": "/private/tmp/qrwkv_p82_probe/params.json",
-  "phase": "P85",
-  "recommended_next_phase": "P86 fused/scan Pallas WKV kernel scaffold",
+  "phase": "P86",
+  "recommended_next_phase": "P87 fixture-family opt-in Pallas runtime integration",
   "reference_trace_capture_skipped": true,
   "same_run_group_id": "p68-7db622b6e242e4ca",
   "same_run_valid": false,

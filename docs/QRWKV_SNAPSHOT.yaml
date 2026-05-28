@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 85
-checkpoint: short_sequence_pallas_wkv_parity
+phase: 86
+checkpoint: fused_scan_pallas_wkv_sequence_scaffold
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,10 +55,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Gate short deterministic sequence parity for the opt-in Pallas one-step WKV
-  update by comparing a trusted reference loop against repeated Pallas
-  one-step updates, while keeping reference as default and Pallas-requested
-  trace runs probe-only.
+  Gate the first fused/scan-style opt-in Pallas WKV sequence scaffold by
+  comparing a JAX scan over the interpreted Pallas one-step update against the
+  trusted reference sequence loop, while keeping reference as default and
+  Pallas-requested trace runs probe-only.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -1634,6 +1634,44 @@ p85_pallas_sequence_parity:
   does_not_prove:
     - fused_sequence_kernel_ready
     - fixture_family_pallas_integration
+    - production_pallas_ready
+    - pallas_default_promotion
+    - tpu_throughput
+    - real_training_quality
+
+p86_pallas_fused_sequence_scaffold:
+  phase: P86
+  status: complete
+  checkpoint: fused_scan_pallas_wkv_sequence_scaffold
+  module: qrwkv_xla.students.pallas_wkv
+  runtime_selector_default: reference
+  pallas_runtime: opt_in_probe_only
+  parity_scope: fused_or_scan_style_wkv_sequence
+  sequence_method: jax_scan_pallas_step_scaffold
+  fused_sequence_kernel_status: scan_scaffold_pass
+  one_step_formula: state * decay[..., None, :] + k[..., :, None] * v[..., None, :]
+  matrix_schema: qrwkv_xla.p86_pallas_fused_sequence_parity_matrix.v1
+  required_float32_cases:
+    - float32_b1_h1_d2_t2
+    - float32_b1_h1_d2_t4
+    - float32_b1_h2_d2_t4
+    - float32_b2_h2_d4_t4
+  optional_bfloat16_cases:
+    - bfloat16_b1_h1_d2_t4
+    - bfloat16_b2_h2_d4_t4
+  report_artifacts:
+    - artifacts/p68_live_same_run_trace/P86_PALLAS_FUSED_SEQUENCE_SCAFFOLD_REPORT.md
+    - artifacts/p68_live_same_run_trace/pallas_fused_sequence_parity_matrix.json
+    - artifacts/p68_live_same_run_trace/P85_PALLAS_SEQUENCE_PARITY_REPORT.md
+    - artifacts/p68_live_same_run_trace/pallas_sequence_parity_matrix.json
+  kernel_parity_claimed_rule: true_only_when_all_required_fused_sequence_cases_pass
+  p85_repeated_step_matrix_preserved: true
+  pallas_requested_reference_trace_contamination: false
+  reference_trace_capture_skipped_for_pallas_request: true
+  recommended_next_phase_on_pass: P87 fixture-family opt-in Pallas runtime integration
+  does_not_prove:
+    - fixture_family_pallas_integration
+    - full_model_pallas_reference_parity
     - production_pallas_ready
     - pallas_default_promotion
     - tpu_throughput

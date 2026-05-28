@@ -1722,3 +1722,29 @@ kernel, prove fixture-family/full-model parity, prove throughput, prove model
 quality, change reference recurrence math, change balance math, loosen
 tolerances, change dtype policy, edit fixture tensors, vendor RADLADS source,
 or promote experimental `balance_state`.
+
+## Phase 86 — Fused/Scan-Style Pallas WKV Sequence Scaffold
+
+P86 adds the first fused/scan-style Pallas WKV sequence scaffold after P85
+proved short-sequence repeated one-step parity. The scaffold is explicitly
+labeled `jax_scan_pallas_step_scaffold`: it uses `jax.lax.scan` over the
+interpreted one-step Pallas WKV update and compares the result against the
+trusted reference sequence loop over small deterministic B/H/D/T cases.
+
+The P86 matrix records sequence method, fused scaffold status, final-state and
+per-step-state shape checks, finite checks, max absolute/relative final-state
+errors, and worst per-step absolute/relative errors. It preserves the P85
+repeated-step matrix inside the P86 artifact and claims scoped parity only when
+all required fused/scan-style cases pass.
+
+Pallas-requested live trace runs remain probe-only and now emit
+`P86_PALLAS_FUSED_SEQUENCE_SCAFFOLD_REPORT.md` plus
+`pallas_fused_sequence_parity_matrix.json`, while preserving P85/P84/P83/P82/P81
+compatibility artifacts. P86 recommends
+`P87 fixture-family opt-in Pallas runtime integration` when the fused/scan-style
+required cases pass.
+
+P86 does not promote Pallas as default, prove fixture-family/full-model parity,
+prove throughput, prove model quality, change reference recurrence math, change
+balance math, loosen tolerances, change dtype policy, edit fixture tensors,
+vendor RADLADS source, or promote experimental `balance_state`.

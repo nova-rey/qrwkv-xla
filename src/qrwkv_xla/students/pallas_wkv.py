@@ -18,6 +18,16 @@ P85_SEQUENCE_SHAPE_FIX = "P86 targeted Pallas sequence shape/layout fix"
 P85_SEQUENCE_DTYPE_FIX = "P86 targeted Pallas sequence dtype fix"
 P85_DEPENDENCY_FIX = "P86 targeted Pallas dependency/backend availability fix"
 P85_RUNTIME_HARDENING = "P86 kernel runtime selection hardening"
+P86_FIXTURE_FAMILY_INTEGRATION = "P87 fixture-family opt-in Pallas runtime integration"
+P86_FUSED_SCAN_PARITY_FIX = "P87 targeted fused/scan Pallas parity fix"
+P86_FUSED_SCAN_SHAPE_FIX = "P87 targeted fused/scan shape/layout fix"
+P86_FUSED_SCAN_DTYPE_FIX = "P87 targeted fused/scan dtype fix"
+P86_DEPENDENCY_FIX = "P87 targeted Pallas dependency/backend availability fix"
+P86_FUSED_SCAN_DESIGN_REPAIR = "P87 targeted Pallas fused/scan design repair"
+P86_RUNTIME_HARDENING = "P87 kernel runtime selection hardening"
+P86_SEQUENCE_METHOD = "jax_scan_pallas_step_scaffold"
+P86_FUSED_SEQUENCE_STATUS_PASS = "scan_scaffold_pass"
+P86_FUSED_SEQUENCE_STATUS_UNAVAILABLE = "fused_sequence_scaffold_unavailable"
 
 
 @dataclass(frozen=True)
@@ -147,6 +157,41 @@ def pallas_wkv_sequence_update_repeated(
     per_step_states = jnp.stack(states, axis=0)
     per_step_states.block_until_ready()
     return {"final_state": state, "per_step_states": per_step_states}
+
+
+def pallas_wkv_sequence_update_fused_or_scan(
+    initial_state: jax.Array,
+    k_seq: jax.Array,
+    v_seq: jax.Array,
+    decay_seq: jax.Array,
+) -> dict[str, jax.Array | str]:
+    available, reason = pallas_available()
+    if not available:
+        raise RuntimeError(reason or "missing_pallas_dependency_or_backend")
+
+    state = jnp.asarray(initial_state)
+    k_seq = jnp.asarray(k_seq)
+    v_seq = jnp.asarray(v_seq)
+    decay_seq = jnp.asarray(decay_seq)
+    _validate_sequence_shapes(state, k_seq, v_seq, decay_seq)
+
+    def step(carry: jax.Array, xs: tuple[jax.Array, jax.Array, jax.Array]):
+        k, v, decay = xs
+        next_state = pallas_wkv_update(carry, k, v, decay)
+        return next_state, next_state
+
+    final_state, per_step_states = jax.lax.scan(
+        step,
+        state,
+        (k_seq, v_seq, decay_seq),
+    )
+    per_step_states.block_until_ready()
+    return {
+        "final_state": final_state,
+        "per_step_states": per_step_states,
+        "fused_sequence_kernel_status": P86_FUSED_SEQUENCE_STATUS_PASS,
+        "sequence_method": P86_SEQUENCE_METHOD,
+    }
 
 
 def run_pallas_wkv_parity_probe(
@@ -458,6 +503,55 @@ def run_pallas_wkv_sequence_parity_matrix() -> dict[str, Any]:
     )
 
 
+def run_pallas_wkv_fused_sequence_parity_matrix() -> dict[str, Any]:
+    cases = pallas_wkv_sequence_parity_cases()
+    p85_matrix = run_pallas_wkv_sequence_parity_matrix()
+    available, reason = pallas_available()
+    if not available:
+        unavailable_cases = [
+            {
+                **asdict(case),
+                "sequence_method": P86_FUSED_SEQUENCE_STATUS_UNAVAILABLE,
+                "fused_sequence_kernel_status": P86_FUSED_SEQUENCE_STATUS_UNAVAILABLE,
+                "initial_state_shape": [case.batch, case.heads, case.dim, case.dim],
+                "k_seq_shape": [case.seq_len, case.batch, case.heads, case.dim],
+                "v_seq_shape": [case.seq_len, case.batch, case.heads, case.dim],
+                "decay_seq_shape": [case.seq_len, case.batch, case.heads, case.dim],
+                "final_state_shape": None,
+                "per_step_states_shape": None,
+                "final_shape_match": False,
+                "per_step_shape_match": False,
+                "final_state_finite": False,
+                "per_step_finite": False,
+                "final_max_abs_error": None,
+                "final_max_rel_error": None,
+                "worst_step_max_abs_error": None,
+                "worst_step_max_rel_error": None,
+                "parity_status": "unavailable",
+                "reason": reason or "missing_pallas_dependency_or_backend",
+            }
+            for case in cases
+        ]
+        return _p86_matrix_result(
+            cases=unavailable_cases,
+            pallas_available=False,
+            wkv_runtime_effective="unavailable",
+            p85_matrix=p85_matrix,
+            recommended_next_phase=P86_DEPENDENCY_FIX,
+            reason=reason or "missing_pallas_dependency_or_backend",
+        )
+
+    rows = [_run_pallas_wkv_fused_sequence_case(case) for case in cases]
+    return _p86_matrix_result(
+        cases=rows,
+        pallas_available=True,
+        wkv_runtime_effective="pallas",
+        p85_matrix=p85_matrix,
+        recommended_next_phase=_p86_recommendation(rows),
+        reason=None,
+    )
+
+
 def run_minimal_pallas_wkv_probe() -> dict[str, Any]:
     probe = run_pallas_wkv_parity_probe()
     return {
@@ -670,6 +764,112 @@ def _run_pallas_wkv_sequence_case(
     return row
 
 
+def _run_pallas_wkv_fused_sequence_case(
+    case: PallasWKVSequenceParityCase,
+) -> dict[str, Any]:
+    row = {
+        **asdict(case),
+        "sequence_method": P86_SEQUENCE_METHOD,
+        "fused_sequence_kernel_status": P86_FUSED_SEQUENCE_STATUS_UNAVAILABLE,
+        "initial_state_shape": [case.batch, case.heads, case.dim, case.dim],
+        "k_seq_shape": [case.seq_len, case.batch, case.heads, case.dim],
+        "v_seq_shape": [case.seq_len, case.batch, case.heads, case.dim],
+        "decay_seq_shape": [case.seq_len, case.batch, case.heads, case.dim],
+        "final_state_shape": None,
+        "per_step_states_shape": None,
+        "final_shape_match": False,
+        "per_step_shape_match": False,
+        "final_state_finite": False,
+        "per_step_finite": False,
+        "final_max_abs_error": None,
+        "final_max_rel_error": None,
+        "worst_step_max_abs_error": None,
+        "worst_step_max_rel_error": None,
+        "parity_status": "unavailable",
+        "reason": None,
+    }
+    try:
+        initial_state, k_seq, v_seq, decay_seq = _sequence_case_inputs(case)
+        expected = reference_wkv_sequence_update(
+            initial_state,
+            k_seq,
+            v_seq,
+            decay_seq,
+        )
+        output = pallas_wkv_sequence_update_fused_or_scan(
+            initial_state,
+            k_seq,
+            v_seq,
+            decay_seq,
+        )
+        final_state = output["final_state"]
+        per_step_states = output["per_step_states"]
+        expected_final = expected["final_state"]
+        expected_steps = expected["per_step_states"]
+        final_shape_match = final_state.shape == expected_final.shape
+        per_step_shape_match = per_step_states.shape == expected_steps.shape
+        final_state_finite = bool(jnp.all(jnp.isfinite(final_state)))
+        per_step_finite = bool(jnp.all(jnp.isfinite(per_step_states)))
+        final_abs_error = jnp.abs(
+            final_state.astype(jnp.float32) - expected_final.astype(jnp.float32)
+        )
+        step_abs_error = jnp.abs(
+            per_step_states.astype(jnp.float32) - expected_steps.astype(jnp.float32)
+        )
+        final_max_abs_error = float(jnp.max(final_abs_error))
+        final_denom = jnp.maximum(
+            jnp.abs(expected_final.astype(jnp.float32)),
+            jnp.asarray(1e-12),
+        )
+        final_max_rel_error = float(jnp.max(final_abs_error / final_denom))
+        worst_step_max_abs_error = float(jnp.max(step_abs_error))
+        step_denom = jnp.maximum(
+            jnp.abs(expected_steps.astype(jnp.float32)),
+            jnp.asarray(1e-12),
+        )
+        worst_step_max_rel_error = float(jnp.max(step_abs_error / step_denom))
+        parity_pass = bool(
+            final_shape_match
+            and per_step_shape_match
+            and final_state_finite
+            and per_step_finite
+            and final_max_abs_error <= case.atol
+            and final_max_rel_error <= case.rtol
+            and worst_step_max_abs_error <= case.atol
+            and worst_step_max_rel_error <= case.rtol
+        )
+        row.update(
+            {
+                "sequence_method": output["sequence_method"],
+                "fused_sequence_kernel_status": output["fused_sequence_kernel_status"],
+                "final_state_shape": list(final_state.shape),
+                "per_step_states_shape": list(per_step_states.shape),
+                "final_shape_match": final_shape_match,
+                "per_step_shape_match": per_step_shape_match,
+                "final_state_finite": final_state_finite,
+                "per_step_finite": per_step_finite,
+                "final_max_abs_error": final_max_abs_error,
+                "final_max_rel_error": final_max_rel_error,
+                "worst_step_max_abs_error": worst_step_max_abs_error,
+                "worst_step_max_rel_error": worst_step_max_rel_error,
+                "parity_status": "pass" if parity_pass else "fail",
+                "reason": None
+                if parity_pass
+                else "fused_sequence_case_exceeded_tolerance_or_shape",
+            }
+        )
+    except Exception as exc:
+        row.update(
+            {
+                "parity_status": "unavailable" if case.dtype == "bfloat16" else "fail",
+                "reason": (
+                    f"pallas_wkv_fused_sequence_case_failed:{type(exc).__name__}:{exc}"
+                ),
+            }
+        )
+    return row
+
+
 def _sequence_case_inputs(
     case: PallasWKVSequenceParityCase,
 ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array]:
@@ -844,6 +1044,87 @@ def _p85_recommendation(cases: list[dict[str, Any]]) -> str:
     if failing:
         return P85_SEQUENCE_PARITY_FIX
     return P85_RUNTIME_HARDENING
+
+
+def _p86_matrix_result(
+    *,
+    cases: list[dict[str, Any]],
+    pallas_available: bool,
+    wkv_runtime_effective: str,
+    p85_matrix: dict[str, Any],
+    recommended_next_phase: str,
+    reason: str | None,
+) -> dict[str, Any]:
+    summary = _p86_summary(cases)
+    return {
+        "schema": "qrwkv_xla.p86_pallas_fused_sequence_parity_matrix.v1",
+        "phase": "P86",
+        "parity_scope": "fused_or_scan_style_wkv_sequence",
+        "one_step_formula": WKV_UPDATE_FORMULA,
+        "sequence_method": summary["sequence_method"],
+        "default_runtime": "reference",
+        "wkv_runtime_requested": "pallas",
+        "wkv_runtime_effective": wkv_runtime_effective,
+        "pallas_available": pallas_available,
+        "backend": "pallas_call_interpret" if pallas_available else None,
+        "cases": cases,
+        "summary": summary,
+        "kernel_parity_claimed": summary["kernel_parity_claimed"],
+        "reason": reason,
+        "p85_repeated_step_parity": p85_matrix,
+        "recommended_next_phase": recommended_next_phase,
+    }
+
+
+def _p86_summary(cases: list[dict[str, Any]]) -> dict[str, Any]:
+    base = _p85_summary(cases)
+    sequence_methods = {
+        case.get("sequence_method") for case in cases if case.get("sequence_method")
+    }
+    fused_statuses = {
+        case.get("fused_sequence_kernel_status")
+        for case in cases
+        if case.get("fused_sequence_kernel_status")
+    }
+    all_required_cases_pass = base["all_required_cases_pass"]
+    fused_sequence_kernel_status = (
+        P86_FUSED_SEQUENCE_STATUS_PASS
+        if all_required_cases_pass
+        else next(iter(sorted(fused_statuses)), P86_FUSED_SEQUENCE_STATUS_UNAVAILABLE)
+    )
+    sequence_method = (
+        P86_SEQUENCE_METHOD
+        if all_required_cases_pass
+        else next(iter(sorted(sequence_methods)), P86_FUSED_SEQUENCE_STATUS_UNAVAILABLE)
+    )
+    return {
+        **base,
+        "fused_sequence_kernel_status": fused_sequence_kernel_status,
+        "sequence_method": sequence_method,
+    }
+
+
+def _p86_recommendation(cases: list[dict[str, Any]]) -> str:
+    required_cases = [case for case in cases if case.get("required", True)]
+    if required_cases and all(
+        case.get("parity_status") == "pass" for case in required_cases
+    ):
+        return P86_FIXTURE_FAMILY_INTEGRATION
+    failing = [case for case in required_cases if case.get("parity_status") != "pass"]
+    if any(case.get("parity_status") == "unavailable" for case in failing):
+        return P86_DEPENDENCY_FIX
+    if any(case.get("dtype") != "float32" for case in failing):
+        return P86_FUSED_SCAN_DTYPE_FIX
+    if any(
+        not case.get("final_shape_match") or not case.get("per_step_shape_match")
+        for case in failing
+    ):
+        return P86_FUSED_SCAN_SHAPE_FIX
+    if any(case.get("fused_sequence_kernel_status") is None for case in failing):
+        return P86_FUSED_SCAN_DESIGN_REPAIR
+    if failing:
+        return P86_FUSED_SCAN_PARITY_FIX
+    return P86_RUNTIME_HARDENING
 
 
 def _max_present(cases: list[dict[str, Any]], key: str) -> float | None:

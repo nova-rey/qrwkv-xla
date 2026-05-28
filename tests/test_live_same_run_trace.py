@@ -2032,26 +2032,38 @@ def test_runner_accepts_pallas_opt_in_and_skips_reference_capture(
     assert (out / "P83_PALLAS_REFERENCE_PARITY_REPORT.md").is_file()
     assert (out / "P84_PALLAS_SHAPE_DTYPE_PARITY_REPORT.md").is_file()
     assert (out / "P85_PALLAS_SEQUENCE_PARITY_REPORT.md").is_file()
+    assert (out / "P86_PALLAS_FUSED_SEQUENCE_SCAFFOLD_REPORT.md").is_file()
     assert (out / "pallas_shape_dtype_parity_matrix.json").is_file()
     assert (out / "pallas_sequence_parity_matrix.json").is_file()
+    assert (out / "pallas_fused_sequence_parity_matrix.json").is_file()
     persisted = json.loads((out / "pallas_runtime_probe.json").read_text())
     parity_persisted = json.loads(
         (out / "pallas_reference_parity_probe.json").read_text()
     )
     matrix = json.loads((out / "pallas_shape_dtype_parity_matrix.json").read_text())
     sequence = json.loads((out / "pallas_sequence_parity_matrix.json").read_text())
+    fused_sequence = json.loads(
+        (out / "pallas_fused_sequence_parity_matrix.json").read_text()
+    )
     assert persisted == parity_persisted
     assert persisted["schema"] == "qrwkv_xla.p83_pallas_wkv_parity_probe.v1"
     assert matrix["schema"] == "qrwkv_xla.p84_pallas_shape_dtype_parity_matrix.v1"
     assert matrix["phase"] == "P84"
     assert sequence["schema"] == "qrwkv_xla.p85_pallas_sequence_parity_matrix.v1"
     assert sequence["phase"] == "P85"
+    assert fused_sequence["schema"] == (
+        "qrwkv_xla.p86_pallas_fused_sequence_parity_matrix.v1"
+    )
+    assert fused_sequence["phase"] == "P86"
     assert report["p84_pallas_shape_dtype_parity_matrix"] == matrix
     assert report["p85_pallas_sequence_parity_matrix"] == sequence
+    assert report["p86_pallas_fused_sequence_parity_matrix"] == fused_sequence
     assert probe["p84_pallas_shape_dtype_parity_matrix"] == matrix
     assert probe["p85_pallas_sequence_parity_matrix"] == sequence
+    assert probe["p86_pallas_fused_sequence_parity_matrix"] == fused_sequence
     assert (
-        probe["kernel_parity_claimed"] is (sequence["summary"]["kernel_parity_claimed"])
+        probe["kernel_parity_claimed"]
+        is (fused_sequence["summary"]["kernel_parity_claimed"])
     )
     p81_report = (out / "P81_PALLAS_PROTOTYPE_REPORT.md").read_text()
     if probe["kernel_parity_claimed"]:
@@ -2066,10 +2078,14 @@ def test_runner_accepts_pallas_opt_in_and_skips_reference_capture(
         assert probe["probe_shapes"]["state"] == [1, 1, 2, 2]
         assert (
             probe["recommended_next_phase"]
-            == "P86 fused/scan Pallas WKV kernel scaffold"
+            == "P87 fixture-family opt-in Pallas runtime integration"
         )
         assert matrix["summary"]["all_required_cases_pass"] is True
         assert sequence["summary"]["all_required_cases_pass"] is True
+        assert fused_sequence["summary"]["all_required_cases_pass"] is True
+        assert fused_sequence["summary"]["fused_sequence_kernel_status"] == (
+            "scan_scaffold_pass"
+        )
         assert not (out / "P82_BLOCKER_REPORT.md").exists()
     else:
         assert (out / "P82_BLOCKER_REPORT.md").is_file()

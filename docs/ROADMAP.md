@@ -961,3 +961,37 @@ fused production sequence kernel, prove fixture-family/full-model parity, prove
 throughput, prove model quality, change recurrence math, change balance-state
 math, loosen tolerances, change dtype policy, edit fixture tensors, vendor
 RADLADS source, or promote experimental `balance_state` behavior by default.
+
+## Phase 86 — Fused/Scan-Style Pallas WKV Sequence Scaffold
+
+Current checkpoint: `fused_scan_pallas_wkv_sequence_scaffold`.
+
+P86 moves from P85 repeated one-step sequence parity to a scan-style Pallas
+sequence scaffold. The scaffold is explicitly labeled
+`jax_scan_pallas_step_scaffold` and runs `jax.lax.scan` over the interpreted
+Pallas one-step WKV update. It compares final and per-step states against the
+trusted reference sequence loop over the same compact B/H/D/T case surface.
+
+Pallas-requested trace runs remain fused/scan-scaffold-parity-only and continue
+to skip regular reference live trace capture. The artifact set now includes
+`P86_PALLAS_FUSED_SEQUENCE_SCAFFOLD_REPORT.md` and
+`pallas_fused_sequence_parity_matrix.json`, while preserving P85 repeated-step,
+P84 shape/dtype, P83 tiny parity, and P81/P82 compatibility artifacts.
+
+Updated Pallas runway:
+
+- P81: opt-in runtime selector.
+- P82: minimal Pallas execution probe.
+- P83: tiny reference-vs-Pallas one-step parity.
+- P84: broader one-step shape/dtype parity.
+- P85: short-sequence repeated-step parity.
+- P86: fused/scan Pallas WKV kernel scaffold.
+- P87: fixture-family opt-in runtime integration.
+- P88: TPU compile/performance smoke.
+
+The next phase is `P87 fixture-family opt-in Pallas runtime integration` when
+required P86 fused/scan-style sequence cases pass. P86 does not promote Pallas
+as default, prove fixture-family/full-model parity, prove throughput, prove
+model quality, change recurrence math, change balance-state math, loosen
+tolerances, change dtype policy, edit fixture tensors, vendor RADLADS source,
+or promote experimental `balance_state` behavior by default.

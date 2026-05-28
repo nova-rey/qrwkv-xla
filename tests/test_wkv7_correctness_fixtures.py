@@ -20,11 +20,13 @@ from qrwkv_xla.kernels.wkv7_fixtures import DEFAULT_CASES, hash_arrays
 from qrwkv_xla.students import (
     build_pallas_runtime_probe,
     pallas_wkv_sequence_parity_cases,
+    pallas_wkv_sequence_update_fused_or_scan,
     pallas_wkv_sequence_update_repeated,
     pallas_wkv_shape_dtype_parity_cases,
     pallas_wkv_update,
     reference_wkv_sequence_update,
     reference_wkv_update,
+    run_pallas_wkv_fused_sequence_parity_matrix,
     run_pallas_wkv_parity_probe,
     run_pallas_wkv_sequence_parity_matrix,
     run_pallas_wkv_shape_dtype_parity_matrix,
@@ -240,7 +242,7 @@ def test_p83_pallas_probe_claims_parity_only_on_pass() -> None:
     assert probe["prototype_status"] in {"pass", "unavailable", "failed"}
     assert probe["parity_status"] in {"pass", "unavailable", "failed"}
     assert probe["parity_scope"] == "tiny_one_step_wkv_update"
-    matrix = probe["p85_pallas_sequence_parity_matrix"]
+    matrix = probe["p86_pallas_fused_sequence_parity_matrix"]
     assert (
         probe["kernel_parity_claimed"] is (matrix["summary"]["kernel_parity_claimed"])
     )
@@ -414,6 +416,116 @@ def test_p85_sequence_parity_matrix_claims_only_required_passes() -> None:
         "float32_b2_h2_d4_t4",
     }
     for case in matrix["cases"]:
+        assert case["initial_state_shape"] == [
+            case["batch"],
+            case["heads"],
+            case["dim"],
+            case["dim"],
+        ]
+        seq_shape = [case["seq_len"], case["batch"], case["heads"], case["dim"]]
+        assert case["k_seq_shape"] == seq_shape
+        assert case["v_seq_shape"] == seq_shape
+        assert case["decay_seq_shape"] == seq_shape
+        assert case["parity_status"] in {"pass", "fail", "unavailable"}
+        for field in {
+            "final_max_abs_error",
+            "final_max_rel_error",
+            "worst_step_max_abs_error",
+            "worst_step_max_rel_error",
+            "atol",
+            "rtol",
+        }:
+            assert field in case
+        if case["required"] and matrix["pallas_available"]:
+            assert case["dtype"] == "float32"
+            assert case["parity_status"] == "pass"
+            assert case["final_shape_match"] is True
+            assert case["per_step_shape_match"] is True
+            assert case["final_state_finite"] is True
+            assert case["per_step_finite"] is True
+            assert case["final_max_abs_error"] <= case["atol"]
+            assert case["final_max_rel_error"] <= case["rtol"]
+            assert case["worst_step_max_abs_error"] <= case["atol"]
+            assert case["worst_step_max_rel_error"] <= case["rtol"]
+        if case["dtype"] == "bfloat16" and case["parity_status"] == "unavailable":
+            assert case["reason"]
+
+
+def test_p86_fused_or_scan_sequence_update_matches_reference_or_unavailable() -> None:
+    initial_state = np.arange(4, dtype=np.float32).reshape(1, 1, 2, 2) / 3.0
+    k_seq = np.array([[[[0.1, 0.2]]], [[[0.3, 0.4]]]], dtype=np.float32)
+    v_seq = np.array([[[[0.2, 0.3]]], [[[0.4, 0.5]]]], dtype=np.float32)
+    decay_seq = np.array([[[[0.5, 0.25]]], [[[0.75, 0.5]]]], dtype=np.float32)
+    matrix = run_pallas_wkv_fused_sequence_parity_matrix()
+
+    if matrix["pallas_available"]:
+        pallas = pallas_wkv_sequence_update_fused_or_scan(
+            initial_state,
+            k_seq,
+            v_seq,
+            decay_seq,
+        )
+        reference = reference_wkv_sequence_update(
+            initial_state,
+            k_seq,
+            v_seq,
+            decay_seq,
+        )
+        assert pallas["sequence_method"] == "jax_scan_pallas_step_scaffold"
+        assert pallas["fused_sequence_kernel_status"] == "scan_scaffold_pass"
+        np.testing.assert_allclose(
+            pallas["final_state"],
+            reference["final_state"],
+            atol=1e-6,
+            rtol=1e-6,
+        )
+        np.testing.assert_allclose(
+            pallas["per_step_states"],
+            reference["per_step_states"],
+            atol=1e-6,
+            rtol=1e-6,
+        )
+    else:
+        assert matrix["reason"]
+
+
+def test_p86_fused_sequence_parity_matrix_claims_only_required_passes() -> None:
+    matrix = run_pallas_wkv_fused_sequence_parity_matrix()
+
+    assert matrix["schema"] == "qrwkv_xla.p86_pallas_fused_sequence_parity_matrix.v1"
+    assert matrix["phase"] == "P86"
+    assert matrix["parity_scope"] == "fused_or_scan_style_wkv_sequence"
+    assert matrix["sequence_method"] in {
+        "jax_scan_pallas_step_scaffold",
+        "fused_sequence_scaffold_unavailable",
+    }
+    assert matrix["default_runtime"] == "reference"
+    assert matrix["wkv_runtime_requested"] == "pallas"
+    assert matrix["summary"]["cases_total"] == len(matrix["cases"])
+    assert (
+        matrix["kernel_parity_claimed"]
+        is (matrix["summary"]["all_required_cases_pass"])
+    )
+    assert matrix["p85_repeated_step_parity"]["schema"] == (
+        "qrwkv_xla.p85_pallas_sequence_parity_matrix.v1"
+    )
+
+    required_rows = [case for case in matrix["cases"] if case["required"]]
+    assert {case["case_id"] for case in required_rows} == {
+        "float32_b1_h1_d2_t2",
+        "float32_b1_h1_d2_t4",
+        "float32_b1_h2_d2_t4",
+        "float32_b2_h2_d4_t4",
+    }
+    for case in matrix["cases"]:
+        assert case["sequence_method"] in {
+            "jax_scan_pallas_step_scaffold",
+            "fused_sequence_scaffold_unavailable",
+        }
+        assert case["fused_sequence_kernel_status"] in {
+            "scan_scaffold_pass",
+            "fused_sequence_scaffold_unavailable",
+        }
         assert case["initial_state_shape"] == [
             case["batch"],
             case["heads"],
