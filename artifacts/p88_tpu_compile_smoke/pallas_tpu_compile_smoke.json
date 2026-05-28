@@ -1,0 +1,39 @@
+{
+  "claims_not_made": [
+    "production_pallas_ready",
+    "training_ready",
+    "throughput_proven",
+    "full_model_quality_proven",
+    "pallas_default_ready"
+  ],
+  "default_backend": "cpu",
+  "devices": [
+    {
+      "device_kind": "cpu",
+      "id": "0",
+      "platform": "cpu"
+    }
+  ],
+  "error_message": null,
+  "error_type": null,
+  "execution_attempted": false,
+  "execution_ok": false,
+  "jax_version": "0.4.35",
+  "jaxlib_version": "0.4.35",
+  "jit_lowering_attempted": false,
+  "jit_lowering_ok": false,
+  "max_abs_error": null,
+  "numeric_check_attempted": false,
+  "numeric_check_ok": false,
+  "pallas_import_ok": true,
+  "pallas_interpret_mode": true,
+  "pallas_runtime_import_ok": true,
+  "phase": "P88",
+  "platform": "cpu",
+  "reason": "no_tpu_devices_detected",
+  "recommended_next_phase": "P89 cleanup/hardening only if P88 exposes issues; otherwise post-Pallas Radjax extraction planning",
+  "require_tpu": false,
+  "scope": "tiny_pallas_wkv_compile_execution_smoke",
+  "status": "unavailable",
+  "tpu_devices_detected": false
+}

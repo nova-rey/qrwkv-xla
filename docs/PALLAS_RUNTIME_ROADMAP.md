@@ -16,13 +16,12 @@ The Pallas runtime remains opt-in. The trusted default WKV runtime is
 
 ## Current Scope
 
-P87 integrates the opt-in Pallas WKV path into the existing tiny WKV7
-fixture-family correctness harness. The reference runtime remains the default;
-Pallas remains an explicit candidate/runtime request.
+P88 adds a tiny TPU compile/execution smoke harness for the opt-in Pallas WKV
+path. The reference runtime remains the default; Pallas remains explicit.
 
-The P87 fixture-family path runs the P43 `tiny_wkv7_correctness` cases through
-the Pallas-backed candidate and reports pass, fail, skipped, and unsupported
-cases without changing fixture tensors or tolerances.
+CPU-only runs report `status=unavailable` with
+`reason=no_tpu_devices_detected`. TPU runs attempt tiny JIT/lowering/compile,
+execution, and a numeric check against the trusted reference path.
 
-Passing P87 does not promote Pallas as the default, prove full-model parity,
-prove TPU performance, prove real training throughput, or prove model quality.
+Passing P88 does not promote Pallas as the default, prove production readiness,
+prove real training throughput, or prove model quality.

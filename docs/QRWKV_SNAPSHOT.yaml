@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 87
-checkpoint: pallas_fixture_family_opt_in_integration
+phase: 88
+checkpoint: pallas_tpu_compile_smoke_harness
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,10 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Integrate the opt-in Pallas WKV path into the existing tiny fixture-family
-  correctness harness, preserving reference as the default runtime and
-  reporting Pallas fixture-family pass/fail/unsupported evidence without
-  reference trace contamination.
+  Provide a tiny, honest TPU/JAX compile and execution smoke harness for the
+  opt-in Pallas WKV path, reporting CPU/no-TPU environments as unavailable
+  without changing runtime defaults or making production readiness claims.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -1705,3 +1704,23 @@ p87_pallas_fixture_family_integration:
     - tpu_throughput
     - training_readiness
     - model_quality
+
+p88_tpu_compile_smoke:
+  phase: P88
+  status: unavailable_on_local_cpu
+  checkpoint: pallas_tpu_compile_smoke_harness
+  script: scripts/run_pallas_tpu_smoke.py
+  docs: docs/P88_TPU_COMPILE_PERFORMANCE_SMOKE.md
+  report_artifacts:
+    - artifacts/p88_tpu_compile_smoke/pallas_tpu_compile_smoke.json
+    - artifacts/p88_tpu_compile_smoke/P88_TPU_COMPILE_PERFORMANCE_SMOKE_REPORT.md
+  local_status: unavailable
+  local_reason: no_tpu_devices_detected
+  default_runtime_preserved: true
+  pallas_opt_in_preserved: true
+  claims_not_made:
+    - production_pallas_ready
+    - training_ready
+    - throughput_proven
+    - full_model_quality_proven
+    - pallas_default_ready

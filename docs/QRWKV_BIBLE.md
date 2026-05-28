@@ -1772,3 +1772,26 @@ P87 does not promote Pallas as default, prove production Pallas readiness, prove
 full-model parity, prove TPU readiness, prove throughput, prove training
 readiness, prove model quality, change recurrence math, loosen tolerances, edit
 fixture tensors, vendor RADLADS source, or promote experimental `balance_state`.
+
+## Phase 88 — TPU Compile / Performance Smoke Harness
+
+P88 adds a tiny Pallas TPU compile/execution smoke harness at
+`scripts/run_pallas_tpu_smoke.py`. The harness inspects JAX/JAXLIB versions,
+backend, devices, TPU availability, Pallas import status, and the QRWKV-XLA
+Pallas runtime import path. On TPU it attempts a tiny JIT/lowering/compile and
+execution path for the current opt-in Pallas WKV sequence scaffold and compares
+against the trusted tiny reference check.
+
+On CPU-only machines, P88 reports `status=unavailable` with
+`reason=no_tpu_devices_detected` and exits successfully unless `--require-tpu`
+is passed. This keeps normal CI CPU-safe while giving a human a concrete TPU
+notebook/VM command to run.
+
+P88 writes `artifacts/p88_tpu_compile_smoke/pallas_tpu_compile_smoke.json` and
+`P88_TPU_COMPILE_PERFORMANCE_SMOKE_REPORT.md`. The local committed report is
+honestly unavailable because no TPU was detected.
+
+P88 does not promote Pallas as default, prove production readiness, prove
+training readiness, prove throughput, prove full-model quality, change
+recurrence math, loosen tolerances, edit fixture tensors, or start Radjax
+extraction.

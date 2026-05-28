@@ -1339,6 +1339,20 @@
   claim, no recurrence math rewrite, no RADLADS upstream/vendor edit, and no
   default experimental `balance_state` promotion.
 
+## P88 — TPU Compile / Performance Smoke Harness
+
+- [x] Add `scripts/run_pallas_tpu_smoke.py`.
+- [x] Emit `pallas_tpu_compile_smoke.json` plus a Markdown report.
+- [x] Report CPU/no-TPU as `status=unavailable` and
+  `reason=no_tpu_devices_detected`.
+- [x] Support `--require-tpu` so no-TPU can fail hard only when explicitly
+  requested.
+- [x] Add CPU-safe tests for import, structured device inspection, unavailable
+  reporting, `--require-tpu` metadata, and report writing.
+- [x] Preserve scope: no Pallas default promotion, no production/training/TPU
+  readiness claim, no throughput claim, no recurrence math change, no fixture
+  tensor change, no tolerance loosening, and no Radjax extraction.
+
 ## P82 — Real Opt-In Pallas Runtime Probe
 
 - [x] Add `qrwkv_xla.students.pallas_wkv` with `pallas_available()` and

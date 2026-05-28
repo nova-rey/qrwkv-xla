@@ -1031,3 +1031,24 @@ prove full-model parity, prove TPU throughput, prove training readiness, prove
 model quality, change recurrence math, change balance-state math, loosen
 tolerances, edit fixture tensors, vendor RADLADS source, or promote
 experimental `balance_state` behavior by default.
+
+## Phase 88 — TPU Compile / Performance Smoke Harness
+
+Current checkpoint: `pallas_tpu_compile_smoke_harness`.
+
+P88 adds `scripts/run_pallas_tpu_smoke.py`, a tiny opt-in smoke that inspects
+the JAX runtime, reports devices and TPU availability, imports the Pallas WKV
+path, and attempts JIT/lowering/compile plus execution only when TPU devices are
+present. CPU-only runs report `status=unavailable` rather than pretending to
+prove TPU readiness.
+
+The artifact set includes
+`artifacts/p88_tpu_compile_smoke/pallas_tpu_compile_smoke.json` and
+`artifacts/p88_tpu_compile_smoke/P88_TPU_COMPILE_PERFORMANCE_SMOKE_REPORT.md`.
+The dedicated docs page `docs/P88_TPU_COMPILE_PERFORMANCE_SMOKE.md` includes
+local, notebook, and Cloud TPU VM commands.
+
+P88 does not promote Pallas as default, prove production readiness, prove
+training readiness, prove throughput, prove full-model quality, change
+recurrence math, loosen tolerances, edit fixture tensors, or start Radjax
+extraction.
