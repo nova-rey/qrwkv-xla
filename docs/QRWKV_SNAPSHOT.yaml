@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 82
-checkpoint: real_opt_in_pallas_runtime_probe
+phase: 83
+checkpoint: reference_vs_pallas_parity_gate
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,11 +55,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Complete the opt-in Pallas runtime scaffold with a minimal real Pallas WKV-ish
-  execution probe and unambiguous Pallas-requested capture semantics, while
-  preserving the trusted reference path as the default and avoiding recurrence
-  math, balance math, training, tolerance, dtype-policy, fixture tensor,
-  RADLADS upstream, or default balance-state behavior changes.
+  Gate the tiny opt-in Pallas one-step WKV update against the reference formula,
+  emit explicit reference-vs-Pallas parity artifacts, and keep Pallas-requested
+  trace runs probe-only without promoting Pallas as the default or claiming
+  broad kernel readiness.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -1532,3 +1531,38 @@ radlads_live_same_run_update_trace:
     direct_lane_json: artifacts/p68_live_same_run_trace/direct_balance_lane_comparison.json
     no_recurrence_math_change: true
     no_default_balance_state_promotion: true
+
+p83_reference_vs_pallas_parity_gate:
+  phase: P83
+  status: complete
+  checkpoint: reference_vs_pallas_parity_gate
+  module: qrwkv_xla.students.pallas_wkv
+  runtime_selector_default: reference
+  pallas_runtime: opt_in_probe_only
+  parity_scope: tiny_one_step_wkv_update
+  formula: state * decay[..., None, :] + k[..., :, None] * v[..., None, :]
+  probe_schema: qrwkv_xla.p83_pallas_wkv_parity_probe.v1
+  report_artifacts:
+    - artifacts/p68_live_same_run_trace/P83_PALLAS_REFERENCE_PARITY_REPORT.md
+    - artifacts/p68_live_same_run_trace/pallas_reference_parity_probe.json
+    - artifacts/p68_live_same_run_trace/P81_PALLAS_PROTOTYPE_REPORT.md
+    - artifacts/p68_live_same_run_trace/P82_PALLAS_RUNTIME_SCAFFOLD_COMPLETION_REPORT.md
+    - artifacts/p68_live_same_run_trace/pallas_runtime_probe.json
+  records:
+    - parity_status
+    - shape_match
+    - finite
+    - max_abs_error
+    - max_rel_error
+    - atol
+    - rtol
+    - kernel_parity_claimed
+  kernel_parity_claimed_rule: true_only_when_tiny_parity_status_pass
+  pallas_requested_reference_trace_contamination: false
+  reference_trace_capture_skipped_for_pallas_request: true
+  recommended_next_phase_on_pass: P84 broader Pallas WKV shape/dtype parity
+  does_not_prove:
+    - broad_wkv_kernel_readiness
+    - pallas_default_promotion
+    - tpu_throughput
+    - real_training_quality

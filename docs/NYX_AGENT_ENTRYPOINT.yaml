@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 82
-  checkpoint: real_opt_in_pallas_runtime_probe
-  title: Real opt-in Pallas runtime probe
+  phase: 83
+  checkpoint: reference_vs_pallas_parity_gate
+  title: Reference-vs-Pallas parity gate
 
 workflow:
   primary_agent: Nyx
@@ -52,6 +52,7 @@ instructions:
   - Keep P80 scoped to fixture lineage and report aggregation; accepted aliases must point to canonical evidence and must not duplicate fixture-run proof.
   - Keep P81 scoped to runtime selection and explicit Pallas unavailable/probe reporting; reference remains default and Pallas must not be promoted or claimed parity-ready.
   - Keep P82 scoped to the minimal opt-in Pallas execution probe and fail-closed capture semantics; do not promote Pallas, claim parity, or change reference recurrence math.
+  - Keep P83 scoped to the tiny one-step reference-vs-Pallas WKV parity gate; do not promote Pallas, claim broad kernel readiness, loosen tolerances, change fixture tensors, or run reference live trace capture for Pallas-requested probes.
 
 radlads_qrwkv_head_to_head_parity:
   phase: P53

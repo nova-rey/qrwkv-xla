@@ -1211,6 +1211,32 @@
   claim, model-quality claim, or default experimental `balance_state`
   promotion.
 
+## P83 — Reference-vs-Pallas Parity Gate
+
+- [x] Add `reference_wkv_update()`, `pallas_wkv_update()`, and
+  `run_pallas_wkv_parity_probe()` for the tiny one-step WKV update formula.
+- [x] Compare Pallas output against
+  `state * decay[..., None, :] + k[..., :, None] * v[..., None, :]`.
+- [x] Record `parity_status`, `shape_match`, `finite`, `max_abs_error`,
+  `max_rel_error`, `atol`, and `rtol`.
+- [x] Set `kernel_parity_claimed=true` only when the tiny parity gate passes.
+- [x] Advance the primary probe schema to
+  `qrwkv_xla.p83_pallas_wkv_parity_probe.v1`.
+- [x] Emit `P83_PALLAS_REFERENCE_PARITY_REPORT.md` and
+  `pallas_reference_parity_probe.json` while preserving the P81/P82
+  compatibility artifacts.
+- [x] Keep Pallas-requested runs probe-only with
+  `pallas_requested_reference_trace_contamination=false` and
+  `reference_trace_capture_skipped=true`.
+- [x] Recommend `P84 broader Pallas WKV shape/dtype parity` when the tiny gate
+  passes.
+- [x] Preserve scope: no recurrence math change beyond the explicit tiny
+  reference formula helper, no balance-state math change, dtype-policy change,
+  tolerance loosening, fixture value change, RADLADS upstream/vendor edit,
+  Pallas default promotion, real training, throughput claim, model-quality
+  claim, broad kernel-readiness claim, or default experimental `balance_state`
+  promotion.
+
 ## P82 — Real Opt-In Pallas Runtime Probe
 
 - [x] Add `qrwkv_xla.students.pallas_wkv` with `pallas_available()` and

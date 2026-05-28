@@ -1,0 +1,60 @@
+{
+  "allowed_runtimes": [
+    "reference",
+    "pallas"
+  ],
+  "atol": 1e-06,
+  "default_runtime": "reference",
+  "fallback_reason": null,
+  "fallback_used": false,
+  "finite": true,
+  "kernel_parity_claimed": true,
+  "max_abs_error": 0.0,
+  "max_abs_error_vs_formula": 0.0,
+  "max_rel_error": 0.0,
+  "output_abs_max": 21.75,
+  "pallas_available": true,
+  "parity_scope": "tiny_one_step_wkv_update",
+  "parity_status": "pass",
+  "phase": "P83",
+  "probe_backend": "pallas_call_interpret",
+  "probe_shapes": {
+    "decay": [
+      1,
+      1,
+      2
+    ],
+    "k": [
+      1,
+      1,
+      2
+    ],
+    "output": [
+      1,
+      1,
+      2,
+      2
+    ],
+    "state": [
+      1,
+      1,
+      2,
+      2
+    ],
+    "v": [
+      1,
+      1,
+      2
+    ]
+  },
+  "prototype_scope": "minimal_pallas_wkv_execution_probe",
+  "prototype_status": "pass",
+  "reason": null,
+  "recommended_next_phase": "P84 broader Pallas WKV shape/dtype parity",
+  "reference_default_preserved": true,
+  "rtol": 1e-06,
+  "schema": "qrwkv_xla.p83_pallas_wkv_parity_probe.v1",
+  "shape_match": true,
+  "wkv_runtime_effective": "pallas",
+  "wkv_runtime_requested": "pallas"
+}

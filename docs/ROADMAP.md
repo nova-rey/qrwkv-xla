@@ -871,3 +871,26 @@ prove parity, prove throughput, prove model quality, change recurrence math,
 change balance-state math, loosen tolerances, change dtype policy, edit
 fixture tensors, vendor RADLADS source, or promote experimental
 `balance_state` behavior by default.
+
+## Phase 83 — Reference-vs-Pallas Parity Gate
+
+Current checkpoint: `reference_vs_pallas_parity_gate`.
+
+P83 adds a tiny numerical parity gate over the one-step WKV update formula:
+`state * decay[..., None, :] + k[..., :, None] * v[..., None, :]`.
+The opt-in Pallas path now compares an interpreted Pallas kernel with the
+reference formula, records shape match, finite status, max absolute error, max
+relative error, and only sets `kernel_parity_claimed=true` when the tiny gate
+passes.
+
+Pallas-requested trace runs remain probe-only. They write
+`P83_PALLAS_REFERENCE_PARITY_REPORT.md` and
+`pallas_reference_parity_probe.json`, keep the P81/P82 compatibility artifacts,
+and continue to skip reference live trace capture to avoid contaminating
+Pallas-requested evidence.
+
+The next phase is `P84 broader Pallas WKV shape/dtype parity`. P83 does not
+promote Pallas as default, claim broad kernel readiness, prove throughput,
+prove model quality, change recurrence math, change balance-state math, loosen
+tolerances, change dtype policy, edit fixture tensors, vendor RADLADS source,
+or promote experimental `balance_state` behavior by default.

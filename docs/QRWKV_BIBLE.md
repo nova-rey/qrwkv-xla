@@ -1632,3 +1632,33 @@ real training throughput, prove model quality, promote experimental
 `balance_state`, change recurrence math, change balance math, loosen
 tolerances, change dtype policy, edit fixture tensors, vendor RADLADS source,
 or change RADLADS upstream code.
+
+## Phase 83 — Reference-vs-Pallas Parity Gate
+
+P83 turns the tiny P82 Pallas execution probe into an explicit
+reference-vs-Pallas parity gate for the one-step update:
+
+```text
+new_state = state * decay[..., None, :] + k[..., :, None] * v[..., None, :]
+```
+
+The `qrwkv_xla.students.pallas_wkv` module now exposes
+`reference_wkv_update()`, `pallas_wkv_update()`, and
+`run_pallas_wkv_parity_probe()`. The probe compares the interpreted Pallas
+kernel against the reference formula on tiny `[1, 1, 2, 2]` / `[1, 1, 2]`
+inputs, records shape/finite status plus max absolute and relative error, and
+sets `kernel_parity_claimed=true` only when `parity_status=pass`.
+
+Pallas-requested live trace runs remain probe-only and still skip reference
+trace capture, preserving
+`pallas_requested_reference_trace_contamination=false` and
+`reference_trace_capture_skipped=true`. The artifact directory now writes
+`P83_PALLAS_REFERENCE_PARITY_REPORT.md` and
+`pallas_reference_parity_probe.json` while preserving the P81/P82 compatibility
+report files.
+
+P83 does not promote Pallas as default, claim broad WKV kernel readiness, prove
+training throughput, prove model quality, promote experimental `balance_state`,
+change recurrence math, change balance math, loosen tolerances, change dtype
+policy, edit fixture tensors, vendor RADLADS source, or change RADLADS
+upstream code.

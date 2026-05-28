@@ -1929,7 +1929,9 @@ def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
     assert (out / "P80_FIX_NOTE.md").is_file()
     assert (out / "P81_PALLAS_PROTOTYPE_REPORT.md").is_file()
     assert (out / "P82_PALLAS_RUNTIME_SCAFFOLD_COMPLETION_REPORT.md").is_file()
+    assert (out / "P83_PALLAS_REFERENCE_PARITY_REPORT.md").is_file()
     assert (out / "pallas_runtime_probe.json").is_file()
+    assert (out / "pallas_reference_parity_probe.json").is_file()
     assert (out / "P81_FIX_NOTE.md").is_file()
     assert "| requested_case | canonical_case | resolved_case | resolution |" in (
         out / "broader_fixture_residual_matrix.md"
@@ -1939,13 +1941,19 @@ def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
     )
     assert resolution["schema"] == "qrwkv_xla.p80_fixture_lineage_resolution.v1"
     probe = json.loads((out / "pallas_runtime_probe.json").read_text(encoding="utf-8"))
-    assert probe["schema"] == "qrwkv_xla.p82_pallas_runtime_probe.v1"
-    assert probe["phase"] == "P82"
+    parity_probe = json.loads(
+        (out / "pallas_reference_parity_probe.json").read_text(encoding="utf-8")
+    )
+    assert parity_probe == probe
+    assert probe["schema"] == "qrwkv_xla.p83_pallas_wkv_parity_probe.v1"
+    assert probe["phase"] == "P83"
     assert probe["default_runtime"] == "reference"
     assert probe["allowed_runtimes"] == ["reference", "pallas"]
     assert probe["wkv_runtime_requested"] == "reference"
     assert probe["wkv_runtime_effective"] == "reference"
     assert probe["prototype_status"] == "not_requested"
+    assert probe["parity_status"] == "not_requested"
+    assert probe["parity_scope"] == "tiny_one_step_wkv_update"
     assert probe["fallback_used"] is False
     assert probe["kernel_parity_claimed"] is False
     rows = load_live_same_run_trace_jsonl(out / "live_trace_radlads.jsonl")
@@ -2006,24 +2014,38 @@ def test_runner_accepts_pallas_opt_in_and_skips_reference_capture(
         wkv_runtime="pallas",
     )
 
-    probe = report["p82_pallas_runtime_probe"]
+    probe = report["p83_pallas_wkv_parity_probe"]
     out = tmp_path / "out"
+    assert report["p82_pallas_runtime_probe"] == probe
     assert probe["wkv_runtime_requested"] == "pallas"
     assert probe["wkv_runtime_effective"] in {"pallas", "unavailable"}
     assert probe["fallback_used"] is False
     assert probe["prototype_status"] in {"pass", "unavailable", "failed"}
-    assert probe["kernel_parity_claimed"] is False
+    assert probe["parity_status"] in {"pass", "unavailable", "failed"}
+    assert probe["parity_scope"] == "tiny_one_step_wkv_update"
+    assert probe["kernel_parity_claimed"] is (probe["parity_status"] == "pass")
     assert report["pallas_requested_reference_trace_contamination"] is False
     assert report["reference_trace_capture_skipped"] is True
     assert not (out / "live_trace_qrwkv_off.jsonl").exists()
     assert (out / "P82_PALLAS_RUNTIME_SCAFFOLD_COMPLETION_REPORT.md").is_file()
+    assert (out / "P83_PALLAS_REFERENCE_PARITY_REPORT.md").is_file()
     persisted = json.loads((out / "pallas_runtime_probe.json").read_text())
-    assert persisted["schema"] == "qrwkv_xla.p82_pallas_runtime_probe.v1"
+    parity_persisted = json.loads(
+        (out / "pallas_reference_parity_probe.json").read_text()
+    )
+    assert persisted == parity_persisted
+    assert persisted["schema"] == "qrwkv_xla.p83_pallas_wkv_parity_probe.v1"
     if probe["prototype_status"] == "pass":
         assert probe["pallas_available"] is True
         assert probe["finite"] is True
+        assert probe["shape_match"] is True
+        assert probe["max_abs_error"] <= probe["atol"]
+        assert probe["max_rel_error"] <= probe["rtol"]
         assert probe["probe_shapes"]["state"] == [1, 1, 2, 2]
-        assert probe["recommended_next_phase"] == "P83 reference-vs-Pallas parity gate"
+        assert (
+            probe["recommended_next_phase"]
+            == "P84 broader Pallas WKV shape/dtype parity"
+        )
         assert not (out / "P82_BLOCKER_REPORT.md").exists()
     else:
         assert (out / "P82_BLOCKER_REPORT.md").is_file()

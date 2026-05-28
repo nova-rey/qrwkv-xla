@@ -17,7 +17,12 @@ from qrwkv_xla.kernels import (
     write_wkv7_comparison_reports,
 )
 from qrwkv_xla.kernels.wkv7_fixtures import DEFAULT_CASES, hash_arrays
-from qrwkv_xla.students import build_pallas_runtime_probe
+from qrwkv_xla.students import (
+    build_pallas_runtime_probe,
+    pallas_wkv_update,
+    reference_wkv_update,
+    run_pallas_wkv_parity_probe,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -187,21 +192,56 @@ def test_wkv7_pallas_candidate_is_explicitly_unsupported(tmp_path: Path) -> None
     assert "not implemented yet" in report["cases"][0]["reason"]
 
 
-def test_p82_pallas_probe_does_not_claim_kernel_parity() -> None:
+def test_p83_reference_wkv_update_matches_formula() -> None:
+    state = np.arange(4, dtype=np.float32).reshape(1, 1, 2, 2)
+    k = np.array([[[2.0, 3.0]]], dtype=np.float32)
+    v = np.array([[[5.0, 7.0]]], dtype=np.float32)
+    decay = np.array([[[0.5, 0.25]]], dtype=np.float32)
+
+    expected = state * decay[..., None, :] + k[..., :, None] * v[..., None, :]
+    np.testing.assert_allclose(reference_wkv_update(state, k, v, decay), expected)
+
+
+def test_p83_pallas_update_matches_reference_or_reports_unavailable() -> None:
+    state = np.arange(4, dtype=np.float32).reshape(1, 1, 2, 2)
+    k = np.array([[[2.0, 3.0]]], dtype=np.float32)
+    v = np.array([[[5.0, 7.0]]], dtype=np.float32)
+    decay = np.array([[[0.5, 0.25]]], dtype=np.float32)
+
+    probe = run_pallas_wkv_parity_probe()
+    assert probe["parity_scope"] == "tiny_one_step_wkv_update"
+    assert probe["kernel_parity_claimed"] is (probe["parity_status"] == "pass")
+    if probe["parity_status"] == "pass":
+        np.testing.assert_allclose(
+            pallas_wkv_update(state, k, v, decay),
+            reference_wkv_update(state, k, v, decay),
+            atol=probe["atol"],
+            rtol=probe["rtol"],
+        )
+    else:
+        assert probe["reason"]
+
+
+def test_p83_pallas_probe_claims_parity_only_on_pass() -> None:
     probe = build_pallas_runtime_probe(requested="pallas")
 
-    assert probe["schema"] == "qrwkv_xla.p82_pallas_runtime_probe.v1"
-    assert probe["phase"] == "P82"
+    assert probe["schema"] == "qrwkv_xla.p83_pallas_wkv_parity_probe.v1"
+    assert probe["phase"] == "P83"
     assert probe["default_runtime"] == "reference"
     assert probe["allowed_runtimes"] == ["reference", "pallas"]
     assert probe["wkv_runtime_requested"] == "pallas"
     assert probe["fallback_used"] is False
     assert probe["prototype_status"] in {"pass", "unavailable", "failed"}
-    assert probe["kernel_parity_claimed"] is False
+    assert probe["parity_status"] in {"pass", "unavailable", "failed"}
+    assert probe["parity_scope"] == "tiny_one_step_wkv_update"
+    assert probe["kernel_parity_claimed"] is (probe["parity_status"] == "pass")
     if probe["prototype_status"] == "pass":
         assert probe["wkv_runtime_effective"] == "pallas"
         assert probe["pallas_available"] is True
         assert probe["finite"] is True
+        assert probe["shape_match"] is True
+        assert probe["max_abs_error"] <= probe["atol"]
+        assert probe["max_rel_error"] <= probe["rtol"]
         assert probe["probe_shapes"]["state"] == [1, 1, 2, 2]
     else:
         assert probe["wkv_runtime_effective"] == "unavailable"
