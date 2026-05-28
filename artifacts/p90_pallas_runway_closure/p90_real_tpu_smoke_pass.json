@@ -1,0 +1,48 @@
+{
+  "phase": "P90",
+  "purpose": "record_real_tpu_smoke_pass_and_close_pallas_runway",
+  "real_tpu_smoke_result": {
+    "claims_not_made": [
+      "production_pallas_ready",
+      "training_ready",
+      "throughput_proven",
+      "full_model_quality_proven",
+      "pallas_default_ready"
+    ],
+    "default_backend": "tpu",
+    "devices": [
+      {
+        "device_kind": "TPU v5 lite",
+        "id": "0",
+        "platform": "tpu"
+      }
+    ],
+    "error_message": null,
+    "error_type": null,
+    "execution_attempted": true,
+    "execution_ok": true,
+    "jax_version": "0.7.2",
+    "jaxlib_version": "0.7.2",
+    "jit_lowering_attempted": true,
+    "jit_lowering_ok": true,
+    "max_abs_error": 0.0,
+    "numeric_check_attempted": true,
+    "numeric_check_ok": true,
+    "pallas_import_ok": true,
+    "pallas_interpret_mode": true,
+    "pallas_runtime_import_ok": true,
+    "phase": "P88",
+    "platform": "tpu",
+    "reason": "pass",
+    "recommended_next_phase": "P89 cleanup/hardening only if P88 exposes issues; otherwise post-Pallas Radjax extraction planning",
+    "scope": "tiny_pallas_wkv_compile_execution_smoke",
+    "status": "pass",
+    "tpu_devices_detected": true
+  },
+  "runtime_policy": {
+    "pallas_opt_in": true,
+    "reference_default": true
+  },
+  "source_phase": "P88/P89",
+  "status": "pass"
+}

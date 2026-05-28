@@ -1795,3 +1795,28 @@ P88 does not promote Pallas as default, prove production readiness, prove
 training readiness, prove throughput, prove full-model quality, change
 recurrence math, loosen tolerances, edit fixture tensors, or start Radjax
 extraction.
+
+## Phase 90 — Record Real TPU Smoke Pass and Close Pallas Runway
+
+P88 added the TPU compile/execution smoke harness, and the first real TPU run
+exposed a tracing-boundary bug: `DynamicJaxprTracer has no attribute
+block_until_ready`. P89 fixed that boundary by moving readiness blocking outside
+the jitted/lowered smoke function.
+
+After P89, the human reran the smoke on an actual TPU v5 lite runtime. The
+recorded result passed with JAX/JAXLIB 0.7.2, `default_backend=tpu`,
+`jit_lowering_ok=true`, `execution_ok=true`, `numeric_check_ok=true`, and
+`max_abs_error=0.0`. The committed P90 closure artifact preserves that exact
+P88/P89 smoke result under
+`artifacts/p90_pallas_runway_closure/p90_real_tpu_smoke_pass.json`.
+
+This proves only that the tiny Pallas WKV smoke path can initialize on TPU,
+lower/JIT, execute, and pass its numeric check. It does not prove production
+Pallas readiness, training readiness, throughput, full-model quality, or Pallas
+default readiness. `pallas_interpret_mode` remains true.
+
+Runtime policy is unchanged: `reference` remains the default WKV runtime and
+`pallas` remains explicit opt-in. P90 closes the Pallas feasibility runway
+enough to pivot toward post-Pallas/Radjax architecture extraction planning,
+likely starting with StudentBackend protocol extraction or equivalent
+Radjax-layer planning.

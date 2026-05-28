@@ -1,5 +1,22 @@
 # QRWKV-XLA Roadmap
 
+## Phase 90 — Pallas Runway Closure
+
+Goal: record the real TPU smoke pass and close the Pallas feasibility runway
+without changing runtime behavior.
+
+Current checkpoint: `pallas_runway_closed_after_real_tpu_smoke_pass`. P88/P89
+real TPU smoke passed after tracing-boundary cleanup on TPU v5 lite:
+`jit_lowering_ok=true`, `execution_ok=true`, `numeric_check_ok=true`, and
+`max_abs_error=0.0`. P90 records that pass and closes the Pallas runway.
+
+Runtime policy remains unchanged: `reference` is still the default and
+`pallas` is still opt-in. This does not claim production Pallas readiness,
+training readiness, throughput, full-model quality, or Pallas default
+readiness.
+
+Next: post-Pallas architecture extraction planning.
+
 ## Phase 80 — Fixture Lineage / Harness Repair
 
 Goal: repair fixture expectation lineage and reporting without changing math,

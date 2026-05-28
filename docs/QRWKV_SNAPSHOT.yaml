@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 88
-checkpoint: pallas_tpu_compile_smoke_harness
+phase: 90
+checkpoint: pallas_runway_closed_after_real_tpu_smoke_pass
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,36 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Provide a tiny, honest TPU/JAX compile and execution smoke harness for the
-  opt-in Pallas WKV path, reporting CPU/no-TPU environments as unavailable
-  without changing runtime defaults or making production readiness claims.
+  Record the real TPU v5 lite pass for the tiny opt-in Pallas WKV smoke path
+  and close the Pallas feasibility runway so the project can move into
+  post-Pallas architecture extraction planning.
+
+pallas_runway:
+  phase: P90
+  status: closed_after_real_tpu_smoke_pass
+  artifact_dir: artifacts/p90_pallas_runway_closure
+  real_tpu_smoke:
+    source_phase: P88/P89
+    status: pass
+    backend: tpu
+    device_kind: TPU v5 lite
+    jax_version: 0.7.2
+    jaxlib_version: 0.7.2
+    jit_lowering_ok: true
+    execution_ok: true
+    numeric_check_ok: true
+    max_abs_error: 0.0
+    pallas_interpret_mode: true
+  runtime_policy:
+    reference_default: true
+    pallas_opt_in: true
+  claims_not_made:
+    - production_pallas_ready
+    - training_ready
+    - throughput_proven
+    - full_model_quality_proven
+    - pallas_default_ready
+  recommended_next: post_pallas_architecture_planning
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
