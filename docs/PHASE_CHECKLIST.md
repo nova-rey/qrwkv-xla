@@ -1264,6 +1264,33 @@
   Pallas default promotion, real training, throughput claim, model-quality
   claim, or default experimental `balance_state` promotion.
 
+## P85 — Sequence Scan-Style Pallas WKV Parity
+
+- [x] Add deterministic `PallasWKVSequenceParityCase` coverage for required
+  short float32 B/H/D/T combinations and optional bfloat16 cases.
+- [x] Add `reference_wkv_sequence_update()` as repeated one-step reference
+  WKV recurrence over short sequences.
+- [x] Add `pallas_wkv_sequence_update_repeated()` as repeated calls to the
+  existing one-step Pallas WKV update, without claiming a fused scan kernel.
+- [x] Add `run_pallas_wkv_sequence_parity_matrix()` with final-state and
+  per-step shape, finite, max absolute error, max relative error, tolerance,
+  status, reason, and required-case fields.
+- [x] Set sequence `kernel_parity_claimed=true` only when all required
+  sequence cases pass.
+- [x] Emit `P85_PALLAS_SEQUENCE_PARITY_REPORT.md` and
+  `pallas_sequence_parity_matrix.json`.
+- [x] Preserve P83/P84/P81/P82 compatibility artifacts.
+- [x] Keep Pallas-requested runs probe-only with
+  `pallas_requested_reference_trace_contamination=false` and
+  `reference_trace_capture_skipped=true`.
+- [x] Recommend `P86 fused/scan Pallas WKV kernel scaffold` when required
+  sequence cases pass.
+- [x] Preserve scope: no Pallas default promotion, no fused production kernel,
+  no fixture-family Pallas integration, no balance-state math change,
+  dtype-policy change, tolerance loosening, fixture value change, RADLADS
+  upstream/vendor edit, real training, throughput claim, model-quality claim,
+  or default experimental `balance_state` promotion.
+
 ## P82 — Real Opt-In Pallas Runtime Probe
 
 - [x] Add `qrwkv_xla.students.pallas_wkv` with `pallas_available()` and

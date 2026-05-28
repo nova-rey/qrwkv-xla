@@ -1960,6 +1960,9 @@ def run_live_same_run_trace(
     report["p84_pallas_shape_dtype_parity_matrix"] = pallas_probe.get(
         "p84_pallas_shape_dtype_parity_matrix"
     )
+    report["p85_pallas_sequence_parity_matrix"] = pallas_probe.get(
+        "p85_pallas_sequence_parity_matrix"
+    )
     write_live_same_run_reports(report, out_dir)
     return report
 
@@ -2846,7 +2849,7 @@ def _p82_pallas_runtime_only_report(
 ) -> dict[str, Any]:
     return {
         "schema": LIVE_SAME_RUN_REPORT_SCHEMA,
-        "phase": "P84",
+        "phase": "P85",
         "same_run_group_id": same_run_group_id,
         "fixture_id": fixture_id,
         "parameter_id": parameter_id,
@@ -2879,6 +2882,9 @@ def _p82_pallas_runtime_only_report(
         "p84_pallas_shape_dtype_parity_matrix": probe.get(
             "p84_pallas_shape_dtype_parity_matrix"
         ),
+        "p85_pallas_sequence_parity_matrix": probe.get(
+            "p85_pallas_sequence_parity_matrix"
+        ),
         "p83_pallas_wkv_parity_probe": dict(probe),
         "p82_pallas_runtime_probe": dict(probe),
         "p81_pallas_runtime_probe": dict(probe),
@@ -2909,6 +2915,14 @@ def write_pallas_runtime_reports(report: Mapping[str, Any], out_dir: Path) -> No
     if not isinstance(matrix, Mapping):
         nested_matrix = probe.get("p84_pallas_shape_dtype_parity_matrix")
         matrix = nested_matrix if isinstance(nested_matrix, Mapping) else None
+    sequence_matrix = report.get("p85_pallas_sequence_parity_matrix")
+    if not isinstance(sequence_matrix, Mapping):
+        nested_sequence_matrix = probe.get("p85_pallas_sequence_parity_matrix")
+        sequence_matrix = (
+            nested_sequence_matrix
+            if isinstance(nested_sequence_matrix, Mapping)
+            else None
+        )
     (out_dir / "live_same_run_update_ingredients_report.json").write_text(
         json.dumps(_jsonable(report), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -2934,6 +2948,15 @@ def write_pallas_runtime_reports(report: Mapping[str, Any], out_dir: Path) -> No
             _p84_pallas_shape_dtype_report_markdown(report, matrix),
             encoding="utf-8",
         )
+    if isinstance(sequence_matrix, Mapping):
+        (out_dir / "pallas_sequence_parity_matrix.json").write_text(
+            json.dumps(_jsonable(sequence_matrix), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        (out_dir / "P85_PALLAS_SEQUENCE_PARITY_REPORT.md").write_text(
+            _p85_pallas_sequence_report_markdown(report, sequence_matrix),
+            encoding="utf-8",
+        )
     (out_dir / "P82_PALLAS_RUNTIME_SCAFFOLD_COMPLETION_REPORT.md").write_text(
         _p82_pallas_runtime_report_markdown(report, probe),
         encoding="utf-8",
@@ -2948,15 +2971,16 @@ def write_pallas_runtime_reports(report: Mapping[str, Any], out_dir: Path) -> No
     )
     (out_dir / "P68_DECISION.md").write_text(
         "# P68 Decision\n\n"
-        "P84 ran an opt-in Pallas shape/dtype parity matrix and skipped reference live "
+        "P85 ran an opt-in Pallas sequence parity matrix and skipped reference live "
         "trace capture to avoid Pallas-requested reference-trace contamination.\n\n"
         f"- recommended_next_phase: `{report.get('recommended_next_phase')}`\n",
         encoding="utf-8",
     )
     (out_dir / "P68_RESULTS.md").write_text(
         "# P68 Results\n\n"
-        "P84 Pallas-requested run is parity-matrix-only. Reference live trace capture "
-        "was skipped, so no reference live rows are reported for this run.\n\n"
+        "P85 Pallas-requested run is sequence-parity-only. Reference live "
+        "trace capture was skipped, so no reference live rows are reported "
+        "for this run.\n\n"
         "- pallas_requested_reference_trace_contamination: "
         f"`{report.get('pallas_requested_reference_trace_contamination')}`\n"
         "- reference_trace_capture_skipped: "
@@ -2965,25 +2989,25 @@ def write_pallas_runtime_reports(report: Mapping[str, Any], out_dir: Path) -> No
     )
     (out_dir / "LIVE_SAME_RUN_VALIDITY.md").write_text(
         "# Live Same-Run Validity\n\n"
-        "Not applicable for the P84 Pallas parity-matrix-only run; no reference live "
+        "Not applicable for the P85 Pallas sequence-parity-only run; no reference live "
         "trace capture was performed.\n",
         encoding="utf-8",
     )
     (out_dir / "STAGE_AVAILABILITY_MATRIX.md").write_text(
         "# Stage Availability Matrix\n\n"
-        "Not applicable for the P84 Pallas parity-matrix-only run.\n",
+        "Not applicable for the P85 Pallas sequence-parity-only run.\n",
         encoding="utf-8",
     )
     (out_dir / "FIRST_DIFFERING_INGREDIENT.md").write_text(
         "# First Differing Ingredient\n\n"
-        "Not applicable for the P84 Pallas parity-matrix-only run.\n",
+        "Not applicable for the P85 Pallas sequence-parity-only run.\n",
         encoding="utf-8",
     )
     (out_dir / "P75_KERNEL_READINESS_DECISION.md").write_text(
         "# P75 Kernel Readiness Decision\n\n"
         "Reference kernel readiness is preserved from the previous covered "
-        "fixture-family run. P84 does not mark full Pallas kernel-ready; it only "
-        "records broader one-step WKV shape/dtype parity.\n\n"
+        "fixture-family run. P85 does not mark full Pallas kernel-ready; it only "
+        "records short-sequence repeated one-step WKV parity.\n\n"
         f"- pallas_runtime_status: `{report.get('pallas_runtime_status')}`\n"
         f"- kernel_parity_claimed: `{probe.get('kernel_parity_claimed')}`\n",
         encoding="utf-8",
@@ -3065,6 +3089,7 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
     p82_probe = report.get("p82_pallas_runtime_probe")
     p83_probe = report.get("p83_pallas_wkv_parity_probe")
     p84_matrix = report.get("p84_pallas_shape_dtype_parity_matrix")
+    p85_matrix = report.get("p85_pallas_sequence_parity_matrix")
     p81_probe = report.get("p81_pallas_runtime_probe")
     pallas_probe = (
         p83_probe
@@ -3085,6 +3110,11 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
     if isinstance(p84_matrix, Mapping):
         (out_dir / "pallas_shape_dtype_parity_matrix.json").write_text(
             json.dumps(_jsonable(p84_matrix), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    if isinstance(p85_matrix, Mapping):
+        (out_dir / "pallas_sequence_parity_matrix.json").write_text(
+            json.dumps(_jsonable(p85_matrix), indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
     (out_dir / "P68_RESULTS.md").write_text(_results_markdown(report), encoding="utf-8")
@@ -3248,6 +3278,15 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
         if isinstance(matrix, Mapping):
             (out_dir / "P84_PALLAS_SHAPE_DTYPE_PARITY_REPORT.md").write_text(
                 _p84_pallas_shape_dtype_report_markdown(report, matrix),
+                encoding="utf-8",
+            )
+        nested_sequence_matrix = pallas_probe.get("p85_pallas_sequence_parity_matrix")
+        sequence_matrix = (
+            p85_matrix if isinstance(p85_matrix, Mapping) else nested_sequence_matrix
+        )
+        if isinstance(sequence_matrix, Mapping):
+            (out_dir / "P85_PALLAS_SEQUENCE_PARITY_REPORT.md").write_text(
+                _p85_pallas_sequence_report_markdown(report, sequence_matrix),
                 encoding="utf-8",
             )
         (out_dir / "P81_FIX_NOTE.md").write_text(
@@ -3487,6 +3526,78 @@ def _p84_pallas_shape_dtype_report_markdown(
             f"- cases_unavailable: `{summary.get('cases_unavailable')}`",
             f"- all_required_cases_pass: `{summary.get('all_required_cases_pass')}`",
             f"- kernel_parity_claimed: `{summary.get('kernel_parity_claimed')}`",
+            "",
+            "## Capture Semantics",
+            "- pallas_requested_reference_trace_contamination: "
+            f"`{report.get('pallas_requested_reference_trace_contamination')}`",
+            "- reference_trace_capture_skipped: "
+            f"`{report.get('reference_trace_capture_skipped')}`",
+            "",
+            "## Decision",
+            f"- recommended_next_phase: `{matrix.get('recommended_next_phase')}`",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _p85_pallas_sequence_report_markdown(
+    report: Mapping[str, Any],
+    matrix: Mapping[str, Any],
+) -> str:
+    summary = matrix.get("summary", {})
+    cases = matrix.get("cases", [])
+    lines = [
+        "# P85 Pallas Sequence Parity Report",
+        "",
+        "## Scope",
+        f"- one_step_formula: `{matrix.get('one_step_formula')}`",
+        f"- sequence_parity_scope: `{matrix.get('parity_scope')}`",
+        f"- default_runtime: `{matrix.get('default_runtime')}`",
+        f"- Pallas opt-in: `{matrix.get('wkv_runtime_requested') == 'pallas'}`",
+        f"- sequence_method: `{matrix.get('sequence_method')}`",
+        "",
+        "## Case Matrix",
+        "| case_id | batch | heads | dim | seq_len | dtype | parity_status | "
+        "final_max_abs_error | final_max_rel_error | worst_step_max_abs_error | "
+        "worst_step_max_rel_error | atol | rtol |",
+        "| --- | ---: | ---: | ---: | ---: | --- | --- | ---: | ---: | "
+        "---: | ---: | ---: | ---: |",
+    ]
+    if isinstance(cases, list):
+        for case in cases:
+            lines.append(
+                "| "
+                f"{case.get('case_id')} | "
+                f"{case.get('batch')} | "
+                f"{case.get('heads')} | "
+                f"{case.get('dim')} | "
+                f"{case.get('seq_len')} | "
+                f"{case.get('dtype')} | "
+                f"{case.get('parity_status')} | "
+                f"{case.get('final_max_abs_error')} | "
+                f"{case.get('final_max_rel_error')} | "
+                f"{case.get('worst_step_max_abs_error')} | "
+                f"{case.get('worst_step_max_rel_error')} | "
+                f"{case.get('atol')} | "
+                f"{case.get('rtol')} |"
+            )
+    lines.extend(
+        [
+            "",
+            "## Summary",
+            f"- cases_total: `{summary.get('cases_total')}`",
+            f"- cases_pass: `{summary.get('cases_pass')}`",
+            f"- cases_fail: `{summary.get('cases_fail')}`",
+            f"- cases_unavailable: `{summary.get('cases_unavailable')}`",
+            f"- all_required_cases_pass: `{summary.get('all_required_cases_pass')}`",
+            f"- kernel_parity_claimed: `{summary.get('kernel_parity_claimed')}`",
+            "- worst_final_max_abs_error: "
+            f"`{summary.get('worst_final_max_abs_error')}`",
+            "- worst_final_max_rel_error: "
+            f"`{summary.get('worst_final_max_rel_error')}`",
+            f"- worst_step_max_abs_error: `{summary.get('worst_step_max_abs_error')}`",
+            f"- worst_step_max_rel_error: `{summary.get('worst_step_max_rel_error')}`",
             "",
             "## Capture Semantics",
             "- pallas_requested_reference_trace_contamination: "

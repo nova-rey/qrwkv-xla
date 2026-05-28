@@ -6,6 +6,7 @@ from typing import Any
 from qrwkv_xla.students.pallas_wkv import (
     pallas_available,
     run_pallas_wkv_parity_probe,
+    run_pallas_wkv_sequence_parity_matrix,
     run_pallas_wkv_shape_dtype_parity_matrix,
 )
 
@@ -62,11 +63,13 @@ def build_pallas_runtime_probe(
             "reason": unavailable_reason,
             "kernel_parity_claimed": False,
             "p84_pallas_shape_dtype_parity_matrix": None,
+            "p85_pallas_sequence_parity_matrix": None,
             "recommended_next_phase": "P84 broader Pallas WKV shape/dtype parity",
         }
 
     probe = run_pallas_wkv_parity_probe()
     matrix = run_pallas_wkv_shape_dtype_parity_matrix()
+    sequence_matrix = run_pallas_wkv_sequence_parity_matrix()
     status = probe.get("prototype_status")
     effective = WKVRuntime.PALLAS.value if status == "pass" else "unavailable"
     return {
@@ -98,10 +101,11 @@ def build_pallas_runtime_probe(
         "max_abs_error_vs_formula": probe.get("max_abs_error_vs_formula"),
         "output_abs_max": probe.get("output_abs_max"),
         "p84_pallas_shape_dtype_parity_matrix": matrix,
+        "p85_pallas_sequence_parity_matrix": sequence_matrix,
         "kernel_parity_claimed": bool(
-            matrix.get("summary", {}).get("kernel_parity_claimed", False)
+            sequence_matrix.get("summary", {}).get("kernel_parity_claimed", False)
         ),
-        "recommended_next_phase": matrix.get(
-            "recommended_next_phase", "P85 kernel runtime selection hardening"
+        "recommended_next_phase": sequence_matrix.get(
+            "recommended_next_phase", "P86 kernel runtime selection hardening"
         ),
     }

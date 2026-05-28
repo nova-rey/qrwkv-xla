@@ -1692,3 +1692,33 @@ parity, integrate Pallas into fixture-family runs, claim TPU throughput, prove
 model quality, change recurrence math, change balance math, loosen tolerances,
 change dtype policy, edit fixture tensors, vendor RADLADS source, or change
 RADLADS upstream code.
+
+## Phase 85 — Short-Sequence Pallas WKV Parity
+
+P85 extends the P84 broader one-step Pallas WKV parity matrix into short
+deterministic sequence parity. It compares a trusted reference loop against
+repeated Pallas one-step updates over small B/H/D/T cases:
+
+```text
+state_t+1 = state_t * decay_t[..., None, :] + k_t[..., :, None] * v_t[..., None, :]
+```
+
+The new sequence helpers expose a reference loop and a repeated Pallas loop.
+The sequence matrix records final-state and per-step-state shapes, finite
+status, final max absolute/relative errors, and worst per-step
+absolute/relative errors. P85 claims scoped parity only when all required
+float32 sequence cases pass; optional bfloat16 cases may pass or explicitly
+report unavailable with a reason.
+
+Pallas-requested live trace runs remain probe-only and now emit
+`P85_PALLAS_SEQUENCE_PARITY_REPORT.md` plus
+`pallas_sequence_parity_matrix.json`, while preserving P84/P83/P82/P81
+compatibility artifacts. P85 recommends
+`P86 fused/scan Pallas WKV kernel scaffold` when the short-sequence repeated
+one-step gate passes.
+
+P85 does not promote Pallas as default, implement a fused production sequence
+kernel, prove fixture-family/full-model parity, prove throughput, prove model
+quality, change reference recurrence math, change balance math, loosen
+tolerances, change dtype policy, edit fixture tensors, vendor RADLADS source,
+or promote experimental `balance_state`.

@@ -28,4 +28,4 @@
 - covered fixture readiness: `preserved_for_reference_path`
 
 ## Decision
-- recommended_next_phase: `P85 sequence/scan-style Pallas WKV parity`
+- recommended_next_phase: `P86 fused/scan Pallas WKV kernel scaffold`

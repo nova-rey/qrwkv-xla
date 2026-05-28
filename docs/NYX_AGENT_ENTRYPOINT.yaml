@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 84
-  checkpoint: broader_pallas_wkv_shape_dtype_parity
-  title: Broader Pallas WKV shape/dtype parity
+  phase: 85
+  checkpoint: short_sequence_pallas_wkv_parity
+  title: Short-sequence Pallas WKV parity
 
 workflow:
   primary_agent: Nyx
@@ -54,6 +54,7 @@ instructions:
   - Keep P82 scoped to the minimal opt-in Pallas execution probe and fail-closed capture semantics; do not promote Pallas, claim parity, or change reference recurrence math.
   - Keep P83 scoped to the tiny one-step reference-vs-Pallas WKV parity gate; do not promote Pallas, claim broad kernel readiness, loosen tolerances, change fixture tensors, or run reference live trace capture for Pallas-requested probes.
   - Keep P84 scoped to the broader one-step Pallas WKV shape/dtype parity matrix; do not promote Pallas, claim sequence parity, integrate fixture-family Pallas, loosen tolerances, change fixture tensors, or run reference live trace capture for Pallas-requested probes.
+  - Keep P85 scoped to short deterministic repeated one-step Pallas WKV sequence parity; do not promote Pallas, claim fused kernel readiness, integrate fixture-family Pallas, prove throughput, loosen tolerances, change fixture tensors, or run reference live trace capture for Pallas-requested probes.
 
 radlads_qrwkv_head_to_head_parity:
   phase: P53

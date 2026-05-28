@@ -927,3 +927,37 @@ sequence/scan parity, integrate Pallas into fixture-family runs, prove
 throughput, prove model quality, change recurrence math, change balance-state
 math, loosen tolerances, change dtype policy, edit fixture tensors, vendor
 RADLADS source, or promote experimental `balance_state` behavior by default.
+
+## Phase 85 — Short-Sequence Pallas WKV Parity
+
+Current checkpoint: `short_sequence_pallas_wkv_parity`.
+
+P85 moves from isolated one-step parity to repeated one-step sequence parity.
+It compares a trusted reference loop with repeated calls to the opt-in Pallas
+one-step update over small deterministic B/H/D/T cases. The report records
+final-state and per-step-state shape/finite/error metrics and claims scoped
+sequence parity only when all required float32 sequence cases pass.
+
+Pallas-requested trace runs remain sequence-parity-only and continue to skip
+regular reference live trace capture. The artifact set now includes
+`P85_PALLAS_SEQUENCE_PARITY_REPORT.md` and
+`pallas_sequence_parity_matrix.json`, while preserving P84 shape/dtype, P83
+tiny parity, and P81/P82 compatibility artifacts.
+
+Updated Pallas runway:
+
+- P81: opt-in runtime selector.
+- P82: minimal Pallas execution probe.
+- P83: tiny reference-vs-Pallas one-step parity.
+- P84: broader one-step shape/dtype parity.
+- P85: short-sequence repeated-step parity.
+- P86: fused/scan Pallas WKV kernel scaffold.
+- P87: fixture-family opt-in runtime integration.
+- P88: TPU compile/performance smoke.
+
+The next phase is `P86 fused/scan Pallas WKV kernel scaffold` when required
+P85 sequence cases pass. P85 does not promote Pallas as default, implement a
+fused production sequence kernel, prove fixture-family/full-model parity, prove
+throughput, prove model quality, change recurrence math, change balance-state
+math, loosen tolerances, change dtype policy, edit fixture tensors, vendor
+RADLADS source, or promote experimental `balance_state` behavior by default.

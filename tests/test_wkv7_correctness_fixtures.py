@@ -19,10 +19,14 @@ from qrwkv_xla.kernels import (
 from qrwkv_xla.kernels.wkv7_fixtures import DEFAULT_CASES, hash_arrays
 from qrwkv_xla.students import (
     build_pallas_runtime_probe,
+    pallas_wkv_sequence_parity_cases,
+    pallas_wkv_sequence_update_repeated,
     pallas_wkv_shape_dtype_parity_cases,
     pallas_wkv_update,
+    reference_wkv_sequence_update,
     reference_wkv_update,
     run_pallas_wkv_parity_probe,
+    run_pallas_wkv_sequence_parity_matrix,
     run_pallas_wkv_shape_dtype_parity_matrix,
 )
 
@@ -236,7 +240,7 @@ def test_p83_pallas_probe_claims_parity_only_on_pass() -> None:
     assert probe["prototype_status"] in {"pass", "unavailable", "failed"}
     assert probe["parity_status"] in {"pass", "unavailable", "failed"}
     assert probe["parity_scope"] == "tiny_one_step_wkv_update"
-    matrix = probe["p84_pallas_shape_dtype_parity_matrix"]
+    matrix = probe["p85_pallas_sequence_parity_matrix"]
     assert (
         probe["kernel_parity_claimed"] is (matrix["summary"]["kernel_parity_claimed"])
     )
@@ -316,6 +320,131 @@ def test_p84_shape_dtype_parity_matrix_claims_only_required_passes() -> None:
             assert case["shape_match"] is True
             assert case["max_abs_error"] <= case["atol"]
             assert case["max_rel_error"] <= case["rtol"]
+        if case["dtype"] == "bfloat16" and case["parity_status"] == "unavailable":
+            assert case["reason"]
+
+
+def test_p85_reference_sequence_update_matches_repeated_formula() -> None:
+    initial_state = np.arange(4, dtype=np.float32).reshape(1, 1, 2, 2)
+    k_seq = np.array([[[[1.0, 2.0]]], [[[3.0, 4.0]]]], dtype=np.float32)
+    v_seq = np.array([[[[2.0, 3.0]]], [[[4.0, 5.0]]]], dtype=np.float32)
+    decay_seq = np.array([[[[0.5, 0.25]]], [[[0.75, 0.5]]]], dtype=np.float32)
+
+    first = initial_state * decay_seq[0, ..., None, :] + (
+        k_seq[0, ..., :, None] * v_seq[0, ..., None, :]
+    )
+    second = first * decay_seq[1, ..., None, :] + (
+        k_seq[1, ..., :, None] * v_seq[1, ..., None, :]
+    )
+    result = reference_wkv_sequence_update(initial_state, k_seq, v_seq, decay_seq)
+
+    np.testing.assert_allclose(result["final_state"], second)
+    np.testing.assert_allclose(result["per_step_states"], np.stack([first, second]))
+
+
+def test_p85_pallas_sequence_update_matches_reference_or_reports_unavailable() -> None:
+    initial_state = np.arange(4, dtype=np.float32).reshape(1, 1, 2, 2)
+    k_seq = np.array([[[[1.0, 2.0]]], [[[3.0, 4.0]]]], dtype=np.float32)
+    v_seq = np.array([[[[2.0, 3.0]]], [[[4.0, 5.0]]]], dtype=np.float32)
+    decay_seq = np.array([[[[0.5, 0.25]]], [[[0.75, 0.5]]]], dtype=np.float32)
+    matrix = run_pallas_wkv_sequence_parity_matrix()
+
+    if matrix["pallas_available"]:
+        pallas = pallas_wkv_sequence_update_repeated(
+            initial_state,
+            k_seq,
+            v_seq,
+            decay_seq,
+        )
+        reference = reference_wkv_sequence_update(
+            initial_state,
+            k_seq,
+            v_seq,
+            decay_seq,
+        )
+        np.testing.assert_allclose(
+            pallas["final_state"],
+            reference["final_state"],
+            atol=1e-6,
+            rtol=1e-6,
+        )
+        np.testing.assert_allclose(
+            pallas["per_step_states"],
+            reference["per_step_states"],
+            atol=1e-6,
+            rtol=1e-6,
+        )
+    else:
+        assert matrix["reason"]
+
+
+def test_p85_sequence_parity_cases_include_required_float32_surface() -> None:
+    cases = pallas_wkv_sequence_parity_cases()
+    required = {case.case_id for case in cases if case.required}
+
+    assert required == {
+        "float32_b1_h1_d2_t2",
+        "float32_b1_h1_d2_t4",
+        "float32_b1_h2_d2_t4",
+        "float32_b2_h2_d4_t4",
+    }
+    assert {case.dtype for case in cases if not case.required} == {"bfloat16"}
+
+
+def test_p85_sequence_parity_matrix_claims_only_required_passes() -> None:
+    matrix = run_pallas_wkv_sequence_parity_matrix()
+
+    assert matrix["schema"] == "qrwkv_xla.p85_pallas_sequence_parity_matrix.v1"
+    assert matrix["phase"] == "P85"
+    assert matrix["parity_scope"] == "short_sequence_repeated_one_step_wkv"
+    assert matrix["sequence_method"] == "repeated_one_step_pallas"
+    assert matrix["default_runtime"] == "reference"
+    assert matrix["wkv_runtime_requested"] == "pallas"
+    assert matrix["summary"]["cases_total"] == len(matrix["cases"])
+    assert (
+        matrix["kernel_parity_claimed"]
+        is (matrix["summary"]["all_required_cases_pass"])
+    )
+
+    required_rows = [case for case in matrix["cases"] if case["required"]]
+    assert {case["case_id"] for case in required_rows} == {
+        "float32_b1_h1_d2_t2",
+        "float32_b1_h1_d2_t4",
+        "float32_b1_h2_d2_t4",
+        "float32_b2_h2_d4_t4",
+    }
+    for case in matrix["cases"]:
+        assert case["initial_state_shape"] == [
+            case["batch"],
+            case["heads"],
+            case["dim"],
+            case["dim"],
+        ]
+        seq_shape = [case["seq_len"], case["batch"], case["heads"], case["dim"]]
+        assert case["k_seq_shape"] == seq_shape
+        assert case["v_seq_shape"] == seq_shape
+        assert case["decay_seq_shape"] == seq_shape
+        assert case["parity_status"] in {"pass", "fail", "unavailable"}
+        for field in {
+            "final_max_abs_error",
+            "final_max_rel_error",
+            "worst_step_max_abs_error",
+            "worst_step_max_rel_error",
+            "atol",
+            "rtol",
+        }:
+            assert field in case
+        if case["required"] and matrix["pallas_available"]:
+            assert case["dtype"] == "float32"
+            assert case["parity_status"] == "pass"
+            assert case["final_shape_match"] is True
+            assert case["per_step_shape_match"] is True
+            assert case["final_state_finite"] is True
+            assert case["per_step_finite"] is True
+            assert case["final_max_abs_error"] <= case["atol"]
+            assert case["final_max_rel_error"] <= case["rtol"]
+            assert case["worst_step_max_abs_error"] <= case["atol"]
+            assert case["worst_step_max_rel_error"] <= case["rtol"]
         if case["dtype"] == "bfloat16" and case["parity_status"] == "unavailable":
             assert case["reason"]
 
