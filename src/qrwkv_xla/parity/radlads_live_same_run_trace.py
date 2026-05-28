@@ -286,6 +286,10 @@ P82_PALLAS_RUNTIME_SCAFFOLD_COMPLETION = (
 P82_PALLAS_DEPENDENCY_BACKEND_FIX = (
     "P82 targeted Pallas dependency/backend availability fix"
 )
+P83_REFERENCE_VS_PALLAS_PARITY_GATE = "P83 reference-vs-Pallas parity gate"
+P83_PALLAS_RUNTIME_SCAFFOLD_COMPLETION = (
+    "P83 targeted Pallas runtime scaffold completion"
+)
 P77_STATE_EXPORT_FIX = "P77 targeted state export/import convention fix"
 P77_FULL_VS_STEPWISE_FIX = "P77 targeted full-vs-stepwise residual fix"
 P77_LANE_LAYOUT_FIX = "P77 targeted lane-aware state layout fix"
@@ -1795,6 +1799,28 @@ def run_live_same_run_trace(
         max_tokens=max_tokens,
         strict_live=strict_live,
     )
+    if selected_wkv_runtime is WKVRuntime.PALLAS:
+        probe = build_pallas_runtime_probe(
+            requested=selected_wkv_runtime,
+            reference_default_preserved=True,
+        )
+        report = _p82_pallas_runtime_only_report(
+            fixture_manifest=fixture_manifest,
+            parameter_path=parameter_manifest or parameters,
+            fixture_parameter_key=fixture_parameter_key,
+            same_run_group_id=same_run_group_id,
+            fixture_id=fixture_id,
+            parameter_id=parameter_id,
+            cases=cases,
+            mode=mode,
+            layer=layer,
+            head=head,
+            max_tokens=max_tokens,
+            strict_live=strict_live,
+            probe=probe,
+        )
+        write_pallas_runtime_reports(report, out_dir)
+        return report
     contexts = _contexts_from_manifest(
         fixture_manifest,
         cases=cases,
@@ -1923,14 +1949,10 @@ def run_live_same_run_trace(
         report["recommended_next_phase"] = report[
             "p79_broader_fixture_residual_matrix"
         ]["recommended_action"]
-    report["p81_pallas_runtime_probe"] = build_pallas_runtime_probe(
+    report["p82_pallas_runtime_probe"] = build_pallas_runtime_probe(
         requested=selected_wkv_runtime,
         reference_default_preserved=True,
     )
-    if selected_wkv_runtime is WKVRuntime.PALLAS:
-        report["recommended_next_phase"] = report["p81_pallas_runtime_probe"][
-            "recommended_next_phase"
-        ]
     write_live_same_run_reports(report, out_dir)
     return report
 
@@ -2799,6 +2821,160 @@ def write_live_same_run_trace(entries: list[dict[str, Any]], path: Path) -> None
             handle.write(json.dumps(_jsonable(entry), sort_keys=True) + "\n")
 
 
+def _p82_pallas_runtime_only_report(
+    *,
+    fixture_manifest: Path,
+    parameter_path: Path | None,
+    fixture_parameter_key: str | None,
+    same_run_group_id: str,
+    fixture_id: str,
+    parameter_id: str,
+    cases: list[str] | None,
+    mode: str,
+    layer: int | None,
+    head: int | None,
+    max_tokens: int | None,
+    strict_live: bool,
+    probe: Mapping[str, Any],
+) -> dict[str, Any]:
+    return {
+        "schema": LIVE_SAME_RUN_REPORT_SCHEMA,
+        "phase": "P82",
+        "same_run_group_id": same_run_group_id,
+        "fixture_id": fixture_id,
+        "parameter_id": parameter_id,
+        "fixture_manifest_path": str(fixture_manifest),
+        "parameter_manifest_or_npz_path": str(parameter_path)
+        if parameter_path is not None
+        else None,
+        "fixture_parameter_key": fixture_parameter_key,
+        "strict_live": strict_live,
+        "cases": cases,
+        "mode": mode,
+        "layer": layer,
+        "head": head,
+        "max_tokens": max_tokens,
+        "same_run_valid": False,
+        "same_run_validity_reason": "pallas_runtime_probe_only_no_reference_capture",
+        "first_divergent_stage": None,
+        "live_rows_captured_radlads": 0,
+        "live_rows_captured_qrwkv_off": 0,
+        "live_rows_captured_qrwkv_experimental": 0,
+        "unavailable_minimum_stages": [],
+        "unavailable_rows": [],
+        "pallas_requested_reference_trace_contamination": False,
+        "fail_closed_before_capture": probe.get("prototype_status") != "pass",
+        "reference_trace_capture_skipped": True,
+        "default_wkv_runtime": WKVRuntime.REFERENCE.value,
+        "allowed_wkv_runtimes": [runtime.value for runtime in WKVRuntime],
+        "wkv_runtime_requested": WKVRuntime.PALLAS.value,
+        "wkv_runtime_effective": probe.get("wkv_runtime_effective"),
+        "p82_pallas_runtime_probe": dict(probe),
+        "p81_pallas_runtime_probe": dict(probe),
+        "pallas_runtime_status": _p82_pallas_runtime_status(probe),
+        "kernel_parity_claimed": probe.get("kernel_parity_claimed", False),
+        "recommended_next_phase": probe.get(
+            "recommended_next_phase", P83_PALLAS_RUNTIME_SCAFFOLD_COMPLETION
+        ),
+    }
+
+
+def _p82_pallas_runtime_status(probe: Mapping[str, Any]) -> str:
+    status = probe.get("prototype_status")
+    if status == "pass":
+        return "prototype_pass"
+    if status == "unavailable":
+        return "unavailable"
+    return "failed"
+
+
+def write_pallas_runtime_reports(report: Mapping[str, Any], out_dir: Path) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    _remove_stale_live_trace_capture_artifacts(out_dir)
+    probe = report.get("p82_pallas_runtime_probe")
+    if not isinstance(probe, Mapping):
+        raise ValueError("P82 pallas runtime report requires p82_pallas_runtime_probe")
+    (out_dir / "live_same_run_update_ingredients_report.json").write_text(
+        json.dumps(_jsonable(report), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (out_dir / "pallas_runtime_probe.json").write_text(
+        json.dumps(_jsonable(probe), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (out_dir / "P82_PALLAS_RUNTIME_SCAFFOLD_COMPLETION_REPORT.md").write_text(
+        _p82_pallas_runtime_report_markdown(report, probe),
+        encoding="utf-8",
+    )
+    (out_dir / "P81_PALLAS_PROTOTYPE_REPORT.md").write_text(
+        _p81_pallas_prototype_report_markdown(report, probe),
+        encoding="utf-8",
+    )
+    (out_dir / "P82_FIX_NOTE.md").write_text(
+        _p82_fix_note_markdown(probe),
+        encoding="utf-8",
+    )
+    (out_dir / "P68_DECISION.md").write_text(
+        "# P68 Decision\n\n"
+        "P82 ran an opt-in Pallas runtime probe and skipped reference live "
+        "trace capture to avoid Pallas-requested reference-trace contamination.\n\n"
+        f"- recommended_next_phase: `{report.get('recommended_next_phase')}`\n",
+        encoding="utf-8",
+    )
+    (out_dir / "P68_RESULTS.md").write_text(
+        "# P68 Results\n\n"
+        "P82 Pallas-requested run is probe-only. Reference live trace capture "
+        "was skipped, so no reference live rows are reported for this run.\n\n"
+        "- pallas_requested_reference_trace_contamination: "
+        f"`{report.get('pallas_requested_reference_trace_contamination')}`\n"
+        "- reference_trace_capture_skipped: "
+        f"`{report.get('reference_trace_capture_skipped')}`\n",
+        encoding="utf-8",
+    )
+    (out_dir / "LIVE_SAME_RUN_VALIDITY.md").write_text(
+        "# Live Same-Run Validity\n\n"
+        "Not applicable for the P82 Pallas probe-only run; no reference live "
+        "trace capture was performed.\n",
+        encoding="utf-8",
+    )
+    (out_dir / "STAGE_AVAILABILITY_MATRIX.md").write_text(
+        "# Stage Availability Matrix\n\n"
+        "Not applicable for the P82 Pallas probe-only run.\n",
+        encoding="utf-8",
+    )
+    (out_dir / "FIRST_DIFFERING_INGREDIENT.md").write_text(
+        "# First Differing Ingredient\n\n"
+        "Not applicable for the P82 Pallas probe-only run.\n",
+        encoding="utf-8",
+    )
+    (out_dir / "P75_KERNEL_READINESS_DECISION.md").write_text(
+        "# P75 Kernel Readiness Decision\n\n"
+        "Reference kernel readiness is preserved from the previous covered "
+        "fixture-family run. P82 does not mark Pallas kernel-ready; it only "
+        "records the opt-in Pallas runtime probe status.\n\n"
+        f"- pallas_runtime_status: `{report.get('pallas_runtime_status')}`\n"
+        f"- kernel_parity_claimed: `{probe.get('kernel_parity_claimed')}`\n",
+        encoding="utf-8",
+    )
+    blocker_path = out_dir / "P82_BLOCKER_REPORT.md"
+    if probe.get("prototype_status") != "pass":
+        blocker_path.write_text(
+            _p82_blocker_report_markdown(probe),
+            encoding="utf-8",
+        )
+    elif blocker_path.exists():
+        blocker_path.unlink()
+    p81_blocker = out_dir / "P81_BLOCKER_REPORT.md"
+    if p81_blocker.exists():
+        p81_blocker.unlink()
+
+
+def _remove_stale_live_trace_capture_artifacts(out_dir: Path) -> None:
+    for pattern in ("live_trace_*.jsonl", "live_same_run_trace_metadata.json"):
+        for path in out_dir.glob(pattern):
+            path.unlink()
+
+
 def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "live_same_run_update_ingredients_report.json").write_text(
@@ -2854,10 +3030,12 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
             json.dumps(_jsonable(p79_report), indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+    p82_probe = report.get("p82_pallas_runtime_probe")
     p81_probe = report.get("p81_pallas_runtime_probe")
-    if isinstance(p81_probe, Mapping):
+    pallas_probe = p82_probe if isinstance(p82_probe, Mapping) else p81_probe
+    if isinstance(pallas_probe, Mapping):
         (out_dir / "pallas_runtime_probe.json").write_text(
-            json.dumps(_jsonable(p81_probe), indent=2, sort_keys=True) + "\n",
+            json.dumps(_jsonable(pallas_probe), indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
     (out_dir / "P68_RESULTS.md").write_text(_results_markdown(report), encoding="utf-8")
@@ -3003,19 +3181,23 @@ def write_live_same_run_reports(report: Mapping[str, Any], out_dir: Path) -> Non
             )
         elif blocker_path.exists():
             blocker_path.unlink()
-    if isinstance(p81_probe, Mapping):
+    if isinstance(pallas_probe, Mapping):
         (out_dir / "P81_PALLAS_PROTOTYPE_REPORT.md").write_text(
-            _p81_pallas_prototype_report_markdown(report, p81_probe),
+            _p81_pallas_prototype_report_markdown(report, pallas_probe),
+            encoding="utf-8",
+        )
+        (out_dir / "P82_PALLAS_RUNTIME_SCAFFOLD_COMPLETION_REPORT.md").write_text(
+            _p82_pallas_runtime_report_markdown(report, pallas_probe),
             encoding="utf-8",
         )
         (out_dir / "P81_FIX_NOTE.md").write_text(
-            _p81_fix_note_markdown(p81_probe),
+            _p81_fix_note_markdown(pallas_probe),
             encoding="utf-8",
         )
         blocker_path = out_dir / "P81_BLOCKER_REPORT.md"
-        if p81_probe.get("prototype_status") == "unavailable":
+        if pallas_probe.get("prototype_status") == "unavailable":
             blocker_path.write_text(
-                _p81_blocker_report_markdown(p81_probe),
+                _p81_blocker_report_markdown(pallas_probe),
                 encoding="utf-8",
             )
         elif blocker_path.exists():
@@ -3084,6 +3266,88 @@ def _p81_pallas_prototype_report_markdown(
             "",
             "## Decision",
             f"- recommended_next_phase: `{probe.get('recommended_next_phase')}`",
+            "",
+        ]
+    )
+
+
+def _p82_pallas_runtime_report_markdown(
+    report: Mapping[str, Any],
+    probe: Mapping[str, Any],
+) -> str:
+    return "\n".join(
+        [
+            "# P82 Pallas Runtime Scaffold Completion Report",
+            "",
+            "## Runtime Selector",
+            f"- default runtime: `{probe.get('default_runtime')}`",
+            f"- allowed runtimes: `{probe.get('allowed_runtimes')}`",
+            "- reference default preserved: "
+            f"`{probe.get('reference_default_preserved')}`",
+            "- CLI/config path: `--wkv-runtime reference|pallas`, `wkv_runtime`",
+            "",
+            "## Pallas Probe",
+            f"- pallas requested: `{probe.get('wkv_runtime_requested') == 'pallas'}`",
+            f"- pallas available: `{probe.get('pallas_available')}`",
+            f"- pallas effective runtime: `{probe.get('wkv_runtime_effective')}`",
+            f"- fallback used: `{probe.get('fallback_used')}`",
+            f"- prototype_status: `{probe.get('prototype_status')}`",
+            f"- prototype_scope: `{probe.get('prototype_scope')}`",
+            f"- probe_backend: `{probe.get('probe_backend')}`",
+            f"- probe_shapes: `{probe.get('probe_shapes')}`",
+            f"- finite: `{probe.get('finite')}`",
+            f"- kernel_parity_claimed: `{probe.get('kernel_parity_claimed')}`",
+            "",
+            "## Capture Semantics",
+            "- pallas_requested_reference_trace_contamination: "
+            f"`{report.get('pallas_requested_reference_trace_contamination')}`",
+            "- fail_closed_before_capture: "
+            f"`{report.get('fail_closed_before_capture')}`",
+            "- reference_trace_capture_skipped: "
+            f"`{report.get('reference_trace_capture_skipped')}`",
+            "",
+            "## Previous Gate Preservation",
+            "- P80 fixture alias resolution: `preserved_from_reference_path`",
+            "- covered fixture readiness: `preserved_for_reference_path`",
+            "",
+            "## Decision",
+            f"- recommended_next_phase: `{probe.get('recommended_next_phase')}`",
+            "",
+        ]
+    )
+
+
+def _p82_blocker_report_markdown(probe: Mapping[str, Any]) -> str:
+    return "\n".join(
+        [
+            "# P82 Blocker Report",
+            "",
+            f"- pallas_requested: `{probe.get('wkv_runtime_requested') == 'pallas'}`",
+            f"- pallas_available: `{probe.get('pallas_available')}`",
+            f"- status: `{probe.get('prototype_status')}`",
+            f"- reason: `{probe.get('reason')}`",
+            f"- recommended_next_phase: `{probe.get('recommended_next_phase')}`",
+            "",
+        ]
+    )
+
+
+def _p82_fix_note_markdown(probe: Mapping[str, Any]) -> str:
+    return "\n".join(
+        [
+            "# P82 Fix Note",
+            "",
+            "- problem: P81 accepted `wkv_runtime=pallas` but could still run "
+            "reference live trace capture while reporting Pallas unavailable.",
+            "- exact file/function changed: `qrwkv_xla.students.pallas_wkv`, "
+            "`build_pallas_runtime_probe`, `run_live_same_run_trace`, "
+            "`write_pallas_runtime_reports`.",
+            "- why this is runtime scaffold only: P82 runs a minimal Pallas "
+            "execution probe and skips reference capture for Pallas-requested "
+            "runs; the reference recurrence is unchanged.",
+            "- before/after behavior: Pallas-requested runs now record a P82 "
+            "probe-only report instead of ambiguous reference trace artifacts.",
+            f"- prototype_status: `{probe.get('prototype_status')}`",
             "",
         ]
     )

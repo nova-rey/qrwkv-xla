@@ -1598,3 +1598,37 @@ P81 does not promote Pallas as default, prove real training throughput, prove
 model quality, promote experimental `balance_state`, change recurrence math,
 change balance math, loosen tolerances, change dtype policy, edit fixture
 tensors, vendor RADLADS source, or change RADLADS upstream code.
+
+## Phase 82 — Real Opt-In Pallas Runtime Probe
+
+P82 fixes the scaffold-only P81 outcome by clarifying Pallas runtime semantics
+and adding a real Pallas execution probe path. P81 added a runtime selector but
+did not implement a Pallas runtime and could still generate reference-style
+traces while Pallas was requested. P82 prevents ambiguous reference-trace
+contamination under Pallas requests.
+
+The new `qrwkv_xla.students.pallas_wkv` module exposes Pallas availability and
+a minimal one-step WKV-ish Pallas probe. The probe uses `jax.experimental.pallas`
+to execute:
+
+```text
+new_state = state * decay[..., None, :] + k[..., :, None] * v[..., None, :]
+```
+
+over tiny `[1, 1, 2, 2]` / `[1, 1, 2]` inputs, records the shape contract, and
+checks finite output. It is an execution probe, not a production WKV kernel and
+not a reference-vs-Pallas parity gate.
+
+When `--wkv-runtime pallas` is requested, `run_live_same_run_trace()` now runs
+the Pallas probe and returns a P82 probe-only report before reference live trace
+capture. The generated report records
+`pallas_requested_reference_trace_contamination=false` and
+`reference_trace_capture_skipped=true`. If the minimal probe executes, P82
+recommends `P83 reference-vs-Pallas parity gate`; if it cannot execute, the
+report names the exact dependency/backend or shape/layout follow-up.
+
+P82 does not promote Pallas as default, prove Pallas/reference parity, prove
+real training throughput, prove model quality, promote experimental
+`balance_state`, change recurrence math, change balance math, loosen
+tolerances, change dtype policy, edit fixture tensors, vendor RADLADS source,
+or change RADLADS upstream code.

@@ -1210,3 +1210,27 @@
   upstream/vendor edit, Pallas default promotion, real training, throughput
   claim, model-quality claim, or default experimental `balance_state`
   promotion.
+
+## P82 — Real Opt-In Pallas Runtime Probe
+
+- [x] Add `qrwkv_xla.students.pallas_wkv` with `pallas_available()` and
+  `run_minimal_pallas_wkv_probe()`.
+- [x] Execute a minimal WKV-ish Pallas probe using `jax.experimental.pallas`
+  when Pallas is importable.
+- [x] Record probe shapes for `state`, `k`, `v`, `decay`, and `output`.
+- [x] Record finite output status and keep `kernel_parity_claimed=false`.
+- [x] Advance `pallas_runtime_probe.json` to
+  `qrwkv_xla.p82_pallas_runtime_probe.v1`.
+- [x] Preserve `reference` as the default runtime and report Pallas probe as
+  `not_requested` for reference runs.
+- [x] Prevent Pallas-requested reference trace contamination by returning a
+  P82 probe-only report before reference live trace capture.
+- [x] Emit `P82_PALLAS_RUNTIME_SCAFFOLD_COMPLETION_REPORT.md`,
+  `pallas_runtime_probe.json`, and `P82_FIX_NOTE.md`.
+- [x] Recommend `P83 reference-vs-Pallas parity gate` when the minimal probe
+  executes.
+- [x] Preserve scope: no recurrence math change, balance-state math change,
+  dtype-policy change, tolerance loosening, fixture value change, RADLADS
+  upstream/vendor edit, Pallas default promotion, real training, throughput
+  claim, model-quality claim, or default experimental `balance_state`
+  promotion.

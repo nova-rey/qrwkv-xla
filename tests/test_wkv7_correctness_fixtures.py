@@ -187,16 +187,24 @@ def test_wkv7_pallas_candidate_is_explicitly_unsupported(tmp_path: Path) -> None
     assert "not implemented yet" in report["cases"][0]["reason"]
 
 
-def test_p81_pallas_probe_does_not_claim_kernel_parity() -> None:
+def test_p82_pallas_probe_does_not_claim_kernel_parity() -> None:
     probe = build_pallas_runtime_probe(requested="pallas")
 
-    assert probe["schema"] == "qrwkv_xla.p81_pallas_runtime_probe.v1"
+    assert probe["schema"] == "qrwkv_xla.p82_pallas_runtime_probe.v1"
+    assert probe["phase"] == "P82"
     assert probe["default_runtime"] == "reference"
     assert probe["allowed_runtimes"] == ["reference", "pallas"]
     assert probe["wkv_runtime_requested"] == "pallas"
     assert probe["fallback_used"] is False
-    assert probe["prototype_status"] == "unavailable"
+    assert probe["prototype_status"] in {"pass", "unavailable", "failed"}
     assert probe["kernel_parity_claimed"] is False
+    if probe["prototype_status"] == "pass":
+        assert probe["wkv_runtime_effective"] == "pallas"
+        assert probe["pallas_available"] is True
+        assert probe["finite"] is True
+        assert probe["probe_shapes"]["state"] == [1, 1, 2, 2]
+    else:
+        assert probe["wkv_runtime_effective"] == "unavailable"
 
 
 def test_wkv7_script_help_and_smoke(tmp_path: Path) -> None:

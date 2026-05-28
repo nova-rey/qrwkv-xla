@@ -7,6 +7,7 @@ from qrwkv_xla.students.lm_head import (
     apply_tied_lm_head,
     init_lm_head_params,
 )
+from qrwkv_xla.students.pallas_wkv import pallas_available, run_minimal_pallas_wkv_probe
 from qrwkv_xla.students.rwkv7_qwen_reference import (
     RWKV7QwenReferenceConfig,
     RWKV7QwenReferenceState,
@@ -54,10 +55,12 @@ __all__ = [
     "create_student",
     "init_lm_head_params",
     "normalize_wkv_runtime",
+    "pallas_available",
     "rwkv7_radlads_reference_initial_state",
     "rwkv7_radlads_reference_layer",
     "rwkv7_qwen_reference_group_kv",
     "rwkv7_qwen_reference_initial_state",
     "rwkv7_qwen_reference_rope",
     "rwkv7_reference_layer",
+    "run_minimal_pallas_wkv_probe",
 ]

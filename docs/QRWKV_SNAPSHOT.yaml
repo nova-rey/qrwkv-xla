@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 81
-checkpoint: opt_in_pallas_runtime_scaffold
+phase: 82
+checkpoint: real_opt_in_pallas_runtime_probe
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,7 +55,8 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add a Pallas WKV runtime selector and explicit opt-in probe scaffold while
+  Complete the opt-in Pallas runtime scaffold with a minimal real Pallas WKV-ish
+  execution probe and unambiguous Pallas-requested capture semantics, while
   preserving the trusted reference path as the default and avoiding recurrence
   math, balance math, training, tolerance, dtype-policy, fixture tensor,
   RADLADS upstream, or default balance-state behavior changes.

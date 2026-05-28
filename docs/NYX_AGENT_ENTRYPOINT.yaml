@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 81
-  checkpoint: opt_in_pallas_runtime_scaffold
-  title: Opt-in Pallas runtime scaffold
+  phase: 82
+  checkpoint: real_opt_in_pallas_runtime_probe
+  title: Real opt-in Pallas runtime probe
 
 workflow:
   primary_agent: Nyx
@@ -51,6 +51,7 @@ instructions:
   - Keep P78 scoped to same-run output/logits evidence; do not label hidden states as logits, do not copy QRWKV logits into RADLADS, do not compare historical artifacts across runs, and preserve P74/P75/P76/P77 lane integrity.
   - Keep P80 scoped to fixture lineage and report aggregation; accepted aliases must point to canonical evidence and must not duplicate fixture-run proof.
   - Keep P81 scoped to runtime selection and explicit Pallas unavailable/probe reporting; reference remains default and Pallas must not be promoted or claimed parity-ready.
+  - Keep P82 scoped to the minimal opt-in Pallas execution probe and fail-closed capture semantics; do not promote Pallas, claim parity, or change reference recurrence math.
 
 radlads_qrwkv_head_to_head_parity:
   phase: P53

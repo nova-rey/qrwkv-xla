@@ -1928,6 +1928,7 @@ def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
     assert (out / "fixture_lineage_resolution.json").is_file()
     assert (out / "P80_FIX_NOTE.md").is_file()
     assert (out / "P81_PALLAS_PROTOTYPE_REPORT.md").is_file()
+    assert (out / "P82_PALLAS_RUNTIME_SCAFFOLD_COMPLETION_REPORT.md").is_file()
     assert (out / "pallas_runtime_probe.json").is_file()
     assert (out / "P81_FIX_NOTE.md").is_file()
     assert "| requested_case | canonical_case | resolved_case | resolution |" in (
@@ -1938,10 +1939,13 @@ def test_runner_writes_invalid_unavailable_live_report(tmp_path: Path) -> None:
     )
     assert resolution["schema"] == "qrwkv_xla.p80_fixture_lineage_resolution.v1"
     probe = json.loads((out / "pallas_runtime_probe.json").read_text(encoding="utf-8"))
-    assert probe["schema"] == "qrwkv_xla.p81_pallas_runtime_probe.v1"
+    assert probe["schema"] == "qrwkv_xla.p82_pallas_runtime_probe.v1"
+    assert probe["phase"] == "P82"
     assert probe["default_runtime"] == "reference"
     assert probe["allowed_runtimes"] == ["reference", "pallas"]
     assert probe["wkv_runtime_requested"] == "reference"
+    assert probe["wkv_runtime_effective"] == "reference"
+    assert probe["prototype_status"] == "not_requested"
     assert probe["fallback_used"] is False
     assert probe["kernel_parity_claimed"] is False
     rows = load_live_same_run_trace_jsonl(out / "live_trace_radlads.jsonl")
@@ -1985,7 +1989,9 @@ def test_runner_reuses_same_run_group_id_for_same_inputs(tmp_path: Path) -> None
     assert first["same_run_group_id"] == second["same_run_group_id"]
 
 
-def test_runner_accepts_pallas_opt_in_and_reports_unavailable(tmp_path: Path) -> None:
+def test_runner_accepts_pallas_opt_in_and_skips_reference_capture(
+    tmp_path: Path,
+) -> None:
     fixture = tmp_path / "manifest.json"
     params = tmp_path / "params.json"
     fixture.write_text(json.dumps({"cases": ["tiny_no_mask"]}), encoding="utf-8")
@@ -2000,14 +2006,27 @@ def test_runner_accepts_pallas_opt_in_and_reports_unavailable(tmp_path: Path) ->
         wkv_runtime="pallas",
     )
 
-    probe = report["p81_pallas_runtime_probe"]
+    probe = report["p82_pallas_runtime_probe"]
+    out = tmp_path / "out"
     assert probe["wkv_runtime_requested"] == "pallas"
-    assert probe["wkv_runtime_effective"] == "unavailable"
-    assert probe["pallas_available"] is False
+    assert probe["wkv_runtime_effective"] in {"pallas", "unavailable"}
     assert probe["fallback_used"] is False
-    assert probe["prototype_status"] == "unavailable"
+    assert probe["prototype_status"] in {"pass", "unavailable", "failed"}
     assert probe["kernel_parity_claimed"] is False
-    assert (tmp_path / "out" / "P81_BLOCKER_REPORT.md").is_file()
+    assert report["pallas_requested_reference_trace_contamination"] is False
+    assert report["reference_trace_capture_skipped"] is True
+    assert not (out / "live_trace_qrwkv_off.jsonl").exists()
+    assert (out / "P82_PALLAS_RUNTIME_SCAFFOLD_COMPLETION_REPORT.md").is_file()
+    persisted = json.loads((out / "pallas_runtime_probe.json").read_text())
+    assert persisted["schema"] == "qrwkv_xla.p82_pallas_runtime_probe.v1"
+    if probe["prototype_status"] == "pass":
+        assert probe["pallas_available"] is True
+        assert probe["finite"] is True
+        assert probe["probe_shapes"]["state"] == [1, 1, 2, 2]
+        assert probe["recommended_next_phase"] == "P83 reference-vs-Pallas parity gate"
+        assert not (out / "P82_BLOCKER_REPORT.md").exists()
+    else:
+        assert (out / "P82_BLOCKER_REPORT.md").is_file()
 
 
 def test_script_help_works() -> None:

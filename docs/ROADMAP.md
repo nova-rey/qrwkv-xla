@@ -848,3 +848,26 @@ Pallas/reference parity, prove training throughput, prove model quality, change
 recurrence math, change balance-state math, loosen tolerances, change dtype
 policy, edit fixture tensors, vendor RADLADS source, or promote experimental
 `balance_state` behavior by default.
+
+## Phase 82 — Real Opt-In Pallas Runtime Probe
+
+Current checkpoint: `real_opt_in_pallas_runtime_probe`.
+
+P82 completes the P81 scaffold by adding a minimal real Pallas execution probe
+and fixing Pallas-requested capture semantics. The probe executes a one-step
+WKV-ish state update over tiny arrays with `jax.experimental.pallas`, records
+the shape contract and finite output status, and keeps
+`kernel_parity_claimed=false`.
+
+When `--wkv-runtime pallas` is requested, the live same-run runner now writes a
+P82 probe-only report before reference trace capture. This prevents the P81
+ambiguity where reference-style traces could be generated while metadata said
+Pallas was requested. Reference runs remain unchanged and continue to report
+the Pallas probe as `not_requested`.
+
+If the minimal probe executes, the next phase is
+`P83 reference-vs-Pallas parity gate`. P82 does not promote Pallas as default,
+prove parity, prove throughput, prove model quality, change recurrence math,
+change balance-state math, loosen tolerances, change dtype policy, edit
+fixture tensors, vendor RADLADS source, or promote experimental
+`balance_state` behavior by default.
