@@ -1,5 +1,24 @@
 # QRWKV-XLA Roadmap
 
+## Phase 91 - StudentBackend Protocol Extraction
+
+Goal: introduce a behavior-preserving student backend wrapper around the
+validated QRWKV student core as the first post-Pallas Radjax-shaped extraction
+layer.
+
+Current checkpoint: `student_backend_protocol_extraction`. P91 adds a
+`StudentBackend` protocol plus `CurrentQRWKVStudentBackend`, delegating to the
+existing QRWKV student implementation for parameter initialization, state
+initialization, full forward, step forward, state export/import, and logits
+access. No recurrence math, runtime semantics, fixture tensors, trainer
+behavior, teacher backend, or target store behavior changes are intended.
+
+Runtime policy remains unchanged: `reference` is still the default and
+`pallas` is still opt-in.
+
+Next: P92 StudentRuntime Split - separate student architecture from execution
+runtime choices while preserving current gates.
+
 ## Phase 90 — Pallas Runway Closure
 
 Goal: record the real TPU smoke pass and close the Pallas feasibility runway

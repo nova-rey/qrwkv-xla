@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 90
-checkpoint: pallas_runway_closed_after_real_tpu_smoke_pass
+phase: 91
+checkpoint: student_backend_protocol_extraction
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,9 +55,21 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Record the real TPU v5 lite pass for the tiny opt-in Pallas WKV smoke path
-  and close the Pallas feasibility runway so the project can move into
-  post-Pallas architecture extraction planning.
+  Begin post-Pallas Radjax-shaped architecture extraction by introducing a
+  behavior-preserving StudentBackend protocol and current QRWKV backend wrapper
+  around the validated student core.
+
+post_pallas_status: radjax_extraction_started
+
+p91:
+  goal: student_backend_protocol_extraction
+  behavior_change_intended: false
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  teacher_backend_added: false
+  target_store_added: false
+  trainer_refactor_started: false
+  recommended_next: P92 StudentRuntime split
 
 pallas_runway:
   phase: P90

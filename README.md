@@ -7,26 +7,28 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 21: student-only Stage 3 next-token CE fine-tuning on prompt corpora,
-global gradient norm clipping on top of learning-rate scheduling, lightweight
-SGD/Adam/AdamW optimizer support, evaluation harness, generation smoke, prompt
-corpus provenance, logits KL distillation, Stage 1 attention/mixer
-distillation, checkpoint/resume, XLA discipline, skip-safe multi-device `pmap`
-smokes, optional HF exporter, and local run tracking.
+Phase 91: post-Pallas StudentBackend protocol extraction. The Pallas runway is
+closed after a recorded real TPU v5 lite smoke pass for the tiny opt-in Pallas
+WKV path, and the project is now starting a Radjax-shaped architecture
+extraction without changing runtime behavior.
 
 The project can define, write, read, validate, inspect, and test fake teacher
 target bundles on CPU through a reusable exporter interface. It also has an
 optional Hugging Face / PyTorch exporter backend behind the `teacher-hf` extra;
 that path is not part of default CI/local validation. Qwen policy labels are
 resolved only from local YAML and never by automatic internet lookup. It also
-has a JAX
-student runtime path and an XLA-friendly `rwkv7_reference` recurrent reference
-implementation for CPU/JIT/gradient coverage and smoke training. The current
+has JAX student runtime paths, XLA-friendly RWKV7/Qwen reference
+implementations, a `StudentBackend` wrapper boundary for the current QRWKV
+student core, CPU/JIT/gradient coverage, and smoke training. The current
 distillation runtime loads stage configs, composes weighted hidden-state losses,
-plumbs optional logits KL, and runs a CPU-only stage smoke over target bundles.
-It also exposes CPU-safe JAX runtime inspection and static-shape JIT smoke
-helpers used by local, CI, and TPU launcher checks.
-The reference core is not a final optimized RWKV7 kernel.
+plumbs optional logits KL, and runs CPU-safe stage smokes over target bundles.
+It also exposes JAX runtime inspection, static-shape JIT smoke helpers,
+skip-safe multi-device `pmap` smokes, and local run tracking.
+
+Runtime policy is unchanged: `reference` remains the default WKV runtime and
+`pallas` remains opt-in. The Pallas TPU smoke result does not claim production
+Pallas readiness, training readiness, throughput, full-model quality, or Pallas
+default readiness. The reference core is not a final optimized RWKV7 kernel.
 
 ## Design Principles
 
@@ -68,7 +70,22 @@ norm clipping is configured under `distillation.gradients` or with
 from a prompt corpus using `SmokeTokenizer`; it does not require teacher target
 bundles. See `docs/STAGE3_CE_TRAINING.md`.
 
-`scripts/tpu_distill_smoke.py` runs on the available JAX backend by default and only requires TPU when `--require-tpu` is passed.
+`scripts/tpu_distill_smoke.py` runs on the available JAX backend by default and
+only requires TPU when `--require-tpu` is passed.
+
+## Student Backend Boundary
+
+P91 adds a behavior-preserving student abstraction for the current QRWKV path:
+
+- protocol: `src/qrwkv_xla/students/backend.py`
+- wrapper: `src/qrwkv_xla/students/current_backend.py`
+- tests: `tests/test_student_backend.py`
+
+`CurrentQRWKVStudentBackend` delegates to the existing student implementation
+for parameter initialization, state initialization, full forward, step forward,
+state export/import, and logits access. It is the first post-Pallas extraction
+layer only; TeacherBackend, TeacherTargetStore, and StudentRuntime split are
+future phases.
 
 ## Multi-device pmap smoke
 
@@ -100,6 +117,19 @@ python scripts/compare_eval_snapshots.py --baseline eval_outputs/eval_a --candid
 These commands are sanity/regression checks only, not quality benchmarks.
 
 See `docs/CI.md` for the exact CI command sequence and local mirror.
+
+## Pallas Runtime Status
+
+The opt-in Pallas runway has passed the scoped feasibility gates through P90:
+
+- P87 fixture-family opt-in integration passed.
+- P88 added the TPU compile/execution smoke harness.
+- P89 fixed the TPU tracing-boundary issue.
+- P90 recorded a real TPU v5 lite smoke pass with `max_abs_error=0.0`.
+
+Pallas remains opt-in and is not the default runtime. See
+`docs/PALLAS_RUNTIME_ROADMAP.md` and
+`artifacts/p90_pallas_runway_closure/P90_PALLAS_RUNWAY_CLOSURE_REPORT.md`.
 
 ## Local Development
 

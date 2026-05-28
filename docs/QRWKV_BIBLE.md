@@ -1820,3 +1820,23 @@ Runtime policy is unchanged: `reference` remains the default WKV runtime and
 enough to pivot toward post-Pallas/Radjax architecture extraction planning,
 likely starting with StudentBackend protocol extraction or equivalent
 Radjax-layer planning.
+
+## Phase 91 - StudentBackend Protocol Extraction
+
+P91 begins the post-Pallas Radjax-shaped extraction. The phase introduces
+`StudentBackend` as a stable wrapper protocol around the validated QRWKV
+student core, plus `CurrentQRWKVStudentBackend` as the concrete adapter for the
+current implementation.
+
+The wrapper delegates to existing QRWKV student behavior instead of duplicating
+recurrence math. It routes parameter initialization to `init_params`, state
+initialization to `init_state`, full-sequence execution to `apply_with_state`
+when available, token execution to `step` when available, state export/import
+to the existing P76 reference-state convention helpers, and logits access to
+the existing `StudentOutput.logits` surface.
+
+No recurrence math, WKV update equations, fixture tensors, runtime semantics,
+teacher export behavior, checkpoint format, trainer flow, or Pallas behavior
+changed. `reference` remains the default WKV runtime and `pallas` remains
+explicit opt-in. P91 does not add TeacherBackend, TeacherTargetStore, or the
+P92 StudentRuntime split.

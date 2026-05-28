@@ -1,6 +1,11 @@
 """Student model interfaces for QRWKV-XLA."""
 
+from qrwkv_xla.students.backend import StudentBackend
 from qrwkv_xla.students.base import StudentModel, StudentOutput
+from qrwkv_xla.students.current_backend import (
+    CurrentQRWKVStudentBackend,
+    create_current_qrwkv_student_backend,
+)
 from qrwkv_xla.students.factory import create_student
 from qrwkv_xla.students.lm_head import (
     apply_lm_head,
@@ -63,6 +68,7 @@ __all__ = [
     "PallasWKVParityCase",
     "PallasWKVSequenceParityCase",
     "StudentModel",
+    "StudentBackend",
     "StudentOutput",
     "TinyStudent",
     "TinyStudentConfig",
@@ -70,7 +76,9 @@ __all__ = [
     "apply_lm_head",
     "apply_tied_lm_head",
     "build_pallas_runtime_probe",
+    "CurrentQRWKVStudentBackend",
     "create_student",
+    "create_current_qrwkv_student_backend",
     "init_lm_head_params",
     "normalize_wkv_runtime",
     "pallas_available",
