@@ -1,3 +1,3 @@
 # First Differing Ingredient
 
-Not applicable for the P83 Pallas parity-probe-only run.
+Not applicable for the P84 Pallas parity-matrix-only run.

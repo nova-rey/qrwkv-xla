@@ -28,4 +28,4 @@
 - covered fixture readiness: `preserved_for_reference_path`
 
 ## Decision
-- recommended_next_phase: `P84 broader Pallas WKV shape/dtype parity`
+- recommended_next_phase: `P85 sequence/scan-style Pallas WKV parity`

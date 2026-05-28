@@ -894,3 +894,36 @@ promote Pallas as default, claim broad kernel readiness, prove throughput,
 prove model quality, change recurrence math, change balance-state math, loosen
 tolerances, change dtype policy, edit fixture tensors, vendor RADLADS source,
 or promote experimental `balance_state` behavior by default.
+
+## Phase 84 — Broader Pallas WKV Shape/Dtype Parity
+
+Current checkpoint: `broader_pallas_wkv_shape_dtype_parity`.
+
+P84 expands the one-step Pallas parity gate from the P83 baby case to a compact
+matrix of required float32 B/H/D combinations and optional bfloat16 cases. Each
+case compares the interpreted Pallas update against the reference formula,
+records shape and dtype metadata, finite status, max absolute/relative errors,
+and applies explicit per-dtype tolerances without loosening the reference path.
+
+Pallas-requested trace runs remain parity-only and continue to skip reference
+live trace capture. The artifact set now includes
+`P84_PALLAS_SHAPE_DTYPE_PARITY_REPORT.md` and
+`pallas_shape_dtype_parity_matrix.json`, while keeping the P83 reference parity
+and P81/P82 compatibility reports.
+
+Pallas runway:
+
+- P81: opt-in selector.
+- P82: minimal Pallas execution probe.
+- P83: tiny reference-vs-Pallas parity.
+- P84: broader shape/dtype parity.
+- P85: sequence/scan-style parity.
+- P86: fixture-family opt-in integration.
+- P87: TPU compile/performance smoke.
+
+The next phase is `P85 sequence/scan-style Pallas WKV parity` when all required
+P84 matrix cases pass. P84 does not promote Pallas as default, claim
+sequence/scan parity, integrate Pallas into fixture-family runs, prove
+throughput, prove model quality, change recurrence math, change balance-state
+math, loosen tolerances, change dtype policy, edit fixture tensors, vendor
+RADLADS source, or promote experimental `balance_state` behavior by default.

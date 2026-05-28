@@ -8,10 +8,13 @@ from qrwkv_xla.students.lm_head import (
     init_lm_head_params,
 )
 from qrwkv_xla.students.pallas_wkv import (
+    PallasWKVParityCase,
     pallas_available,
     pallas_wkv_update,
+    pallas_wkv_shape_dtype_parity_cases,
     reference_wkv_update,
     run_minimal_pallas_wkv_probe,
+    run_pallas_wkv_shape_dtype_parity_matrix,
     run_pallas_wkv_parity_probe,
 )
 from qrwkv_xla.students.rwkv7_qwen_reference import (
@@ -50,6 +53,7 @@ __all__ = [
     "RWKV7QwenReferenceState",
     "RWKV7QwenReferenceStudent",
     "PallasRuntimeUnavailableError",
+    "PallasWKVParityCase",
     "StudentModel",
     "StudentOutput",
     "TinyStudent",
@@ -63,6 +67,7 @@ __all__ = [
     "normalize_wkv_runtime",
     "pallas_available",
     "pallas_wkv_update",
+    "pallas_wkv_shape_dtype_parity_cases",
     "reference_wkv_update",
     "rwkv7_radlads_reference_initial_state",
     "rwkv7_radlads_reference_layer",
@@ -71,5 +76,6 @@ __all__ = [
     "rwkv7_qwen_reference_rope",
     "rwkv7_reference_layer",
     "run_minimal_pallas_wkv_probe",
+    "run_pallas_wkv_shape_dtype_parity_matrix",
     "run_pallas_wkv_parity_probe",
 ]

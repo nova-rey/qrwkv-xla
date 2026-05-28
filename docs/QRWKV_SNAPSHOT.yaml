@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 83
-checkpoint: reference_vs_pallas_parity_gate
+phase: 84
+checkpoint: broader_pallas_wkv_shape_dtype_parity
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,10 +55,9 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Gate the tiny opt-in Pallas one-step WKV update against the reference formula,
-  emit explicit reference-vs-Pallas parity artifacts, and keep Pallas-requested
-  trace runs probe-only without promoting Pallas as the default or claiming
-  broad kernel readiness.
+  Broaden the opt-in Pallas one-step WKV update parity gate across a small
+  deterministic shape/dtype matrix while keeping the trusted reference runtime
+  as default and keeping Pallas-requested trace runs probe-only.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -1563,6 +1562,42 @@ p83_reference_vs_pallas_parity_gate:
   recommended_next_phase_on_pass: P84 broader Pallas WKV shape/dtype parity
   does_not_prove:
     - broad_wkv_kernel_readiness
+    - pallas_default_promotion
+    - tpu_throughput
+    - real_training_quality
+
+p84_pallas_shape_dtype_parity:
+  phase: P84
+  status: complete
+  checkpoint: broader_pallas_wkv_shape_dtype_parity
+  module: qrwkv_xla.students.pallas_wkv
+  runtime_selector_default: reference
+  pallas_runtime: opt_in_probe_only
+  parity_scope: broader_one_step_wkv_shape_dtype
+  formula: state * decay[..., None, :] + k[..., :, None] * v[..., None, :]
+  matrix_schema: qrwkv_xla.p84_pallas_shape_dtype_parity_matrix.v1
+  required_float32_cases:
+    - float32_b1_h1_d2
+    - float32_b1_h2_d2
+    - float32_b2_h1_d2
+    - float32_b1_h1_d4
+    - float32_b2_h2_d4
+  optional_bfloat16_cases:
+    - bfloat16_b1_h1_d2
+    - bfloat16_b2_h2_d4
+  report_artifacts:
+    - artifacts/p68_live_same_run_trace/P84_PALLAS_SHAPE_DTYPE_PARITY_REPORT.md
+    - artifacts/p68_live_same_run_trace/pallas_shape_dtype_parity_matrix.json
+    - artifacts/p68_live_same_run_trace/P83_PALLAS_REFERENCE_PARITY_REPORT.md
+    - artifacts/p68_live_same_run_trace/pallas_reference_parity_probe.json
+    - artifacts/p68_live_same_run_trace/pallas_runtime_probe.json
+  kernel_parity_claimed_rule: true_only_when_all_required_cases_pass
+  pallas_requested_reference_trace_contamination: false
+  reference_trace_capture_skipped_for_pallas_request: true
+  recommended_next_phase_on_pass: P85 sequence/scan-style Pallas WKV parity
+  does_not_prove:
+    - sequence_scan_wkv_parity
+    - fixture_family_pallas_integration
     - pallas_default_promotion
     - tpu_throughput
     - real_training_quality

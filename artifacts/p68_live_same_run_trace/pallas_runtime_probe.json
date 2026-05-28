@@ -13,6 +13,331 @@
   "max_abs_error_vs_formula": 0.0,
   "max_rel_error": 0.0,
   "output_abs_max": 21.75,
+  "p84_pallas_shape_dtype_parity_matrix": {
+    "backend": "pallas_call_interpret",
+    "cases": [
+      {
+        "atol": 1e-06,
+        "batch": 1,
+        "case_id": "float32_b1_h1_d2",
+        "decay_shape": [
+          1,
+          1,
+          2
+        ],
+        "dim": 2,
+        "dtype": "float32",
+        "finite": true,
+        "heads": 1,
+        "k_shape": [
+          1,
+          1,
+          2
+        ],
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0,
+        "output_shape": [
+          1,
+          1,
+          2,
+          2
+        ],
+        "parity_status": "pass",
+        "reason": null,
+        "required": true,
+        "rtol": 1e-06,
+        "shape_match": true,
+        "state_shape": [
+          1,
+          1,
+          2,
+          2
+        ],
+        "v_shape": [
+          1,
+          1,
+          2
+        ]
+      },
+      {
+        "atol": 1e-06,
+        "batch": 1,
+        "case_id": "float32_b1_h2_d2",
+        "decay_shape": [
+          1,
+          2,
+          2
+        ],
+        "dim": 2,
+        "dtype": "float32",
+        "finite": true,
+        "heads": 2,
+        "k_shape": [
+          1,
+          2,
+          2
+        ],
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0,
+        "output_shape": [
+          1,
+          2,
+          2,
+          2
+        ],
+        "parity_status": "pass",
+        "reason": null,
+        "required": true,
+        "rtol": 1e-06,
+        "shape_match": true,
+        "state_shape": [
+          1,
+          2,
+          2,
+          2
+        ],
+        "v_shape": [
+          1,
+          2,
+          2
+        ]
+      },
+      {
+        "atol": 1e-06,
+        "batch": 2,
+        "case_id": "float32_b2_h1_d2",
+        "decay_shape": [
+          2,
+          1,
+          2
+        ],
+        "dim": 2,
+        "dtype": "float32",
+        "finite": true,
+        "heads": 1,
+        "k_shape": [
+          2,
+          1,
+          2
+        ],
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0,
+        "output_shape": [
+          2,
+          1,
+          2,
+          2
+        ],
+        "parity_status": "pass",
+        "reason": null,
+        "required": true,
+        "rtol": 1e-06,
+        "shape_match": true,
+        "state_shape": [
+          2,
+          1,
+          2,
+          2
+        ],
+        "v_shape": [
+          2,
+          1,
+          2
+        ]
+      },
+      {
+        "atol": 1e-06,
+        "batch": 1,
+        "case_id": "float32_b1_h1_d4",
+        "decay_shape": [
+          1,
+          1,
+          4
+        ],
+        "dim": 4,
+        "dtype": "float32",
+        "finite": true,
+        "heads": 1,
+        "k_shape": [
+          1,
+          1,
+          4
+        ],
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0,
+        "output_shape": [
+          1,
+          1,
+          4,
+          4
+        ],
+        "parity_status": "pass",
+        "reason": null,
+        "required": true,
+        "rtol": 1e-06,
+        "shape_match": true,
+        "state_shape": [
+          1,
+          1,
+          4,
+          4
+        ],
+        "v_shape": [
+          1,
+          1,
+          4
+        ]
+      },
+      {
+        "atol": 1e-06,
+        "batch": 2,
+        "case_id": "float32_b2_h2_d4",
+        "decay_shape": [
+          2,
+          2,
+          4
+        ],
+        "dim": 4,
+        "dtype": "float32",
+        "finite": true,
+        "heads": 2,
+        "k_shape": [
+          2,
+          2,
+          4
+        ],
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0,
+        "output_shape": [
+          2,
+          2,
+          4,
+          4
+        ],
+        "parity_status": "pass",
+        "reason": null,
+        "required": true,
+        "rtol": 1e-06,
+        "shape_match": true,
+        "state_shape": [
+          2,
+          2,
+          4,
+          4
+        ],
+        "v_shape": [
+          2,
+          2,
+          4
+        ]
+      },
+      {
+        "atol": 0.05,
+        "batch": 1,
+        "case_id": "bfloat16_b1_h1_d2",
+        "decay_shape": [
+          1,
+          1,
+          2
+        ],
+        "dim": 2,
+        "dtype": "bfloat16",
+        "finite": true,
+        "heads": 1,
+        "k_shape": [
+          1,
+          1,
+          2
+        ],
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0,
+        "output_shape": [
+          1,
+          1,
+          2,
+          2
+        ],
+        "parity_status": "pass",
+        "reason": null,
+        "required": false,
+        "rtol": 0.05,
+        "shape_match": true,
+        "state_shape": [
+          1,
+          1,
+          2,
+          2
+        ],
+        "v_shape": [
+          1,
+          1,
+          2
+        ]
+      },
+      {
+        "atol": 0.05,
+        "batch": 2,
+        "case_id": "bfloat16_b2_h2_d4",
+        "decay_shape": [
+          2,
+          2,
+          4
+        ],
+        "dim": 4,
+        "dtype": "bfloat16",
+        "finite": true,
+        "heads": 2,
+        "k_shape": [
+          2,
+          2,
+          4
+        ],
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0,
+        "output_shape": [
+          2,
+          2,
+          4,
+          4
+        ],
+        "parity_status": "pass",
+        "reason": null,
+        "required": false,
+        "rtol": 0.05,
+        "shape_match": true,
+        "state_shape": [
+          2,
+          2,
+          4,
+          4
+        ],
+        "v_shape": [
+          2,
+          2,
+          4
+        ]
+      }
+    ],
+    "default_runtime": "reference",
+    "formula": "state * decay[..., None, :] + k[..., :, None] * v[..., None, :]",
+    "kernel_parity_claimed": true,
+    "pallas_available": true,
+    "parity_scope": "broader_one_step_wkv_shape_dtype",
+    "phase": "P84",
+    "reason": null,
+    "recommended_next_phase": "P85 sequence/scan-style Pallas WKV parity",
+    "schema": "qrwkv_xla.p84_pallas_shape_dtype_parity_matrix.v1",
+    "summary": {
+      "all_required_cases_pass": true,
+      "cases_fail": 0,
+      "cases_pass": 7,
+      "cases_total": 7,
+      "cases_unavailable": 0,
+      "kernel_parity_claimed": true
+    },
+    "wkv_runtime_effective": "pallas",
+    "wkv_runtime_requested": "pallas"
+  },
   "pallas_available": true,
   "parity_scope": "tiny_one_step_wkv_update",
   "parity_status": "pass",
@@ -50,7 +375,7 @@
   "prototype_scope": "minimal_pallas_wkv_execution_probe",
   "prototype_status": "pass",
   "reason": null,
-  "recommended_next_phase": "P84 broader Pallas WKV shape/dtype parity",
+  "recommended_next_phase": "P85 sequence/scan-style Pallas WKV parity",
   "reference_default_preserved": true,
   "rtol": 1e-06,
   "schema": "qrwkv_xla.p83_pallas_wkv_parity_probe.v1",

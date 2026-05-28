@@ -1662,3 +1662,33 @@ training throughput, prove model quality, promote experimental `balance_state`,
 change recurrence math, change balance math, loosen tolerances, change dtype
 policy, edit fixture tensors, vendor RADLADS source, or change RADLADS
 upstream code.
+
+## Phase 84 — Broader Pallas WKV Shape/Dtype Parity
+
+P84 broadens the P83 one-step parity gate across a small deterministic
+shape/dtype matrix while keeping Pallas opt-in and probe-only. The scoped
+formula remains:
+
+```text
+new_state = state * decay[..., None, :] + k[..., :, None] * v[..., None, :]
+```
+
+The new `run_pallas_wkv_shape_dtype_parity_matrix()` runner covers required
+float32 cases across B/H/D combinations `(1,1,2)`, `(1,2,2)`, `(2,1,2)`,
+`(1,1,4)`, and `(2,2,4)`, plus optional bfloat16 cases. Each row records
+shapes, dtype, finite status, shape match, max absolute and relative error, and
+the explicit tolerance used. Optional bfloat16 cases may pass or report
+unavailable with a reason; they are not silently promoted.
+
+Pallas-requested live trace runs still skip regular reference trace capture and
+now write `P84_PALLAS_SHAPE_DTYPE_PARITY_REPORT.md` plus
+`pallas_shape_dtype_parity_matrix.json`, while preserving the P83/P82/P81
+compatibility artifacts. The P81 compatibility report no longer says parity was
+not claimed when a later P83/P84 artifact has claimed scoped parity.
+
+P84 recommends `P85 sequence/scan-style Pallas WKV parity` when all required
+matrix cases pass. It does not promote Pallas as default, prove sequence/scan
+parity, integrate Pallas into fixture-family runs, claim TPU throughput, prove
+model quality, change recurrence math, change balance math, loosen tolerances,
+change dtype policy, edit fixture tensors, vendor RADLADS source, or change
+RADLADS upstream code.

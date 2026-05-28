@@ -17,7 +17,7 @@
 - prototype_status: `pass`
 - prototype_scope: `minimal_pallas_wkv_execution_probe`
 - kernel_parity_claimed: `True`
-- reason parity not claimed: `P81 only establishes the opt-in runtime/probe path; no reference-vs-Pallas numerical comparison ran.`
+- parity compatibility note: `P81 compatibility report retained; current parity status is reported in P83/P84 artifacts.`
 
 ## Previous Gate Preservation
 - P78/P79/P80 readiness: `not_rerun_by_p81_probe`
@@ -25,4 +25,4 @@
 - covered fixture family: `preserved for reference path`
 
 ## Decision
-- recommended_next_phase: `P84 broader Pallas WKV shape/dtype parity`
+- recommended_next_phase: `P85 sequence/scan-style Pallas WKV parity`

@@ -19,9 +19,11 @@ from qrwkv_xla.kernels import (
 from qrwkv_xla.kernels.wkv7_fixtures import DEFAULT_CASES, hash_arrays
 from qrwkv_xla.students import (
     build_pallas_runtime_probe,
+    pallas_wkv_shape_dtype_parity_cases,
     pallas_wkv_update,
     reference_wkv_update,
     run_pallas_wkv_parity_probe,
+    run_pallas_wkv_shape_dtype_parity_matrix,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -234,7 +236,10 @@ def test_p83_pallas_probe_claims_parity_only_on_pass() -> None:
     assert probe["prototype_status"] in {"pass", "unavailable", "failed"}
     assert probe["parity_status"] in {"pass", "unavailable", "failed"}
     assert probe["parity_scope"] == "tiny_one_step_wkv_update"
-    assert probe["kernel_parity_claimed"] is (probe["parity_status"] == "pass")
+    matrix = probe["p84_pallas_shape_dtype_parity_matrix"]
+    assert (
+        probe["kernel_parity_claimed"] is (matrix["summary"]["kernel_parity_claimed"])
+    )
     if probe["prototype_status"] == "pass":
         assert probe["wkv_runtime_effective"] == "pallas"
         assert probe["pallas_available"] is True
@@ -245,6 +250,74 @@ def test_p83_pallas_probe_claims_parity_only_on_pass() -> None:
         assert probe["probe_shapes"]["state"] == [1, 1, 2, 2]
     else:
         assert probe["wkv_runtime_effective"] == "unavailable"
+
+
+def test_p84_shape_dtype_parity_cases_include_required_float32_surface() -> None:
+    cases = pallas_wkv_shape_dtype_parity_cases()
+    required = {case.case_id for case in cases if case.required}
+
+    assert required == {
+        "float32_b1_h1_d2",
+        "float32_b1_h2_d2",
+        "float32_b2_h1_d2",
+        "float32_b1_h1_d4",
+        "float32_b2_h2_d4",
+    }
+    assert {case.dtype for case in cases if not case.required} == {"bfloat16"}
+
+
+def test_p84_shape_dtype_parity_matrix_claims_only_required_passes() -> None:
+    matrix = run_pallas_wkv_shape_dtype_parity_matrix()
+
+    assert matrix["schema"] == "qrwkv_xla.p84_pallas_shape_dtype_parity_matrix.v1"
+    assert matrix["phase"] == "P84"
+    assert matrix["parity_scope"] == "broader_one_step_wkv_shape_dtype"
+    assert matrix["default_runtime"] == "reference"
+    assert matrix["wkv_runtime_requested"] == "pallas"
+    assert matrix["summary"]["cases_total"] == len(matrix["cases"])
+    assert (
+        matrix["kernel_parity_claimed"]
+        is (matrix["summary"]["all_required_cases_pass"])
+    )
+    assert (
+        matrix["summary"]["kernel_parity_claimed"]
+        is (matrix["summary"]["all_required_cases_pass"])
+    )
+
+    required_rows = [case for case in matrix["cases"] if case["required"]]
+    assert {case["case_id"] for case in required_rows} == {
+        "float32_b1_h1_d2",
+        "float32_b1_h2_d2",
+        "float32_b2_h1_d2",
+        "float32_b1_h1_d4",
+        "float32_b2_h2_d4",
+    }
+    for case in matrix["cases"]:
+        assert case["state_shape"] == [
+            case["batch"],
+            case["heads"],
+            case["dim"],
+            case["dim"],
+        ]
+        assert case["k_shape"] == [case["batch"], case["heads"], case["dim"]]
+        assert case["v_shape"] == [case["batch"], case["heads"], case["dim"]]
+        assert case["decay_shape"] == [case["batch"], case["heads"], case["dim"]]
+        assert case["parity_status"] in {"pass", "fail", "unavailable"}
+        assert "finite" in case
+        assert "shape_match" in case
+        assert "max_abs_error" in case
+        assert "max_rel_error" in case
+        assert "atol" in case
+        assert "rtol" in case
+        if case["required"] and matrix["pallas_available"]:
+            assert case["dtype"] == "float32"
+            assert case["parity_status"] == "pass"
+            assert case["finite"] is True
+            assert case["shape_match"] is True
+            assert case["max_abs_error"] <= case["atol"]
+            assert case["max_rel_error"] <= case["rtol"]
+        if case["dtype"] == "bfloat16" and case["parity_status"] == "unavailable":
+            assert case["reason"]
 
 
 def test_wkv7_script_help_and_smoke(tmp_path: Path) -> None:

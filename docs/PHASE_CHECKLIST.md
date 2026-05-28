@@ -1237,6 +1237,33 @@
   claim, broad kernel-readiness claim, or default experimental `balance_state`
   promotion.
 
+## P84 — Broader Pallas WKV Shape/Dtype Parity
+
+- [x] Add deterministic `PallasWKVParityCase` coverage for required float32
+  B/H/D combinations and optional bfloat16 cases.
+- [x] Add `run_pallas_wkv_shape_dtype_parity_matrix()` with per-case shapes,
+  dtype, finite status, shape match, max absolute/relative errors, tolerances,
+  status, and reason.
+- [x] Set broader `kernel_parity_claimed=true` only when all required matrix
+  cases pass.
+- [x] Emit `P84_PALLAS_SHAPE_DTYPE_PARITY_REPORT.md` and
+  `pallas_shape_dtype_parity_matrix.json`.
+- [x] Preserve P83 single-case probe compatibility and P81/P82 compatibility
+  artifacts.
+- [x] Clean the P81 compatibility wording so it does not say parity was not
+  claimed when current P83/P84 artifacts report scoped parity.
+- [x] Keep Pallas-requested runs probe-only with
+  `pallas_requested_reference_trace_contamination=false` and
+  `reference_trace_capture_skipped=true`.
+- [x] Recommend `P85 sequence/scan-style Pallas WKV parity` when required
+  matrix cases pass.
+- [x] Preserve scope: no recurrence math change beyond the explicit one-step
+  reference formula helper, no sequence/scan parity claim, no fixture-family
+  Pallas integration, no balance-state math change, dtype-policy change,
+  tolerance loosening, fixture value change, RADLADS upstream/vendor edit,
+  Pallas default promotion, real training, throughput claim, model-quality
+  claim, or default experimental `balance_state` promotion.
+
 ## P82 — Real Opt-In Pallas Runtime Probe
 
 - [x] Add `qrwkv_xla.students.pallas_wkv` with `pallas_available()` and
