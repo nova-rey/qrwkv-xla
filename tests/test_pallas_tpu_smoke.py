@@ -84,6 +84,18 @@ def test_p88_require_tpu_is_recorded_for_unavailable(monkeypatch) -> None:
     assert report["require_tpu"] is True
 
 
+def test_p89_readiness_blocking_stays_outside_traced_smoke_function() -> None:
+    source = SCRIPT.read_text()
+    smoke_body = source.split("def smoke_fn(state, k, v, decay):", 1)[1].split(
+        "lowered = jax.jit(smoke_fn)",
+        1,
+    )[0]
+
+    assert ".block_until_ready(" not in smoke_body
+    assert "pallas_wkv_sequence_update_fused_or_scan" not in smoke_body
+    assert "jax.block_until_ready((final_state, per_step_states))" in source
+
+
 def test_p88_report_json_is_written(tmp_path: Path, monkeypatch) -> None:
     smoke = _module()
     output = tmp_path / "pallas_tpu_compile_smoke.json"

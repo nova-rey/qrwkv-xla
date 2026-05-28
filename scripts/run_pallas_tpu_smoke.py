@@ -144,7 +144,7 @@ def _run_tpu_compile_execution() -> dict[str, Any]:
     import jax.numpy as jnp
 
     from qrwkv_xla.students.pallas_wkv import (
-        pallas_wkv_sequence_update_fused_or_scan,
+        pallas_wkv_update,
         reference_wkv_sequence_update,
     )
 
@@ -154,13 +154,17 @@ def _run_tpu_compile_execution() -> dict[str, Any]:
     decay_seq = jnp.asarray([[[[0.5, 0.25]]], [[[0.75, 0.5]]]], dtype=jnp.float32)
 
     def smoke_fn(state, k, v, decay):
-        output = pallas_wkv_sequence_update_fused_or_scan(state, k, v, decay)
-        return output["final_state"], output["per_step_states"]
+        def step(carry, item):
+            token_k, token_v, token_decay = item
+            next_state = pallas_wkv_update(carry, token_k, token_v, token_decay)
+            return next_state, next_state
+
+        return jax.lax.scan(step, state, (k, v, decay))
 
     lowered = jax.jit(smoke_fn).lower(initial_state, k_seq, v_seq, decay_seq)
     compiled = lowered.compile()
     final_state, per_step_states = compiled(initial_state, k_seq, v_seq, decay_seq)
-    final_state.block_until_ready()
+    final_state, per_step_states = jax.block_until_ready((final_state, per_step_states))
     expected = reference_wkv_sequence_update(initial_state, k_seq, v_seq, decay_seq)
     final_error = jnp.max(jnp.abs(final_state - expected["final_state"]))
     step_error = jnp.max(jnp.abs(per_step_states - expected["per_step_states"]))
