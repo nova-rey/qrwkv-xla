@@ -1320,6 +1320,25 @@
   value change, RADLADS upstream/vendor edit, model-quality claim, or default
   experimental `balance_state` promotion.
 
+## P87 — Fixture-Family Opt-In Pallas Runtime Integration
+
+- [x] Replace the P43 `candidate=pallas` unsupported placeholder with a narrow
+  Pallas-backed fixture candidate for the covered WKV7 recurrence/state fixture
+  surface.
+- [x] Preserve `reference` as the default runtime and keep Pallas explicit and
+  opt-in.
+- [x] Add a P87 fixture-family integration matrix with runtime-default,
+  opt-in, contamination, alias-preservation, pass/fail/skipped, unsupported,
+  parity-scope, recommendation, and claims-not-made fields.
+- [x] Emit `P87_PALLAS_FIXTURE_FAMILY_INTEGRATION_REPORT.md` and
+  `pallas_fixture_family_integration_matrix.json`.
+- [x] Preserve P80 alias behavior for `tiny_prefix_padding_or_left_padding` to
+  `tiny_prefix_or_left_padding`.
+- [x] Preserve scope: no Pallas default promotion, no fixture tensor changes,
+  no tolerance loosening, no production/full-model/training/TPU readiness
+  claim, no recurrence math rewrite, no RADLADS upstream/vendor edit, and no
+  default experimental `balance_state` promotion.
+
 ## P82 — Real Opt-In Pallas Runtime Probe
 
 - [x] Add `qrwkv_xla.students.pallas_wkv` with `pallas_available()` and

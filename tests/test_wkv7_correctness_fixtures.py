@@ -8,12 +8,14 @@ from pathlib import Path
 import numpy as np
 
 from qrwkv_xla.kernels import (
+    build_p87_pallas_fixture_family_integration_matrix,
     compare_wkv7_manifest,
     generate_wkv7_fixture_bundle,
     load_wkv7_case,
     validate_wkv7_manifest,
     wkv7_reference_full_scan,
     wkv7_reference_stepwise,
+    write_p87_pallas_fixture_family_integration_artifacts,
     write_wkv7_comparison_reports,
 )
 from qrwkv_xla.kernels.wkv7_fixtures import DEFAULT_CASES, hash_arrays
@@ -188,16 +190,75 @@ def test_wkv7_missing_fixture_is_reported(tmp_path: Path) -> None:
     assert report["counts"]["missing_fixture"] == 1
 
 
-def test_wkv7_pallas_candidate_is_explicitly_unsupported(tmp_path: Path) -> None:
+def test_wkv7_pallas_candidate_runs_or_reports_unsupported(tmp_path: Path) -> None:
     out = tmp_path / "wkv7"
     generate_wkv7_fixture_bundle(out, overwrite=True)
 
     report = compare_wkv7_manifest(out / "manifest.json", candidate="pallas")
 
-    assert report["overall_status"] == "unsupported"
-    assert report["counts"]["unsupported"] == len(DEFAULT_CASES)
-    assert all(case["status"] == "unsupported" for case in report["cases"])
-    assert "not implemented yet" in report["cases"][0]["reason"]
+    assert report["overall_status"] in {"pass", "unsupported"}
+    if report["overall_status"] == "pass":
+        assert report["counts"]["pass"] == len(DEFAULT_CASES)
+        assert all(case["status"] == "pass" for case in report["cases"])
+    else:
+        assert report["counts"]["unsupported"] == len(DEFAULT_CASES)
+        assert all(case["status"] == "unsupported" for case in report["cases"])
+        assert report["cases"][0]["reason"]
+
+
+def test_p87_pallas_fixture_family_matrix_is_honest_and_opt_in(tmp_path: Path) -> None:
+    out = tmp_path / "wkv7"
+    generate_wkv7_fixture_bundle(out, overwrite=True)
+
+    matrix = build_p87_pallas_fixture_family_integration_matrix(out / "manifest.json")
+
+    assert matrix["schema"] == (
+        "qrwkv_xla.p87_pallas_fixture_family_integration_matrix.v1"
+    )
+    assert matrix["phase"] == "P87"
+    assert matrix["runtime_default_preserved"] is True
+    assert matrix["pallas_opt_in_preserved"] is True
+    assert matrix["default_runtime"] == "reference"
+    assert matrix["wkv_runtime_requested"] == "pallas"
+    assert matrix["comparison_runtime"] == "pallas"
+    assert matrix["reference_trace_capture_skipped"] is True
+    assert matrix["pallas_requested_reference_trace_contamination"] is False
+    assert matrix["reference_contamination_detected"] is False
+    assert matrix["fixture_alias_behavior_preserved"] is True
+    assert matrix["cases_total"] == len(DEFAULT_CASES)
+    assert matrix["cases_total"] == (
+        matrix["cases_passed"] + matrix["cases_failed"] + matrix["cases_skipped"]
+    )
+    assert matrix["parity_scope"] == "covered_fixture_family_opt_in_pallas_runtime"
+    assert "production Pallas readiness" in matrix["claims_not_made"]
+    assert "full model parity" in matrix["claims_not_made"]
+    if matrix["status"] == "pass":
+        assert matrix["cases_passed"] == len(DEFAULT_CASES)
+        assert matrix["recommended_next_phase"] == "P88 TPU compile/performance smoke"
+    else:
+        assert matrix["status"] in {"partial", "fail"}
+        assert matrix["recommended_next_phase"].startswith("P87 targeted")
+
+
+def test_p87_pallas_fixture_family_artifacts_are_written(tmp_path: Path) -> None:
+    fixture_dir = tmp_path / "wkv7"
+    out = tmp_path / "p87"
+    generate_wkv7_fixture_bundle(fixture_dir, overwrite=True)
+
+    matrix = write_p87_pallas_fixture_family_integration_artifacts(
+        fixture_dir / "manifest.json",
+        out,
+        overwrite=True,
+    )
+
+    assert (out / "P87_PALLAS_FIXTURE_FAMILY_INTEGRATION_REPORT.md").is_file()
+    assert (out / "pallas_fixture_family_integration_matrix.json").is_file()
+    persisted = json.loads(
+        (out / "pallas_fixture_family_integration_matrix.json").read_text()
+    )
+    assert persisted == matrix
+    report = (out / "P87_PALLAS_FIXTURE_FAMILY_INTEGRATION_REPORT.md").read_text()
+    assert "P87 Pallas Fixture-Family Integration Report" in report
 
 
 def test_p83_reference_wkv_update_matches_formula() -> None:

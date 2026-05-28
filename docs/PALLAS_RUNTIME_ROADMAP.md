@@ -16,16 +16,13 @@ The Pallas runtime remains opt-in. The trusted default WKV runtime is
 
 ## Current Scope
 
-P86 compares a short sequence reference recurrence against a scan-style Pallas
-scaffold:
+P87 integrates the opt-in Pallas WKV path into the existing tiny WKV7
+fixture-family correctness harness. The reference runtime remains the default;
+Pallas remains an explicit candidate/runtime request.
 
-```text
-state * decay[..., None, :] + k[..., :, None] * v[..., None, :]
-```
+The P87 fixture-family path runs the P43 `tiny_wkv7_correctness` cases through
+the Pallas-backed candidate and reports pass, fail, skipped, and unsupported
+cases without changing fixture tensors or tolerances.
 
-The current P86 scaffold is labeled `jax_scan_pallas_step_scaffold`: it uses
-`jax.lax.scan` over the interpreted one-step Pallas update, compares final and
-per-step states against the trusted reference sequence loop, and records an
-explicit `scan_scaffold_pass` status only when required cases pass. Passing P86
-does not promote Pallas as the default, prove fixture-family/full-model parity,
-prove TPU performance, or prove real training throughput.
+Passing P87 does not promote Pallas as the default, prove full-model parity,
+prove TPU performance, prove real training throughput, or prove model quality.

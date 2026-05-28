@@ -995,3 +995,39 @@ as default, prove fixture-family/full-model parity, prove throughput, prove
 model quality, change recurrence math, change balance-state math, loosen
 tolerances, change dtype policy, edit fixture tensors, vendor RADLADS source,
 or promote experimental `balance_state` behavior by default.
+
+## Phase 87 — Fixture-Family Opt-In Pallas Runtime Integration
+
+Current checkpoint: `pallas_fixture_family_opt_in_integration`.
+
+P87 moves the opt-in Pallas WKV path into the existing tiny WKV7 fixture-family
+correctness harness. The P43 `candidate=pallas` path now runs a Pallas-backed
+fixture candidate for the covered recurrence/state fixture surface instead of
+returning the old unsupported placeholder. The reference runtime remains the
+default, and Pallas remains explicit and opt-in.
+
+The artifact set now includes
+`artifacts/p87_pallas_fixture_family_integration/P87_PALLAS_FIXTURE_FAMILY_INTEGRATION_REPORT.md`
+and
+`artifacts/p87_pallas_fixture_family_integration/pallas_fixture_family_integration_matrix.json`.
+The report records runtime-default preservation, Pallas opt-in preservation,
+reference-contamination status, fixture alias preservation, pass/fail/skipped
+counts, unsupported cases, claims not made, and the scoped parity surface.
+
+Updated Pallas runway:
+
+- P81: opt-in runtime selector.
+- P82: minimal Pallas execution probe.
+- P83: tiny reference-vs-Pallas one-step parity.
+- P84: broader one-step shape/dtype parity.
+- P85: short-sequence repeated-step parity.
+- P86: fused/scan Pallas WKV kernel scaffold.
+- P87: fixture-family opt-in runtime integration.
+- P88: TPU compile/performance smoke.
+
+The next phase is `P88 TPU compile/performance smoke` when the covered P87
+fixture-family Pallas candidate passes. P87 does not promote Pallas as default,
+prove full-model parity, prove TPU throughput, prove training readiness, prove
+model quality, change recurrence math, change balance-state math, loosen
+tolerances, edit fixture tensors, vendor RADLADS source, or promote
+experimental `balance_state` behavior by default.

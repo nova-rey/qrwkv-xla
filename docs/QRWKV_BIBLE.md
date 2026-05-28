@@ -1748,3 +1748,27 @@ P86 does not promote Pallas as default, prove fixture-family/full-model parity,
 prove throughput, prove model quality, change reference recurrence math, change
 balance math, loosen tolerances, change dtype policy, edit fixture tensors,
 vendor RADLADS source, or promote experimental `balance_state`.
+
+## Phase 87 — Fixture-Family Opt-In Pallas Runtime Integration
+
+P87 moves the opt-in Pallas WKV path from isolated P86 scaffold probes into the
+existing tiny WKV7 fixture-family correctness harness. The reference runtime
+remains the default, and Pallas remains an explicit candidate/runtime request.
+
+The P87 integration replaces the previous `candidate=pallas` unsupported
+placeholder in the P43 WKV7 fixture comparator with a narrow Pallas-backed
+fixture candidate for the existing recurrence/state fixture surface. It reports
+pass, fail, skipped, and unsupported cases through a dedicated P87 matrix while
+preserving P80 fixture alias behavior and avoiding reference trace
+contamination for Pallas-requested evidence.
+
+P87 writes `P87_PALLAS_FIXTURE_FAMILY_INTEGRATION_REPORT.md` and
+`pallas_fixture_family_integration_matrix.json` under
+`artifacts/p87_pallas_fixture_family_integration/`. When all covered fixture
+family cases pass, the recommended next phase is
+`P88 TPU compile/performance smoke`.
+
+P87 does not promote Pallas as default, prove production Pallas readiness, prove
+full-model parity, prove TPU readiness, prove throughput, prove training
+readiness, prove model quality, change recurrence math, loosen tolerances, edit
+fixture tensors, vendor RADLADS source, or promote experimental `balance_state`.

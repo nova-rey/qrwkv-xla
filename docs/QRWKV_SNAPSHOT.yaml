@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 86
-checkpoint: fused_scan_pallas_wkv_sequence_scaffold
+phase: 87
+checkpoint: pallas_fixture_family_opt_in_integration
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,10 +55,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Gate the first fused/scan-style opt-in Pallas WKV sequence scaffold by
-  comparing a JAX scan over the interpreted Pallas one-step update against the
-  trusted reference sequence loop, while keeping reference as default and
-  Pallas-requested trace runs probe-only.
+  Integrate the opt-in Pallas WKV path into the existing tiny fixture-family
+  correctness harness, preserving reference as the default runtime and
+  reporting Pallas fixture-family pass/fail/unsupported evidence without
+  reference trace contamination.
 
 checkpointing:
   format: JSON manifest plus NPZ arrays
@@ -1676,3 +1676,32 @@ p86_pallas_fused_sequence_scaffold:
     - pallas_default_promotion
     - tpu_throughput
     - real_training_quality
+
+p87_pallas_fixture_family_integration:
+  phase: P87
+  status: complete
+  checkpoint: pallas_fixture_family_opt_in_integration
+  module: qrwkv_xla.kernels.pallas_fixture_integration
+  runtime_selector_default: reference
+  pallas_runtime: opt_in_fixture_family_candidate
+  parity_scope: covered_fixture_family_opt_in_pallas_runtime
+  matrix_schema: qrwkv_xla.p87_pallas_fixture_family_integration_matrix.v1
+  fixture_set: tiny_wkv7_correctness
+  cases_total: 6
+  pallas_candidate_status: pass
+  report_artifacts:
+    - artifacts/p87_pallas_fixture_family_integration/P87_PALLAS_FIXTURE_FAMILY_INTEGRATION_REPORT.md
+    - artifacts/p87_pallas_fixture_family_integration/pallas_fixture_family_integration_matrix.json
+  runtime_default_preserved: true
+  pallas_opt_in_preserved: true
+  reference_contamination_detected: false
+  fixture_alias_behavior_preserved: true
+  reference_trace_capture_skipped_for_pallas_request: true
+  recommended_next_phase_on_pass: P88 TPU compile/performance smoke
+  does_not_prove:
+    - production_pallas_ready
+    - full_model_pallas_reference_parity
+    - pallas_default_promotion
+    - tpu_throughput
+    - training_readiness
+    - model_quality

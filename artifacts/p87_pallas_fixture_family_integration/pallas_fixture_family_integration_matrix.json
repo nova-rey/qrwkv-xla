@@ -1,0 +1,866 @@
+{
+  "cases": [
+    {
+      "atol": 1e-05,
+      "candidate": "pallas",
+      "case_id": "tiny_b1_t4_h1_d4_no_mask",
+      "full_scan_vs_stepwise": {
+        "full_next_state_vs_step_next_state_max_abs_error": 3.725290298461914e-09,
+        "full_vs_step_output_max_abs_error": 4.656612873077393e-10,
+        "next_state": {
+          "allclose": true,
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 3.725290298461914e-09,
+          "max_relative_error": 1.8045653860099264e-07,
+          "mean_abs_error": 5.093170329928398e-10,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            1,
+            4,
+            4
+          ],
+          "status": "pass"
+        },
+        "output": {
+          "allclose": true,
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 4.656612873077393e-10,
+          "max_relative_error": 9.530765510135097e-08,
+          "mean_abs_error": 5.093170329928398e-11,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            4,
+            1,
+            4
+          ],
+          "status": "pass"
+        },
+        "status": "pass"
+      },
+      "next_state_max_abs_error": 0.0,
+      "next_state_max_relative_error": 0.0,
+      "next_state_status": "pass",
+      "output_max_abs_error": 0.0,
+      "output_max_relative_error": 0.0,
+      "output_status": "pass",
+      "reason": null,
+      "rtol": 1e-05,
+      "status": "pass",
+      "unsupported_reason": null
+    },
+    {
+      "atol": 1e-05,
+      "candidate": "pallas",
+      "case_id": "tiny_b2_t5_h2_d4_no_mask",
+      "full_scan_vs_stepwise": {
+        "full_next_state_vs_step_next_state_max_abs_error": 2.9802322387695312e-08,
+        "full_vs_step_output_max_abs_error": 6.05359673500061e-09,
+        "next_state": {
+          "allclose": true,
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 2.9802322387695312e-08,
+          "max_relative_error": 0.008704330772161484,
+          "mean_abs_error": 2.43872677607726e-09,
+          "rtol": 1e-05,
+          "shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "status": "pass"
+        },
+        "output": {
+          "allclose": true,
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 6.05359673500061e-09,
+          "max_relative_error": 1.454509970244544e-06,
+          "mean_abs_error": 5.831680138790318e-10,
+          "rtol": 1e-05,
+          "shape": [
+            2,
+            5,
+            2,
+            4
+          ],
+          "status": "pass"
+        },
+        "status": "pass"
+      },
+      "next_state_max_abs_error": 0.0,
+      "next_state_max_relative_error": 0.0,
+      "next_state_status": "pass",
+      "output_max_abs_error": 0.0,
+      "output_max_relative_error": 0.0,
+      "output_status": "pass",
+      "reason": null,
+      "rtol": 1e-05,
+      "status": "pass",
+      "unsupported_reason": null
+    },
+    {
+      "atol": 1e-05,
+      "candidate": "pallas",
+      "case_id": "tiny_b1_t6_h2_d4_with_attention_mask",
+      "full_scan_vs_stepwise": {
+        "full_next_state_vs_step_next_state_max_abs_error": 3.725290298461914e-09,
+        "full_vs_step_output_max_abs_error": 3.725290298461914e-09,
+        "next_state": {
+          "allclose": true,
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 3.725290298461914e-09,
+          "max_relative_error": 2.210410912084626e-06,
+          "mean_abs_error": 9.113136911764741e-10,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            2,
+            4,
+            4
+          ],
+          "status": "pass"
+        },
+        "output": {
+          "allclose": true,
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 3.725290298461914e-09,
+          "max_relative_error": 2.6844718377105892e-05,
+          "mean_abs_error": 1.9074282431308376e-10,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            6,
+            2,
+            4
+          ],
+          "status": "pass"
+        },
+        "status": "pass"
+      },
+      "next_state_max_abs_error": 0.0,
+      "next_state_max_relative_error": 0.0,
+      "next_state_status": "pass",
+      "output_max_abs_error": 0.0,
+      "output_max_relative_error": 0.0,
+      "output_status": "pass",
+      "reason": null,
+      "rtol": 1e-05,
+      "status": "pass",
+      "unsupported_reason": null
+    },
+    {
+      "atol": 1e-05,
+      "candidate": "pallas",
+      "case_id": "tiny_prefix_padding_or_reset_case",
+      "full_scan_vs_stepwise": {
+        "full_next_state_vs_step_next_state_max_abs_error": 1.4901161193847656e-08,
+        "full_vs_step_output_max_abs_error": 3.725290298461914e-09,
+        "next_state": {
+          "allclose": true,
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 1.4901161193847656e-08,
+          "max_relative_error": 3.2097229905048152e-06,
+          "mean_abs_error": 1.6075318853836507e-09,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            2,
+            4,
+            4
+          ],
+          "status": "pass"
+        },
+        "output": {
+          "allclose": true,
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 3.725290298461914e-09,
+          "max_relative_error": 4.342562988313148e-06,
+          "mean_abs_error": 2.064552973024547e-10,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            5,
+            2,
+            4
+          ],
+          "status": "pass"
+        },
+        "status": "pass"
+      },
+      "next_state_max_abs_error": 0.0,
+      "next_state_max_relative_error": 0.0,
+      "next_state_status": "pass",
+      "output_max_abs_error": 0.0,
+      "output_max_relative_error": 0.0,
+      "output_status": "pass",
+      "reason": null,
+      "rtol": 1e-05,
+      "status": "pass",
+      "unsupported_reason": null
+    },
+    {
+      "atol": 1e-05,
+      "candidate": "pallas",
+      "case_id": "tiny_stateful_step_vs_full_scan",
+      "full_scan_vs_stepwise": {
+        "full_next_state_vs_step_next_state_max_abs_error": 7.450580596923828e-09,
+        "full_vs_step_output_max_abs_error": 1.862645149230957e-09,
+        "next_state": {
+          "allclose": true,
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 7.450580596923828e-09,
+          "max_relative_error": 3.261562596890144e-06,
+          "mean_abs_error": 1.329681253992021e-09,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            2,
+            4,
+            4
+          ],
+          "status": "pass"
+        },
+        "output": {
+          "allclose": true,
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 1.862645149230957e-09,
+          "max_relative_error": 6.815811047999887e-06,
+          "mean_abs_error": 3.219611244276166e-10,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            4,
+            2,
+            4
+          ],
+          "status": "pass"
+        },
+        "status": "pass"
+      },
+      "next_state_max_abs_error": 0.0,
+      "next_state_max_relative_error": 0.0,
+      "next_state_status": "pass",
+      "output_max_abs_error": 0.0,
+      "output_max_relative_error": 0.0,
+      "output_status": "pass",
+      "reason": null,
+      "rtol": 1e-05,
+      "status": "pass",
+      "unsupported_reason": null
+    },
+    {
+      "atol": 1e-05,
+      "candidate": "pallas",
+      "case_id": "tiny_extreme_but_finite_decay_values",
+      "full_scan_vs_stepwise": {
+        "full_next_state_vs_step_next_state_max_abs_error": 1.4901161193847656e-08,
+        "full_vs_step_output_max_abs_error": 1.862645149230957e-09,
+        "next_state": {
+          "allclose": true,
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 1.4901161193847656e-08,
+          "max_relative_error": 1.0941637356154388e-06,
+          "mean_abs_error": 2.0463630789890885e-09,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            2,
+            4,
+            4
+          ],
+          "status": "pass"
+        },
+        "output": {
+          "allclose": true,
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 1.862645149230957e-09,
+          "max_relative_error": 8.992755056169699e-07,
+          "mean_abs_error": 2.587512426543981e-10,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            4,
+            2,
+            4
+          ],
+          "status": "pass"
+        },
+        "status": "pass"
+      },
+      "next_state_max_abs_error": 0.0,
+      "next_state_max_relative_error": 0.0,
+      "next_state_status": "pass",
+      "output_max_abs_error": 0.0,
+      "output_max_relative_error": 0.0,
+      "output_status": "pass",
+      "reason": null,
+      "rtol": 1e-05,
+      "status": "pass",
+      "unsupported_reason": null
+    }
+  ],
+  "cases_failed": 0,
+  "cases_passed": 6,
+  "cases_skipped": 0,
+  "cases_total": 6,
+  "claims_not_made": [
+    "production Pallas readiness",
+    "training readiness",
+    "TPU readiness",
+    "throughput proof",
+    "Pallas default readiness",
+    "full model parity"
+  ],
+  "comparison_runtime": "pallas",
+  "default_runtime": "reference",
+  "fixture_alias_behavior_preserved": true,
+  "fixture_comparison_report": {
+    "candidate": "pallas",
+    "cases": [
+      {
+        "candidate": "pallas",
+        "case_id": "tiny_b1_t4_h1_d4_no_mask",
+        "full_scan_vs_stepwise": {
+          "full_next_state_vs_step_next_state_max_abs_error": 3.725290298461914e-09,
+          "full_vs_step_output_max_abs_error": 4.656612873077393e-10,
+          "next_state": {
+            "allclose": true,
+            "atol": 1e-05,
+            "dtype": "float32",
+            "finite": true,
+            "max_abs_error": 3.725290298461914e-09,
+            "max_relative_error": 1.8045653860099264e-07,
+            "mean_abs_error": 5.093170329928398e-10,
+            "rtol": 1e-05,
+            "shape": [
+              1,
+              1,
+              4,
+              4
+            ],
+            "status": "pass"
+          },
+          "output": {
+            "allclose": true,
+            "atol": 1e-05,
+            "dtype": "float32",
+            "finite": true,
+            "max_abs_error": 4.656612873077393e-10,
+            "max_relative_error": 9.530765510135097e-08,
+            "mean_abs_error": 5.093170329928398e-11,
+            "rtol": 1e-05,
+            "shape": [
+              1,
+              4,
+              1,
+              4
+            ],
+            "status": "pass"
+          },
+          "status": "pass"
+        },
+        "next_state": {
+          "allclose": true,
+          "array": "next_state",
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "mean_abs_error": 0.0,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            1,
+            4,
+            4
+          ],
+          "status": "pass"
+        },
+        "output": {
+          "allclose": true,
+          "array": "output",
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "mean_abs_error": 0.0,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            4,
+            1,
+            4
+          ],
+          "status": "pass"
+        },
+        "status": "pass"
+      },
+      {
+        "candidate": "pallas",
+        "case_id": "tiny_b2_t5_h2_d4_no_mask",
+        "full_scan_vs_stepwise": {
+          "full_next_state_vs_step_next_state_max_abs_error": 2.9802322387695312e-08,
+          "full_vs_step_output_max_abs_error": 6.05359673500061e-09,
+          "next_state": {
+            "allclose": true,
+            "atol": 1e-05,
+            "dtype": "float32",
+            "finite": true,
+            "max_abs_error": 2.9802322387695312e-08,
+            "max_relative_error": 0.008704330772161484,
+            "mean_abs_error": 2.43872677607726e-09,
+            "rtol": 1e-05,
+            "shape": [
+              2,
+              2,
+              4,
+              4
+            ],
+            "status": "pass"
+          },
+          "output": {
+            "allclose": true,
+            "atol": 1e-05,
+            "dtype": "float32",
+            "finite": true,
+            "max_abs_error": 6.05359673500061e-09,
+            "max_relative_error": 1.454509970244544e-06,
+            "mean_abs_error": 5.831680138790318e-10,
+            "rtol": 1e-05,
+            "shape": [
+              2,
+              5,
+              2,
+              4
+            ],
+            "status": "pass"
+          },
+          "status": "pass"
+        },
+        "next_state": {
+          "allclose": true,
+          "array": "next_state",
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "mean_abs_error": 0.0,
+          "rtol": 1e-05,
+          "shape": [
+            2,
+            2,
+            4,
+            4
+          ],
+          "status": "pass"
+        },
+        "output": {
+          "allclose": true,
+          "array": "output",
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "mean_abs_error": 0.0,
+          "rtol": 1e-05,
+          "shape": [
+            2,
+            5,
+            2,
+            4
+          ],
+          "status": "pass"
+        },
+        "status": "pass"
+      },
+      {
+        "candidate": "pallas",
+        "case_id": "tiny_b1_t6_h2_d4_with_attention_mask",
+        "full_scan_vs_stepwise": {
+          "full_next_state_vs_step_next_state_max_abs_error": 3.725290298461914e-09,
+          "full_vs_step_output_max_abs_error": 3.725290298461914e-09,
+          "next_state": {
+            "allclose": true,
+            "atol": 1e-05,
+            "dtype": "float32",
+            "finite": true,
+            "max_abs_error": 3.725290298461914e-09,
+            "max_relative_error": 2.210410912084626e-06,
+            "mean_abs_error": 9.113136911764741e-10,
+            "rtol": 1e-05,
+            "shape": [
+              1,
+              2,
+              4,
+              4
+            ],
+            "status": "pass"
+          },
+          "output": {
+            "allclose": true,
+            "atol": 1e-05,
+            "dtype": "float32",
+            "finite": true,
+            "max_abs_error": 3.725290298461914e-09,
+            "max_relative_error": 2.6844718377105892e-05,
+            "mean_abs_error": 1.9074282431308376e-10,
+            "rtol": 1e-05,
+            "shape": [
+              1,
+              6,
+              2,
+              4
+            ],
+            "status": "pass"
+          },
+          "status": "pass"
+        },
+        "next_state": {
+          "allclose": true,
+          "array": "next_state",
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "mean_abs_error": 0.0,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            2,
+            4,
+            4
+          ],
+          "status": "pass"
+        },
+        "output": {
+          "allclose": true,
+          "array": "output",
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "mean_abs_error": 0.0,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            6,
+            2,
+            4
+          ],
+          "status": "pass"
+        },
+        "status": "pass"
+      },
+      {
+        "candidate": "pallas",
+        "case_id": "tiny_prefix_padding_or_reset_case",
+        "full_scan_vs_stepwise": {
+          "full_next_state_vs_step_next_state_max_abs_error": 1.4901161193847656e-08,
+          "full_vs_step_output_max_abs_error": 3.725290298461914e-09,
+          "next_state": {
+            "allclose": true,
+            "atol": 1e-05,
+            "dtype": "float32",
+            "finite": true,
+            "max_abs_error": 1.4901161193847656e-08,
+            "max_relative_error": 3.2097229905048152e-06,
+            "mean_abs_error": 1.6075318853836507e-09,
+            "rtol": 1e-05,
+            "shape": [
+              1,
+              2,
+              4,
+              4
+            ],
+            "status": "pass"
+          },
+          "output": {
+            "allclose": true,
+            "atol": 1e-05,
+            "dtype": "float32",
+            "finite": true,
+            "max_abs_error": 3.725290298461914e-09,
+            "max_relative_error": 4.342562988313148e-06,
+            "mean_abs_error": 2.064552973024547e-10,
+            "rtol": 1e-05,
+            "shape": [
+              1,
+              5,
+              2,
+              4
+            ],
+            "status": "pass"
+          },
+          "status": "pass"
+        },
+        "next_state": {
+          "allclose": true,
+          "array": "next_state",
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "mean_abs_error": 0.0,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            2,
+            4,
+            4
+          ],
+          "status": "pass"
+        },
+        "output": {
+          "allclose": true,
+          "array": "output",
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "mean_abs_error": 0.0,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            5,
+            2,
+            4
+          ],
+          "status": "pass"
+        },
+        "status": "pass"
+      },
+      {
+        "candidate": "pallas",
+        "case_id": "tiny_stateful_step_vs_full_scan",
+        "full_scan_vs_stepwise": {
+          "full_next_state_vs_step_next_state_max_abs_error": 7.450580596923828e-09,
+          "full_vs_step_output_max_abs_error": 1.862645149230957e-09,
+          "next_state": {
+            "allclose": true,
+            "atol": 1e-05,
+            "dtype": "float32",
+            "finite": true,
+            "max_abs_error": 7.450580596923828e-09,
+            "max_relative_error": 3.261562596890144e-06,
+            "mean_abs_error": 1.329681253992021e-09,
+            "rtol": 1e-05,
+            "shape": [
+              1,
+              2,
+              4,
+              4
+            ],
+            "status": "pass"
+          },
+          "output": {
+            "allclose": true,
+            "atol": 1e-05,
+            "dtype": "float32",
+            "finite": true,
+            "max_abs_error": 1.862645149230957e-09,
+            "max_relative_error": 6.815811047999887e-06,
+            "mean_abs_error": 3.219611244276166e-10,
+            "rtol": 1e-05,
+            "shape": [
+              1,
+              4,
+              2,
+              4
+            ],
+            "status": "pass"
+          },
+          "status": "pass"
+        },
+        "next_state": {
+          "allclose": true,
+          "array": "next_state",
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "mean_abs_error": 0.0,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            2,
+            4,
+            4
+          ],
+          "status": "pass"
+        },
+        "output": {
+          "allclose": true,
+          "array": "output",
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "mean_abs_error": 0.0,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            4,
+            2,
+            4
+          ],
+          "status": "pass"
+        },
+        "status": "pass"
+      },
+      {
+        "candidate": "pallas",
+        "case_id": "tiny_extreme_but_finite_decay_values",
+        "full_scan_vs_stepwise": {
+          "full_next_state_vs_step_next_state_max_abs_error": 1.4901161193847656e-08,
+          "full_vs_step_output_max_abs_error": 1.862645149230957e-09,
+          "next_state": {
+            "allclose": true,
+            "atol": 1e-05,
+            "dtype": "float32",
+            "finite": true,
+            "max_abs_error": 1.4901161193847656e-08,
+            "max_relative_error": 1.0941637356154388e-06,
+            "mean_abs_error": 2.0463630789890885e-09,
+            "rtol": 1e-05,
+            "shape": [
+              1,
+              2,
+              4,
+              4
+            ],
+            "status": "pass"
+          },
+          "output": {
+            "allclose": true,
+            "atol": 1e-05,
+            "dtype": "float32",
+            "finite": true,
+            "max_abs_error": 1.862645149230957e-09,
+            "max_relative_error": 8.992755056169699e-07,
+            "mean_abs_error": 2.587512426543981e-10,
+            "rtol": 1e-05,
+            "shape": [
+              1,
+              4,
+              2,
+              4
+            ],
+            "status": "pass"
+          },
+          "status": "pass"
+        },
+        "next_state": {
+          "allclose": true,
+          "array": "next_state",
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "mean_abs_error": 0.0,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            2,
+            4,
+            4
+          ],
+          "status": "pass"
+        },
+        "output": {
+          "allclose": true,
+          "array": "output",
+          "atol": 1e-05,
+          "dtype": "float32",
+          "finite": true,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "mean_abs_error": 0.0,
+          "rtol": 1e-05,
+          "shape": [
+            1,
+            4,
+            2,
+            4
+          ],
+          "status": "pass"
+        },
+        "status": "pass"
+      }
+    ],
+    "counts": {
+      "candidate_error": 0,
+      "dtype_mismatch": 0,
+      "fail": 0,
+      "missing_fixture": 0,
+      "non_finite": 0,
+      "pass": 6,
+      "shape_mismatch": 0,
+      "unsupported": 0
+    },
+    "fixture_set": "tiny_wkv7_correctness",
+    "manifest": "/private/tmp/qrwkv_p87_fixture_family/manifest.json",
+    "num_cases": 6,
+    "overall_status": "pass",
+    "phase": "P43",
+    "schema": "qrwkv_xla.wkv7_correctness_report.v1",
+    "status_vocabulary": [
+      "candidate_error",
+      "dtype_mismatch",
+      "fail",
+      "missing_fixture",
+      "non_finite",
+      "pass",
+      "shape_mismatch",
+      "unsupported"
+    ]
+  },
+  "pallas_opt_in_preserved": true,
+  "pallas_requested_reference_trace_contamination": false,
+  "parity_scope": "covered_fixture_family_opt_in_pallas_runtime",
+  "phase": "P87",
+  "recommended_next_phase": "P88 TPU compile/performance smoke",
+  "reference_contamination_detected": false,
+  "reference_trace_capture_skipped": true,
+  "runtime_default_preserved": true,
+  "schema": "qrwkv_xla.p87_pallas_fixture_family_integration_matrix.v1",
+  "status": "pass",
+  "unsupported_cases": [],
+  "wkv_runtime_requested": "pallas"
+}

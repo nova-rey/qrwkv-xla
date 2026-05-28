@@ -7,9 +7,9 @@ start_here:
   - docs/PHASE_CHECKLIST.md
 
 current_phase:
-  phase: 86
-  checkpoint: fused_scan_pallas_wkv_sequence_scaffold
-  title: Fused/scan-style Pallas WKV sequence scaffold parity
+  phase: 87
+  checkpoint: pallas_fixture_family_opt_in_integration
+  title: Fixture-family opt-in Pallas runtime integration
 
 workflow:
   primary_agent: Nyx
@@ -56,6 +56,7 @@ instructions:
   - Keep P84 scoped to the broader one-step Pallas WKV shape/dtype parity matrix; do not promote Pallas, claim sequence parity, integrate fixture-family Pallas, loosen tolerances, change fixture tensors, or run reference live trace capture for Pallas-requested probes.
   - Keep P85 scoped to short deterministic repeated one-step Pallas WKV sequence parity; do not promote Pallas, claim fused kernel readiness, integrate fixture-family Pallas, prove throughput, loosen tolerances, change fixture tensors, or run reference live trace capture for Pallas-requested probes.
   - Keep P86 scoped to the fused/scan-style Pallas WKV sequence scaffold parity gate; do not promote Pallas as default, integrate fixture-family Pallas yet, prove throughput, loosen tolerances, change fixture tensors, or run reference live trace capture for Pallas-requested probes.
+  - Keep P87 scoped to opt-in Pallas participation in the covered tiny WKV7 fixture-family harness; preserve reference as default, do not alter fixture tensors or tolerances, and do not claim production/full-model/training/TPU readiness.
 
 radlads_qrwkv_head_to_head_parity:
   phase: P53
