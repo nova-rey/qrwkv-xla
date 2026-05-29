@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 91
-checkpoint: student_backend_protocol_extraction
+phase: 92
+checkpoint: student_runtime_split
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,11 +55,21 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Begin post-Pallas Radjax-shaped architecture extraction by introducing a
-  behavior-preserving StudentBackend protocol and current QRWKV backend wrapper
-  around the validated student core.
+  Continue post-Pallas Radjax-shaped architecture extraction by separating the
+  student architecture-facing backend wrapper from the student execution
+  runtime boundary.
 
-post_pallas_status: radjax_extraction_started
+post_pallas_status: radjax_extraction_continues
+
+p92:
+  goal: student_runtime_split
+  behavior_change_intended: false
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  teacher_backend_added: false
+  target_store_added: false
+  trainer_refactor_started: false
+  recommended_next: P93 TeacherTargetStore scaffold
 
 p91:
   goal: student_backend_protocol_extraction

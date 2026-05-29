@@ -48,6 +48,12 @@ from qrwkv_xla.students.rwkv7_reference import (
     RWKV7ReferenceStudent,
     rwkv7_reference_layer,
 )
+from qrwkv_xla.students.student_runtime import (
+    PallasStudentRuntime,
+    ReferenceJaxStudentRuntime,
+    StudentRuntime,
+    create_student_runtime,
+)
 from qrwkv_xla.students.tiny import TinyStudent, TinyStudentConfig
 from qrwkv_xla.students.wkv_runtime import (
     PallasRuntimeUnavailableError,
@@ -70,6 +76,9 @@ __all__ = [
     "StudentModel",
     "StudentBackend",
     "StudentOutput",
+    "StudentRuntime",
+    "ReferenceJaxStudentRuntime",
+    "PallasStudentRuntime",
     "TinyStudent",
     "TinyStudentConfig",
     "WKVRuntime",
@@ -79,6 +88,7 @@ __all__ = [
     "CurrentQRWKVStudentBackend",
     "create_student",
     "create_current_qrwkv_student_backend",
+    "create_student_runtime",
     "init_lm_head_params",
     "normalize_wkv_runtime",
     "pallas_available",

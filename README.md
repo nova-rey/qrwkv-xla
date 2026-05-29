@@ -7,10 +7,10 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 91: post-Pallas StudentBackend protocol extraction. The Pallas runway is
-closed after a recorded real TPU v5 lite smoke pass for the tiny opt-in Pallas
-WKV path, and the project is now starting a Radjax-shaped architecture
-extraction without changing runtime behavior.
+Phase 92: post-Pallas StudentRuntime split. The Pallas runway is closed after a
+recorded real TPU v5 lite smoke pass for the tiny opt-in Pallas WKV path, and
+the project is now extracting Radjax-shaped student backend/runtime boundaries
+without changing runtime behavior.
 
 The project can define, write, read, validate, inspect, and test fake teacher
 target bundles on CPU through a reusable exporter interface. It also has an
@@ -19,7 +19,8 @@ that path is not part of default CI/local validation. Qwen policy labels are
 resolved only from local YAML and never by automatic internet lookup. It also
 has JAX student runtime paths, XLA-friendly RWKV7/Qwen reference
 implementations, a `StudentBackend` wrapper boundary for the current QRWKV
-student core, CPU/JIT/gradient coverage, and smoke training. The current
+student core, a `StudentRuntime` execution boundary for reference/Pallas WKV
+paths, CPU/JIT/gradient coverage, and smoke training. The current
 distillation runtime loads stage configs, composes weighted hidden-state losses,
 plumbs optional logits KL, and runs CPU-safe stage smokes over target bundles.
 It also exposes JAX runtime inspection, static-shape JIT smoke helpers,
@@ -75,17 +76,20 @@ only requires TPU when `--require-tpu` is passed.
 
 ## Student Backend Boundary
 
-P91 adds a behavior-preserving student abstraction for the current QRWKV path:
+P91/P92 add behavior-preserving student abstractions for the current QRWKV path:
 
 - protocol: `src/qrwkv_xla/students/backend.py`
 - wrapper: `src/qrwkv_xla/students/current_backend.py`
+- runtime protocol: `src/qrwkv_xla/students/student_runtime.py`
 - tests: `tests/test_student_backend.py`
+- runtime tests: `tests/test_student_runtime.py`
 
 `CurrentQRWKVStudentBackend` delegates to the existing student implementation
 for parameter initialization, state initialization, full forward, step forward,
-state export/import, and logits access. It is the first post-Pallas extraction
-layer only; TeacherBackend, TeacherTargetStore, and StudentRuntime split are
-future phases.
+state export/import, and logits access. `StudentRuntime` separates execution
+choice from student architecture: default/`reference` selects the reference JAX
+runtime and explicit `pallas` selects the opt-in Pallas runtime wrapper.
+TeacherBackend and TeacherTargetStore remain future phases.
 
 ## Multi-device pmap smoke
 

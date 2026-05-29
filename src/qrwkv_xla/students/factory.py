@@ -14,6 +14,7 @@ from qrwkv_xla.students.rwkv7_reference import (
     RWKV7ReferenceStudent,
 )
 from qrwkv_xla.students.tiny import TinyStudent, TinyStudentConfig
+from qrwkv_xla.students.wkv_runtime import WKVRuntime
 
 STUDENT_ARCHITECTURES = {
     "tiny_student",
@@ -34,6 +35,7 @@ def create_student(
     emit_logits: bool = False,
     tie_embeddings: bool = False,
     emit_mixer_outputs: bool = False,
+    wkv_runtime: str | WKVRuntime | None = None,
 ) -> StudentModel:
     if architecture == "tiny_student":
         return TinyStudent(
@@ -84,6 +86,9 @@ def create_student(
                 emit_logits=emit_logits,
                 tie_embeddings=tie_embeddings,
                 emit_mixer_outputs=emit_mixer_outputs,
+                wkv_runtime=(
+                    WKVRuntime.REFERENCE if wkv_runtime is None else wkv_runtime
+                ),
             )
         )
     raise ValueError(f"Unknown student architecture: {architecture}")

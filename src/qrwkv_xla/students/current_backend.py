@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import jax
@@ -12,6 +12,11 @@ from qrwkv_xla.parity.radlads_wkv_state_convention import (
 from qrwkv_xla.students.backend import StudentBackend
 from qrwkv_xla.students.base import StudentModel, StudentOutput
 from qrwkv_xla.students.factory import create_student
+from qrwkv_xla.students.student_runtime import (
+    StudentRuntime,
+    create_student_runtime,
+)
+from qrwkv_xla.students.wkv_runtime import WKVRuntime
 
 
 @dataclass(frozen=True)
@@ -19,6 +24,7 @@ class CurrentQRWKVStudentBackend:
     """Behavior-preserving adapter over the current QRWKV student implementation."""
 
     student: StudentModel
+    runtime: StudentRuntime = field(default_factory=create_student_runtime)
 
     @classmethod
     def from_config(
@@ -33,7 +39,9 @@ class CurrentQRWKVStudentBackend:
         emit_logits: bool = False,
         tie_embeddings: bool = False,
         emit_mixer_outputs: bool = False,
+        runtime: str | WKVRuntime | StudentRuntime | None = None,
     ) -> CurrentQRWKVStudentBackend:
+        student_runtime = create_student_runtime(runtime)
         return cls(
             create_student(
                 architecture,
@@ -45,7 +53,9 @@ class CurrentQRWKVStudentBackend:
                 emit_logits=emit_logits,
                 tie_embeddings=tie_embeddings,
                 emit_mixer_outputs=emit_mixer_outputs,
-            )
+                wkv_runtime=student_runtime.wkv_runtime,
+            ),
+            runtime=student_runtime,
         )
 
     def init_params(self, key: jax.Array) -> Any:

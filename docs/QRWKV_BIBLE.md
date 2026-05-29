@@ -1840,3 +1840,22 @@ teacher export behavior, checkpoint format, trainer flow, or Pallas behavior
 changed. `reference` remains the default WKV runtime and `pallas` remains
 explicit opt-in. P91 does not add TeacherBackend, TeacherTargetStore, or the
 P92 StudentRuntime split.
+
+## Phase 92 - StudentRuntime Split
+
+P92 introduced the `StudentRuntime` boundary as the second post-Pallas
+Radjax-shaped extraction layer. `StudentBackend` remains the architecture-facing
+wrapper around the validated QRWKV student core, while `StudentRuntime`
+represents how the student WKV path executes.
+
+The new runtime wrappers are `ReferenceJaxStudentRuntime` and
+`PallasStudentRuntime`. The runtime selector maps default/`reference` requests
+to the reference JAX runtime and maps explicit `pallas` requests to the Pallas
+runtime wrapper. `CurrentQRWKVStudentBackend.from_config()` now accepts this
+runtime boundary and passes the selected existing `WKVRuntime` value into the
+current Qwen reference student config.
+
+No recurrence math, WKV update equations, fixture tensors, tolerances, Pallas
+semantics, trainer behavior, TeacherBackend, or TeacherTargetStore behavior
+changed. `reference` remains the default runtime and `pallas` remains opt-in.
+P92 does not start P93.

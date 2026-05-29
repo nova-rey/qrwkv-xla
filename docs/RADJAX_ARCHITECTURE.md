@@ -4,14 +4,26 @@ P91 starts the post-Pallas architecture extraction path. The project is still
 QRWKV-XLA, but the next phases are shaping it toward a teacher-agnostic and
 student-runtime-agnostic Radjax-style platform.
 
-## P91 Scope
+## Current Extracted Boundaries
 
-P91 introduces only the student-side wrapper boundary:
+StudentBackend:
 
 - `StudentBackend` protocol: `src/qrwkv_xla/students/backend.py`
 - `CurrentQRWKVStudentBackend`: `src/qrwkv_xla/students/current_backend.py`
 
-The concrete backend delegates to existing QRWKV student behavior. It does not
+This is the architecture-facing wrapper around the validated QRWKV student
+core.
+
+StudentRuntime:
+
+- `StudentRuntime` protocol: `src/qrwkv_xla/students/student_runtime.py`
+- `ReferenceJaxStudentRuntime`
+- `PallasStudentRuntime`
+
+This is the execution path boundary. The current runtime choices are
+`reference_jax` and `pallas`.
+
+These wrappers delegate to existing QRWKV student and WKV behavior. They do not
 change recurrence math, WKV runtime policy, trainer behavior, teacher export,
 target storage, checkpoint formats, Pallas semantics, or fixture tensors.
 
@@ -24,10 +36,9 @@ target storage, checkpoint formats, Pallas semantics, or fixture tensors.
 
 Likely future extraction layers:
 
-- StudentRuntime split
-- TeacherBackend
 - TeacherTargetStore
+- TeacherBackend
 - Trainer boundary
 - Evaluator and parity gates
 
-Those are not implemented in P91.
+Those are not implemented in P92.

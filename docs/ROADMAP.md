@@ -1,5 +1,25 @@
 # QRWKV-XLA Roadmap
 
+## Phase 92 - StudentRuntime Split
+
+Goal: separate student architecture from execution runtime choices while
+preserving reference default and Pallas opt-in.
+
+Current checkpoint: `student_runtime_split`. P92 adds a `StudentRuntime`
+protocol plus `ReferenceJaxStudentRuntime` and `PallasStudentRuntime` wrappers
+over the existing reference and Pallas WKV execution paths. Runtime selection
+maps `None` and `reference` to `reference_jax`, maps explicit `pallas` to the
+Pallas wrapper, and rejects unknown values through the existing clear
+`WKVRuntime` validation.
+
+`StudentBackend` remains the architecture-facing wrapper. `StudentRuntime` is
+the execution path boundary. No recurrence math, Pallas semantics, fixture
+tensors, trainer behavior, TeacherBackend, or TeacherTargetStore behavior
+changes are intended.
+
+Next: P93 TeacherTargetStore Scaffold - define stored teacher-target artifacts
+without requiring live teacher/student coupling.
+
 ## Phase 91 - StudentBackend Protocol Extraction
 
 Goal: introduce a behavior-preserving student backend wrapper around the
