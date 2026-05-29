@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 97
-current_phase: P97
-checkpoint: token_vocab_contract_and_student_config_selection
+phase: 98
+current_phase: P98
+checkpoint: generic_hf_teacher_backend_emission_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,13 +56,26 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Continue post-Pallas Radjax-shaped architecture extraction by making
-  teacher/tokenizer vocab contracts explicit and selecting compatible student
-  configs from those contracts without tokenizer remapping.
+  Continue post-Pallas Radjax-shaped architecture extraction by adding a
+  generic optional HF-style teacher backend that emits full-logits
+  TeacherTargetStore artifacts with VocabContract metadata.
 
 post_pallas_status: radjax_extraction_continues
 
-recommended_next: P98 Generic HF TeacherBackend Emission Smoke
+recommended_next: P99 Teacher/Student Compatibility Validator
+
+p98:
+  goal: generic_hf_teacher_backend_emission_smoke
+  behavior_change_intended: false
+  generic_hf_teacher_backend_added: true
+  qwen_specific_code_added: false
+  hf_required_for_baseline_ci: false
+  internet_required: false
+  student_consumption_added: false
+  tokenizer_remapping_added: false
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  recommended_next: P99 Teacher/Student Compatibility Validator
 
 p97:
   goal: token_vocab_contract_and_student_config_selection

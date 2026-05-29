@@ -27,10 +27,17 @@ TeacherBackend:
 
 - `TeacherBackend` protocol: `src/qrwkv_xla/teachers/backend.py`
 - `SyntheticTeacherBackend`: `src/qrwkv_xla/teachers/synthetic.py`
+- `HFTeacherBackend`: `src/qrwkv_xla/teachers/hf.py`
 
 This is the source of teacher targets. P94 only includes deterministic
 synthetic emission; live HF/Qwen teacher backends are future work. Future real
 teacher backends must emit or declare a `VocabContract`.
+
+HFTeacherBackend:
+
+This is the first generic optional backend for HF-style causal LM target
+emission. P98 keeps it cache/local-files-only by default, optional-dependency
+safe, and not Qwen-specific.
 
 TeacherTargetStore:
 
@@ -40,7 +47,8 @@ TeacherTargetStore:
 This is the versioned offline target artifact contract. P93 stores metadata in
 `metadata.json` and target arrays in local `.npz` shards. It decouples teacher
 execution from student runtime. The existing model/tokenizer/vocab metadata can
-reconstruct a `VocabContract`.
+reconstruct a `VocabContract`. P98 stores `full_logits` artifacts emitted by
+synthetic or generic HF teacher backends in the same canonical layout.
 
 OfflineTargetConsumption:
 
@@ -94,7 +102,10 @@ target storage, checkpoint formats, Pallas semantics, or fixture tensors.
 
 Likely future extraction layers:
 
-- small Qwen-family smoke
+- compatibility validator hardening
+- real-teacher offline consumption
+- student architecture registry
+- second student backend smoke
 - broader target support
 - real training/eval
 - Trainer boundary
@@ -107,3 +118,7 @@ model-quality claims.
 P97 implements only token/vocab contracts and current-student config selection.
 It does not add real HF/Qwen teachers, tokenizer remapping, architecture
 registry work, or runtime behavior changes.
+
+P98 implements only generic HF-style teacher emission. It does not add
+student consumption, tokenizer remapping, Qwen-specific code, training, or
+runtime behavior changes.

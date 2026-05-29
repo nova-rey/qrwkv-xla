@@ -1948,3 +1948,20 @@ No real Hugging Face/Qwen teacher, tokenizer remapping, cross-vocab adapter,
 training, optimizer loop, recurrence math change, runtime semantic change,
 fixture tensor edit, tolerance change, student architecture registry, or Pallas
 promotion was introduced. P97 does not start P98.
+
+## Phase 98 - Generic HF TeacherBackend Emission Smoke
+
+P98 introduced a generic `HFTeacherBackend` emission smoke. The backend can
+extract tokenizer/vocab metadata into `VocabContract`-shaped target metadata
+and emit full-logits `TeacherTargetStore` artifacts through a generic HF-style
+interface.
+
+Baseline tests use fakes and mocks so HF dependencies, internet, Qwen, GPU/TPU,
+student consumption, tokenizer remapping, and training are not required. The
+backend is configurable by `model_id`, lazy-loads optional HF dependencies only
+when used, and keeps `local_files_only=True` by default.
+
+No Qwen-specific code, student consumption path, tokenizer remapping,
+cross-vocab adapter, training, optimizer loop, recurrence math change, runtime
+semantic change, fixture tensor edit, tolerance change, StudentBackend behavior
+change, or Pallas promotion was introduced. P98 does not start P99.

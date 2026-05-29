@@ -1,5 +1,24 @@
 # QRWKV-XLA Roadmap
 
+## Phase 98 - Generic HF TeacherBackend Emission Smoke
+
+Goal: add a generic HF-style teacher backend that emits valid
+TeacherTargetStore artifacts with VocabContract metadata.
+
+Current checkpoint: `generic_hf_teacher_backend_emission_smoke`. P98 adds
+`HFTeacherBackend`, a lazy optional-dependency backend for configurable
+HF-style causal LM emission. Baseline tests use fakes/mocks, so normal CI does
+not require transformers, internet, GPU/TPU, Qwen, or downloaded models. The
+backend emits `full_logits` through the existing `TeacherTargetStore` layout and
+metadata round-trips through the P97 `VocabContract` path.
+
+P98 does not add Qwen-specific code, student consumption, tokenizer remapping,
+training, StudentBackend/StudentRuntime changes, recurrence math changes, or
+Pallas promotion.
+
+Next: P99 Teacher/Student Compatibility Validator - harden artifact/student
+compatibility checks and direct-logit eligibility rules.
+
 ## Phase 97 - Token/Vocab Contract and Student Config Selection
 
 Goal: make teacher/tokenizer vocab contracts explicit and instantiate
