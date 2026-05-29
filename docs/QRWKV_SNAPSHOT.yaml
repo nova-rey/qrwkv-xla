@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 99
-current_phase: P99
-checkpoint: teacher_student_compatibility_validator
+phase: 100
+current_phase: P100
+checkpoint: real_teacher_offline_consumption_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,13 +56,28 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Continue post-Pallas Radjax-shaped architecture extraction by hardening
-  direct-logit eligibility so teacher artifacts can only be consumed by
-  students born from matching vocab contracts.
+  Continue post-Pallas Radjax-shaped architecture extraction by consuming a
+  generic HFTeacherBackend-style artifact through the offline target path only
+  after teacher/student compatibility passes.
 
 post_pallas_status: radjax_extraction_continues
 
-recommended_next: P100 Real-Teacher Offline Consumption Smoke
+recommended_next: P101 StudentBackend Registry / Architecture Selection
+
+p100:
+  goal: real_teacher_offline_consumption_smoke
+  behavior_change_intended: false
+  real_teacher_artifact_consumption_added: true
+  compatibility_gate_required: true
+  training_added: false
+  optimizer_added: false
+  qwen_specific_code_added: false
+  tokenizer_remapping_added: false
+  hf_required_for_baseline_ci: false
+  internet_required: false
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  recommended_next: P101 StudentBackend Registry / Architecture Selection
 
 p99:
   goal: teacher_student_compatibility_validator

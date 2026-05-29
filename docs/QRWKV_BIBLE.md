@@ -1982,3 +1982,22 @@ student consumption, training, optimizer loop, Qwen-specific code, recurrence
 math change, StudentBackend behavior change, StudentRuntime behavior change,
 fixture tensor edit, tolerance change, or Pallas promotion was introduced. P99
 does not start P100.
+
+## Phase 100 - Real-Teacher Offline Consumption Smoke
+
+P100 introduced real-teacher offline consumption smoke. A generic
+`HFTeacherBackend`-style artifact can now pass the teacher/student
+compatibility gate, instantiate a compatible student config from its vocab
+contract, load through offline target consumption, and produce a finite
+student-side loss.
+
+Baseline tests use fake/mock HF paths, so transformers, internet, Qwen, GPU/TPU,
+training, optimizer updates, tokenizer remapping, and runtime changes are not
+required. The smoke blocks mismatched student contracts before loading the
+batch or computing loss.
+
+No training, optimizer loop, Qwen-specific code, tokenizer remapping,
+cross-vocab adapter, hidden-state projection, recurrence math change,
+StudentBackend behavior change, StudentRuntime behavior change, fixture tensor
+edit, tolerance change, or Pallas promotion was introduced. P100 does not start
+P101.

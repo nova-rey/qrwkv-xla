@@ -1,5 +1,24 @@
 # QRWKV-XLA Roadmap
 
+## Phase 100 - Real-Teacher Offline Consumption Smoke
+
+Goal: consume a generic HFTeacherBackend artifact through the offline target
+path only after compatibility passes.
+
+Current checkpoint: `real_teacher_offline_consumption_smoke`. P100 adds a
+target-side smoke helper that reconstructs the artifact vocab contract, selects
+a compatible current student config, requires the P99 compatibility gate, loads
+the P95 offline batch, runs `CurrentQRWKVStudentBackend`, and computes a finite
+student-side MSE logits loss.
+
+Baseline tests use fake HFTeacherBackend objects, so transformers, internet,
+real model downloads, Qwen, GPU/TPU, training, optimizer updates, and tokenizer
+remapping are not required.
+
+Next: P101 StudentBackend Registry / Architecture Selection - make student
+architecture selectable by architecture id while keeping vocab contract and
+runtime separate.
+
 ## Phase 99 - Teacher/Student Compatibility Validator
 
 Goal: harden direct-logit eligibility so teacher artifacts can only be consumed

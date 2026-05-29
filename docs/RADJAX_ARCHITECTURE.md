@@ -84,6 +84,16 @@ targets, a tiny trainable logit head, P95 logits MSE, and local SGD to prove
 loss can move in a deterministic CPU-friendly rehearsal. It does not prove
 full QRWKV training readiness.
 
+Real-Teacher Offline Consumption:
+
+- `RealTeacherConsumptionResult`:
+  `src/qrwkv_xla/targets/real_teacher_consumption.py`
+- `run_real_teacher_offline_consumption_smoke()`
+
+This consumes generic `HFTeacherBackend`-style artifacts through the
+compatibility-gated offline target path. P100 requires P99 direct-logit
+eligibility before loading a batch or computing student-side loss.
+
 StudentBackend:
 
 - `StudentBackend` protocol: `src/qrwkv_xla/students/backend.py`
@@ -116,9 +126,9 @@ target storage, checkpoint formats, Pallas semantics, or fixture tensors.
 
 Likely future extraction layers:
 
-- real-teacher offline consumption
 - student architecture registry
 - second student backend smoke
+- tiny real-teacher overfit rehearsal
 - broader target support
 - real training/eval
 - Trainer boundary
@@ -139,3 +149,7 @@ runtime behavior changes.
 P99 implements only teacher/student compatibility validation and direct-logit
 eligibility classification. It does not consume real teacher artifacts with a
 student or add remapping/adapters.
+
+P100 implements only compatibility-gated real-teacher offline consumption smoke.
+It does not train, update parameters, remap tokenizers, or make Qwen-specific
+claims.
