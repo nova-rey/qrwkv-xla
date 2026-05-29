@@ -2034,3 +2034,20 @@ No training, optimizer loop, Qwen-specific code, tokenizer remapping,
 recurrence math change, runtime semantic change, CurrentQRWKV behavior change,
 fixture tensor edit, tolerance change, or Pallas promotion was introduced. P102
 does not start P103.
+
+## Phase 103 - Tiny Real-Teacher Overfit Rehearsal
+
+P103 began the Real-Teacher Rehearsal and Burn Readiness arc. A generic
+`HFTeacherBackend`-style artifact can now drive a tiny compatibility-gated
+overfit/update rehearsal with finite downward loss movement.
+
+The rehearsal extracts the artifact `VocabContract`, selects a compatible
+student through the registry, requires the P99 compatibility gate before
+loading or updating, loads the P95 offline target batch, and updates only a
+tiny trainable logit head over frozen student logits.
+
+Baseline tests use fake/mock HF paths, so transformers, internet, Qwen,
+GPU/TPU, large training, tokenizer remapping, recurrence math changes, runtime
+semantic changes, and Pallas promotion are not required. P103 does not prove
+full QRWKV parameter training or model quality. The phase also refreshed stale
+StudentBackend registry docs to list both `current_qrwkv` and `tiny_debug`.

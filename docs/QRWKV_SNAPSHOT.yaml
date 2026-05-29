@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 102
-current_phase: P102
-checkpoint: second_student_backend_smoke
+phase: 103
+current_phase: P103
+checkpoint: tiny_real_teacher_overfit_rehearsal
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,13 +56,33 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Close the current modularity arc by proving the StudentBackend registry can
-  select a second tiny/debug backend while preserving vocab-contract and runtime
-  separation.
+  Begin the Real-Teacher Rehearsal and Burn Readiness arc by proving a generic
+  HFTeacherBackend-style artifact can drive a tiny compatibility-gated update
+  rehearsal.
 
-post_pallas_status: modularity_arc_closure
+current_arc: real_teacher_rehearsal_and_burn_readiness
 
-recommended_next: P103 Tiny Real-Teacher Overfit Rehearsal
+post_pallas_status: burn_readiness_rehearsal_begun
+
+recommended_next: P104 Tiny HF Causal-LM Teacher Specimen Smoke
+
+p103:
+  goal: tiny_real_teacher_overfit_rehearsal
+  behavior_change_intended: false
+  real_teacher_style_targets_used: true
+  baseline_uses_fake_hf: true
+  hf_required_for_baseline_ci: false
+  internet_required: false
+  gpu_or_tpu_required: false
+  qwen_specific_code_added: false
+  tokenizer_remapping_added: false
+  training_kind: tiny_controlled_rehearsal
+  full_training_added: false
+  qrwkv_params_updated: false
+  compatibility_gate_required: true
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  recommended_next: P104 Tiny HF Causal-LM Teacher Specimen Smoke
 
 p102:
   goal: second_student_backend_smoke

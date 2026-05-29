@@ -1,5 +1,25 @@
 # QRWKV-XLA Roadmap
 
+## Phase 103 - Tiny Real-Teacher Overfit Rehearsal
+
+Goal: prove a generic HFTeacherBackend-style artifact can drive a tiny
+compatibility-gated update rehearsal.
+
+Current checkpoint: `tiny_real_teacher_overfit_rehearsal`. P103 adds
+`run_tiny_real_teacher_overfit_rehearsal()`, which extracts the artifact
+`VocabContract`, selects a student through the registry, requires the P99
+compatibility gate, loads the P95 offline target batch, and applies a tiny
+trainable logit head so finite loss moves downward.
+
+Baseline tests use fake HFTeacherBackend objects, so transformers, internet,
+real model downloads, Qwen, GPU/TPU, full training, tokenizer remapping, and
+trainer refactors are not required. P103 does not update QRWKV parameters or
+prove model quality.
+
+Next: P104 Tiny HF Causal-LM Teacher Specimen Smoke - exercise a small
+cache/local-files-only teacher specimen without changing the baseline CI
+requirements.
+
 ## Phase 102 - Second StudentBackend Smoke
 
 Goal: add a tiny/debug second backend to prove student architecture
@@ -17,7 +37,7 @@ changes, CurrentQRWKV behavior changes, or Pallas promotion.
 
 ## Real-Teacher Rehearsal and Burn Readiness Arc
 
-- P103 - Tiny Real-Teacher Overfit Rehearsal
+- P103 - Tiny Real-Teacher Overfit Rehearsal: complete
 - P104 - Tiny HF Causal-LM Teacher Specimen Smoke
 - P105 - Second Teacher-Specimen Swap Smoke
 - P106 - Multi-Shard TargetStore Smoke

@@ -1,7 +1,7 @@
 # StudentBackend Registry
 
-P101 adds the student backend registry and architecture selection slot. It does
-not add a second backend.
+P101 adds the student backend registry and architecture selection slot. P102
+adds the first second-backend socket test, `tiny_debug`.
 
 ## Purpose
 
@@ -22,7 +22,7 @@ tiny_debug
 
 `architecture_id=None` defaults to `current_qrwkv`.
 
-## Current Registered Architecture
+## Current Registered Architectures
 
 `current_qrwkv` creates `CurrentQRWKVStudentBackend` over the existing
 `rwkv7_qwen_reference` student config path. This preserves current behavior.
@@ -55,7 +55,7 @@ Student architecture is selected separately.
 Runtime is selected separately.
 ```
 
-## What P101 Proves
+## What P101/P102 Prove
 
 P101/P102 prove:
 
@@ -68,7 +68,7 @@ P101/P102 prove:
 - reference remains default
 - Pallas remains opt-in
 
-## What P101 Does Not Prove
+## What P101/P102 Do Not Prove
 
 P101 did not add a second backend. P102 adds only a debug/socket-test backend.
 Neither phase trains, adds optimizer loops, adds Qwen-specific student code,

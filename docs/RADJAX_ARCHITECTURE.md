@@ -94,6 +94,17 @@ This consumes generic `HFTeacherBackend`-style artifacts through the
 compatibility-gated offline target path. P100 requires P99 direct-logit
 eligibility before loading a batch or computing student-side loss.
 
+Real-Teacher Overfit Rehearsal:
+
+- `RealTeacherOverfitResult`:
+  `src/qrwkv_xla/training/real_teacher_overfit.py`
+- `run_tiny_real_teacher_overfit_rehearsal()`
+
+This consumes a generic `HFTeacherBackend`-style artifact through the registry,
+compatibility gate, offline target path, and a tiny trainable logit head. P103
+proves the real-teacher-style target path can drive finite downward loss
+movement without full QRWKV parameter training.
+
 StudentBackend:
 
 - `StudentBackend` protocol: `src/qrwkv_xla/students/backend.py`
@@ -142,16 +153,24 @@ target storage, checkpoint formats, Pallas semantics, or fixture tensors.
 
 Current modularity status:
 
-- teacher backend boundary: present
-- vocab contract boundary: present
-- student backend registry: present
+- teacher backend boundary: present and selectable by artifact source
+- vocab contract boundary: present and selected from teacher metadata
+- student architecture boundary: present and selectable through registry
+- runtime boundary: present and selectable separately
 - second student backend smoke: present
-- student runtime boundary: present
+- real-teacher-style tiny rehearsal: present
 
 Likely future extraction layers:
 
 - broader student backend support
-- tiny real-teacher overfit rehearsal
+- tiny HF causal-LM teacher specimen
+- second teacher-specimen swap
+- multi-shard target store
+- tiny dataset pipeline
+- checkpoint/resume/export rehearsal
+- TPU environment hygiene
+- mini eval
+- burn readiness
 - broader target support
 - real training/eval
 - Trainer boundary
@@ -182,3 +201,8 @@ P101 implements only the StudentBackend registry slot and default
 
 P102 adds only `tiny_debug`, a non-production second backend smoke. It closes
 the current modularity arc without changing CurrentQRWKV behavior.
+
+P103 adds only a tiny real-teacher-style overfit rehearsal. It uses fake
+HFTeacherBackend-style baseline artifacts, keeps the compatibility gate
+mandatory, and does not add Qwen-specific code, tokenizer remapping, full
+training, or runtime behavior changes.
