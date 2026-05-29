@@ -1859,3 +1859,21 @@ No recurrence math, WKV update equations, fixture tensors, tolerances, Pallas
 semantics, trainer behavior, TeacherBackend, or TeacherTargetStore behavior
 changed. `reference` remains the default runtime and `pallas` remains opt-in.
 P92 does not start P93.
+
+## Phase 93 - TeacherTargetStore Scaffold
+
+P93 introduced `TeacherTargetStore` as the first teacher-side artifact boundary
+in the post-Pallas Radjax-shaped extraction. The phase defines a versioned
+`metadata.json` contract plus local `.npz` shards for tiny stored teacher
+targets.
+
+The P93 store can create, open, write, read, list, and validate tiny synthetic
+logits-style target artifacts. Validation covers metadata schema/store version,
+target type, vocabulary and sequence dimensions, shard count, total example
+count, required arrays, shapes, and logits dtype.
+
+No live TeacherBackend, Hugging Face/Qwen loading, external model API,
+trainer/loss refactor, target consumption training, StudentBackend behavior
+change, StudentRuntime behavior change, recurrence math change, runtime
+semantic change, fixture tensor edit, tolerance change, or Pallas promotion was
+introduced. P93 does not start P94.

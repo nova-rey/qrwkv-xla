@@ -1,5 +1,22 @@
 # QRWKV-XLA Roadmap
 
+## Phase 93 - TeacherTargetStore Scaffold
+
+Goal: define reusable offline teacher-target artifacts without coupling teacher
+execution to student runtime.
+
+Current checkpoint: `teacher_target_store_scaffold`. P93 adds a versioned
+`TeacherTargetStore` metadata and shard layout under `qrwkv_xla.targets`,
+round-trips tiny synthetic logits-style artifacts, and validates schema,
+required arrays, shapes, dtype, shard count, and example count.
+
+P93 does not add a live TeacherBackend, load Hugging Face or Qwen, refactor the
+trainer, consume targets for training, change StudentBackend or StudentRuntime
+behavior, change recurrence math, or promote Pallas.
+
+Next: P94 Tiny TeacherBackend Emission Smoke - emit a tiny target artifact
+through a minimal teacher backend, still avoiding expensive Qwen-scale work.
+
 ## Phase 92 - StudentRuntime Split
 
 Goal: separate student architecture from execution runtime choices while

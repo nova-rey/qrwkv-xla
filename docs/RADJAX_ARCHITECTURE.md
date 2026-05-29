@@ -23,6 +23,15 @@ StudentRuntime:
 This is the execution path boundary. The current runtime choices are
 `reference_jax` and `pallas`.
 
+TeacherTargetStore:
+
+- `TargetStoreMetadata`: `src/qrwkv_xla/targets/schema.py`
+- `TeacherTargetStore`: `src/qrwkv_xla/targets/store.py`
+
+This is the versioned offline target artifact contract. P93 stores metadata in
+`metadata.json` and target arrays in local `.npz` shards. It decouples future
+teacher execution from student runtime without adding a live TeacherBackend.
+
 These wrappers delegate to existing QRWKV student and WKV behavior. They do not
 change recurrence math, WKV runtime policy, trainer behavior, teacher export,
 target storage, checkpoint formats, Pallas semantics, or fixture tensors.
@@ -36,9 +45,9 @@ target storage, checkpoint formats, Pallas semantics, or fixture tensors.
 
 Likely future extraction layers:
 
-- TeacherTargetStore
 - TeacherBackend
+- trainer target consumption
 - Trainer boundary
 - Evaluator and parity gates
 
-Those are not implemented in P92.
+Those are not implemented in P93.

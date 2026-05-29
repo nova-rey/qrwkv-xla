@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 92
-checkpoint: student_runtime_split
+phase: 93
+checkpoint: teacher_target_store_scaffold
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,11 +55,20 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Continue post-Pallas Radjax-shaped architecture extraction by separating the
-  student architecture-facing backend wrapper from the student execution
-  runtime boundary.
+  Continue post-Pallas Radjax-shaped architecture extraction by introducing a
+  versioned TeacherTargetStore scaffold for offline teacher-target artifacts.
 
 post_pallas_status: radjax_extraction_continues
+
+p93:
+  goal: teacher_target_store_scaffold
+  behavior_change_intended: false
+  live_teacher_backend_added: false
+  trainer_refactor_added: false
+  target_store_added: true
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  recommended_next: P94 Tiny TeacherBackend synthetic/tiny-HF emission smoke
 
 p92:
   goal: student_runtime_split
