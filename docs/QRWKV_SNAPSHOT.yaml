@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 101
-current_phase: P101
-checkpoint: student_backend_registry_architecture_selection
+phase: 102
+current_phase: P102
+checkpoint: second_student_backend_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,13 +56,33 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Continue post-Pallas Radjax-shaped architecture extraction by selecting
-  student backends through an explicit architecture_id registry while preserving
-  vocab-contract and runtime separation.
+  Close the current modularity arc by proving the StudentBackend registry can
+  select a second tiny/debug backend while preserving vocab-contract and runtime
+  separation.
 
-post_pallas_status: radjax_extraction_continues
+post_pallas_status: modularity_arc_closure
 
-recommended_next: P102 Second StudentBackend Smoke
+recommended_next: P103 Tiny Real-Teacher Overfit Rehearsal
+
+p102:
+  goal: second_student_backend_smoke
+  behavior_change_intended: false
+  second_student_backend_added: true
+  second_student_backend_id: tiny_debug
+  production_second_architecture: false
+  registry_swappability_proven: true
+  qwen_specific_code_added: false
+  training_added: false
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  recommended_next: P103 Tiny Real-Teacher Overfit Rehearsal
+
+current_modularity_arc_status:
+  teacher_backend_boundary: present
+  vocab_contract_boundary: present
+  student_backend_registry: present
+  second_student_backend_smoke: present
+  student_runtime_boundary: present
 
 p101:
   goal: student_backend_registry_architecture_selection

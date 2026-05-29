@@ -13,10 +13,11 @@ vocab contract and runtime remain separate inputs.
 
 The registry lives in `src/qrwkv_xla/students/registry.py`.
 
-The first registered architecture id is:
+Registered architecture ids:
 
 ```text
 current_qrwkv
+tiny_debug
 ```
 
 `architecture_id=None` defaults to `current_qrwkv`.
@@ -24,8 +25,11 @@ current_qrwkv
 ## Current Registered Architecture
 
 `current_qrwkv` creates `CurrentQRWKVStudentBackend` over the existing
-`rwkv7_qwen_reference` student config path. This preserves current behavior and
-does not add another architecture.
+`rwkv7_qwen_reference` student config path. This preserves current behavior.
+
+`tiny_debug` creates `TinyDebugStudentBackend`, a deterministic socket-test
+backend added in P102 to prove registry swappability. It is not a production
+architecture.
 
 ## Factory Inputs
 
@@ -53,11 +57,12 @@ Runtime is selected separately.
 
 ## What P101 Proves
 
-P101 proves:
+P101/P102 prove:
 
 - available architecture IDs can be listed
 - default selection returns `CurrentQRWKVStudentBackend`
 - explicit `current_qrwkv` selection works
+- explicit `tiny_debug` selection works
 - unknown IDs fail clearly
 - vocab contracts with different vocab sizes produce matching backend logits
 - reference remains default
@@ -65,12 +70,12 @@ P101 proves:
 
 ## What P101 Does Not Prove
 
-P101 does not add a second backend, implement `TinyDebugStudentBackend`, train,
-add optimizer loops, add Qwen-specific student code, change runtime semantics,
-change recurrence math, change fixture tensors, or promote Pallas.
+P101 did not add a second backend. P102 adds only a debug/socket-test backend.
+Neither phase trains, adds optimizer loops, adds Qwen-specific student code,
+changes runtime semantics, changes recurrence math, changes fixture tensors, or
+promotes Pallas.
 
 ## Future Phases
 
-P102 should add a tiny/debug second student backend to prove architecture
-swappability through this registry without changing teacher, vocab, or runtime
-contracts.
+After P102, future phases can add real-teacher rehearsal and burn-readiness
+work without changing teacher, vocab, or runtime contracts.

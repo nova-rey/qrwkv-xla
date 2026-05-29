@@ -66,6 +66,11 @@ from qrwkv_xla.students.student_runtime import (
     create_student_runtime,
 )
 from qrwkv_xla.students.tiny import TinyStudent, TinyStudentConfig
+from qrwkv_xla.students.tiny_debug_backend import (
+    TINY_DEBUG_ARCHITECTURE_ID,
+    TinyDebugState,
+    TinyDebugStudentBackend,
+)
 from qrwkv_xla.students.wkv_runtime import (
     PallasRuntimeUnavailableError,
     WKVRuntime,
@@ -95,6 +100,9 @@ __all__ = [
     "PallasStudentRuntime",
     "TinyStudent",
     "TinyStudentConfig",
+    "TINY_DEBUG_ARCHITECTURE_ID",
+    "TinyDebugState",
+    "TinyDebugStudentBackend",
     "WKVRuntime",
     "apply_lm_head",
     "apply_tied_lm_head",

@@ -2017,3 +2017,20 @@ No second backend, training, optimizer loop, Qwen-specific code, tokenizer
 remapping, recurrence math change, runtime semantic change, CurrentQRWKV
 behavior rewrite, fixture tensor edit, tolerance change, or Pallas promotion was
 introduced. P101 does not start P102.
+
+## Phase 102 - Second StudentBackend Smoke
+
+P102 closed the current modularity arc by adding a tiny/debug second
+`StudentBackend`. The registry can now select `current_qrwkv` or `tiny_debug`
+by `architecture_id` while preserving vocab-contract selection and runtime
+separation.
+
+`TinyDebugStudentBackend` proves the student architecture socket is not welded
+to `CurrentQRWKVStudentBackend`, but it is not a production model. It emits
+deterministic finite logits shaped by the `VocabContract`, round-trips minimal
+state, and can participate in a compatibility-gated finite loss smoke.
+
+No training, optimizer loop, Qwen-specific code, tokenizer remapping,
+recurrence math change, runtime semantic change, CurrentQRWKV behavior change,
+fixture tensor edit, tolerance change, or Pallas promotion was introduced. P102
+does not start P103.

@@ -106,11 +106,18 @@ not make CurrentQRWKV the permanent architecture.
 StudentBackend Registry:
 
 - `create_student_backend()`: `src/qrwkv_xla/students/registry.py`
-- Current architecture id: `current_qrwkv`
+- Architecture ids: `current_qrwkv`, `tiny_debug`
 
-This selects a student architecture by `architecture_id`. P101 registers only
-the current QRWKV backend and keeps vocab contract, architecture, and runtime as
-separate choices.
+This selects a student architecture by `architecture_id`. P101 added the
+registry slot; P102 adds `tiny_debug` as a socket-test second backend. Vocab
+contract, student architecture, and runtime remain separate choices.
+
+TinyDebugStudentBackend:
+
+- `TinyDebugStudentBackend`: `src/qrwkv_xla/students/tiny_debug_backend.py`
+
+This is a deterministic debug/socket-test backend proving architecture
+swappability. It is not a production model and does not support Pallas.
 
 StudentRuntime:
 
@@ -133,11 +140,17 @@ target storage, checkpoint formats, Pallas semantics, or fixture tensors.
 
 ## Later Boundaries
 
+Current modularity status:
+
+- teacher backend boundary: present
+- vocab contract boundary: present
+- student backend registry: present
+- second student backend smoke: present
+- student runtime boundary: present
+
 Likely future extraction layers:
 
-- second debug backend smoke
 - broader student backend support
-- second student backend smoke
 - tiny real-teacher overfit rehearsal
 - broader target support
 - real training/eval
@@ -166,3 +179,6 @@ claims.
 
 P101 implements only the StudentBackend registry slot and default
 `current_qrwkv` architecture selection. It does not add a second backend.
+
+P102 adds only `tiny_debug`, a non-production second backend smoke. It closes
+the current modularity arc without changing CurrentQRWKV behavior.

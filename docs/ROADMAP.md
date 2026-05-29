@@ -1,5 +1,33 @@
 # QRWKV-XLA Roadmap
 
+## Phase 102 - Second StudentBackend Smoke
+
+Goal: add a tiny/debug second backend to prove student architecture
+swappability through the registry.
+
+Current checkpoint: `second_student_backend_smoke`. P102 adds
+`TinyDebugStudentBackend` and registers it as `tiny_debug` alongside
+`current_qrwkv`. The backend is deterministic, obeys `VocabContract` vocab
+size, round-trips minimal state, and can compute finite loss after the existing
+compatibility gate.
+
+P102 closes the current modularity arc. It does not add a production second
+architecture, training, optimizer updates, Qwen-specific code, recurrence math
+changes, CurrentQRWKV behavior changes, or Pallas promotion.
+
+## Real-Teacher Rehearsal and Burn Readiness Arc
+
+- P103 - Tiny Real-Teacher Overfit Rehearsal
+- P104 - Tiny HF Causal-LM Teacher Specimen Smoke
+- P105 - Second Teacher-Specimen Swap Smoke
+- P106 - Multi-Shard TargetStore Smoke
+- P107 - Tiny Dataset Pipeline Smoke
+- P108 - Checkpoint / Resume / Export Rehearsal
+- P109 - TPU Environment Hygiene / Runtime Readiness
+- P110 - Mini Eval Harness Smoke
+- P111 - Big Burn Readiness Report
+- P112 - First Serious Compute Burn
+
 ## Phase 101 - StudentBackend Registry / Architecture Selection
 
 Goal: make student architecture selectable by architecture id while preserving

@@ -7,6 +7,10 @@ from qrwkv_xla.contracts import VocabContract
 from qrwkv_xla.students.backend import StudentBackend
 from qrwkv_xla.students.config_selection import qrwkv_student_config_from_vocab_contract
 from qrwkv_xla.students.current_backend import CurrentQRWKVStudentBackend
+from qrwkv_xla.students.tiny_debug_backend import (
+    TINY_DEBUG_ARCHITECTURE_ID,
+    TinyDebugStudentBackend,
+)
 from qrwkv_xla.students.wkv_runtime import WKVRuntime
 
 CURRENT_QRWKV_ARCHITECTURE_ID: Final = "current_qrwkv"
@@ -22,7 +26,11 @@ _STUDENT_BACKEND_REGISTRY: dict[str, StudentBackendSpec] = {
     CURRENT_QRWKV_ARCHITECTURE_ID: StudentBackendSpec(
         architecture_id=CURRENT_QRWKV_ARCHITECTURE_ID,
         description="Current QRWKV backend adapter over rwkv7_qwen_reference",
-    )
+    ),
+    TINY_DEBUG_ARCHITECTURE_ID: StudentBackendSpec(
+        architecture_id=TINY_DEBUG_ARCHITECTURE_ID,
+        description="Tiny deterministic debug backend for registry smoke tests",
+    ),
 }
 
 
@@ -67,6 +75,11 @@ def create_student_backend(
             tie_embeddings=selected.config.tie_embeddings,
             emit_mixer_outputs=selected.config.emit_mixer_outputs,
             runtime=runtime if runtime is not None else selected.runtime,
+        )
+    if selected_architecture_id == TINY_DEBUG_ARCHITECTURE_ID:
+        return TinyDebugStudentBackend(
+            vocab_contract=vocab_contract,
+            runtime=_runtime_to_wkv_runtime(runtime) or WKVRuntime.REFERENCE,
         )
     raise AssertionError(
         f"unhandled student architecture_id {selected_architecture_id!r}"
