@@ -6,13 +6,31 @@ student-runtime-agnostic Radjax-style platform.
 
 ## Current Extracted Boundaries
 
+VocabContract:
+
+- `VocabContract`: `src/qrwkv_xla/contracts/vocab.py`
+- `validate_vocab_compatibility()`: `src/qrwkv_xla/contracts/compatibility.py`
+
+This declares tokenizer and vocabulary identity emitted by a teacher or stored
+target artifact. P97 keeps direct logits loss compatibility explicit and does
+not add tokenizer remapping.
+
+StudentConfig Selection:
+
+- `SelectedStudentConfig`: `src/qrwkv_xla/students/config_selection.py`
+- `qrwkv_student_config_from_vocab_contract()`
+
+This instantiates vocab-dependent student dimensions from a `VocabContract`
+while keeping architecture and runtime selection separate.
+
 TeacherBackend:
 
 - `TeacherBackend` protocol: `src/qrwkv_xla/teachers/backend.py`
 - `SyntheticTeacherBackend`: `src/qrwkv_xla/teachers/synthetic.py`
 
 This is the source of teacher targets. P94 only includes deterministic
-synthetic emission; live HF/Qwen teacher backends are future work.
+synthetic emission; live HF/Qwen teacher backends are future work. Future real
+teacher backends must emit or declare a `VocabContract`.
 
 TeacherTargetStore:
 
@@ -21,7 +39,8 @@ TeacherTargetStore:
 
 This is the versioned offline target artifact contract. P93 stores metadata in
 `metadata.json` and target arrays in local `.npz` shards. It decouples teacher
-execution from student runtime.
+execution from student runtime. The existing model/tokenizer/vocab metadata can
+reconstruct a `VocabContract`.
 
 OfflineTargetConsumption:
 
@@ -49,7 +68,8 @@ StudentBackend:
 - `CurrentQRWKVStudentBackend`: `src/qrwkv_xla/students/current_backend.py`
 
 This is the architecture-facing wrapper around the validated QRWKV student
-core.
+core. A selected architecture consumes a compatible student config; P97 does
+not make CurrentQRWKV the permanent architecture.
 
 StudentRuntime:
 
@@ -58,7 +78,8 @@ StudentRuntime:
 - `PallasStudentRuntime`
 
 This is the execution path boundary. The current runtime choices are
-`reference_jax` and `pallas`.
+`reference_jax` and `pallas`. Runtime remains separate from architecture and
+vocab contract selection.
 
 These wrappers delegate to existing QRWKV student and WKV behavior. They do not
 change recurrence math, WKV runtime policy, trainer behavior, teacher export,
@@ -82,3 +103,7 @@ Likely future extraction layers:
 P96 implements only a tiny controlled rehearsal. It does not add live teacher
 backends, broad trainer extraction, Qwen loading, GPU/TPU requirements, or
 model-quality claims.
+
+P97 implements only token/vocab contracts and current-student config selection.
+It does not add real HF/Qwen teachers, tokenizer remapping, architecture
+registry work, or runtime behavior changes.

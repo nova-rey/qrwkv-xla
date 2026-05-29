@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 96
-current_phase: P96
-checkpoint: tiny_overfit_rehearsal
+phase: 97
+current_phase: P97
+checkpoint: token_vocab_contract_and_student_config_selection
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,13 +56,27 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Continue post-Pallas Radjax-shaped architecture extraction by proving stored
-  synthetic teacher targets can drive a tiny deterministic CPU-friendly
-  loss/update rehearsal where loss moves.
+  Continue post-Pallas Radjax-shaped architecture extraction by making
+  teacher/tokenizer vocab contracts explicit and selecting compatible student
+  configs from those contracts without tokenizer remapping.
 
 post_pallas_status: radjax_extraction_continues
 
-recommended_next: P97 Small Qwen-family Smoke
+recommended_next: P98 Generic HF TeacherBackend Emission Smoke
+
+p97:
+  goal: token_vocab_contract_and_student_config_selection
+  behavior_change_intended: false
+  vocab_contract_added: true
+  student_config_selection_added: true
+  compatibility_validator_added: true
+  tokenizer_remapping_added: false
+  real_teacher_backend_added: false
+  qwen_required: false
+  student_architecture_registry_added: false
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  recommended_next: P98 Generic HF TeacherBackend Emission Smoke
 
 p96:
   goal: tiny_overfit_rehearsal

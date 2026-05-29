@@ -1932,3 +1932,19 @@ No live Hugging Face/Qwen teacher, large training run, trainer refactor,
 recurrence math change, runtime semantic change, fixture tensor edit, tolerance
 change, GPU/TPU requirement, distributed training, or Pallas promotion was
 introduced. P96 does not start P97.
+
+## Phase 97 - Token/Vocab Contract and Student Config Selection
+
+P97 introduced `VocabContract` and student config selection from that contract.
+Teacher and target metadata can now declare a tokenizer/vocab contract, and
+student configs can be instantiated with matching vocab-dependent dimensions.
+
+Synthetic contracts with vocab sizes 8 and 16 prove compatible configs can be
+born from different contracts. Initialized student token embeddings, LM-head
+parameters, and logits match the selected vocab size. Contract mismatches fail
+clearly for vocab size, tokenizer id, and tokenizer hash differences.
+
+No real Hugging Face/Qwen teacher, tokenizer remapping, cross-vocab adapter,
+training, optimizer loop, recurrence math change, runtime semantic change,
+fixture tensor edit, tolerance change, student architecture registry, or Pallas
+promotion was introduced. P97 does not start P98.

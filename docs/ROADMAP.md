@@ -1,5 +1,24 @@
 # QRWKV-XLA Roadmap
 
+## Phase 97 - Token/Vocab Contract and Student Config Selection
+
+Goal: make teacher/tokenizer vocab contracts explicit and instantiate
+compatible student configs from them.
+
+Current checkpoint: `token_vocab_contract_and_student_config_selection`. P97
+adds `VocabContract`, compatibility validation, and current QRWKV student config
+selection from a contract. Synthetic contracts with vocab sizes 8 and 16 prove
+that student configs can be born from different contracts, initialized student
+logits match the selected vocab size, and mismatches fail clearly.
+
+P97 does not add real Hugging Face/Qwen teacher loading, tokenizer remapping,
+cross-vocab adapters, training, recurrence math changes, StudentRuntime
+changes, or Pallas promotion.
+
+Next: P98 Generic HF TeacherBackend Emission Smoke - add a generic HF-backed
+teacher emission path using tiny/cache-safe models while preserving
+vocab-contract metadata.
+
 ## Phase 96 - Tiny Overfit Rehearsal
 
 Goal: prove stored synthetic targets can drive a tiny deterministic

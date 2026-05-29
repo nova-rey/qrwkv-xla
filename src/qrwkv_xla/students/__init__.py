@@ -2,6 +2,10 @@
 
 from qrwkv_xla.students.backend import StudentBackend
 from qrwkv_xla.students.base import StudentModel, StudentOutput
+from qrwkv_xla.students.config_selection import (
+    SelectedStudentConfig,
+    qrwkv_student_config_from_vocab_contract,
+)
 from qrwkv_xla.students.current_backend import (
     CurrentQRWKVStudentBackend,
     create_current_qrwkv_student_backend,
@@ -77,6 +81,7 @@ __all__ = [
     "StudentBackend",
     "StudentOutput",
     "StudentRuntime",
+    "SelectedStudentConfig",
     "ReferenceJaxStudentRuntime",
     "PallasStudentRuntime",
     "TinyStudent",
@@ -88,6 +93,7 @@ __all__ = [
     "CurrentQRWKVStudentBackend",
     "create_student",
     "create_current_qrwkv_student_backend",
+    "qrwkv_student_config_from_vocab_contract",
     "create_student_runtime",
     "init_lm_head_params",
     "normalize_wkv_runtime",
