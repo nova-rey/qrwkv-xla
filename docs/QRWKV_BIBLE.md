@@ -1877,3 +1877,20 @@ trainer/loss refactor, target consumption training, StudentBackend behavior
 change, StudentRuntime behavior change, recurrence math change, runtime
 semantic change, fixture tensor edit, tolerance change, or Pallas promotion was
 introduced. P93 does not start P94.
+
+## Phase 94 - Tiny TeacherBackend Emission Smoke
+
+P94 introduced a minimal `TeacherBackend` boundary and deterministic
+`SyntheticTeacherBackend`. This is the first teacher-side emission smoke in the
+post-Pallas Radjax-shaped extraction.
+
+The synthetic backend emits tiny deterministic `input_ids`, `attention_mask`,
+and `logits` arrays into the P93 `TeacherTargetStore` layout:
+`metadata.json` plus `shards/shard-00000.npz`. The emission helper validates the
+store and returns a readable artifact.
+
+No live Hugging Face/Qwen teacher, model download, external API, trainer/loss
+refactor, target consumption, training, StudentBackend behavior change,
+StudentRuntime behavior change, recurrence math change, runtime semantic
+change, fixture tensor edit, tolerance change, TPU/GPU requirement, or Pallas
+promotion was introduced. P94 does not start P95.

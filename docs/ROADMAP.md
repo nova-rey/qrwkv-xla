@@ -1,5 +1,25 @@
 # QRWKV-XLA Roadmap
 
+## Phase 94 - Tiny TeacherBackend Emission Smoke
+
+Goal: add a deterministic synthetic teacher backend that emits valid
+TeacherTargetStore artifacts.
+
+Current checkpoint: `tiny_teacher_backend_emission_smoke`. P94 adds a minimal
+`TeacherBackend` protocol, `SyntheticTeacherBackend`, and
+`emit_teacher_target_store()` helper. The synthetic backend emits deterministic
+tiny `input_ids`, `attention_mask`, and `logits` arrays into the P93
+`metadata.json` plus `shards/shard-00000.npz` layout, then validates and
+round-trips the artifact.
+
+P94 does not add a live Hugging Face/Qwen teacher, require internet, refactor
+trainer/loss code, make students consume targets, run training, change
+StudentBackend or StudentRuntime behavior, change recurrence math, or promote
+Pallas.
+
+Next: P95 Offline Target Consumption Smoke - load a stored target artifact and
+compute a student-side loss without requiring a live teacher.
+
 ## Phase 93 - TeacherTargetStore Scaffold
 
 Goal: define reusable offline teacher-target artifacts without coupling teacher

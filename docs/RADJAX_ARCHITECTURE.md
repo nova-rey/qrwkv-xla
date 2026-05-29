@@ -6,6 +6,23 @@ student-runtime-agnostic Radjax-style platform.
 
 ## Current Extracted Boundaries
 
+TeacherBackend:
+
+- `TeacherBackend` protocol: `src/qrwkv_xla/teachers/backend.py`
+- `SyntheticTeacherBackend`: `src/qrwkv_xla/teachers/synthetic.py`
+
+This is the source of teacher targets. P94 only includes deterministic
+synthetic emission; live HF/Qwen teacher backends are future work.
+
+TeacherTargetStore:
+
+- `TargetStoreMetadata`: `src/qrwkv_xla/targets/schema.py`
+- `TeacherTargetStore`: `src/qrwkv_xla/targets/store.py`
+
+This is the versioned offline target artifact contract. P93 stores metadata in
+`metadata.json` and target arrays in local `.npz` shards. It decouples teacher
+execution from student runtime.
+
 StudentBackend:
 
 - `StudentBackend` protocol: `src/qrwkv_xla/students/backend.py`
@@ -23,15 +40,6 @@ StudentRuntime:
 This is the execution path boundary. The current runtime choices are
 `reference_jax` and `pallas`.
 
-TeacherTargetStore:
-
-- `TargetStoreMetadata`: `src/qrwkv_xla/targets/schema.py`
-- `TeacherTargetStore`: `src/qrwkv_xla/targets/store.py`
-
-This is the versioned offline target artifact contract. P93 stores metadata in
-`metadata.json` and target arrays in local `.npz` shards. It decouples future
-teacher execution from student runtime without adding a live TeacherBackend.
-
 These wrappers delegate to existing QRWKV student and WKV behavior. They do not
 change recurrence math, WKV runtime policy, trainer behavior, teacher export,
 target storage, checkpoint formats, Pallas semantics, or fixture tensors.
@@ -45,9 +53,10 @@ target storage, checkpoint formats, Pallas semantics, or fixture tensors.
 
 Likely future extraction layers:
 
-- TeacherBackend
-- trainer target consumption
+- offline target consumption
+- tiny overfit rehearsal
+- small Qwen-family smoke
 - Trainer boundary
 - Evaluator and parity gates
 
-Those are not implemented in P93.
+Those are not implemented in P94.

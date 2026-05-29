@@ -98,7 +98,9 @@ P93 validation catches:
 
 ## Future Phases
 
-- P94: tiny TeacherBackend emission smoke
 - P95: offline target consumption smoke
 - P96: tiny overfit rehearsal
 - P97: small Qwen-family smoke through the modular path
+
+P94 adds the first tiny synthetic `TeacherBackend` emission smoke on top of
+this store contract. It still does not add a live HF/Qwen teacher.
