@@ -33,6 +33,16 @@ This is the first student-side consumption boundary for stored teacher
 targets. P95 loads validated offline shards and computes a finite logits MSE
 against the current student logits surface without requiring a live teacher.
 
+TinyOverfitRehearsal:
+
+- `TinyOverfitResult`: `src/qrwkv_xla/training/tiny_overfit.py`
+- `run_tiny_overfit_rehearsal()`
+
+This is the first tiny stored-target update loop. P96 uses offline synthetic
+targets, a tiny trainable logit head, P95 logits MSE, and local SGD to prove
+loss can move in a deterministic CPU-friendly rehearsal. It does not prove
+full QRWKV training readiness.
+
 StudentBackend:
 
 - `StudentBackend` protocol: `src/qrwkv_xla/students/backend.py`
@@ -63,10 +73,12 @@ target storage, checkpoint formats, Pallas semantics, or fixture tensors.
 
 Likely future extraction layers:
 
-- tiny overfit rehearsal
 - small Qwen-family smoke
+- broader target support
+- real training/eval
 - Trainer boundary
 - Evaluator and parity gates
 
-P95 implements only offline target consumption. It does not add training,
-optimizers, live teacher backends, or trainer extraction.
+P96 implements only a tiny controlled rehearsal. It does not add live teacher
+backends, broad trainer extraction, Qwen loading, GPU/TPU requirements, or
+model-quality claims.

@@ -1915,3 +1915,20 @@ No optimizer, training loop, gradient update, live Hugging Face/Qwen teacher,
 external API, trainer refactor, recurrence math change, runtime semantic
 change, fixture tensor edit, tolerance change, TPU/GPU requirement, or Pallas
 promotion was introduced. P95 does not start P96.
+
+## Phase 96 - Tiny Overfit Rehearsal
+
+P96 introduced a tiny overfit rehearsal for the offline target path. Stored
+synthetic teacher targets can now drive a deterministic CPU-friendly
+loss/update loop, and the rehearsal verifies finite loss movement.
+
+The update strategy is the documented `tiny_trainable_logit_head` fallback: a
+small trainable logit head with row, position, token, and vocabulary biases,
+optimized by local SGD against the P95 logits MSE. This proves the offline
+artifact/loss/update loop can move loss, but it does not prove full QRWKV
+student training readiness.
+
+No live Hugging Face/Qwen teacher, large training run, trainer refactor,
+recurrence math change, runtime semantic change, fixture tensor edit, tolerance
+change, GPU/TPU requirement, distributed training, or Pallas promotion was
+introduced. P96 does not start P97.

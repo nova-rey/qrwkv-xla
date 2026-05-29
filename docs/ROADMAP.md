@@ -1,5 +1,24 @@
 # QRWKV-XLA Roadmap
 
+## Phase 96 - Tiny Overfit Rehearsal
+
+Goal: prove stored synthetic targets can drive a tiny deterministic
+loss/update loop where loss moves.
+
+Current checkpoint: `tiny_overfit_rehearsal`. P96 adds
+`run_tiny_overfit_rehearsal()` and a `TinyOverfitResult` report. The rehearsal
+loads synthetic `TeacherTargetStore` targets, creates an offline target batch,
+computes P95 logits MSE through a tiny trainable logit head, applies local SGD,
+and verifies finite downward loss movement.
+
+P96 uses the `tiny_trainable_logit_head` fallback path. It does not prove full
+QRWKV student training readiness, Qwen support, production distillation, model
+quality, or large-scale performance.
+
+Next: P97 Small Qwen-family Smoke - introduce a small/tiny real teacher-family
+emission path through the modular target-store pipeline without large-scale
+training.
+
 ## Phase 95 - Offline Target Consumption Smoke
 
 Goal: load stored teacher targets and compute a student-side logits loss

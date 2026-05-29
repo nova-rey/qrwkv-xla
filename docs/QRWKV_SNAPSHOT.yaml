@@ -1,6 +1,7 @@
 project: QRWKV-XLA
-phase: 95
-checkpoint: offline_target_consumption_smoke
+phase: 96
+current_phase: P96
+checkpoint: tiny_overfit_rehearsal
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,11 +56,27 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Continue post-Pallas Radjax-shaped architecture extraction by loading stored
-  TeacherTargetStore shards into a student-side offline batch and computing a
-  finite logits loss without a live teacher.
+  Continue post-Pallas Radjax-shaped architecture extraction by proving stored
+  synthetic teacher targets can drive a tiny deterministic CPU-friendly
+  loss/update rehearsal where loss moves.
 
 post_pallas_status: radjax_extraction_continues
+
+recommended_next: P97 Small Qwen-family Smoke
+
+p96:
+  goal: tiny_overfit_rehearsal
+  behavior_change_intended: false
+  live_teacher_required: false
+  hf_or_qwen_required: false
+  gpu_or_tpu_required: false
+  optimizer_scope: tiny_local_sgd
+  training_kind: tiny_controlled_rehearsal
+  update_strategy: tiny_trainable_logit_head
+  loss_movement_required: true
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  recommended_next: P97 Small Qwen-family Smoke
 
 p95:
   goal: offline_target_consumption_smoke
