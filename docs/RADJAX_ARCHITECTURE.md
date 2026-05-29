@@ -51,7 +51,19 @@ HFTeacherBackend:
 
 This is the first generic optional backend for HF-style causal LM target
 emission. P98 keeps it cache/local-files-only by default, optional-dependency
-safe, and not Qwen-specific.
+safe, model-id configurable, and not Qwen- or GPT-2-specific.
+
+Tiny HF Causal-LM Teacher Specimen:
+
+- `run_hf_teacher_specimen_smoke()`:
+  `src/qrwkv_xla/teachers/hf_specimen_smoke.py`
+- `scripts/run_hf_teacher_specimen_smoke.py`
+
+This is an optional cache-local live specimen smoke for the generic
+`HFTeacherBackend`. P104 can emit and validate a real `full_logits`
+`TeacherTargetStore` artifact when optional HF dependencies and local model
+files are available. The specimen model id is configurable and does not become
+a special architecture path.
 
 TeacherTargetStore:
 
@@ -159,11 +171,11 @@ Current modularity status:
 - runtime boundary: present and selectable separately
 - second student backend smoke: present
 - real-teacher-style tiny rehearsal: present
+- optional HF causal-LM specimen smoke: present
 
 Likely future extraction layers:
 
 - broader student backend support
-- tiny HF causal-LM teacher specimen
 - second teacher-specimen swap
 - multi-shard target store
 - tiny dataset pipeline
@@ -206,3 +218,8 @@ P103 adds only a tiny real-teacher-style overfit rehearsal. It uses fake
 HFTeacherBackend-style baseline artifacts, keeps the compatibility gate
 mandatory, and does not add Qwen-specific code, tokenizer remapping, full
 training, or runtime behavior changes.
+
+P104 adds only an optional tiny HF causal-LM specimen smoke. It keeps baseline
+tests fake/mock-safe, defaults to local-files-only behavior, and does not add
+student consumption, training, tokenizer remapping, Qwen-specific behavior, or
+GPT-2-specific architecture assumptions.

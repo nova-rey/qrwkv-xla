@@ -2051,3 +2051,19 @@ GPU/TPU, large training, tokenizer remapping, recurrence math changes, runtime
 semantic changes, and Pallas promotion are not required. P103 does not prove
 full QRWKV parameter training or model quality. The phase also refreshed stale
 StudentBackend registry docs to list both `current_qrwkv` and `tiny_debug`.
+
+## Phase 104 - Tiny HF Causal-LM Teacher Specimen Smoke
+
+P104 added a tiny HF causal-LM teacher specimen smoke for the generic
+`HFTeacherBackend`. The smoke is optional/cache-local and can emit a real
+`full_logits` `TeacherTargetStore` artifact with tokenizer and vocab metadata
+when optional dependencies and local model files are available.
+
+The model id is configurable, defaults to a tiny HF testing specimen, and is
+not a special architecture path. Missing `transformers` or local model cache is
+reported as `unavailable`; downloads are opt-in only.
+
+Baseline tests do not require transformers, internet, downloaded models, Qwen,
+GPU/TPU, student consumption, training, tokenizer remapping, recurrence math
+changes, or runtime changes. The phase also kept StudentBackend registry docs
+explicit about both `current_qrwkv` and `tiny_debug`.

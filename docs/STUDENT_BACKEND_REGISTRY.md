@@ -77,5 +77,6 @@ promotes Pallas.
 
 ## Future Phases
 
-After P102, future phases can add real-teacher rehearsal and burn-readiness
-work without changing teacher, vocab, or runtime contracts.
+The real-teacher rehearsal and burn-readiness arc can continue without changing
+the registry contract: `current_qrwkv` remains the default, and `tiny_debug`
+remains a non-production socket-test backend.

@@ -1,5 +1,24 @@
 # QRWKV-XLA Roadmap
 
+## Phase 104 - Tiny HF Causal-LM Teacher Specimen Smoke
+
+Goal: use one tiny real/cache-safe HF causal LM as a specimen for generic
+`HFTeacherBackend` emission without making GPT-2 or Qwen special.
+
+Current checkpoint: `tiny_hf_causal_lm_teacher_specimen_smoke`. P104 adds
+`run_hf_teacher_specimen_smoke()` and
+`scripts/run_hf_teacher_specimen_smoke.py`. The smoke defaults to
+`local_files_only=True`, reports missing optional dependencies or local model
+cache as `unavailable`, and emits a valid `full_logits` `TeacherTargetStore`
+artifact when the specimen is available.
+
+Baseline tests use fake HF objects, so transformers, internet, downloaded
+models, Qwen, GPU/TPU, student consumption, training, tokenizer remapping, and
+runtime changes are not required.
+
+Next: P105 Second Teacher-Specimen Swap Smoke - prove changing teacher
+specimen/model id does not require architecture surgery.
+
 ## Phase 103 - Tiny Real-Teacher Overfit Rehearsal
 
 Goal: prove a generic HFTeacherBackend-style artifact can drive a tiny
@@ -38,7 +57,7 @@ changes, CurrentQRWKV behavior changes, or Pallas promotion.
 ## Real-Teacher Rehearsal and Burn Readiness Arc
 
 - P103 - Tiny Real-Teacher Overfit Rehearsal: complete
-- P104 - Tiny HF Causal-LM Teacher Specimen Smoke
+- P104 - Tiny HF Causal-LM Teacher Specimen Smoke: complete
 - P105 - Second Teacher-Specimen Swap Smoke
 - P106 - Multi-Shard TargetStore Smoke
 - P107 - Tiny Dataset Pipeline Smoke

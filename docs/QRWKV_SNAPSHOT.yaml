@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 103
-current_phase: P103
-checkpoint: tiny_real_teacher_overfit_rehearsal
+phase: 104
+current_phase: P104
+checkpoint: tiny_hf_causal_lm_teacher_specimen_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,15 +56,34 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Begin the Real-Teacher Rehearsal and Burn Readiness arc by proving a generic
-  HFTeacherBackend-style artifact can drive a tiny compatibility-gated update
-  rehearsal.
+  Prove the generic HFTeacherBackend can optionally emit a valid target artifact
+  from one tiny cache-local HF causal-LM specimen without making the specimen a
+  special architecture path.
 
 current_arc: real_teacher_rehearsal_and_burn_readiness
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
-recommended_next: P104 Tiny HF Causal-LM Teacher Specimen Smoke
+recommended_next: P105 Second Teacher-Specimen Swap Smoke
+
+p104:
+  goal: tiny_hf_causal_lm_teacher_specimen_smoke
+  behavior_change_intended: false
+  optional_live_hf_specimen_added: true
+  default_specimen_model_id: hf-internal-testing/tiny-random-gpt2
+  baseline_requires_transformers: false
+  baseline_requires_internet: false
+  baseline_requires_downloaded_model: false
+  baseline_requires_gpu_or_tpu: false
+  qwen_specific_code_added: false
+  gpt2_specific_architecture_added: false
+  student_consumption_added: false
+  training_added: false
+  optimizer_added: false
+  tokenizer_remapping_added: false
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  recommended_next: P105 Second Teacher-Specimen Swap Smoke
 
 p103:
   goal: tiny_real_teacher_overfit_rehearsal
