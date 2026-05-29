@@ -1,6 +1,6 @@
 project: QRWKV-XLA
-phase: 94
-checkpoint: tiny_teacher_backend_emission_smoke
+phase: 95
+checkpoint: offline_target_consumption_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -55,11 +55,23 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Continue post-Pallas Radjax-shaped architecture extraction by introducing a
-  minimal deterministic TeacherBackend that emits valid TeacherTargetStore
-  artifacts.
+  Continue post-Pallas Radjax-shaped architecture extraction by loading stored
+  TeacherTargetStore shards into a student-side offline batch and computing a
+  finite logits loss without a live teacher.
 
 post_pallas_status: radjax_extraction_continues
+
+p95:
+  goal: offline_target_consumption_smoke
+  behavior_change_intended: false
+  live_teacher_required: false
+  training_performed: false
+  optimizer_added: false
+  target_consumption_added: true
+  loss_smoke_added: true
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  recommended_next: P96 Tiny Overfit Rehearsal
 
 p94:
   goal: tiny_teacher_backend_emission_smoke

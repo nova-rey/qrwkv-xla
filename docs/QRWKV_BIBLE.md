@@ -1894,3 +1894,24 @@ refactor, target consumption, training, StudentBackend behavior change,
 StudentRuntime behavior change, recurrence math change, runtime semantic
 change, fixture tensor edit, tolerance change, TPU/GPU requirement, or Pallas
 promotion was introduced. P94 does not start P95.
+
+## Phase 95 - Offline Target Consumption Smoke
+
+P95 introduced the first student-side offline target consumption boundary for
+the P93/P94 teacher target artifact path.
+
+`OfflineTargetBatch` and `load_offline_target_batch()` load a validated
+`TeacherTargetStore` shard into `input_ids`, `attention_mask`, and
+`teacher_logits` arrays. `mse_logits_loss()` computes a scalar logits MSE and
+fails clearly when student and teacher logits shapes differ.
+
+The smoke uses the deterministic `SyntheticTeacherBackend` to create the store
+and the real `CurrentQRWKVStudentBackend` with `emit_logits=True` to produce
+student logits of the same vocabulary shape. This proves offline stored targets
+can reach the current student logits/loss surface without requiring a live
+teacher process.
+
+No optimizer, training loop, gradient update, live Hugging Face/Qwen teacher,
+external API, trainer refactor, recurrence math change, runtime semantic
+change, fixture tensor edit, tolerance change, TPU/GPU requirement, or Pallas
+promotion was introduced. P95 does not start P96.

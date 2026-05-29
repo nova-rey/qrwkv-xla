@@ -9,6 +9,11 @@ from qrwkv_xla.targets.bundle import (
     write_manifest,
     write_target_bundle,
 )
+from qrwkv_xla.targets.consumption import (
+    OfflineTargetBatch,
+    load_offline_target_batch,
+    mse_logits_loss,
+)
 from qrwkv_xla.targets.manifest import (
     TargetFlags,
     TargetShardInfo,
@@ -39,6 +44,7 @@ from qrwkv_xla.targets.validate import (
 __all__ = [
     "REQUIRED_SHARD_KEYS",
     "LoadedTeacherTargetBundle",
+    "OfflineTargetBatch",
     "TargetFlags",
     "TargetShardInfo",
     "TargetStoreMetadata",
@@ -48,9 +54,11 @@ __all__ = [
     "TeacherTargetManifest",
     "hash_shard_arrays",
     "inspect_target_bundle",
+    "load_offline_target_batch",
     "load_teacher_target_bundle",
     "manifest_from_dict",
     "manifest_to_dict",
+    "mse_logits_loss",
     "read_manifest",
     "read_shard",
     "target_store_metadata_from_dict",

@@ -23,6 +23,16 @@ This is the versioned offline target artifact contract. P93 stores metadata in
 `metadata.json` and target arrays in local `.npz` shards. It decouples teacher
 execution from student runtime.
 
+OfflineTargetConsumption:
+
+- `OfflineTargetBatch`: `src/qrwkv_xla/targets/consumption.py`
+- `load_offline_target_batch()`
+- `mse_logits_loss()`
+
+This is the first student-side consumption boundary for stored teacher
+targets. P95 loads validated offline shards and computes a finite logits MSE
+against the current student logits surface without requiring a live teacher.
+
 StudentBackend:
 
 - `StudentBackend` protocol: `src/qrwkv_xla/students/backend.py`
@@ -53,10 +63,10 @@ target storage, checkpoint formats, Pallas semantics, or fixture tensors.
 
 Likely future extraction layers:
 
-- offline target consumption
 - tiny overfit rehearsal
 - small Qwen-family smoke
 - Trainer boundary
 - Evaluator and parity gates
 
-Those are not implemented in P94.
+P95 implements only offline target consumption. It does not add training,
+optimizers, live teacher backends, or trainer extraction.

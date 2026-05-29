@@ -1,5 +1,23 @@
 # QRWKV-XLA Roadmap
 
+## Phase 95 - Offline Target Consumption Smoke
+
+Goal: load stored teacher targets and compute a student-side logits loss
+without requiring a live teacher.
+
+Current checkpoint: `offline_target_consumption_smoke`. P95 adds
+`OfflineTargetBatch`, `load_offline_target_batch()`, and `mse_logits_loss()`.
+The smoke emits deterministic synthetic targets into the P93 store, loads the
+offline shard, runs the real `CurrentQRWKVStudentBackend` with matching vocab
+and `emit_logits=True`, and computes a finite logits MSE.
+
+P95 does not add an optimizer, training loop, gradient update, live
+Hugging Face/Qwen dependency, trainer refactor, WKV math change, fixture edit,
+or Pallas promotion.
+
+Next: P96 Tiny Overfit Rehearsal - use the offline target/loss path for a tiny
+bounded rehearsal without broad trainer extraction.
+
 ## Phase 94 - Tiny TeacherBackend Emission Smoke
 
 Goal: add a deterministic synthetic teacher backend that emits valid
