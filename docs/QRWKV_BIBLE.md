@@ -1965,3 +1965,20 @@ No Qwen-specific code, student consumption path, tokenizer remapping,
 cross-vocab adapter, training, optimizer loop, recurrence math change, runtime
 semantic change, fixture tensor edit, tolerance change, StudentBackend behavior
 change, or Pallas promotion was introduced. P98 does not start P99.
+
+## Phase 99 - Teacher/Student Compatibility Validator
+
+P99 introduced the Teacher/Student Compatibility Validator. Direct-logit
+eligibility now requires matching teacher and student vocab contracts, with
+explicit compatible, incompatible, and unsupported results.
+
+Synthetic tests prove matching contracts pass, mismatched tokenizer, vocab,
+hash, and special-token cases fail clearly, and unsupported target or loss modes
+are reported without adding tokenizer remapping, adapters, real teacher
+consumption, training, or runtime changes.
+
+No tokenizer remapping, vocab adapter, hidden-state projection, real HF artifact
+student consumption, training, optimizer loop, Qwen-specific code, recurrence
+math change, StudentBackend behavior change, StudentRuntime behavior change,
+fixture tensor edit, tolerance change, or Pallas promotion was introduced. P99
+does not start P100.

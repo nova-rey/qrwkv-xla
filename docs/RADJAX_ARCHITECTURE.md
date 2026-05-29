@@ -23,6 +23,20 @@ StudentConfig Selection:
 This instantiates vocab-dependent student dimensions from a `VocabContract`
 while keeping architecture and runtime selection separate.
 
+Teacher/Student Compatibility:
+
+- `TeacherStudentCompatibility`: `src/qrwkv_xla/contracts/compatibility.py`
+- `validate_direct_logit_eligibility()`
+- `validate_store_for_student_config()`
+
+This validates a teacher artifact contract against a selected student contract.
+P99 classifies results as compatible, incompatible, or unsupported.
+
+Direct Logit Eligibility:
+
+Direct logits are allowed only for matching tokenizer/vocab contracts. P99 does
+not add tokenizer remapping, cross-vocab adapters, or projection support.
+
 TeacherBackend:
 
 - `TeacherBackend` protocol: `src/qrwkv_xla/teachers/backend.py`
@@ -102,7 +116,6 @@ target storage, checkpoint formats, Pallas semantics, or fixture tensors.
 
 Likely future extraction layers:
 
-- compatibility validator hardening
 - real-teacher offline consumption
 - student architecture registry
 - second student backend smoke
@@ -122,3 +135,7 @@ registry work, or runtime behavior changes.
 P98 implements only generic HF-style teacher emission. It does not add
 student consumption, tokenizer remapping, Qwen-specific code, training, or
 runtime behavior changes.
+
+P99 implements only teacher/student compatibility validation and direct-logit
+eligibility classification. It does not consume real teacher artifacts with a
+student or add remapping/adapters.

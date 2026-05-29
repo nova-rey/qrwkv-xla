@@ -1,5 +1,25 @@
 # QRWKV-XLA Roadmap
 
+## Phase 99 - Teacher/Student Compatibility Validator
+
+Goal: harden direct-logit eligibility so teacher artifacts can only be consumed
+by students born from matching vocab contracts.
+
+Current checkpoint: `teacher_student_compatibility_validator`. P99 adds
+structured compatible/incompatible/unsupported results, direct-logit
+eligibility validation, and a `TeacherTargetStore` plus selected student config
+helper. Synthetic tests prove matching contracts pass, vocab/tokenizer/hash and
+special-token mismatches fail clearly, and unsupported target/loss modes are
+reported honestly.
+
+P99 does not add tokenizer remapping, vocab adapters, hidden-state projection,
+real-teacher student consumption, training, Qwen-specific code, runtime changes,
+recurrence math changes, or Pallas promotion.
+
+Next: P100 Real-Teacher Offline Consumption Smoke - consume a generic
+HFTeacherBackend artifact through the offline target path only after
+compatibility passes.
+
 ## Phase 98 - Generic HF TeacherBackend Emission Smoke
 
 Goal: add a generic HF-style teacher backend that emits valid
