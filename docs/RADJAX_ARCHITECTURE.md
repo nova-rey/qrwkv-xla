@@ -103,6 +103,15 @@ This is the architecture-facing wrapper around the validated QRWKV student
 core. A selected architecture consumes a compatible student config; P97 does
 not make CurrentQRWKV the permanent architecture.
 
+StudentBackend Registry:
+
+- `create_student_backend()`: `src/qrwkv_xla/students/registry.py`
+- Current architecture id: `current_qrwkv`
+
+This selects a student architecture by `architecture_id`. P101 registers only
+the current QRWKV backend and keeps vocab contract, architecture, and runtime as
+separate choices.
+
 StudentRuntime:
 
 - `StudentRuntime` protocol: `src/qrwkv_xla/students/student_runtime.py`
@@ -126,7 +135,8 @@ target storage, checkpoint formats, Pallas semantics, or fixture tensors.
 
 Likely future extraction layers:
 
-- student architecture registry
+- second debug backend smoke
+- broader student backend support
 - second student backend smoke
 - tiny real-teacher overfit rehearsal
 - broader target support
@@ -153,3 +163,6 @@ student or add remapping/adapters.
 P100 implements only compatibility-gated real-teacher offline consumption smoke.
 It does not train, update parameters, remap tokenizers, or make Qwen-specific
 claims.
+
+P101 implements only the StudentBackend registry slot and default
+`current_qrwkv` architecture selection. It does not add a second backend.

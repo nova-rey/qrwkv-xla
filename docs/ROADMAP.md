@@ -1,5 +1,23 @@
 # QRWKV-XLA Roadmap
 
+## Phase 101 - StudentBackend Registry / Architecture Selection
+
+Goal: make student architecture selectable by architecture id while preserving
+vocab contract and runtime separation.
+
+Current checkpoint: `student_backend_registry_architecture_selection`. P101
+adds a static `StudentBackend` registry with the first architecture id,
+`current_qrwkv`, mapped to the existing `CurrentQRWKVStudentBackend`. The
+registry uses the vocab contract to select config dimensions and keeps runtime
+selection separate.
+
+P101 does not add a second backend, training, optimizer loops, Qwen-specific
+student code, StudentRuntime behavior changes, recurrence math changes, or
+Pallas promotion.
+
+Next: P102 Second StudentBackend Smoke - add a tiny/debug second student
+backend to prove architecture swappability through the same registry path.
+
 ## Phase 100 - Real-Teacher Offline Consumption Smoke
 
 Goal: consume a generic HFTeacherBackend artifact through the offline target

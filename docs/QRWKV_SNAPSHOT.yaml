@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 100
-current_phase: P100
-checkpoint: real_teacher_offline_consumption_smoke
+phase: 101
+current_phase: P101
+checkpoint: student_backend_registry_architecture_selection
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,13 +56,26 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Continue post-Pallas Radjax-shaped architecture extraction by consuming a
-  generic HFTeacherBackend-style artifact through the offline target path only
-  after teacher/student compatibility passes.
+  Continue post-Pallas Radjax-shaped architecture extraction by selecting
+  student backends through an explicit architecture_id registry while preserving
+  vocab-contract and runtime separation.
 
 post_pallas_status: radjax_extraction_continues
 
-recommended_next: P101 StudentBackend Registry / Architecture Selection
+recommended_next: P102 Second StudentBackend Smoke
+
+p101:
+  goal: student_backend_registry_architecture_selection
+  behavior_change_intended: false
+  student_backend_registry_added: true
+  default_architecture: current_qrwkv
+  second_student_backend_added: false
+  architecture_id_selection_added: true
+  qwen_specific_code_added: false
+  training_added: false
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  recommended_next: P102 Second StudentBackend Smoke
 
 p100:
   goal: real_teacher_offline_consumption_smoke

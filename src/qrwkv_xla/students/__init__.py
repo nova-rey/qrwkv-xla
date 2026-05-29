@@ -33,6 +33,13 @@ from qrwkv_xla.students.pallas_wkv import (
     run_pallas_wkv_sequence_parity_matrix,
     run_pallas_wkv_shape_dtype_parity_matrix,
 )
+from qrwkv_xla.students.registry import (
+    CURRENT_QRWKV_ARCHITECTURE_ID,
+    StudentBackendSpec,
+    available_student_architectures,
+    create_student_backend,
+    student_backend_spec,
+)
 from qrwkv_xla.students.rwkv7_qwen_reference import (
     RWKV7QwenReferenceConfig,
     RWKV7QwenReferenceState,
@@ -77,8 +84,10 @@ __all__ = [
     "PallasRuntimeUnavailableError",
     "PallasWKVParityCase",
     "PallasWKVSequenceParityCase",
+    "CURRENT_QRWKV_ARCHITECTURE_ID",
     "StudentModel",
     "StudentBackend",
+    "StudentBackendSpec",
     "StudentOutput",
     "StudentRuntime",
     "SelectedStudentConfig",
@@ -90,8 +99,10 @@ __all__ = [
     "apply_lm_head",
     "apply_tied_lm_head",
     "build_pallas_runtime_probe",
+    "available_student_architectures",
     "CurrentQRWKVStudentBackend",
     "create_student",
+    "create_student_backend",
     "create_current_qrwkv_student_backend",
     "qrwkv_student_config_from_vocab_contract",
     "create_student_runtime",
@@ -111,6 +122,7 @@ __all__ = [
     "rwkv7_qwen_reference_initial_state",
     "rwkv7_qwen_reference_rope",
     "rwkv7_reference_layer",
+    "student_backend_spec",
     "run_minimal_pallas_wkv_probe",
     "run_pallas_wkv_fused_sequence_parity_matrix",
     "run_pallas_wkv_parity_probe",

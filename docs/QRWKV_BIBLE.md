@@ -2001,3 +2001,19 @@ cross-vocab adapter, hidden-state projection, recurrence math change,
 StudentBackend behavior change, StudentRuntime behavior change, fixture tensor
 edit, tolerance change, or Pallas promotion was introduced. P100 does not start
 P101.
+
+## Phase 101 - StudentBackend Registry / Architecture Selection
+
+P101 introduced the StudentBackend registry and architecture selection layer.
+The current QRWKV backend is now selected through an explicit `architecture_id`
+path while preserving vocab-contract-based config selection and runtime
+separation.
+
+The first registered architecture id is `current_qrwkv`, which maps to the
+existing `CurrentQRWKVStudentBackend`. Reference remains the default runtime,
+and Pallas remains opt-in through the separate runtime argument.
+
+No second backend, training, optimizer loop, Qwen-specific code, tokenizer
+remapping, recurrence math change, runtime semantic change, CurrentQRWKV
+behavior rewrite, fixture tensor edit, tolerance change, or Pallas promotion was
+introduced. P101 does not start P102.
