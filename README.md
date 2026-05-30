@@ -304,7 +304,7 @@ The output is a wiring sanity check, not model quality evidence. See
 
 ## Reference
 
-This project uses `nova-rey/radlads-TPU-adapter` as a conceptual and
+This project uses `recursal/RADLADS-paper` as a conceptual and
 architectural reference, not as code to directly port.
 
 The reference RADLADS lineage includes RAD-RWKV6/RAD-RWKV7 components,
