@@ -114,6 +114,11 @@ hidden-state/logit outputs. It does not add production checkpointing,
 distributed checkpointing, production HF model classes, training, Qwen-specific
 code, or tokenizer remapping.
 
+P108.1 closes the resume-update gap with
+`run_checkpoint_resume_update_rehearsal()`: a tiny deterministic MSE state
+saves after update steps, reloads exactly, resumes at least one more update,
+and reports finite resumed loss plus correct step advancement.
+
 OfflineTargetConsumption:
 
 - `OfflineTargetBatch`: `src/qrwkv_xla/targets/consumption.py`
@@ -214,6 +219,7 @@ Current modularity status:
 - multi-shard target-store smoke: present
 - tiny dataset pipeline smoke: present
 - checkpoint/resume/export rehearsal: present
+- resume-update closure: present
 
 Likely future extraction layers:
 
@@ -253,6 +259,11 @@ tokenizer remapping, runtime changes, or Pallas promotion.
 P108 implements only a tiny checkpoint/resume/export rehearsal. It does not
 add production checkpointing, distributed checkpointing, production HF export,
 training, Qwen-specific support, tokenizer remapping, runtime changes, or
+Pallas promotion.
+
+P108.1 implements only the missing resume-after-load update proof. It does not
+add production checkpointing, distributed checkpointing, new export formats,
+large training, Qwen-specific support, tokenizer remapping, runtime changes, or
 Pallas promotion.
 
 P101 implements only the StudentBackend registry slot and default

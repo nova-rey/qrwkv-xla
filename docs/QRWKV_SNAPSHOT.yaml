@@ -66,6 +66,26 @@ post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next: P109 TPU Environment Hygiene / Runtime Readiness
 
+p108_1:
+  goal: resume_update_closure
+  behavior_change_intended: false
+  resume_after_load_update_proven: true
+  checkpoint_step_recorded: true
+  final_step_recorded: true
+  restored_state_exactness_checked: true
+  resumed_loss_finite: true
+  production_checkpointing_added: false
+  distributed_checkpointing_added: false
+  training_platform_added: false
+  new_export_format_added: false
+  qwen_specific_code_added: false
+  tokenizer_remapping_added: false
+  baseline_requires_hf: false
+  baseline_requires_internet: false
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  recommended_next: P109 TPU Environment Hygiene / Runtime Readiness
+
 p108:
   goal: checkpoint_resume_export_rehearsal
   behavior_change_intended: false

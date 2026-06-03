@@ -34,6 +34,16 @@ resume and export reload both preserve student hidden-state and logits outputs.
 If `safetensors` is absent, checkpoint resume still runs and the report returns
 `unavailable` for the export portion with the dependency message.
 
+## P108.1 Resume Update Closure
+
+P108.1 closes the resume gap by proving a loaded checkpoint can continue for at
+least one deterministic update step. The helper
+`run_checkpoint_resume_update_rehearsal()` runs initial tiny MSE update steps,
+saves the updated state, reloads it through the existing simple checkpoint
+format, verifies exact restored arrays and checkpoint metadata, runs at least
+one more deterministic update step, and reports finite resumed loss with
+correct step advancement.
+
 ## Claims Not Made
 
 P108 does not add or claim:

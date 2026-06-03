@@ -13,6 +13,11 @@ loader, compares resumed outputs, exports through the existing HF/safetensors
 interchange path when `safetensors` is available, reloads the export, and
 compares hidden-state/logit outputs.
 
+P108.1 adds `run_checkpoint_resume_update_rehearsal()` to close the
+resume-update gap: it saves after deterministic tiny MSE update steps, reloads
+the checkpoint exactly, resumes at least one more update step, records finite
+resumed loss, and verifies final step advancement.
+
 Baseline tests use a tiny local student and no real HF model, internet, Qwen,
 GPU/TPU, dataset streaming, training loop, tokenizer remapping, or runtime
 changes. If `safetensors` is absent, the rehearsal reports export
@@ -137,6 +142,7 @@ changes, CurrentQRWKV behavior changes, or Pallas promotion.
 - P106 - Multi-Shard TargetStore Smoke: complete
 - P107 - Tiny Dataset Pipeline Smoke: complete
 - P108 - Checkpoint / Resume / Export Rehearsal: complete
+- P108.1 - Resume Update Closure: complete
 - P109 - TPU Environment Hygiene / Runtime Readiness
 - P110 - Mini Eval Harness Smoke
 - P111 - Big Burn Readiness Report

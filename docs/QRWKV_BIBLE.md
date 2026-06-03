@@ -2134,3 +2134,20 @@ production Hugging Face export, training loops, optimizer changes,
 Qwen-specific paths, tokenizer remapping, fixture edits, tolerance changes, WKV
 math changes, or runtime semantic changes. P108 recommends P109 TPU
 Environment Hygiene / Runtime Readiness next.
+
+## Phase 108.1 - Resume Update Closure
+
+P108.1 closed the P108 resume-update gap. A tiny deterministic update state can
+now save after initial update steps, reload exactly through the existing simple
+checkpoint format, resume for at least one more update step, and report finite
+resumed loss with correct step advancement.
+
+The result records initial loss, checkpoint loss, resumed loss, checkpoint
+step, final step, exact restored-state status, resumed-loss finiteness, update
+path, and claims not made.
+
+No production checkpointing, distributed checkpointing, new export format,
+large training, Qwen-specific code, tokenizer remapping, recurrence math
+change, runtime semantic change, fixture edit, tolerance change, or Pallas
+promotion was introduced. P108.1 keeps P109 TPU Environment Hygiene / Runtime
+Readiness as the next phase.
