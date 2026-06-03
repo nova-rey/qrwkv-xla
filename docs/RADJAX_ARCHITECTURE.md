@@ -139,6 +139,18 @@ backend through the registry, iterates offline target shards, and reports
 finite MSE loss plus tiny count metrics. It does not add lm_eval, benchmarks,
 training, model-quality claims, Qwen-specific code, or tokenizer remapping.
 
+Big Burn Readiness Report:
+
+- `build_big_burn_readiness_report()`:
+  `src/qrwkv_xla/readiness/big_burn.py`
+- `scripts/run_big_burn_readiness_report.py`
+
+P111 aggregates readiness evidence across teacher, vocab, target store,
+dataset, checkpoint, runtime, eval, student backend, and Pallas-opt-in gates.
+It produces pass/warn/fail status, blockers, warnings, claims not made, and a
+recommended next action without starting training or the first serious compute
+burn.
+
 OfflineTargetConsumption:
 
 - `OfflineTargetBatch`: `src/qrwkv_xla/targets/consumption.py`
@@ -242,13 +254,14 @@ Current modularity status:
 - resume-update closure: present
 - runtime environment preflight: present
 - mini eval harness: present
+- big burn readiness report: present
 
 Likely future extraction layers:
 
 - broader student backend support
-- burn readiness
 - broader target support
-- real training/eval
+- first serious compute burn
+- broader real training/eval
 - Trainer boundary
 - Evaluator and parity gates
 
@@ -294,6 +307,12 @@ P110 implements only a mini eval/reporting smoke over tiny target artifacts. It
 does not add benchmark datasets, lm_eval integration, training, optimizer
 loops, model-quality claims, Qwen-specific support, tokenizer remapping,
 runtime changes, or Pallas promotion.
+
+P111 implements only a readiness aggregation report. It does not start P112,
+train, benchmark, add pjit/sharding, require TPU/GPU/HF/internet, hard-code
+Qwen, add tokenizer remapping, alter target-store layout, alter checkpoint
+format, change WKV math, change fixture tensors, change StudentRuntime or
+StudentBackend behavior, or promote Pallas.
 
 P101 implements only the StudentBackend registry slot and default
 `current_qrwkv` architecture selection. It does not add a second backend.

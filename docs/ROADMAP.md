@@ -1,5 +1,24 @@
 # QRWKV-XLA Roadmap
 
+## Phase 111 - Big Burn Readiness Report
+
+Goal: aggregate prior burn-readiness evidence into a clear pass/warn/fail
+inspection report before attempting serious compute.
+
+Current checkpoint: `big_burn_readiness_report`. P111 adds
+`build_big_burn_readiness_report()` and
+`scripts/run_big_burn_readiness_report.py`. The report covers core correctness
+fixtures, Pallas opt-in runtime status, generic HF teacher backend/specimen
+paths, vocab compatibility, multi-shard target stores, tiny dataset pipeline,
+checkpoint/resume/export, runtime environment preflight, mini eval harness,
+student backend registry, and the second student backend.
+
+Baseline checks are CPU-friendly and avoid TPU, GPU, internet, real HF
+downloads, Qwen, large datasets, training, benchmarks, lm_eval, tokenizer
+remapping, pjit/sharding, runtime behavior changes, and Pallas promotion.
+
+Next: P112 First Serious Compute Burn.
+
 ## Phase 110 - Mini Eval Harness Smoke
 
 Goal: prove tiny target artifacts can produce finite evaluation metrics and an
@@ -18,7 +37,7 @@ Baseline tests use tiny synthetic target stores and the deterministic
 optimizer loops, benchmark datasets, lm_eval, tokenizer remapping, and runtime
 changes are not required.
 
-Next: P111 Big Burn Readiness Report.
+Next: P111 Big Burn Readiness Report - complete.
 
 ## Phase 109 - TPU Environment Hygiene / Runtime Readiness
 
@@ -183,7 +202,7 @@ changes, CurrentQRWKV behavior changes, or Pallas promotion.
 - P108.1 - Resume Update Closure: complete
 - P109 - TPU Environment Hygiene / Runtime Readiness: complete
 - P110 - Mini Eval Harness Smoke: complete
-- P111 - Big Burn Readiness Report
+- P111 - Big Burn Readiness Report: complete
 - P112 - First Serious Compute Burn
 
 ## Phase 101 - StudentBackend Registry / Architecture Selection

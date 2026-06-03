@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 110
-current_phase: P110
-checkpoint: mini_eval_harness_smoke
+phase: 111
+current_phase: P111
+checkpoint: big_burn_readiness_report
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,14 +56,30 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Prove tiny target artifacts can produce finite eval metrics and inspectable
-  JSON reports through compatibility-gated registry-selected student paths.
+  Aggregate burn-readiness evidence into a clear pass/warn/fail report before
+  attempting the first serious compute burn.
 
 current_arc: real_teacher_rehearsal_and_burn_readiness
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
-recommended_next: P111 Big Burn Readiness Report
+recommended_next: P112 First Serious Compute Burn
+
+p111:
+  goal: big_burn_readiness_report
+  behavior_change_intended: false
+  readiness_report_added: true
+  burn_started: false
+  training_added: false
+  benchmark_suite_added: false
+  qwen_specific_code_added: false
+  tokenizer_remapping_added: false
+  pjit_added: false
+  pallas_default_preserved: true
+  baseline_requires_tpu: false
+  baseline_requires_gpu: false
+  baseline_requires_hf: false
+  recommended_next: P112 First Serious Compute Burn
 
 p110:
   goal: mini_eval_harness_smoke

@@ -2192,3 +2192,21 @@ remapping, recurrence math change, WKV equation change, runtime semantic
 change, fixture edit, tolerance change, StudentBackend behavior change,
 StudentRuntime behavior change, or Pallas promotion was introduced. P110
 recommends P111 Big Burn Readiness Report next.
+
+## Phase 111 - Big Burn Readiness Report
+
+P111 added a Big Burn Readiness Report. The report aggregates readiness
+evidence across core correctness, teacher backend/specimen paths, vocab
+compatibility, multi-shard target stores, tiny dataset pipeline,
+checkpoint/resume/export, runtime environment preflight, mini eval harness,
+student backend registry, second backend smoke, and Pallas opt-in status.
+
+It produces pass/warn/fail status, blockers, warnings, claims not made, and a
+recommended next action without starting training or the serious compute burn.
+
+No benchmarking suite, lm_eval integration, pjit/sharding, Qwen-specific code,
+tokenizer remapping, recurrence math change, WKV equation change, fixture
+tensor edit, tolerance change, checkpoint format change, TeacherTargetStore
+layout change, StudentRuntime semantic change, StudentBackend behavior change,
+or Pallas promotion was introduced. P111 recommends P112 First Serious Compute
+Burn next.
