@@ -1,5 +1,24 @@
 # QRWKV-XLA Roadmap
 
+## Phase 107 - Tiny Dataset Pipeline Smoke
+
+Goal: prove tiny raw text examples can become sharded teacher-target artifacts
+and flow through offline consumption.
+
+Current checkpoint: `tiny_dataset_pipeline_smoke`. P107 adds
+`TinyTextExample`, deterministic batching, and
+`run_tiny_dataset_pipeline_smoke()`. The smoke feeds fake HF-style tokenizer
+and model objects through `HFTeacherBackend`, writes one `TeacherTargetStore`
+shard per tiny batch, validates/iterates the store through the P106 multi-shard
+helpers, loads shards through the P95 offline consumption path, and computes
+finite per-shard/aggregate losses.
+
+Baseline tests use in-process fake HF objects, so transformers, internet,
+downloaded models, Qwen, GPU/TPU, large dataset work, streaming, training,
+tokenizer remapping, and runtime changes are not required.
+
+Next: P108 Checkpoint / Resume / Export Rehearsal.
+
 ## Phase 106 - Multi-Shard TargetStore Smoke
 
 Goal: prove target artifacts can span multiple shards with validation,
@@ -16,9 +35,7 @@ Baseline tests use tiny synthetic arrays, so Hugging Face, internet, Qwen,
 GPU/TPU, dataset pipeline work, training, tokenizer remapping, and runtime
 changes are not required.
 
-Next: P107 Tiny Dataset Pipeline Smoke - prove tiny text examples can become
-sharded teacher-target artifacts and flow through consumption without adding
-large-scale training.
+Next: P107 Tiny Dataset Pipeline Smoke - complete.
 
 ## Phase 105 - Second Teacher-Specimen Swap Smoke
 
@@ -98,7 +115,7 @@ changes, CurrentQRWKV behavior changes, or Pallas promotion.
 - P104 - Tiny HF Causal-LM Teacher Specimen Smoke: complete
 - P105 - Second Teacher-Specimen Swap Smoke: complete
 - P106 - Multi-Shard TargetStore Smoke: complete
-- P107 - Tiny Dataset Pipeline Smoke
+- P107 - Tiny Dataset Pipeline Smoke: complete
 - P108 - Checkpoint / Resume / Export Rehearsal
 - P109 - TPU Environment Hygiene / Runtime Readiness
 - P110 - Mini Eval Harness Smoke

@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 106
-current_phase: P106
-checkpoint: multi_shard_target_store_smoke
+phase: 107
+current_phase: P107
+checkpoint: tiny_dataset_pipeline_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,14 +56,30 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Prove TeacherTargetStore artifacts can span multiple shards while preserving
-  deterministic validation, iteration, and per-shard offline consumption.
+  Prove tiny raw text examples can become deterministic sharded teacher-target
+  artifacts and flow through offline consumption without adding large-scale
+  dataset, training, or runtime machinery.
 
 current_arc: real_teacher_rehearsal_and_burn_readiness
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
-recommended_next: P107 Tiny Dataset Pipeline Smoke
+recommended_next: P108 Checkpoint / Resume / Export Rehearsal
+
+p107:
+  goal: tiny_dataset_pipeline_smoke
+  behavior_change_intended: false
+  tiny_dataset_pipeline_added: true
+  large_dataset_pipeline_added: false
+  streaming_added: false
+  training_added: false
+  qwen_specific_code_added: false
+  tokenizer_remapping_added: false
+  baseline_requires_hf: false
+  baseline_requires_internet: false
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  recommended_next: P108 Checkpoint / Resume / Export Rehearsal
 
 p106:
   goal: multi_shard_target_store_smoke

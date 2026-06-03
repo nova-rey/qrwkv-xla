@@ -17,6 +17,14 @@ from qrwkv_xla.data.streaming import (
     read_streaming_dataset_manifest,
     validate_streaming_dataset_manifest,
 )
+from qrwkv_xla.data.tiny_dataset import (
+    TinyTextExample,
+    batch_tiny_text_examples,
+)
+from qrwkv_xla.data.tiny_dataset_pipeline import (
+    TinyDatasetPipelineResult,
+    run_tiny_dataset_pipeline_smoke,
+)
 
 __all__ = [
     "BOUNDARY_POLICY",
@@ -31,7 +39,11 @@ __all__ = [
     "StreamingDatasetManifest",
     "StreamingSourceInfo",
     "StreamingTokenShardManifest",
+    "TinyDatasetPipelineResult",
+    "TinyTextExample",
+    "batch_tiny_text_examples",
     "build_streaming_dataset_from_tokenized_corpus",
     "read_streaming_dataset_manifest",
     "validate_streaming_dataset_manifest",
+    "run_tiny_dataset_pipeline_smoke",
 ]

@@ -89,6 +89,19 @@ P106 stores target artifacts across multiple canonical shard files, supports
 deterministic shard-id iteration, validates shard count/presence/shape/dtype,
 and preserves the `metadata.json` plus `shards/shard-XXXXX.npz` layout.
 
+Tiny Dataset Pipeline:
+
+- `TinyTextExample`: `src/qrwkv_xla/data/tiny_dataset.py`
+- `batch_tiny_text_examples()`: `src/qrwkv_xla/data/tiny_dataset.py`
+- `run_tiny_dataset_pipeline_smoke()`:
+  `src/qrwkv_xla/data/tiny_dataset_pipeline.py`
+
+P107 proves tiny raw text examples can become deterministic batches, flow
+through fake HF-style teacher emission, land in sharded `TeacherTargetStore`
+artifacts, validate through P106 multi-shard helpers, and consume through the
+P95 offline target path. It does not add large dataset plumbing, streaming,
+training, Qwen-specific code, or tokenizer remapping.
+
 OfflineTargetConsumption:
 
 - `OfflineTargetBatch`: `src/qrwkv_xla/targets/consumption.py`
@@ -187,11 +200,11 @@ Current modularity status:
 - optional HF causal-LM specimen smoke: present
 - second teacher-specimen swap smoke: present
 - multi-shard target-store smoke: present
+- tiny dataset pipeline smoke: present
 
 Likely future extraction layers:
 
 - broader student backend support
-- tiny dataset pipeline
 - checkpoint/resume/export rehearsal
 - TPU environment hygiene
 - mini eval
@@ -220,6 +233,10 @@ student or add remapping/adapters.
 P100 implements only compatibility-gated real-teacher offline consumption smoke.
 It does not train, update parameters, remap tokenizers, or make Qwen-specific
 claims.
+
+P107 implements only a tiny deterministic dataset pipeline smoke. It does not
+add large dataset pipelines, streaming, training, Qwen-specific support,
+tokenizer remapping, runtime changes, or Pallas promotion.
 
 P101 implements only the StudentBackend registry slot and default
 `current_qrwkv` architecture selection. It does not add a second backend.

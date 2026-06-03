@@ -2096,3 +2096,21 @@ No dataset pipeline, training, optimizer loop, Qwen-specific code, tokenizer
 remapping, recurrence math change, runtime semantic change, fixture tensor
 edit, tolerance change, or Pallas promotion was introduced. P106 does not start
 P107.
+
+## Phase 107 - Tiny Dataset Pipeline Smoke
+
+P107 added a tiny deterministic dataset pipeline smoke. In-memory
+`TinyTextExample` records are batched deterministically, emitted through a fake
+HFTeacherBackend-style tokenizer/model path, stored as one `TeacherTargetStore`
+shard per batch, validated through the P106 multi-shard helpers, loaded through
+the P95 offline target path, and checked for finite per-shard/aggregate loss.
+
+Baseline tests use fake in-process HF objects, so transformers, internet,
+downloaded models, Qwen, GPU/TPU, large dataset pipeline work, streaming,
+training, tokenizer remapping, recurrence math changes, runtime changes, and
+Pallas promotion are not required.
+
+P107 does not add production data ingestion, streaming, training, optimizer
+loops, Qwen-specific paths, tokenizer remapping, fixture edits, tolerance
+changes, WKV math changes, or runtime semantic changes. P107 recommends P108
+Checkpoint / Resume / Export Rehearsal next.
