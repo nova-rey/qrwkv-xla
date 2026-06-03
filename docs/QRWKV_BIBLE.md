@@ -2151,3 +2151,25 @@ large training, Qwen-specific code, tokenizer remapping, recurrence math
 change, runtime semantic change, fixture edit, tolerance change, or Pallas
 promotion was introduced. P108.1 keeps P109 TPU Environment Hygiene / Runtime
 Readiness as the next phase.
+
+## Phase 109 - TPU Environment Hygiene / Runtime Readiness
+
+P109 added a read-only runtime environment preflight. The preflight reports
+Python, JAX, JAXLIB, default backend, visible JAX devices, TPU device
+detection, and transparent hugepage status in a JSON-serializable report.
+
+Transparent hugepages are detected from
+`/sys/kernel/mm/transparent_hugepage/enabled` when available. The report
+classifies the status as enabled, disabled, unavailable, or unknown and includes
+the human enable command. The CLI is read-only by default and never runs `sudo`
+automatically; mutation is attempted only when explicitly requested.
+
+Baseline tests use fake sysfs/JAX surfaces, so TPU, GPU, internet, model
+downloads, successful JAX import, training, benchmarking, pjit, sharding, and
+Pallas promotion are not required.
+
+No model behavior, production training, performance benchmark, pjit/sharding,
+Qwen-specific code, tokenizer remapping, recurrence math change, WKV equation
+change, fixture edit, tolerance change, StudentRuntime semantic change,
+StudentBackend behavior change, or Pallas default change was introduced. P109
+recommends P110 Mini Eval Harness Smoke next.

@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 108
-current_phase: P108
-checkpoint: checkpoint_resume_export_rehearsal
+phase: 109
+current_phase: P109
+checkpoint: tpu_environment_hygiene_runtime_readiness
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,15 +56,30 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Prove a tiny student checkpoint can be saved, resumed, exported, reloaded,
-  and output-compared without adding production training, distributed
-  checkpointing, or runtime machinery.
+  Add a read-only runtime environment preflight for JAX/TPU visibility and
+  transparent hugepage readiness before burn-style runs.
 
 current_arc: real_teacher_rehearsal_and_burn_readiness
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
-recommended_next: P109 TPU Environment Hygiene / Runtime Readiness
+recommended_next: P110 Mini Eval Harness Smoke
+
+p109:
+  goal: tpu_environment_hygiene_runtime_readiness
+  behavior_change_intended: false
+  runtime_environment_preflight_added: true
+  transparent_hugepages_detection_added: true
+  transparent_hugepages_enable_default: false
+  mutation_default: read_only
+  training_added: false
+  benchmarking_added: false
+  pjit_added: false
+  pallas_default_preserved: true
+  baseline_requires_tpu: false
+  baseline_requires_gpu: false
+  baseline_requires_jax: false
+  recommended_next: P110 Mini Eval Harness Smoke
 
 p108_1:
   goal: resume_update_closure

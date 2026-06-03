@@ -7,7 +7,7 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P108, checkpoint/resume/export rehearsal. The Pallas runway is
+Current phase: P109, TPU environment hygiene/runtime readiness. The Pallas runway is
 closed after a recorded real TPU v5 lite smoke pass for the tiny opt-in Pallas
 WKV path, and the project is now the validated core of a Radjax-shaped modular
 recurrent distillation platform.
@@ -18,11 +18,12 @@ The project can turn tiny text examples into deterministic batches, emit
 fake-HF-style sharded teacher target artifacts, validate and iterate multi-shard
 target stores, consume shards through the offline target path, checkpoint and
 resume a tiny student, export/reload that checkpoint through the HF/safetensors
-interchange path, reconstruct vocab contracts from metadata, select student
-backends by architecture id, keep runtime selection separate, and run
-optional/cache-local HF teacher specimen smokes without making any specimen a
-special architecture path. Baseline tests remain CPU-safe and do not require
-Hugging Face downloads, internet, Qwen, GPU, or TPU.
+interchange path, inspect runtime environment hygiene for JAX/TPU visibility
+and transparent hugepage readiness, reconstruct vocab contracts from metadata,
+select student backends by architecture id, keep runtime selection separate,
+and run optional/cache-local HF teacher specimen smokes without making any
+specimen a special architecture path. Baseline tests remain CPU-safe and do not
+require Hugging Face downloads, internet, Qwen, GPU, or TPU.
 
 Runtime policy is unchanged: `reference` remains the default WKV runtime and
 `pallas` remains opt-in. The Pallas TPU smoke result does not claim production
@@ -63,6 +64,9 @@ The tiny dataset pipeline smoke is documented in
 
 The checkpoint/resume/export rehearsal is documented in
 `docs/CHECKPOINT_RESUME_EXPORT_REHEARSAL.md`.
+
+The runtime environment preflight is documented in
+`docs/RUNTIME_ENVIRONMENT_PREFLIGHT.md`.
 
 `scripts/run_distill_stage.py` is the primary entrypoint for staged
 distillation. It currently supports hidden-state distillation against fake

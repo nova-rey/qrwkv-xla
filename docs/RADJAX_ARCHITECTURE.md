@@ -119,6 +119,16 @@ P108.1 closes the resume-update gap with
 saves after update steps, reloads exactly, resumes at least one more update,
 and reports finite resumed loss plus correct step advancement.
 
+Runtime Environment Preflight:
+
+- `run_runtime_environment_preflight()`:
+  `src/qrwkv_xla/xla/environment_preflight.py`
+- `scripts/run_runtime_environment_preflight.py`
+
+P109 adds read-only JAX/TPU/transparent-hugepage inspection before burn
+readiness. It reports runtime visibility and environment hygiene without
+training, benchmarking, pjit, sharding changes, or Pallas promotion.
+
 OfflineTargetConsumption:
 
 - `OfflineTargetBatch`: `src/qrwkv_xla/targets/consumption.py`
@@ -220,11 +230,11 @@ Current modularity status:
 - tiny dataset pipeline smoke: present
 - checkpoint/resume/export rehearsal: present
 - resume-update closure: present
+- runtime environment preflight: present
 
 Likely future extraction layers:
 
 - broader student backend support
-- TPU environment hygiene
 - mini eval
 - burn readiness
 - broader target support
@@ -265,6 +275,10 @@ P108.1 implements only the missing resume-after-load update proof. It does not
 add production checkpointing, distributed checkpointing, new export formats,
 large training, Qwen-specific support, tokenizer remapping, runtime changes, or
 Pallas promotion.
+
+P109 implements only runtime environment hygiene. It does not train,
+benchmark, add pjit/sharding, require TPU/GPU/JAX in baseline tests, change
+StudentRuntime or StudentBackend semantics, or promote Pallas.
 
 P101 implements only the StudentBackend registry slot and default
 `current_qrwkv` architecture selection. It does not add a second backend.

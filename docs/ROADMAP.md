@@ -1,5 +1,23 @@
 # QRWKV-XLA Roadmap
 
+## Phase 109 - TPU Environment Hygiene / Runtime Readiness
+
+Goal: add a read-only runtime preflight for JAX/TPU visibility and transparent
+hugepage readiness before burn-style runs.
+
+Current checkpoint: `tpu_environment_hygiene_runtime_readiness`. P109 adds
+`run_runtime_environment_preflight()` and
+`scripts/run_runtime_environment_preflight.py`. The preflight reports Python,
+JAX, JAXLIB, default backend, visible JAX devices, TPU device detection, and
+transparent hugepage status. It writes JSON and is read-only by default.
+
+Transparent hugepages can be enabled only through an explicit flag; the CLI
+never runs `sudo` automatically. Baseline tests use fake JAX/sysfs paths, so
+TPU, GPU, internet, model downloads, training, benchmarking, pjit, and Pallas
+promotion are not required.
+
+Next: P110 Mini Eval Harness Smoke.
+
 ## Phase 108 - Checkpoint / Resume / Export Rehearsal
 
 Goal: prove a tiny student checkpoint can be saved, resumed, exported, reloaded,
@@ -23,7 +41,7 @@ GPU/TPU, dataset streaming, training loop, tokenizer remapping, or runtime
 changes. If `safetensors` is absent, the rehearsal reports export
 `unavailable` while preserving the checkpoint/resume result.
 
-Next: P109 TPU Environment Hygiene / Runtime Readiness.
+Next: P109 TPU Environment Hygiene / Runtime Readiness - complete.
 
 ## Phase 107 - Tiny Dataset Pipeline Smoke
 
@@ -143,7 +161,7 @@ changes, CurrentQRWKV behavior changes, or Pallas promotion.
 - P107 - Tiny Dataset Pipeline Smoke: complete
 - P108 - Checkpoint / Resume / Export Rehearsal: complete
 - P108.1 - Resume Update Closure: complete
-- P109 - TPU Environment Hygiene / Runtime Readiness
+- P109 - TPU Environment Hygiene / Runtime Readiness: complete
 - P110 - Mini Eval Harness Smoke
 - P111 - Big Burn Readiness Report
 - P112 - First Serious Compute Burn
