@@ -129,6 +129,16 @@ P109 adds read-only JAX/TPU/transparent-hugepage inspection before burn
 readiness. It reports runtime visibility and environment hygiene without
 training, benchmarking, pjit, sharding changes, or Pallas promotion.
 
+Mini Eval Harness:
+
+- `run_mini_eval_harness()`: `src/qrwkv_xla/eval/mini_eval.py`
+- `scripts/run_mini_eval_harness.py`
+
+P110 adds compatibility-gated tiny artifact evaluation. It selects a student
+backend through the registry, iterates offline target shards, and reports
+finite MSE loss plus tiny count metrics. It does not add lm_eval, benchmarks,
+training, model-quality claims, Qwen-specific code, or tokenizer remapping.
+
 OfflineTargetConsumption:
 
 - `OfflineTargetBatch`: `src/qrwkv_xla/targets/consumption.py`
@@ -231,11 +241,11 @@ Current modularity status:
 - checkpoint/resume/export rehearsal: present
 - resume-update closure: present
 - runtime environment preflight: present
+- mini eval harness: present
 
 Likely future extraction layers:
 
 - broader student backend support
-- mini eval
 - burn readiness
 - broader target support
 - real training/eval
@@ -279,6 +289,11 @@ Pallas promotion.
 P109 implements only runtime environment hygiene. It does not train,
 benchmark, add pjit/sharding, require TPU/GPU/JAX in baseline tests, change
 StudentRuntime or StudentBackend semantics, or promote Pallas.
+
+P110 implements only a mini eval/reporting smoke over tiny target artifacts. It
+does not add benchmark datasets, lm_eval integration, training, optimizer
+loops, model-quality claims, Qwen-specific support, tokenizer remapping,
+runtime changes, or Pallas promotion.
 
 P101 implements only the StudentBackend registry slot and default
 `current_qrwkv` architecture selection. It does not add a second backend.

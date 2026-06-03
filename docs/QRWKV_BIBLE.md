@@ -2173,3 +2173,22 @@ Qwen-specific code, tokenizer remapping, recurrence math change, WKV equation
 change, fixture edit, tolerance change, StudentRuntime semantic change,
 StudentBackend behavior change, or Pallas default change was introduced. P109
 recommends P110 Mini Eval Harness Smoke next.
+
+## Phase 110 - Mini Eval Harness Smoke
+
+P110 added a Mini Eval Harness smoke. Tiny target artifacts can now be
+evaluated through a compatibility-gated registry-selected student backend path,
+producing finite MSE/count metrics and an inspectable JSON report.
+
+The harness reuses existing `TeacherTargetStore` validation, P106 multi-shard
+iteration, P95 offline target batches, P99 direct-logit compatibility checks,
+and the P101 student backend registry. It records mean MSE logits loss, finite
+loss status, shard/example/token/element counts, selected architecture/runtime,
+target metadata, and a toy top-1 agreement metric.
+
+No benchmark suite, lm_eval integration, model-quality claim, training,
+optimizer loop, real benchmark dataset, Qwen-specific code, tokenizer
+remapping, recurrence math change, WKV equation change, runtime semantic
+change, fixture edit, tolerance change, StudentBackend behavior change,
+StudentRuntime behavior change, or Pallas promotion was introduced. P110
+recommends P111 Big Burn Readiness Report next.

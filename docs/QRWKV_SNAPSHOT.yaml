@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 109
-current_phase: P109
-checkpoint: tpu_environment_hygiene_runtime_readiness
+phase: 110
+current_phase: P110
+checkpoint: mini_eval_harness_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,14 +56,30 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add a read-only runtime environment preflight for JAX/TPU visibility and
-  transparent hugepage readiness before burn-style runs.
+  Prove tiny target artifacts can produce finite eval metrics and inspectable
+  JSON reports through compatibility-gated registry-selected student paths.
 
 current_arc: real_teacher_rehearsal_and_burn_readiness
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
-recommended_next: P110 Mini Eval Harness Smoke
+recommended_next: P111 Big Burn Readiness Report
+
+p110:
+  goal: mini_eval_harness_smoke
+  behavior_change_intended: false
+  mini_eval_harness_added: true
+  benchmark_suite_added: false
+  lm_eval_added: false
+  training_added: false
+  qwen_specific_code_added: false
+  tokenizer_remapping_added: false
+  baseline_requires_hf: false
+  baseline_requires_internet: false
+  baseline_requires_tpu: false
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  recommended_next: P111 Big Burn Readiness Report
 
 p109:
   goal: tpu_environment_hygiene_runtime_readiness

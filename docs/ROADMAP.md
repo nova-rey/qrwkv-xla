@@ -1,5 +1,25 @@
 # QRWKV-XLA Roadmap
 
+## Phase 110 - Mini Eval Harness Smoke
+
+Goal: prove tiny target artifacts can produce finite evaluation metrics and an
+inspectable JSON report through existing compatibility, registry, and
+offline-target paths.
+
+Current checkpoint: `mini_eval_harness_smoke`. P110 adds
+`run_mini_eval_harness()` and `scripts/run_mini_eval_harness.py`. The harness
+requires the P99 compatibility gate, selects a student backend through the P101
+registry, iterates target shards through P106/P95 helpers, and reports mean MSE
+logits loss, finite loss status, shard/examples/tokens/elements counts, and a
+toy top-1 agreement metric.
+
+Baseline tests use tiny synthetic target stores and the deterministic
+`tiny_debug` backend, so HF downloads, internet, Qwen, GPU/TPU, training,
+optimizer loops, benchmark datasets, lm_eval, tokenizer remapping, and runtime
+changes are not required.
+
+Next: P111 Big Burn Readiness Report.
+
 ## Phase 109 - TPU Environment Hygiene / Runtime Readiness
 
 Goal: add a read-only runtime preflight for JAX/TPU visibility and transparent
@@ -16,7 +36,7 @@ never runs `sudo` automatically. Baseline tests use fake JAX/sysfs paths, so
 TPU, GPU, internet, model downloads, training, benchmarking, pjit, and Pallas
 promotion are not required.
 
-Next: P110 Mini Eval Harness Smoke.
+Next: P110 Mini Eval Harness Smoke - complete.
 
 ## Phase 108 - Checkpoint / Resume / Export Rehearsal
 
@@ -162,7 +182,7 @@ changes, CurrentQRWKV behavior changes, or Pallas promotion.
 - P108 - Checkpoint / Resume / Export Rehearsal: complete
 - P108.1 - Resume Update Closure: complete
 - P109 - TPU Environment Hygiene / Runtime Readiness: complete
-- P110 - Mini Eval Harness Smoke
+- P110 - Mini Eval Harness Smoke: complete
 - P111 - Big Burn Readiness Report
 - P112 - First Serious Compute Burn
 
