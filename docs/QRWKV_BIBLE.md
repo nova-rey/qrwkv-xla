@@ -2114,3 +2114,23 @@ P107 does not add production data ingestion, streaming, training, optimizer
 loops, Qwen-specific paths, tokenizer remapping, fixture edits, tolerance
 changes, WKV math changes, or runtime semantic changes. P107 recommends P108
 Checkpoint / Resume / Export Rehearsal next.
+
+## Phase 108 - Checkpoint / Resume / Export Rehearsal
+
+P108 added a tiny checkpoint/resume/export rehearsal. A local `tiny_student`
+checkpoint is saved through the existing simple checkpoint format, reloaded,
+output-compared against the original parameters, exported through the existing
+HF/safetensors interchange path when the optional dependency is present,
+reloaded, and output-compared again.
+
+If `safetensors` is unavailable, the rehearsal reports export `unavailable`
+after the checkpoint/resume portion passes. Baseline tests do not require real
+HF models, internet, Qwen, GPU/TPU, dataset streaming, production training,
+tokenizer remapping, recurrence math changes, runtime changes, or Pallas
+promotion.
+
+P108 does not add production checkpointing, distributed checkpointing,
+production Hugging Face export, training loops, optimizer changes,
+Qwen-specific paths, tokenizer remapping, fixture edits, tolerance changes, WKV
+math changes, or runtime semantic changes. P108 recommends P109 TPU
+Environment Hygiene / Runtime Readiness next.

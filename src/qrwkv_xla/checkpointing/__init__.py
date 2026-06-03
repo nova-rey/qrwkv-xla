@@ -1,5 +1,9 @@
 """Checkpointing interfaces for QRWKV-XLA."""
 
+from qrwkv_xla.checkpointing.rehearsal import (
+    CheckpointResumeExportRehearsalResult,
+    run_checkpoint_resume_export_rehearsal,
+)
 from qrwkv_xla.checkpointing.simple import (
     CheckpointManifest,
     LoadedCheckpoint,
@@ -11,9 +15,11 @@ from qrwkv_xla.checkpointing.simple import (
 
 __all__ = [
     "CheckpointManifest",
+    "CheckpointResumeExportRehearsalResult",
     "LoadedCheckpoint",
     "checkpoint_exists",
     "load_checkpoint",
+    "run_checkpoint_resume_export_rehearsal",
     "save_checkpoint",
     "validate_checkpoint_manifest",
 ]

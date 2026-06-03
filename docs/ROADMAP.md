@@ -1,5 +1,25 @@
 # QRWKV-XLA Roadmap
 
+## Phase 108 - Checkpoint / Resume / Export Rehearsal
+
+Goal: prove a tiny student checkpoint can be saved, resumed, exported, reloaded,
+and output-compared without adding production training or runtime changes.
+
+Current checkpoint: `checkpoint_resume_export_rehearsal`. P108 adds
+`run_checkpoint_resume_export_rehearsal()` and
+`scripts/run_checkpoint_resume_export_rehearsal.py`. The rehearsal saves a tiny
+`tiny_student` checkpoint, reloads it through the existing simple checkpoint
+loader, compares resumed outputs, exports through the existing HF/safetensors
+interchange path when `safetensors` is available, reloads the export, and
+compares hidden-state/logit outputs.
+
+Baseline tests use a tiny local student and no real HF model, internet, Qwen,
+GPU/TPU, dataset streaming, training loop, tokenizer remapping, or runtime
+changes. If `safetensors` is absent, the rehearsal reports export
+`unavailable` while preserving the checkpoint/resume result.
+
+Next: P109 TPU Environment Hygiene / Runtime Readiness.
+
 ## Phase 107 - Tiny Dataset Pipeline Smoke
 
 Goal: prove tiny raw text examples can become sharded teacher-target artifacts
@@ -17,7 +37,7 @@ Baseline tests use in-process fake HF objects, so transformers, internet,
 downloaded models, Qwen, GPU/TPU, large dataset work, streaming, training,
 tokenizer remapping, and runtime changes are not required.
 
-Next: P108 Checkpoint / Resume / Export Rehearsal.
+Next: P108 Checkpoint / Resume / Export Rehearsal - complete.
 
 ## Phase 106 - Multi-Shard TargetStore Smoke
 
@@ -116,7 +136,7 @@ changes, CurrentQRWKV behavior changes, or Pallas promotion.
 - P105 - Second Teacher-Specimen Swap Smoke: complete
 - P106 - Multi-Shard TargetStore Smoke: complete
 - P107 - Tiny Dataset Pipeline Smoke: complete
-- P108 - Checkpoint / Resume / Export Rehearsal
+- P108 - Checkpoint / Resume / Export Rehearsal: complete
 - P109 - TPU Environment Hygiene / Runtime Readiness
 - P110 - Mini Eval Harness Smoke
 - P111 - Big Burn Readiness Report

@@ -102,6 +102,18 @@ artifacts, validate through P106 multi-shard helpers, and consume through the
 P95 offline target path. It does not add large dataset plumbing, streaming,
 training, Qwen-specific code, or tokenizer remapping.
 
+Checkpoint / Resume / Export Rehearsal:
+
+- `run_checkpoint_resume_export_rehearsal()`:
+  `src/qrwkv_xla/checkpointing/rehearsal.py`
+- `scripts/run_checkpoint_resume_export_rehearsal.py`
+
+P108 proves a tiny student checkpoint can save, reload, export through the
+existing HF/safetensors interchange path, reload that export, and preserve
+hidden-state/logit outputs. It does not add production checkpointing,
+distributed checkpointing, production HF model classes, training, Qwen-specific
+code, or tokenizer remapping.
+
 OfflineTargetConsumption:
 
 - `OfflineTargetBatch`: `src/qrwkv_xla/targets/consumption.py`
@@ -201,11 +213,11 @@ Current modularity status:
 - second teacher-specimen swap smoke: present
 - multi-shard target-store smoke: present
 - tiny dataset pipeline smoke: present
+- checkpoint/resume/export rehearsal: present
 
 Likely future extraction layers:
 
 - broader student backend support
-- checkpoint/resume/export rehearsal
 - TPU environment hygiene
 - mini eval
 - burn readiness
@@ -237,6 +249,11 @@ claims.
 P107 implements only a tiny deterministic dataset pipeline smoke. It does not
 add large dataset pipelines, streaming, training, Qwen-specific support,
 tokenizer remapping, runtime changes, or Pallas promotion.
+
+P108 implements only a tiny checkpoint/resume/export rehearsal. It does not
+add production checkpointing, distributed checkpointing, production HF export,
+training, Qwen-specific support, tokenizer remapping, runtime changes, or
+Pallas promotion.
 
 P101 implements only the StudentBackend registry slot and default
 `current_qrwkv` architecture selection. It does not add a second backend.
