@@ -7,19 +7,19 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P105, second teacher-specimen swap smoke. The Pallas runway is
+Current phase: P106, multi-shard TargetStore smoke. The Pallas runway is
 closed after a recorded real TPU v5 lite smoke pass for the tiny opt-in Pallas
 WKV path, and the project is now the validated core of a Radjax-shaped modular
 recurrent distillation platform.
 
 Current emphasis is teacher backend modularity, vocab contracts, target stores,
 the student backend registry, runtime separation, and the burn-readiness arc.
-The project can emit and validate teacher target artifacts, reconstruct vocab
-contracts from metadata, select student backends by architecture id, keep
-runtime selection separate, and run optional/cache-local HF teacher specimen
-smokes without making any specimen a special architecture path. Baseline tests
-remain CPU-safe and do not require Hugging Face downloads, internet, Qwen, GPU,
-or TPU.
+The project can emit and validate teacher target artifacts, iterate multi-shard
+target stores, reconstruct vocab contracts from metadata, select student
+backends by architecture id, keep runtime selection separate, and run
+optional/cache-local HF teacher specimen smokes without making any specimen a
+special architecture path. Baseline tests remain CPU-safe and do not require
+Hugging Face downloads, internet, Qwen, GPU, or TPU.
 
 Runtime policy is unchanged: `reference` remains the default WKV runtime and
 `pallas` remains opt-in. The Pallas TPU smoke result does not claim production

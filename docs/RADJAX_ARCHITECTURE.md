@@ -73,12 +73,21 @@ TeacherTargetStore:
 
 - `TargetStoreMetadata`: `src/qrwkv_xla/targets/schema.py`
 - `TeacherTargetStore`: `src/qrwkv_xla/targets/store.py`
+- `iter_target_store_shard_ids()`:
+  `src/qrwkv_xla/targets/multishard.py`
+- `iter_offline_target_batches()`: `src/qrwkv_xla/targets/multishard.py`
 
 This is the versioned offline target artifact contract. P93 stores metadata in
 `metadata.json` and target arrays in local `.npz` shards. It decouples teacher
 execution from student runtime. The existing model/tokenizer/vocab metadata can
 reconstruct a `VocabContract`. P98 stores `full_logits` artifacts emitted by
 synthetic or generic HF teacher backends in the same canonical layout.
+
+Multi-Shard TargetStore:
+
+P106 stores target artifacts across multiple canonical shard files, supports
+deterministic shard-id iteration, validates shard count/presence/shape/dtype,
+and preserves the `metadata.json` plus `shards/shard-XXXXX.npz` layout.
 
 OfflineTargetConsumption:
 
@@ -177,11 +186,11 @@ Current modularity status:
 - real-teacher-style tiny rehearsal: present
 - optional HF causal-LM specimen smoke: present
 - second teacher-specimen swap smoke: present
+- multi-shard target-store smoke: present
 
 Likely future extraction layers:
 
 - broader student backend support
-- multi-shard target store
 - tiny dataset pipeline
 - checkpoint/resume/export rehearsal
 - TPU environment hygiene
@@ -232,3 +241,7 @@ P105 adds only a second teacher-specimen swap smoke. It proves model-id-driven
 HF teacher specimen swapping without adding student consumption, training,
 tokenizer remapping, Qwen-specific behavior, or GPT-2-specific architecture
 assumptions.
+
+P106 adds only a multi-shard TargetStore smoke. It preserves the canonical
+store layout, validates/iterates multiple shards, and does not add a dataset
+pipeline, training, tokenizer remapping, or runtime behavior changes.

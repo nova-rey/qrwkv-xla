@@ -1,5 +1,25 @@
 # QRWKV-XLA Roadmap
 
+## Phase 106 - Multi-Shard TargetStore Smoke
+
+Goal: prove target artifacts can span multiple shards with validation,
+iteration, and consumption.
+
+Current checkpoint: `multi_shard_target_store_smoke`. P106 adds
+`iter_target_store_shard_ids()`, `iter_offline_target_batches()`, and
+`run_multishard_target_store_smoke()`. The smoke preserves the canonical
+`metadata.json` plus `shards/shard-XXXXX.npz` layout, validates multiple shard
+files, loads each shard through the P95 offline target batch path, and computes
+finite per-shard/aggregate loss stats.
+
+Baseline tests use tiny synthetic arrays, so Hugging Face, internet, Qwen,
+GPU/TPU, dataset pipeline work, training, tokenizer remapping, and runtime
+changes are not required.
+
+Next: P107 Tiny Dataset Pipeline Smoke - prove tiny text examples can become
+sharded teacher-target artifacts and flow through consumption without adding
+large-scale training.
+
 ## Phase 105 - Second Teacher-Specimen Swap Smoke
 
 Goal: prove changing HF teacher specimen/model id does not require
@@ -77,7 +97,7 @@ changes, CurrentQRWKV behavior changes, or Pallas promotion.
 - P103 - Tiny Real-Teacher Overfit Rehearsal: complete
 - P104 - Tiny HF Causal-LM Teacher Specimen Smoke: complete
 - P105 - Second Teacher-Specimen Swap Smoke: complete
-- P106 - Multi-Shard TargetStore Smoke
+- P106 - Multi-Shard TargetStore Smoke: complete
 - P107 - Tiny Dataset Pipeline Smoke
 - P108 - Checkpoint / Resume / Export Rehearsal
 - P109 - TPU Environment Hygiene / Runtime Readiness

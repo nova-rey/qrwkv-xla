@@ -2081,3 +2081,18 @@ downloaded models, Qwen, GPU/TPU, student consumption, training, tokenizer
 remapping, recurrence math changes, and runtime changes are not required. P105
 also performed a bounded docs sweep to remove stale roadmap/README references
 from the P97-P104 pivot.
+
+## Phase 106 - Multi-Shard TargetStore Smoke
+
+P106 added a Multi-Shard TargetStore smoke. `TeacherTargetStore` artifacts can
+now validate and iterate multiple shard files in deterministic order, and a
+tiny per-shard consumption/loss smoke verifies finite losses across shards.
+
+The canonical `metadata.json` plus `shards/shard-XXXXX.npz` layout remains
+unchanged. Missing shards, extra shards, missing expected shard ids, and bad
+shapes fail clearly in validation.
+
+No dataset pipeline, training, optimizer loop, Qwen-specific code, tokenizer
+remapping, recurrence math change, runtime semantic change, fixture tensor
+edit, tolerance change, or Pallas promotion was introduced. P106 does not start
+P107.
