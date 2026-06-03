@@ -1,5 +1,23 @@
 # QRWKV-XLA Roadmap
 
+## Phase 105 - Second Teacher-Specimen Swap Smoke
+
+Goal: prove changing HF teacher specimen/model id does not require
+architecture surgery.
+
+Current checkpoint: `second_teacher_specimen_swap_smoke`. P105 adds
+`run_hf_teacher_specimen_swap_smoke()` and
+`scripts/run_hf_teacher_specimen_swap_smoke.py`. The smoke runs multiple
+`HFTeacherSpecimenConfig` entries through the same generic P104 specimen path,
+preserving distinct model id, tokenizer id, and vocab-size metadata.
+
+Baseline tests use fake HF specimens, so transformers, internet, downloaded
+models, Qwen, GPU/TPU, student consumption, training, tokenizer remapping, and
+runtime changes are not required.
+
+Next: P106 Multi-Shard TargetStore Smoke - prove target artifacts can span
+multiple shards with validation, iteration, and consumption.
+
 ## Phase 104 - Tiny HF Causal-LM Teacher Specimen Smoke
 
 Goal: use one tiny real/cache-safe HF causal LM as a specimen for generic
@@ -58,7 +76,7 @@ changes, CurrentQRWKV behavior changes, or Pallas promotion.
 
 - P103 - Tiny Real-Teacher Overfit Rehearsal: complete
 - P104 - Tiny HF Causal-LM Teacher Specimen Smoke: complete
-- P105 - Second Teacher-Specimen Swap Smoke
+- P105 - Second Teacher-Specimen Swap Smoke: complete
 - P106 - Multi-Shard TargetStore Smoke
 - P107 - Tiny Dataset Pipeline Smoke
 - P108 - Checkpoint / Resume / Export Rehearsal
@@ -177,9 +195,10 @@ P96 uses the `tiny_trainable_logit_head` fallback path. It does not prove full
 QRWKV student training readiness, Qwen support, production distillation, model
 quality, or large-scale performance.
 
-Next: P97 Small Qwen-family Smoke - introduce a small/tiny real teacher-family
-emission path through the modular target-store pipeline without large-scale
-training.
+Next phases moved into the Real-Teacher Rehearsal and Burn Readiness arc:
+teacher specimen smokes, multi-shard target stores, dataset plumbing,
+checkpoint/resume/export, TPU environment hygiene, mini eval, and burn
+readiness.
 
 ## Phase 95 - Offline Target Consumption Smoke
 

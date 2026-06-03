@@ -72,5 +72,5 @@ claims.
 
 ## Future Phases
 
-P105 can prove that swapping the HF teacher specimen/model id does not require
-architecture surgery.
+P105 adds the second teacher-specimen swap smoke. See
+`docs/HF_TEACHER_SPECIMEN_SWAP_SMOKE.md`.

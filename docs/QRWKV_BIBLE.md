@@ -2067,3 +2067,17 @@ Baseline tests do not require transformers, internet, downloaded models, Qwen,
 GPU/TPU, student consumption, training, tokenizer remapping, recurrence math
 changes, or runtime changes. The phase also kept StudentBackend registry docs
 explicit about both `current_qrwkv` and `tiny_debug`.
+
+## Phase 105 - Second Teacher-Specimen Swap Smoke
+
+P105 added a second teacher-specimen swap smoke. Two
+`HFTeacherBackend`-style specimens can now run through the same generic
+specimen/report path with distinct model id, tokenizer id, and vocab metadata,
+proving the path is model-id/configuration driven rather than hard-coded to one
+tiny model.
+
+Baseline tests use fake/mock HF specimens, so transformers, internet,
+downloaded models, Qwen, GPU/TPU, student consumption, training, tokenizer
+remapping, recurrence math changes, and runtime changes are not required. P105
+also performed a bounded docs sweep to remove stale roadmap/README references
+from the P97-P104 pivot.

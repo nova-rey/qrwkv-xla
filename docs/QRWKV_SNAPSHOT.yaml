@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 104
-current_phase: P104
-checkpoint: tiny_hf_causal_lm_teacher_specimen_smoke
+phase: 105
+current_phase: P105
+checkpoint: second_teacher_specimen_swap_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,15 +56,34 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Prove the generic HFTeacherBackend can optionally emit a valid target artifact
-  from one tiny cache-local HF causal-LM specimen without making the specimen a
-  special architecture path.
+  Prove the generic HFTeacherBackend specimen path is model-id/configuration
+  driven by running multiple teacher specimens through the same smoke/report
+  path.
 
 current_arc: real_teacher_rehearsal_and_burn_readiness
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
-recommended_next: P105 Second Teacher-Specimen Swap Smoke
+recommended_next: P106 Multi-Shard TargetStore Smoke
+
+p105:
+  goal: second_teacher_specimen_swap_smoke
+  behavior_change_intended: false
+  multi_specimen_smoke_added: true
+  baseline_requires_transformers: false
+  baseline_requires_internet: false
+  baseline_requires_downloaded_model: false
+  baseline_requires_gpu_or_tpu: false
+  qwen_specific_code_added: false
+  gpt2_specific_architecture_added: false
+  student_consumption_added: false
+  training_added: false
+  optimizer_added: false
+  tokenizer_remapping_added: false
+  docs_sweep_completed: true
+  reference_default_preserved: true
+  pallas_opt_in_preserved: true
+  recommended_next: P106 Multi-Shard TargetStore Smoke
 
 p104:
   goal: tiny_hf_causal_lm_teacher_specimen_smoke
@@ -203,7 +222,7 @@ p96:
   loss_movement_required: true
   reference_default_preserved: true
   pallas_opt_in_preserved: true
-  recommended_next: P97 Small Qwen-family Smoke
+  recommended_next: P97 Token/Vocab Contract and Student Config Selection
 
 p95:
   goal: offline_target_consumption_smoke

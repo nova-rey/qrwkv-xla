@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -46,6 +47,43 @@ class HFTeacherSpecimenSmokeResult:
 
     def to_report(self) -> dict[str, Any]:
         return asdict(self)
+
+    def write_json(self, path: str | Path) -> Path:
+        report_path = Path(path)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(
+            json.dumps(self.to_report(), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        return report_path
+
+
+@dataclass(frozen=True)
+class HFTeacherSpecimenConfig:
+    model_id: str
+    prompts: tuple[str, ...] = ("hello",)
+    sequence_length: int = 8
+    local_files_only: bool = True
+    allow_downloads: bool = False
+
+
+@dataclass(frozen=True)
+class HFTeacherSpecimenSwapReport:
+    status: str
+    scope: str
+    specimen_count: int
+    passed: int
+    unavailable: int
+    failed: int
+    model_ids: tuple[str, ...]
+    specimens: tuple[HFTeacherSpecimenSmokeResult, ...]
+    claims_not_made: tuple[str, ...]
+    phase: str = "P105"
+
+    def to_report(self) -> dict[str, Any]:
+        report = asdict(self)
+        report["specimens"] = [specimen.to_report() for specimen in self.specimens]
+        return report
 
     def write_json(self, path: str | Path) -> Path:
         report_path = Path(path)
@@ -205,3 +243,69 @@ def _unavailable_reason(message: str) -> str:
     if "local_files_only=true" in lowered or "not cached" in lowered:
         return "model_not_available_in_local_cache"
     return "optional_dependency_unavailable"
+
+
+def run_hf_teacher_specimen_swap_smoke(
+    specimens: Sequence[HFTeacherSpecimenConfig],
+    *,
+    target_store_root: str | Path,
+    backends: Mapping[str, HFTeacherBackend] | None = None,
+) -> HFTeacherSpecimenSwapReport:
+    if not specimens:
+        raise ValueError("specimens must contain at least one specimen")
+
+    root = Path(target_store_root)
+    results = []
+    for index, specimen in enumerate(specimens):
+        result = run_hf_teacher_specimen_smoke(
+            target_store=root / _specimen_store_name(index, specimen.model_id),
+            model_id=specimen.model_id,
+            prompts=specimen.prompts,
+            sequence_length=specimen.sequence_length,
+            local_files_only=specimen.local_files_only,
+            allow_downloads=specimen.allow_downloads,
+            backend=(backends or {}).get(specimen.model_id),
+        )
+        results.append(result)
+
+    passed = sum(result.status == "pass" for result in results)
+    unavailable = sum(result.status == "unavailable" for result in results)
+    failed = sum(result.status == "fail" for result in results)
+    status = _swap_status(
+        specimen_count=len(results),
+        passed=passed,
+        unavailable=unavailable,
+        failed=failed,
+    )
+    return HFTeacherSpecimenSwapReport(
+        status=status,
+        scope="second_teacher_specimen_swap_smoke",
+        specimen_count=len(results),
+        passed=passed,
+        unavailable=unavailable,
+        failed=failed,
+        model_ids=tuple(specimen.model_id for specimen in specimens),
+        specimens=tuple(results),
+        claims_not_made=HF_SPECIMEN_CLAIMS_NOT_MADE,
+    )
+
+
+def _swap_status(
+    *,
+    specimen_count: int,
+    passed: int,
+    unavailable: int,
+    failed: int,
+) -> str:
+    if failed:
+        return "fail"
+    if passed == specimen_count:
+        return "pass"
+    if unavailable == specimen_count:
+        return "unavailable"
+    return "partial"
+
+
+def _specimen_store_name(index: int, model_id: str) -> str:
+    safe = "".join(char if char.isalnum() else "-" for char in model_id.lower())
+    return f"{index:02d}-{safe.strip('-') or 'specimen'}"

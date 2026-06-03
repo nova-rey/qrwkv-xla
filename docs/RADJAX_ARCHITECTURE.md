@@ -57,13 +57,17 @@ Tiny HF Causal-LM Teacher Specimen:
 
 - `run_hf_teacher_specimen_smoke()`:
   `src/qrwkv_xla/teachers/hf_specimen_smoke.py`
+- `run_hf_teacher_specimen_swap_smoke()`:
+  `src/qrwkv_xla/teachers/hf_specimen_smoke.py`
 - `scripts/run_hf_teacher_specimen_smoke.py`
+- `scripts/run_hf_teacher_specimen_swap_smoke.py`
 
 This is an optional cache-local live specimen smoke for the generic
 `HFTeacherBackend`. P104 can emit and validate a real `full_logits`
 `TeacherTargetStore` artifact when optional HF dependencies and local model
 files are available. The specimen model id is configurable and does not become
-a special architecture path.
+a special architecture path. P105 proves the same path can represent multiple
+teacher specimens with distinct model id, tokenizer id, and vocab metadata.
 
 TeacherTargetStore:
 
@@ -172,11 +176,11 @@ Current modularity status:
 - second student backend smoke: present
 - real-teacher-style tiny rehearsal: present
 - optional HF causal-LM specimen smoke: present
+- second teacher-specimen swap smoke: present
 
 Likely future extraction layers:
 
 - broader student backend support
-- second teacher-specimen swap
 - multi-shard target store
 - tiny dataset pipeline
 - checkpoint/resume/export rehearsal
@@ -223,3 +227,8 @@ P104 adds only an optional tiny HF causal-LM specimen smoke. It keeps baseline
 tests fake/mock-safe, defaults to local-files-only behavior, and does not add
 student consumption, training, tokenizer remapping, Qwen-specific behavior, or
 GPT-2-specific architecture assumptions.
+
+P105 adds only a second teacher-specimen swap smoke. It proves model-id-driven
+HF teacher specimen swapping without adding student consumption, training,
+tokenizer remapping, Qwen-specific behavior, or GPT-2-specific architecture
+assumptions.

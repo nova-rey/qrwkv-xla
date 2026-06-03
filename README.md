@@ -7,24 +7,19 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Phase 92: post-Pallas StudentRuntime split. The Pallas runway is closed after a
-recorded real TPU v5 lite smoke pass for the tiny opt-in Pallas WKV path, and
-the project is now extracting Radjax-shaped student backend/runtime boundaries
-without changing runtime behavior.
+Current phase: P105, second teacher-specimen swap smoke. The Pallas runway is
+closed after a recorded real TPU v5 lite smoke pass for the tiny opt-in Pallas
+WKV path, and the project is now the validated core of a Radjax-shaped modular
+recurrent distillation platform.
 
-The project can define, write, read, validate, inspect, and test fake teacher
-target bundles on CPU through a reusable exporter interface. It also has an
-optional Hugging Face / PyTorch exporter backend behind the `teacher-hf` extra;
-that path is not part of default CI/local validation. Qwen policy labels are
-resolved only from local YAML and never by automatic internet lookup. It also
-has JAX student runtime paths, XLA-friendly RWKV7/Qwen reference
-implementations, a `StudentBackend` wrapper boundary for the current QRWKV
-student core, a `StudentRuntime` execution boundary for reference/Pallas WKV
-paths, CPU/JIT/gradient coverage, and smoke training. The current
-distillation runtime loads stage configs, composes weighted hidden-state losses,
-plumbs optional logits KL, and runs CPU-safe stage smokes over target bundles.
-It also exposes JAX runtime inspection, static-shape JIT smoke helpers,
-skip-safe multi-device `pmap` smokes, and local run tracking.
+Current emphasis is teacher backend modularity, vocab contracts, target stores,
+the student backend registry, runtime separation, and the burn-readiness arc.
+The project can emit and validate teacher target artifacts, reconstruct vocab
+contracts from metadata, select student backends by architecture id, keep
+runtime selection separate, and run optional/cache-local HF teacher specimen
+smokes without making any specimen a special architecture path. Baseline tests
+remain CPU-safe and do not require Hugging Face downloads, internet, Qwen, GPU,
+or TPU.
 
 Runtime policy is unchanged: `reference` remains the default WKV runtime and
 `pallas` remains opt-in. The Pallas TPU smoke result does not claim production
