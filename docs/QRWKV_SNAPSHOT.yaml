@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 115
-current_phase: P115
-checkpoint: architecture_similarity_first_burn_target_decision
+phase: 116
+current_phase: P116
+checkpoint: teacher_textbook_student_artifact_contract_revised_burn_launch_plan
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,18 +56,41 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Select the smallest honest first serious burn target before revising the
-  first serious burn launch plan.
+  Define the TeacherTextbook input artifact, StudentArtifact output contract,
+  validation gates, and revised launch plan for the first serious burn.
 
 current_arc: post_p112_research_alignment
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
-recommended_next: P116 Revised Burn Config + Launch Plan
+recommended_next: P117 First Serious Compute Burn
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
   post_p112_research_alignment: active
+
+p116:
+  goal: teacher_textbook_student_artifact_contract_revised_burn_launch_plan
+  behavior_change_intended: false
+  teacher_textbook_contract_added: true
+  student_artifact_contract_added: true
+  revised_burn_launch_plan_added: true
+  teacher_textbook_validator_added: true
+  student_artifact_validator_added: true
+  selected_student_family: current_qrwkv_rwkv_family
+  selected_teacher_class: tiny_real_hf_causal_lm
+  preferred_teacher_model_id: sshleifer/tiny-gpt2
+  matched_vocab_required: true
+  hf_shaped_artifact_boundary_required: true
+  full_hf_native_required_for_p117: false
+  real_burn_started: false
+  training_added: false
+  tokenizer_remapping_added: false
+  remote_teacher_service_added: false
+  kvm_implemented: false
+  fla_dependency_added: false
+  vocab_c_implemented: false
+  recommended_next: P117 First Serious Compute Burn
 
 p115:
   goal: architecture_similarity_first_burn_target_decision

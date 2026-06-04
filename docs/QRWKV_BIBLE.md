@@ -2302,3 +2302,34 @@ equation change, checkpoint format change, TeacherTargetStore layout change,
 runtime semantic change, StudentBackend behavior change, StudentRuntime
 behavior change, fixture tensor edit, tolerance change, or Pallas promotion was
 introduced.
+
+## Phase 116 - TeacherTextbook + StudentArtifact Contract / Revised Burn Launch Plan
+
+P116 added the TeacherTextbook + StudentArtifact Contract / Revised Burn Launch
+Plan. The first serious burn is now specified as a two-box workflow: a validated
+TeacherTextbook input artifact produced from a tiny real HF causal-LM teacher,
+and an HF-shaped Level 0/1 StudentArtifact output produced by the
+`current_qrwkv` / RWKV-family student burn.
+
+TeacherTextbook wraps the existing `TeacherTargetStore` layout with a vocab
+contract, teacher manifest, emission config, and validation report. StudentArtifact
+contains student config, matched vocab contract, runtime metadata,
+checkpoint/params, burn/eval/export reports, and validation report. P116 added
+small CPU-only validators and CLI gates for both artifacts.
+
+TeacherTextbook generation follows teacher hardware requirements and can run
+independently of the TPU/JAX student burn; TPU is not required for textbook
+generation. P116 prefers `sshleifer/tiny-gpt2` as the P117 lab-specimen teacher
+unless replaced by a documented repo convention. GPT-2 is used only as a tiny
+real HF causal-LM specimen, not as a student architecture assumption.
+
+P117 remains matched-vocab only, reference-runtime default, Pallas opt-in, and
+claim-bounded to architecture-family-specific evidence. The P112 harness remains
+guarded, and real mode still requires explicit human confirmation.
+
+No real burn, training, remote teacher service, tokenizer remapping, vocab
+mapping, full HF-native wrapper, transformers required dependency, KVM
+implementation, FLA dependency, Vocab C implementation, recurrence math change,
+WKV equation change, checkpoint format incompatibility, TeacherTargetStore
+layout change, StudentRuntime semantic change, StudentBackend behavior change,
+fixture tensor edit, tolerance change, or Pallas promotion was introduced.

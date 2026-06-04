@@ -193,6 +193,17 @@ reference runtime as the default, keep Pallas opt-in, and require an HF-shaped
 Level 0/1 artifact and loader boundary without requiring full HF-native
 integration.
 
+Two-Box Burn Workflow:
+
+The P117 burn path is specified as a two-box workflow. TeacherTextbook is the
+input artifact: existing `TeacherTargetStore` payload plus vocab contract,
+teacher manifest, emission config, and validation report. StudentArtifact is
+the output artifact: student config, matched vocab contract, runtime metadata,
+checkpoint/params, burn/eval/export reports, and validation report. Validation
+gates run before and after the burn. Teacher hardware requirements are separate
+from student burn hardware requirements; TPU is not required for textbook
+generation.
+
 OfflineTargetConsumption:
 
 - `OfflineTargetBatch`: `src/qrwkv_xla/targets/consumption.py`
@@ -301,10 +312,11 @@ Current modularity status:
 - post-P112 research alignment intake: present
 - HF-compatible student interface reassessment: present
 - first burn target decision: present
+- two-box burn artifact contracts: present
 
 Likely future extraction layers:
 
-- revised burn config and launch plan
+- TeacherTextbook builder implementation / confirmation
 - minimal HF-style student artifact contract
 - HF-style forward wrapper smoke
 - broader student backend support
@@ -394,6 +406,17 @@ C, add a full HF wrapper, add `transformers` as a required dependency, hard-code
 Qwen or GPT-2, change WKV math, alter checkpoint or target-store formats,
 change StudentRuntime or StudentBackend behavior, promote Pallas, or start
 P116 implementation.
+
+P116 implements only TeacherTextbook and StudentArtifact contracts, CPU-only
+artifact validators, and the revised burn launch plan. It prefers
+`sshleifer/tiny-gpt2` as the P117 tiny real HF causal-LM lab teacher, not as an
+architecture target. It does not run the real burn, train, add a remote teacher
+service, add tokenizer remapping, map vocab A to vocab B, implement KVM, add
+FLA as a dependency, implement Vocab C, add a full HF wrapper, add
+`transformers` as a required dependency, hard-code GPT-2 into student
+architecture assumptions, change WKV math, alter checkpoint or
+TeacherTargetStore formats, change StudentRuntime or StudentBackend behavior,
+promote Pallas, or start P117 implementation.
 
 P101 implements only the StudentBackend registry slot and default
 `current_qrwkv` architecture selection. It does not add a second backend.

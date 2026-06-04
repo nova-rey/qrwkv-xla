@@ -1,5 +1,28 @@
 # QRWKV-XLA Roadmap
 
+## Phase 116 - TeacherTextbook + StudentArtifact Contract / Revised Burn Launch Plan
+
+Goal: define the two-box first-burn workflow, validation gates, teacher
+specimen, and launch sequence before P117.
+
+Current checkpoint:
+`teacher_textbook_student_artifact_contract_revised_burn_launch_plan`. P116
+defines the TeacherTextbook artifact contract, StudentArtifact contract, and
+revised burn launch plan. It selects `sshleifer/tiny-gpt2` as the preferred
+tiny real HF causal-LM lab teacher for P117 unless replaced by a documented
+repo convention, and keeps `current_qrwkv` / RWKV-family as the matched-vocab
+student payload.
+
+P116 adds CPU-only validation gates for TeacherTextbook and StudentArtifact.
+The actual serious burn is deferred until the P116 launch plan is reviewed, a
+TeacherTextbook is built and validated, and the guarded P112 real-mode command
+is manually confirmed.
+
+Next:
+
+- P117 - First Serious Compute Burn
+- P118 - Burn Result Analysis / Next-Arc Decision
+
 ## Phase 115 - Architecture Similarity / First Burn Target Decision
 
 Goal: select the smallest honest first serious burn target before revising the
@@ -18,7 +41,7 @@ Vocab C / cross-vocab work to a separate vocabulary arc.
 P112 closed the launchpad/dry-run gate. The actual serious burn is deferred
 until P116 turns this decision into a revised burn config and launch plan.
 
-Next: P116 Revised Burn Config + Launch Plan.
+Next: P116 TeacherTextbook + StudentArtifact Contract / Revised Burn Launch Plan - complete.
 
 ## Phase 114 - HF-Compatible Student Interface Reassessment
 
