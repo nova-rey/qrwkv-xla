@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -142,8 +143,19 @@ def test_cli_writes_valid_artifact_without_hf_internet_gpu_or_tpu(
     assert validate_teacher_textbook(output).status == "pass"
 
 
-def test_hf_mode_fails_clearly_without_implicit_downloads(tmp_path: Path) -> None:
-    with pytest.raises(RuntimeError, match="teacher-mode=hf is intentionally guarded"):
+def test_hf_mode_missing_optional_deps_fails_clearly(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing_import(name: str):
+        raise ImportError(name)
+
+    monkeypatch.setattr(
+        "qrwkv_xla.artifacts.teacher_textbook_builder.import_module",
+        missing_import,
+    )
+
+    with pytest.raises(RuntimeError, match="teacher-mode=hf requires optional"):
         build_teacher_textbook(
             TeacherTextbookBuildConfig(
                 output_dir=tmp_path / "teacher_textbook",
@@ -151,6 +163,89 @@ def test_hf_mode_fails_clearly_without_implicit_downloads(tmp_path: Path) -> Non
                 teacher_model_id="sshleifer/tiny-gpt2",
                 allow_downloads=False,
                 local_files_only=True,
+            )
+        )
+
+
+def test_hf_mode_builds_valid_artifact_with_mocked_dependencies(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: dict[str, list[bool]] = {"tokenizer": [], "model": []}
+    _install_mock_hf_modules(monkeypatch, calls=calls)
+    dataset = tmp_path / "input.jsonl"
+    _write_jsonl(dataset, ["alpha", "beta", "gamma"])
+    output = tmp_path / "teacher_textbook"
+
+    report = build_teacher_textbook(
+        TeacherTextbookBuildConfig(
+            output_dir=output,
+            dataset_path=dataset,
+            teacher_mode="hf",
+            teacher_model_id="local/tiny-hf",
+            sequence_length=8,
+            batch_size=2,
+            max_examples=3,
+            logits_dtype="float32",
+            local_files_only=True,
+            allow_downloads=False,
+        )
+    )
+
+    assert report.status == "pass"
+    assert validate_teacher_textbook(output).status == "pass"
+    assert calls["tokenizer"] == [True]
+    assert calls["model"] == [True]
+    manifest = read_json_object(output / "teacher_manifest.json")
+    emission = read_json_object(output / "emission_config.json")
+    vocab = read_json_object(output / "vocab_contract.json")
+    assert manifest["teacher_backend_type"] == "hf"
+    assert manifest["target_type"] == "full_logits"
+    assert manifest["vocab_size"] == 11
+    assert emission["teacher_mode"] == "hf"
+    assert emission["sampling_used"] is False
+    assert emission["local_files_only"] is True
+    assert emission["allow_downloads"] is False
+    assert vocab["vocab_size"] == 11
+    with np.load(output / "shards" / "shard-00000.npz", allow_pickle=False) as shard:
+        assert shard["input_ids"].shape == (2, 8)
+        assert shard["attention_mask"].shape == (2, 8)
+        assert shard["logits"].shape == (2, 8, 11)
+
+
+def test_hf_mode_allows_downloads_only_when_explicit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: dict[str, list[bool]] = {"tokenizer": [], "model": []}
+    _install_mock_hf_modules(monkeypatch, calls=calls)
+
+    build_teacher_textbook(
+        TeacherTextbookBuildConfig(
+            output_dir=tmp_path / "teacher_textbook",
+            teacher_mode="hf",
+            teacher_model_id="local/tiny-hf",
+            sequence_length=8,
+            batch_size=2,
+            max_examples=2,
+            local_files_only=False,
+            allow_downloads=True,
+        )
+    )
+
+    assert calls["tokenizer"] == [False]
+    assert calls["model"] == [False]
+
+
+def test_hf_mode_local_files_only_wins_over_downloads(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="local-files-only"):
+        build_teacher_textbook(
+            TeacherTextbookBuildConfig(
+                output_dir=tmp_path / "teacher_textbook",
+                teacher_mode="hf",
+                teacher_model_id="local/tiny-hf",
+                local_files_only=True,
+                allow_downloads=True,
             )
         )
 
@@ -194,3 +289,89 @@ def _write_jsonl(path: Path, texts: list[str]) -> None:
         for idx, text in enumerate(texts)
     ]
     path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+
+def _install_mock_hf_modules(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    calls: dict[str, list[bool]],
+) -> None:
+    class FakeTokenizer:
+        name_or_path = "local/tiny-hf"
+        vocab_size = 11
+        pad_token_id = None
+        eos_token = "<eos>"
+        eos_token_id = 10
+        bos_token_id = 9
+        unk_token_id = 8
+
+        def __call__(
+            self,
+            texts,
+            *,
+            padding,
+            truncation,
+            max_length,
+            return_tensors,
+        ):
+            assert padding == "max_length"
+            assert truncation is True
+            assert return_tensors == "pt"
+            input_ids = np.zeros((len(texts), max_length), dtype=np.int64)
+            attention_mask = np.zeros_like(input_ids)
+            for row, text in enumerate(texts):
+                encoded = [((ord(ch) % 10) + 1) for ch in text[:max_length]]
+                input_ids[row, : len(encoded)] = encoded
+                attention_mask[row, : len(encoded)] = 1
+            return {"input_ids": input_ids, "attention_mask": attention_mask}
+
+    class FakeAutoTokenizer:
+        @staticmethod
+        def from_pretrained(model_id, *, local_files_only):
+            assert model_id == "local/tiny-hf"
+            calls["tokenizer"].append(local_files_only)
+            return FakeTokenizer()
+
+    class FakeModel:
+        def eval(self):
+            self.eval_called = True
+
+        def __call__(self, **encoded):
+            input_ids = np.asarray(encoded["input_ids"])
+            batch, time = input_ids.shape
+            logits = np.zeros((batch, time, 11), dtype=np.float32)
+            for token in range(11):
+                logits[:, :, token] = token + input_ids
+            return SimpleNamespace(logits=logits)
+
+    class FakeAutoModel:
+        @staticmethod
+        def from_pretrained(model_id, *, local_files_only):
+            assert model_id == "local/tiny-hf"
+            calls["model"].append(local_files_only)
+            return FakeModel()
+
+    class _InferenceMode:
+        def __enter__(self):
+            return None
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+    fake_torch = SimpleNamespace(inference_mode=lambda: _InferenceMode())
+    fake_transformers = SimpleNamespace(
+        AutoTokenizer=FakeAutoTokenizer,
+        AutoModelForCausalLM=FakeAutoModel,
+    )
+
+    def fake_import_module(name: str):
+        if name == "torch":
+            return fake_torch
+        if name == "transformers":
+            return fake_transformers
+        raise ImportError(name)
+
+    monkeypatch.setattr(
+        "qrwkv_xla.artifacts.teacher_textbook_builder.import_module",
+        fake_import_module,
+    )

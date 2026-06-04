@@ -13,8 +13,9 @@ from qrwkv_xla.artifacts import (
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Build a P116.1 TeacherTextbook. Fake mode is CPU-only and requires "
-            "no TPU/GPU/HF/internet; HF mode is guarded for a future extension."
+            "Build a P116.2 TeacherTextbook. Fake mode is CPU-only and requires "
+            "no TPU/GPU/HF/internet; HF mode lazily uses optional teacher-hf "
+            "dependencies."
         )
     )
     parser.add_argument("--output", type=Path, required=True)
@@ -27,11 +28,17 @@ def main() -> int:
     parser.add_argument("--logits-dtype", default="float32")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--vocab-size", type=int, default=32)
-    parser.add_argument("--local-files-only", action="store_true")
+    parser.add_argument(
+        "--local-files-only",
+        action="store_true",
+        help="Do not download HF model/tokenizer files.",
+    )
     parser.add_argument("--allow-downloads", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
+    if args.local_files_only and args.allow_downloads:
+        parser.error("--local-files-only and --allow-downloads cannot both be set")
     if args.teacher_mode == "fake" and args.allow_downloads:
         parser.error("--allow-downloads is not meaningful for --teacher-mode fake")
 
@@ -44,7 +51,11 @@ def main() -> int:
         batch_size=args.batch_size,
         max_examples=args.max_examples,
         logits_dtype=args.logits_dtype,
-        local_files_only=args.local_files_only or args.teacher_mode == "fake",
+        local_files_only=(
+            args.local_files_only
+            or args.teacher_mode == "fake"
+            or (args.teacher_mode == "hf" and not args.allow_downloads)
+        ),
         allow_downloads=args.allow_downloads,
         seed=args.seed,
         overwrite=args.overwrite,

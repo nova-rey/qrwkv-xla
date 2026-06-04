@@ -2356,3 +2356,27 @@ dependency, KVM implementation, Vocab C implementation, recurrence math change,
 WKV equation change, checkpoint format incompatibility, TeacherTargetStore
 layout change, StudentRuntime semantic change, StudentBackend behavior change,
 fixture tensor edit, tolerance change, or Pallas promotion was introduced.
+
+## Phase 116.2 - Real HF TeacherTextbook Builder
+
+P116.2 closed the real-HF TeacherTextbook builder gap. The
+`scripts/build_teacher_textbook.py --teacher-mode hf` path now lazily loads a
+tiny HF causal-LM teacher, tokenizes JSONL examples, runs teacher forward passes
+under inference mode, emits `logits`, `input_ids`, and `attention_mask` into
+canonical TeacherTextbook shards, writes vocab contract, teacher manifest,
+emission config, and validation report, and reuses the existing TeacherTextbook
+validator.
+
+HF mode is guarded by `--local-files-only` and explicit `--allow-downloads`
+behavior. CI remains fake/mocked and requires no HF model download, internet,
+GPU, TPU, Qwen, real burn, or training. This enables a real tiny-HF
+TeacherTextbook, such as `sshleifer/tiny-gpt2`, to be built before P117 when
+dependencies and model files are available.
+
+No real burn, training, remote teacher service, Qwen support, tokenizer
+remapping, vocab mapping, full HF-native wrapper, transformers required
+dependency, FLA dependency, KVM implementation, Vocab C implementation,
+recurrence math change, WKV equation change, checkpoint format incompatibility,
+TeacherTargetStore layout change, StudentRuntime semantic change,
+StudentBackend behavior change, fixture tensor edit, tolerance change, or
+Pallas promotion was introduced.

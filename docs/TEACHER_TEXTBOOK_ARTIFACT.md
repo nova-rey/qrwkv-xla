@@ -7,8 +7,9 @@ the workbook written by the teacher model: token ids, masks, logits or other
 supported targets, vocab contract, emission settings, and validation evidence.
 
 P116 defines the contract and adds a small CPU-only validator. P116.1 adds the
-fake-mode builder button for small artifacts. It does not download models,
-train, or start the real burn.
+fake-mode builder button for small artifacts. P116.2 adds a guarded real-HF
+teacher mode for tiny causal-LM teachers. It does not train or start the real
+burn.
 
 ## Relationship to TeacherTargetStore
 
@@ -178,6 +179,36 @@ training.
 
 Optional HF mode is deliberately guarded in P116.1. Large GPU teacher textbook
 generation remains a future/manual extension.
+
+P116.2 implements `--teacher-mode hf` for tiny causal-LM teachers through lazy
+optional imports. It loads `AutoTokenizer` and `AutoModelForCausalLM`, tokenizes
+JSONL examples, runs model forward passes under inference mode, writes logits
+without label shifting, and reuses the same TeacherTextbook validation path.
+
+HF mode defaults conservatively. `--local-files-only` prevents downloads.
+Downloads are allowed only with explicit `--allow-downloads`; if both flags are
+provided, the CLI errors clearly.
+
+Manual tiny-HF smoke, assuming dependencies and cached model files are present:
+
+```bash
+python scripts/build_teacher_textbook.py \
+  --teacher-mode hf \
+  --teacher-model sshleifer/tiny-gpt2 \
+  --dataset artifacts/p116/input_texts.jsonl \
+  --output artifacts/p117_teacher_textbook_tiny_gpt2_smoke \
+  --sequence-length 64 \
+  --batch-size 1 \
+  --max-examples 8 \
+  --logits-dtype float32 \
+  --local-files-only
+
+python scripts/validate_teacher_textbook.py \
+  --path artifacts/p117_teacher_textbook_tiny_gpt2_smoke
+```
+
+If the model is not cached, either cache it first or rerun the builder with
+`--allow-downloads` in an environment where downloads are acceptable.
 
 ## Dataset JSONL Format
 

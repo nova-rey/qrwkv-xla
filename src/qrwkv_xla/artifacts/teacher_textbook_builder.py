@@ -4,7 +4,9 @@ import json
 import shutil
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from importlib import import_module
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -36,6 +38,13 @@ CLAIMS_NOT_MADE = (
     "no_qwen_parity_claim",
     "no_training_claim",
     "no_remote_teacher_service_claim",
+)
+HF_CLAIMS_NOT_MADE = (
+    "no_model_quality_claim",
+    "no_qwen_parity_claim",
+    "no_training_claim",
+    "no_remote_teacher_service_claim",
+    "no_tokenizer_remapping_claim",
 )
 
 
@@ -69,12 +78,7 @@ def build_teacher_textbook(
     if config.teacher_mode == "fake":
         return build_fake_teacher_textbook(config)
     if config.teacher_mode == "hf":
-        raise RuntimeError(
-            "teacher-mode=hf is intentionally guarded in P116.1. "
-            "Use teacher-mode=fake for CI-safe textbook builds, or run a future "
-            "HF builder extension with explicit optional dependencies and model "
-            "availability."
-        )
+        return build_hf_teacher_textbook(config)
     raise ValueError(f"unsupported teacher_mode: {config.teacher_mode!r}")
 
 
@@ -125,6 +129,98 @@ def build_fake_teacher_textbook(
     if report.status != "pass":
         raise ValueError(
             "built TeacherTextbook failed validation: " + "; ".join(report.blockers)
+        )
+    return validate_teacher_textbook(config.output_dir)
+
+
+def build_hf_teacher_textbook(
+    config: TeacherTextbookBuildConfig,
+) -> TeacherTextbookValidationReport:
+    _validate_config(config)
+    if config.local_files_only and config.allow_downloads:
+        raise ValueError("--local-files-only and --allow-downloads cannot both be set")
+    examples = load_text_examples(config.dataset_path, max_examples=config.max_examples)
+    if config.output_dir.exists():
+        if not config.overwrite:
+            raise ValueError(
+                f"TeacherTextbook output already exists: {config.output_dir}. "
+                "Pass --overwrite to replace it."
+            )
+        shutil.rmtree(config.output_dir)
+
+    torch, auto_tokenizer, auto_model = _load_hf_dependencies(config)
+    local_files_only = config.local_files_only or not config.allow_downloads
+    try:
+        tokenizer = auto_tokenizer.from_pretrained(
+            config.teacher_model_id,
+            local_files_only=local_files_only,
+        )
+        model = auto_model.from_pretrained(
+            config.teacher_model_id,
+            local_files_only=local_files_only,
+        )
+    except Exception as exc:
+        raise RuntimeError(_hf_error_message(config, local_files_only)) from exc
+
+    _prepare_hf_tokenizer(tokenizer, config)
+    if hasattr(model, "eval"):
+        model.eval()
+
+    created_at = datetime.now(UTC).replace(microsecond=0).isoformat()
+    vocab_size = _hf_vocab_size(tokenizer, config)
+    shard_count = (len(examples) + config.batch_size - 1) // config.batch_size
+    tokenizer_id = str(
+        getattr(tokenizer, "name_or_path", None) or config.teacher_model_id
+    )
+    metadata = TargetStoreMetadata(
+        schema_version=TEACHER_TARGET_STORE_SCHEMA_VERSION,
+        target_store_version=TEACHER_TARGET_STORE_VERSION,
+        model_id=config.teacher_model_id,
+        model_family="hf-causal-lm",
+        tokenizer_id=tokenizer_id,
+        tokenizer_hash=None,
+        vocab_size=vocab_size,
+        target_type="full_logits",
+        dtype=_canonical_dtype(config.logits_dtype),
+        sequence_length=config.sequence_length,
+        num_examples=len(examples),
+        shard_count=shard_count,
+        created_by="qrwkv_xla.artifacts.teacher_textbook_builder",
+        created_at=created_at,
+        source={"kind": _dataset_source(config.dataset_path)},
+        provenance={"phase": "P116.2", "teacher_mode": "hf"},
+    )
+    store = TeacherTargetStore.create(config.output_dir, metadata, overwrite=True)
+    inference_context = getattr(torch, "inference_mode", None) or torch.no_grad
+    with inference_context():
+        for shard_id, start in enumerate(range(0, len(examples), config.batch_size)):
+            batch = examples[start : start + config.batch_size]
+            arrays = _hf_arrays(
+                batch,
+                config,
+                tokenizer=tokenizer,
+                model=model,
+                vocab_size=vocab_size,
+            )
+            store.write_shard(shard_id, arrays)
+
+    _write_hf_sidecars(
+        config,
+        examples,
+        created_at,
+        tokenizer=tokenizer,
+        tokenizer_id=tokenizer_id,
+        vocab_size=vocab_size,
+        local_files_only=local_files_only,
+    )
+    report = validate_teacher_textbook(config.output_dir)
+    write_teacher_textbook_validation_report(
+        report,
+        config.output_dir / "validation_report.json",
+    )
+    if report.status != "pass":
+        raise ValueError(
+            "built HF TeacherTextbook failed validation: " + "; ".join(report.blockers)
         )
     return validate_teacher_textbook(config.output_dir)
 
@@ -285,6 +381,206 @@ def _write_sidecars(
             "teacher_mode": config.teacher_mode,
         },
     )
+
+
+def _write_hf_sidecars(
+    config: TeacherTextbookBuildConfig,
+    examples: tuple[TinyTextExample, ...],
+    created_at: str,
+    *,
+    tokenizer: Any,
+    tokenizer_id: str,
+    vocab_size: int,
+    local_files_only: bool,
+) -> None:
+    shard_count = (len(examples) + config.batch_size - 1) // config.batch_size
+    special_tokens = {
+        "pad_token_id": _optional_int(getattr(tokenizer, "pad_token_id", None)),
+        "eos_token_id": _optional_int(getattr(tokenizer, "eos_token_id", None)),
+        "bos_token_id": _optional_int(getattr(tokenizer, "bos_token_id", None)),
+        "unk_token_id": _optional_int(getattr(tokenizer, "unk_token_id", None)),
+    }
+    write_json(
+        config.output_dir / "vocab_contract.json",
+        {
+            "tokenizer_id": tokenizer_id,
+            "tokenizer_hash": None,
+            "tokenizer_family": "hf",
+            "backend": "hf",
+            "vocab_size": vocab_size,
+            "model_id": config.teacher_model_id,
+            "model_family": "hf-causal-lm",
+            "special_tokens": special_tokens,
+        },
+    )
+    write_json(
+        config.output_dir / "teacher_manifest.json",
+        {
+            "artifact_type": "teacher_textbook",
+            "artifact_version": 0,
+            "teacher_model_id": config.teacher_model_id,
+            "teacher_backend_type": "hf",
+            "teacher_revision_or_hash": None,
+            "tokenizer_id": tokenizer_id,
+            "vocab_size": vocab_size,
+            "vocab_contract_path": "vocab_contract.json",
+            "target_type": "full_logits",
+            "dtype": _canonical_dtype(config.logits_dtype),
+            "sequence_length": config.sequence_length,
+            "num_examples": len(examples),
+            "shard_count": shard_count,
+            "created_at": created_at,
+            "local_files_only": local_files_only,
+            "allow_downloads": config.allow_downloads and not local_files_only,
+            "claims_not_made": list(HF_CLAIMS_NOT_MADE),
+        },
+    )
+    write_json(
+        config.output_dir / "emission_config.json",
+        {
+            "dataset_source": _dataset_source(config.dataset_path),
+            "max_examples": config.max_examples,
+            "batch_size": config.batch_size,
+            "sequence_length": config.sequence_length,
+            "logits_dtype": _canonical_dtype(config.logits_dtype),
+            "include_hidden_states": False,
+            "sampling_used": False,
+            "temperature": None,
+            "top_p": None,
+            "top_k": None,
+            "seed": config.seed,
+            "teacher_mode": "hf",
+            "teacher_model_id": config.teacher_model_id,
+            "local_files_only": local_files_only,
+            "allow_downloads": config.allow_downloads and not local_files_only,
+        },
+    )
+
+
+def _hf_arrays(
+    examples: tuple[TinyTextExample, ...],
+    config: TeacherTextbookBuildConfig,
+    *,
+    tokenizer: Any,
+    model: Any,
+    vocab_size: int,
+) -> dict[str, np.ndarray]:
+    encoded = tokenizer(
+        [example.text for example in examples],
+        padding="max_length",
+        truncation=True,
+        max_length=config.sequence_length,
+        return_tensors="pt",
+    )
+    output = model(**encoded)
+    input_ids = _tensor_to_numpy(encoded["input_ids"]).astype(np.int32, copy=False)
+    if "attention_mask" in encoded:
+        attention_mask = _tensor_to_numpy(encoded["attention_mask"]).astype(
+            np.int32,
+            copy=False,
+        )
+    else:
+        attention_mask = np.ones_like(input_ids, dtype=np.int32)
+    logits = _tensor_to_numpy(output.logits).astype(
+        np.dtype(_canonical_dtype(config.logits_dtype)),
+        copy=False,
+    )
+    if logits.shape != (len(examples), config.sequence_length, vocab_size):
+        raise ValueError(
+            "teacher-mode=hf logits shape mismatch: "
+            f"expected {(len(examples), config.sequence_length, vocab_size)}, "
+            f"got {logits.shape}"
+        )
+    return {
+        "input_ids": input_ids,
+        "attention_mask": attention_mask,
+        "logits": logits,
+    }
+
+
+def _tensor_to_numpy(value: Any) -> np.ndarray:
+    if hasattr(value, "detach"):
+        value = value.detach()
+    if hasattr(value, "cpu"):
+        value = value.cpu()
+    if hasattr(value, "numpy"):
+        return np.asarray(value.numpy())
+    return np.asarray(value)
+
+
+def _load_hf_dependencies(config: TeacherTextbookBuildConfig) -> tuple[Any, Any, Any]:
+    try:
+        torch = import_module("torch")
+    except ImportError as exc:
+        raise RuntimeError(
+            "teacher-mode=hf requires optional dependency torch. "
+            f"teacher_model_id={config.teacher_model_id!r}; install teacher-hf "
+            "dependencies, cache the model, or use --teacher-mode fake."
+        ) from exc
+    try:
+        transformers = import_module("transformers")
+    except ImportError as exc:
+        raise RuntimeError(
+            "teacher-mode=hf requires optional dependency transformers. "
+            f"teacher_model_id={config.teacher_model_id!r}; install teacher-hf "
+            "dependencies, cache the model, or use --teacher-mode fake."
+        ) from exc
+    return (
+        torch,
+        transformers.AutoTokenizer,
+        transformers.AutoModelForCausalLM,
+    )
+
+
+def _prepare_hf_tokenizer(tokenizer: Any, config: TeacherTextbookBuildConfig) -> None:
+    if getattr(tokenizer, "pad_token_id", None) is None:
+        eos_token = getattr(tokenizer, "eos_token", None)
+        if eos_token is None:
+            raise RuntimeError(
+                "teacher-mode=hf tokenizer has no pad_token_id and no eos_token "
+                f"fallback for teacher_model_id={config.teacher_model_id!r}"
+            )
+        tokenizer.pad_token = eos_token
+
+
+def _hf_vocab_size(tokenizer: Any, config: TeacherTextbookBuildConfig) -> int:
+    size = getattr(tokenizer, "vocab_size", None)
+    if size is None:
+        try:
+            size = len(tokenizer)
+        except TypeError as exc:
+            raise RuntimeError(
+                "teacher-mode=hf could not determine tokenizer vocab size for "
+                f"teacher_model_id={config.teacher_model_id!r}"
+            ) from exc
+    value = int(size)
+    if value <= 0:
+        raise RuntimeError(
+            "teacher-mode=hf tokenizer vocab size must be > 0 for "
+            f"teacher_model_id={config.teacher_model_id!r}"
+        )
+    return value
+
+
+def _hf_error_message(
+    config: TeacherTextbookBuildConfig,
+    local_files_only: bool,
+) -> str:
+    if local_files_only:
+        fix = "cache model first or rerun with --allow-downloads"
+    else:
+        fix = "verify model id, network access, and optional teacher-hf dependencies"
+    return (
+        "teacher-mode=hf failed to load tokenizer/model; "
+        f"teacher_model_id={config.teacher_model_id!r}; "
+        f"local_files_only={local_files_only}; suggested fix: {fix}"
+    )
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    return int(value)
 
 
 def _dataset_source(path: Path | None) -> str:

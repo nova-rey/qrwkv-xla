@@ -1,5 +1,21 @@
 # QRWKV-XLA Roadmap
 
+## Phase 116.2 - Real HF TeacherTextbook Builder
+
+Goal: wire the guarded real-HF teacher mode into the TeacherTextbook builder.
+
+Current checkpoint: `real_hf_teacher_textbook_builder`. P116.2 replaces the
+P116.1 HF guard with a lazy optional-dependency path that loads a tiny HF
+causal-LM teacher, tokenizes JSONL text, runs forward passes under inference
+mode, writes `input_ids`, `attention_mask`, and `logits` into canonical
+TeacherTextbook shards, and reuses the P116 validator.
+
+CI remains fake/mocked and does not require HF, internet, GPU, TPU, Qwen, real
+burn execution, or training. Manual tiny-HF smoke can use
+`sshleifer/tiny-gpt2` when dependencies and model files are available.
+
+Next: P117 First Serious Compute Burn.
+
 ## Phase 116.1 - TeacherTextbook Builder Closure
 
 Goal: close the missing TeacherTextbook builder gap left by P116.

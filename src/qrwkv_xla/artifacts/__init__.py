@@ -16,6 +16,7 @@ from qrwkv_xla.artifacts.teacher_textbook_builder import (
     TeacherTextbookBuildConfig,
     TinyTextExample,
     build_fake_teacher_textbook,
+    build_hf_teacher_textbook,
     build_teacher_textbook,
     load_text_examples,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "TeacherTextbookBuildConfig",
     "TinyTextExample",
     "build_fake_teacher_textbook",
+    "build_hf_teacher_textbook",
     "build_teacher_textbook",
     "load_text_examples",
     "validate_student_artifact",
