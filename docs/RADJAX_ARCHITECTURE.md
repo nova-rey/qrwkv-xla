@@ -151,6 +151,17 @@ It produces pass/warn/fail status, blockers, warnings, claims not made, and a
 recommended next action without starting training or the first serious compute
 burn.
 
+First Serious Compute Burn Harness:
+
+- `FirstSeriousBurnConfig`: `src/qrwkv_xla/burn/config.py`
+- `run_first_serious_burn()`: `src/qrwkv_xla/burn/first_serious_burn.py`
+- `scripts/run_first_serious_burn.py`
+
+P112 adds a readiness-gated dry-run/real-mode harness. Dry-run mode integrates
+preflight, checkpoint/resume update closure, mini eval, report outputs, and
+launch command generation. Real mode requires explicit manual confirmation via
+`--confirm-serious-burn`. Baseline code does not launch serious compute.
+
 OfflineTargetConsumption:
 
 - `OfflineTargetBatch`: `src/qrwkv_xla/targets/consumption.py`
@@ -255,12 +266,13 @@ Current modularity status:
 - runtime environment preflight: present
 - mini eval harness: present
 - big burn readiness report: present
+- first serious compute burn harness / dry-run gate: present
 
 Likely future extraction layers:
 
 - broader student backend support
 - broader target support
-- first serious compute burn
+- manual serious burn execution and review
 - broader real training/eval
 - Trainer boundary
 - Evaluator and parity gates
@@ -313,6 +325,14 @@ train, benchmark, add pjit/sharding, require TPU/GPU/HF/internet, hard-code
 Qwen, add tokenizer remapping, alter target-store layout, alter checkpoint
 format, change WKV math, change fixture tensors, change StudentRuntime or
 StudentBackend behavior, or promote Pallas.
+
+P112 implements only a first serious compute burn harness and dry-run gate. It
+does not run serious compute in baseline tests, make real mode default, allow
+real mode without `--confirm-serious-burn`, require TPU/GPU/HF/internet, add
+benchmark suites or lm_eval, add pjit/sharding, hard-code Qwen, add tokenizer
+remapping, alter target-store layout, alter checkpoint format, change WKV math,
+change fixture tensors, change StudentRuntime or StudentBackend behavior, or
+promote Pallas.
 
 P101 implements only the StudentBackend registry slot and default
 `current_qrwkv` architecture selection. It does not add a second backend.

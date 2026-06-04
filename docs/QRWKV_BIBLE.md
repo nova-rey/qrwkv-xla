@@ -2210,3 +2210,22 @@ tensor edit, tolerance change, checkpoint format change, TeacherTargetStore
 layout change, StudentRuntime semantic change, StudentBackend behavior change,
 or Pallas promotion was introduced. P111 recommends P112 First Serious Compute
 Burn next.
+
+## Phase 112 - First Serious Compute Burn Harness / Dry-Run Gate
+
+P112 added the First Serious Compute Burn harness / dry-run gate. The harness
+reads a burn configuration, runs a cheap deterministic dry-run, integrates
+readiness/preflight/checkpoint/eval-style evidence, writes reports and launch
+commands, and blocks real burn mode unless an explicit confirmation flag is
+provided.
+
+No serious compute burn is launched automatically, and baseline tests do not
+require TPU/GPU/HF/internet.
+
+No benchmark suite, lm_eval integration, pjit/sharding, Qwen-specific code,
+tokenizer remapping, recurrence math change, WKV equation change, checkpoint
+format change, TeacherTargetStore layout change, runtime semantic change,
+StudentBackend behavior change, StudentRuntime behavior change, fixture tensor
+edit, tolerance change, or Pallas promotion was introduced. The Real-Teacher
+Rehearsal and Burn Readiness arc is closed pending manual serious burn
+execution and review.

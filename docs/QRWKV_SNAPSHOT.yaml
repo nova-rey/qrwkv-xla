@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 111
-current_phase: P111
-checkpoint: big_burn_readiness_report
+phase: 112
+current_phase: P112
+checkpoint: first_serious_compute_burn_harness_dry_run_gate
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,14 +56,32 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Aggregate burn-readiness evidence into a clear pass/warn/fail report before
-  attempting the first serious compute burn.
+  Provide a guarded first serious compute burn harness and deterministic dry-run
+  gate without launching serious compute automatically.
 
 current_arc: real_teacher_rehearsal_and_burn_readiness
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
-recommended_next: P112 First Serious Compute Burn
+recommended_next: manual P112 dry-run review, then explicit serious burn command if accepted
+
+arc_status:
+  real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
+
+p112:
+  goal: first_serious_compute_burn_harness_dry_run_gate
+  behavior_change_intended: false
+  burn_harness_added: true
+  dry_run_added: true
+  real_burn_requires_explicit_confirmation: true
+  automatic_serious_burn_started: false
+  training_added_to_baseline_tests: false
+  benchmark_suite_added: false
+  qwen_specific_code_added: false
+  tokenizer_remapping_added: false
+  pjit_added: false
+  pallas_default_preserved: true
+  recommended_next: manual P112 dry-run review, then explicit serious burn command if accepted
 
 p111:
   goal: big_burn_readiness_report

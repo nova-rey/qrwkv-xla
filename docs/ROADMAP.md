@@ -1,5 +1,27 @@
 # QRWKV-XLA Roadmap
 
+## Phase 112 - First Serious Compute Burn Harness / Dry-Run Gate
+
+Goal: provide a guarded launch harness for the first serious compute burn while
+keeping baseline validation cheap and deterministic.
+
+Current checkpoint: `first_serious_compute_burn_harness_dry_run_gate`. P112
+adds `FirstSeriousBurnConfig`, `run_first_serious_burn()`, and
+`scripts/run_first_serious_burn.py`. The harness reads JSON config, checks P111
+readiness status, runs a dry-run path through runtime preflight,
+checkpoint/resume update closure, mini eval, and launch command generation,
+and blocks real mode unless `--confirm-serious-burn` is passed.
+
+The Real-Teacher Rehearsal and Burn Readiness arc is closed pending manual
+serious burn execution and review.
+
+Baseline tests do not require TPU, GPU, internet, real HF downloads, Qwen,
+large datasets, serious compute, benchmark suites, lm_eval, tokenizer
+remapping, pjit/sharding, runtime behavior changes, or Pallas promotion.
+
+Next: manual P112 dry-run review, then explicit serious burn command if
+accepted.
+
 ## Phase 111 - Big Burn Readiness Report
 
 Goal: aggregate prior burn-readiness evidence into a clear pass/warn/fail
@@ -17,7 +39,7 @@ Baseline checks are CPU-friendly and avoid TPU, GPU, internet, real HF
 downloads, Qwen, large datasets, training, benchmarks, lm_eval, tokenizer
 remapping, pjit/sharding, runtime behavior changes, and Pallas promotion.
 
-Next: P112 First Serious Compute Burn.
+Next: P112 First Serious Compute Burn Harness / Dry-Run Gate - complete.
 
 ## Phase 110 - Mini Eval Harness Smoke
 
@@ -203,7 +225,9 @@ changes, CurrentQRWKV behavior changes, or Pallas promotion.
 - P109 - TPU Environment Hygiene / Runtime Readiness: complete
 - P110 - Mini Eval Harness Smoke: complete
 - P111 - Big Burn Readiness Report: complete
-- P112 - First Serious Compute Burn
+- P112 - First Serious Compute Burn Harness / Dry-Run Gate: complete
+
+Arc status: closed pending manual serious burn execution and review.
 
 ## Phase 101 - StudentBackend Registry / Architecture Selection
 
