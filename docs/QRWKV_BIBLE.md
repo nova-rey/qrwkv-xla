@@ -2380,3 +2380,30 @@ recurrence math change, WKV equation change, checkpoint format incompatibility,
 TeacherTargetStore layout change, StudentRuntime semantic change,
 StudentBackend behavior change, fixture tensor edit, tolerance change, or
 Pallas promotion was introduced.
+
+## Phase 116.3 - TPU VM Bootstrap + P117 Preflight Scripts
+
+P116.3 added human-run TPU VM bootstrap and P117 preflight scripts. The
+bootstrap script prepares a fresh Linux/TPU VM repo environment, creates or
+reuses `.venv`, installs baseline dependencies, and prints Python, NumPy,
+torch, JAX/JAXLIB, and JAX device diagnostics.
+
+The preflight script downloads the released
+`p117_teacher_textbook_tiny_gpt2_smoke.tar.gz` TeacherTextbook from GitHub
+Releases, verifies SHA256
+`cbe355a415606012eae4fa856aee180b1b6dc83ee06b4fb70188d57f253d7f23`, extracts
+and validates it, runs the big burn readiness report, runs the first serious
+burn harness in `dry_run` mode, packages preflight reports, and prints a manual
+real-burn command without executing it.
+
+P116.3 also added `docs/P117_TPU_RUNBOOK.md` with TPU VM creation, queued
+resource, SSH, stop/start/delete, and troubleshooting notes. The released mini
+textbook proves handoff and ingestion only; it is not large enough to train a
+useful model.
+
+No real burn, training, remote teacher service, Qwen support, tokenizer
+remapping, vocab mapping, full HF-native wrapper, KVM implementation, FLA
+dependency, Vocab C implementation, recurrence math change, WKV equation
+change, checkpoint format incompatibility, TeacherTargetStore layout change,
+StudentRuntime semantic change, StudentBackend behavior change, fixture tensor
+edit, tolerance change, or Pallas promotion was introduced.

@@ -210,6 +210,12 @@ python scripts/validate_teacher_textbook.py \
 If the model is not cached, either cache it first or rerun the builder with
 `--allow-downloads` in an environment where downloads are acceptable.
 
+P116.3 publishes the default P117 mini textbook handoff path through
+`scripts/run_p117_preflight.sh`. That script downloads the released
+`p117_teacher_textbook_tiny_gpt2_smoke.tar.gz`, verifies its SHA256, extracts
+it, and runs the same TeacherTextbook validator. The artifact proves handoff and
+ingestion only; it is not large enough to train a useful model.
+
 ## Dataset JSONL Format
 
 JSONL rows must be objects with non-empty `text`:

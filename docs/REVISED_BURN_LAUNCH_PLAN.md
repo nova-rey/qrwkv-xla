@@ -174,6 +174,17 @@ real-HF `scripts/build_teacher_textbook.py` plus
 P117 should not run until the config and launch wrapper route the validated
 textbook path into the burn.
 
+P116.3 adds TPU VM bootstrap/preflight scripts:
+
+```bash
+bash scripts/bootstrap_tpu_vm.sh
+bash scripts/run_p117_preflight.sh
+```
+
+The preflight script downloads the released tiny-HF textbook, verifies SHA256,
+validates the TeacherTextbook, runs readiness, runs dry-run mode, packages
+reports, and prints the reviewed real-burn command without executing it.
+
 ## Stop Conditions
 
 Stop before or during P117 if:

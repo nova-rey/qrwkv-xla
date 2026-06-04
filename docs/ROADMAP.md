@@ -1,5 +1,19 @@
 # QRWKV-XLA Roadmap
 
+## Phase 116.3 - TPU VM Bootstrap + P117 Preflight Scripts
+
+Goal: make TPU VM setup and P117 preflight boring, repeatable, and hard to
+accidentally misuse.
+
+Current checkpoint: `tpu_vm_bootstrap_p117_preflight_scripts`. P116.3 adds
+human-run shell scripts for TPU VM bootstrap and P117 preflight. The preflight
+downloads the released tiny-HF TeacherTextbook, verifies SHA256, extracts and
+validates it, runs the big burn readiness report, runs the first serious burn
+harness in `dry_run` mode, packages preflight reports, and prints the manual
+real-burn command without executing it.
+
+Next: P117 First Serious Compute Burn.
+
 ## Phase 116.2 - Real HF TeacherTextbook Builder
 
 Goal: wire the guarded real-HF teacher mode into the TeacherTextbook builder.
