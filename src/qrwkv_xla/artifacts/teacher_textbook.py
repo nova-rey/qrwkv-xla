@@ -45,6 +45,7 @@ EMISSION_CONFIG_FIELDS = (
     "top_p",
     "top_k",
     "seed",
+    "teacher_mode",
 )
 
 

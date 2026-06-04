@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 116
-current_phase: P116
-checkpoint: teacher_textbook_student_artifact_contract_revised_burn_launch_plan
+phase: 116.1
+current_phase: P116.1
+checkpoint: teacher_textbook_builder_closure
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,8 +56,8 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Define the TeacherTextbook input artifact, StudentArtifact output contract,
-  validation gates, and revised launch plan for the first serious burn.
+  Close the TeacherTextbook builder gap with a deterministic fake-mode builder
+  that produces a validated TeacherTextbook artifact.
 
 current_arc: post_p112_research_alignment
 
@@ -68,6 +68,22 @@ recommended_next: P117 First Serious Compute Burn
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
   post_p112_research_alignment: active
+
+p116_1:
+  goal: teacher_textbook_builder_closure
+  behavior_change_intended: false
+  teacher_textbook_builder_added: true
+  fake_teacher_mode_added: true
+  real_hf_teacher_mode_required_for_ci: false
+  teacher_textbook_validation_reused: true
+  real_burn_started: false
+  training_added: false
+  tokenizer_remapping_added: false
+  remote_teacher_service_added: false
+  kvm_implemented: false
+  fla_dependency_added: false
+  vocab_c_implemented: false
+  recommended_next: P117 First Serious Compute Burn
 
 p116:
   goal: teacher_textbook_student_artifact_contract_revised_burn_launch_plan

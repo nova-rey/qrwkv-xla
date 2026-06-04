@@ -128,12 +128,12 @@ python scripts/run_big_burn_readiness_report.py \
 
 # 2. Build teacher textbook
 python scripts/build_teacher_textbook.py \
-  --teacher-model sshleifer/tiny-gpt2 \
+  --teacher-mode fake \
   --dataset artifacts/p116/input_texts.jsonl \
   --output artifacts/p117_teacher_textbook \
-  --sequence-length 128 \
-  --batch-size 8 \
-  --max-examples 1000 \
+  --sequence-length 16 \
+  --batch-size 2 \
+  --max-examples 4 \
   --logits-dtype float32
 
 # 3. Validate teacher textbook
@@ -165,9 +165,10 @@ python scripts/validate_student_artifact.py \
   --write-report
 ```
 
-The P112 harness does not currently accept a `--teacher-textbook` flag. P116
-therefore treats TeacherTextbook location as a config requirement and keeps the
-validator as the explicit pre-burn gate. P117 should not run until the config
+The P112 harness does not currently accept a `--teacher-textbook` flag. P116.1
+therefore keeps TeacherTextbook location as a config requirement and provides
+`scripts/build_teacher_textbook.py` plus `scripts/validate_teacher_textbook.py`
+as the explicit pre-burn artifact gate. P117 should not run until the config
 and launch wrapper route the validated textbook path into the burn.
 
 ## Stop Conditions

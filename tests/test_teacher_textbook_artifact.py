@@ -118,6 +118,7 @@ def create_fake_teacher_textbook(tmp_path: Path) -> Path:
             "top_p": None,
             "top_k": None,
             "seed": 0,
+            "teacher_mode": "fake",
         },
     )
     assert asdict(_metadata())["vocab_size"] == 5

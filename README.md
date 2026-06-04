@@ -7,10 +7,10 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P116, TeacherTextbook + StudentArtifact Contract / Revised Burn
-Launch Plan. The Pallas runway is closed after a recorded real TPU v5 lite
-smoke pass for the tiny opt-in Pallas WKV path, and the project is now the
-validated core of a Radjax-shaped modular recurrent distillation platform.
+Current phase: P116.1, TeacherTextbook Builder Closure. The Pallas runway is
+closed after a recorded real TPU v5 lite smoke pass for the tiny opt-in Pallas
+WKV path, and the project is now the validated core of a Radjax-shaped modular
+recurrent distillation platform.
 
 Current emphasis is teacher backend modularity, vocab contracts, target stores,
 the student backend registry, runtime separation, and the burn-readiness arc.
@@ -24,8 +24,9 @@ compatibility-gated registry-selected student path, reconstruct vocab contracts
 from metadata, select student backends by architecture id, keep runtime
 selection separate, aggregate burn-readiness evidence into a pass/warn/fail
 report, provide a guarded first serious burn dry-run/launch harness, reassess
-the HF-compatible student interface, select the first serious burn target, and
-define the TeacherTextbook input / StudentArtifact output contracts for P117.
+the HF-compatible student interface, select the first serious burn target,
+define the TeacherTextbook input / StudentArtifact output contracts for P117,
+and build a validated fake-mode TeacherTextbook artifact from tiny text input.
 Current arc: post-P112 research alignment. The P112 harness exists, but actual
 real burn execution is deferred until the P116 launch plan is reviewed and a
 validated TeacherTextbook is available. Baseline tests remain

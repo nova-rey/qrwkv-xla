@@ -12,12 +12,24 @@ from qrwkv_xla.artifacts.teacher_textbook import (
     validate_teacher_textbook,
     write_teacher_textbook_validation_report,
 )
+from qrwkv_xla.artifacts.teacher_textbook_builder import (
+    TeacherTextbookBuildConfig,
+    TinyTextExample,
+    build_fake_teacher_textbook,
+    build_teacher_textbook,
+    load_text_examples,
+)
 
 __all__ = [
     "STUDENT_ARTIFACT_VERSION",
     "TEACHER_TEXTBOOK_VERSION",
     "StudentArtifactValidationReport",
     "TeacherTextbookValidationReport",
+    "TeacherTextbookBuildConfig",
+    "TinyTextExample",
+    "build_fake_teacher_textbook",
+    "build_teacher_textbook",
+    "load_text_examples",
     "validate_student_artifact",
     "validate_teacher_textbook",
     "write_student_artifact_validation_report",

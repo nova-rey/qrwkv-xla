@@ -6,8 +6,9 @@ TeacherTextbook is the boxed teacher output consumed by the student burn. It is
 the workbook written by the teacher model: token ids, masks, logits or other
 supported targets, vocab contract, emission settings, and validation evidence.
 
-P116 defines the contract and adds a small CPU-only validator. It does not run a
-teacher model, download models, train, or start the real burn.
+P116 defines the contract and adds a small CPU-only validator. P116.1 adds the
+fake-mode builder button for small artifacts. It does not download models,
+train, or start the real burn.
 
 ## Relationship to TeacherTargetStore
 
@@ -152,18 +153,55 @@ required for textbook generation.
 The P116 validator is CPU-only and does not require TPU, GPU, Hugging Face,
 internet, Qwen, or training.
 
+## Builder CLI
+
+P116.1 implements the TeacherTextbook builder button for small/fake artifacts:
+
+```bash
+python scripts/build_teacher_textbook.py \
+  --teacher-mode fake \
+  --dataset artifacts/p116/input_texts.jsonl \
+  --output artifacts/p117_teacher_textbook \
+  --sequence-length 16 \
+  --batch-size 2 \
+  --max-examples 4 \
+  --logits-dtype float32
+```
+
+If `--dataset` is omitted, the builder uses built-in tiny examples. The builder
+writes the canonical `TeacherTargetStore` files plus P116 sidecars and then
+writes `validation_report.json` using the shared TeacherTextbook validator.
+
+Fake deterministic mode is CPU-only and requires no Hugging Face dependency,
+internet, GPU, TPU, Qwen, remote teacher service, student instantiation, or
+training.
+
+Optional HF mode is deliberately guarded in P116.1. Large GPU teacher textbook
+generation remains a future/manual extension.
+
+## Dataset JSONL Format
+
+JSONL rows must be objects with non-empty `text`:
+
+```json
+{"example_id": "ex-0001", "text": "hello world"}
+```
+
+Input order is preserved, `--max-examples` is respected, and a final partial
+batch is allowed.
+
 ## GPU VM / Teacher Print Shop Workflow
 
 Expected P117 teacher-side workflow:
 
 ```bash
 python scripts/build_teacher_textbook.py \
-  --teacher-model sshleifer/tiny-gpt2 \
+  --teacher-mode fake \
   --dataset artifacts/p116/input_texts.jsonl \
   --output artifacts/p117_teacher_textbook \
-  --sequence-length 128 \
-  --batch-size 8 \
-  --max-examples 1000 \
+  --sequence-length 16 \
+  --batch-size 2 \
+  --max-examples 4 \
   --logits-dtype float32
 
 python scripts/validate_teacher_textbook.py \
@@ -171,9 +209,9 @@ python scripts/validate_teacher_textbook.py \
   --write-report
 ```
 
-`scripts/build_teacher_textbook.py` is specified for the P117 workflow but not
-implemented in P116. P117 must not proceed until an equivalent textbook builder
-has produced and validated the artifact.
+The fake builder closes the P116 missing-button gap. A later real-HF builder may
+reuse this contract behind explicit optional dependencies and model-availability
+checks.
 
 ## Claims Not Made
 

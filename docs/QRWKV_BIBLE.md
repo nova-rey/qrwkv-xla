@@ -2333,3 +2333,26 @@ implementation, FLA dependency, Vocab C implementation, recurrence math change,
 WKV equation change, checkpoint format incompatibility, TeacherTargetStore
 layout change, StudentRuntime semantic change, StudentBackend behavior change,
 fixture tensor edit, tolerance change, or Pallas promotion was introduced.
+
+## Phase 116.1 - TeacherTextbook Builder Closure
+
+P116.1 closed the TeacherTextbook builder gap left by P116. It added the
+`scripts/build_teacher_textbook.py` factory button with a deterministic fake
+teacher mode that can produce a valid TeacherTextbook artifact without
+TPU/GPU/Hugging Face/internet and pass the existing TeacherTextbook validator.
+
+The builder turns JSONL or built-in tiny text examples into canonical
+`TeacherTargetStore`-style shards plus vocab contract, teacher manifest,
+emission config, and validation report. It preserves input order, respects
+`max_examples`, supports final partial batches, rejects empty text, and writes
+deterministic `input_ids`, `attention_mask`, and `logits` arrays.
+
+Optional real-HF teacher mode remains guarded and is not required for CI. P116.1
+does not make the fake teacher a model-quality claim.
+
+No real burn, training, remote teacher service, tokenizer remapping, vocab
+mapping, full HF-native wrapper, transformers required dependency, FLA
+dependency, KVM implementation, Vocab C implementation, recurrence math change,
+WKV equation change, checkpoint format incompatibility, TeacherTargetStore
+layout change, StudentRuntime semantic change, StudentBackend behavior change,
+fixture tensor edit, tolerance change, or Pallas promotion was introduced.

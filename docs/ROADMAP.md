@@ -1,5 +1,21 @@
 # QRWKV-XLA Roadmap
 
+## Phase 116.1 - TeacherTextbook Builder Closure
+
+Goal: close the missing TeacherTextbook builder gap left by P116.
+
+Current checkpoint: `teacher_textbook_builder_closure`. P116.1 adds
+`scripts/build_teacher_textbook.py` and a deterministic fake teacher mode that
+turns JSONL or built-in tiny text examples into a valid TeacherTextbook v0
+artifact. The builder writes the canonical `TeacherTargetStore` layout plus
+vocab contract, teacher manifest, emission config, and validation report.
+
+Baseline builder tests are CPU-only and require no Hugging Face, internet, GPU,
+TPU, Qwen, student training, or remote teacher service. Optional real-HF
+teacher generation remains guarded/deferred.
+
+Next: P117 First Serious Compute Burn.
+
 ## Phase 116 - TeacherTextbook + StudentArtifact Contract / Revised Burn Launch Plan
 
 Goal: define the two-box first-burn workflow, validation gates, teacher
