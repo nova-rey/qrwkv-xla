@@ -182,6 +182,17 @@ all-or-nothing integration. Near-term focus is a stable artifact/config/load
 contract and a scoped forward contract. Full HF-native `PreTrainedModel`
 integration, generation, and official lm_eval wiring are deferred.
 
+First Burn Target Doctrine:
+
+The first serious compute burn targets the existing `current_qrwkv` /
+RWKV-family path under a matched vocab contract. The result is
+architecture-family-specific evidence for the selected QRWKV/RWKV-family
+student, not evidence for every recurrent architecture. KVM, FLA/hybrid, and
+Vocab C / cross-vocab paths remain future tracks. P117 should preserve
+reference runtime as the default, keep Pallas opt-in, and require an HF-shaped
+Level 0/1 artifact and loader boundary without requiring full HF-native
+integration.
+
 OfflineTargetConsumption:
 
 - `OfflineTargetBatch`: `src/qrwkv_xla/targets/consumption.py`
@@ -289,10 +300,10 @@ Current modularity status:
 - first serious compute burn harness / dry-run gate: present
 - post-P112 research alignment intake: present
 - HF-compatible student interface reassessment: present
+- first burn target decision: present
 
 Likely future extraction layers:
 
-- architecture similarity / first burn target decision
 - revised burn config and launch plan
 - minimal HF-style student artifact contract
 - HF-style forward wrapper smoke
@@ -373,6 +384,16 @@ add a full HF wrapper, add `transformers` as a required dependency, subclass
 burn, add tokenizer remapping, hard-code Qwen or GPT-2, change WKV math, alter
 checkpoint or target-store formats, change StudentRuntime or StudentBackend
 behavior, promote Pallas, or start P115 implementation.
+
+P115 implements only the architecture similarity / first burn target decision.
+It selects `current_qrwkv` / RWKV-family as the P117 target under matched vocab,
+reference-runtime-default, Pallas-opt-in, HF-shaped Level 0/1 artifact
+constraints. It does not train, run the real burn, add tokenizer remapping,
+map vocab A to vocab B, implement KVM, add FLA as a dependency, implement Vocab
+C, add a full HF wrapper, add `transformers` as a required dependency, hard-code
+Qwen or GPT-2, change WKV math, alter checkpoint or target-store formats,
+change StudentRuntime or StudentBackend behavior, promote Pallas, or start
+P116 implementation.
 
 P101 implements only the StudentBackend registry slot and default
 `current_qrwkv` architecture selection. It does not add a second backend.

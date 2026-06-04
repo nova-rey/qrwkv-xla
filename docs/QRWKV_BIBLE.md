@@ -2275,3 +2275,30 @@ implementation, recurrence math change, WKV equation change, checkpoint format
 change, TeacherTargetStore layout change, runtime semantic change,
 StudentBackend behavior change, StudentRuntime behavior change, fixture tensor
 edit, tolerance change, or Pallas promotion was introduced.
+
+## Phase 115 - Architecture Similarity / First Burn Target Decision
+
+P115 added the First Burn Target Decision. The first serious compute burn target
+is the existing `current_qrwkv` / RWKV-family student path under a matched vocab
+contract, reference runtime by default, Pallas opt-in only, and an HF-shaped
+Level 0/1 artifact and loader boundary.
+
+The decision keeps `tiny_debug` as a deterministic control/backend smoke only,
+defers KVM to a future StudentBackend/research track, treats FLA/hybrid work as
+future design reference rather than immediate dependency, and rejects Vocab C /
+cross-vocab work for P117. P116 should turn this doctrine into the revised burn
+config and launch plan.
+
+P117 success may claim only architecture-family-specific evidence for the
+selected matched-vocab QRWKV/RWKV-family target. It must not claim KVM
+viability, FLA parity, Vocab C success, full HF-native compatibility,
+generation quality, benchmark quality, production Pallas readiness, or universal
+recurrent architecture success.
+
+No training, real burn, tokenizer remapping, vocab mapping, KVM implementation,
+FLA dependency, Vocab C implementation, full HF wrapper, transformers
+dependency, Qwen- or GPT-2-specific hard-coding, recurrence math change, WKV
+equation change, checkpoint format change, TeacherTargetStore layout change,
+runtime semantic change, StudentBackend behavior change, StudentRuntime
+behavior change, fixture tensor edit, tolerance change, or Pallas promotion was
+introduced.

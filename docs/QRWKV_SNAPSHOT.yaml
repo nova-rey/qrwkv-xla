@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 114
-current_phase: P114
-checkpoint: hf_compatible_student_interface_reassessment
+phase: 115
+current_phase: P115
+checkpoint: architecture_similarity_first_burn_target_decision
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,18 +56,36 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Define the smallest honest HF-compatible student interface target before
-  revising the first serious burn plan.
+  Select the smallest honest first serious burn target before revising the
+  first serious burn launch plan.
 
 current_arc: post_p112_research_alignment
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
-recommended_next: P115 Architecture Similarity / First Burn Target Decision
+recommended_next: P116 Revised Burn Config + Launch Plan
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
   post_p112_research_alignment: active
+
+p115:
+  goal: architecture_similarity_first_burn_target_decision
+  behavior_change_intended: false
+  first_burn_target_decision_added: true
+  selected_student_family: current_qrwkv_rwkv_family
+  matched_vocab_required: true
+  reference_runtime_default: true
+  pallas_default_preserved: true
+  hf_shaped_artifact_boundary_required: true
+  full_hf_native_required_for_p117: false
+  kvm_implemented: false
+  fla_dependency_added: false
+  vocab_c_implemented: false
+  real_burn_started: false
+  training_added: false
+  tokenizer_remapping_added: false
+  recommended_next: P116 Revised Burn Config + Launch Plan
 
 p114:
   goal: hf_compatible_student_interface_reassessment

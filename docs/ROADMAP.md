@@ -1,5 +1,25 @@
 # QRWKV-XLA Roadmap
 
+## Phase 115 - Architecture Similarity / First Burn Target Decision
+
+Goal: select the smallest honest first serious burn target before revising the
+launch plan.
+
+Current checkpoint: `architecture_similarity_first_burn_target_decision`. P115
+selects the existing `current_qrwkv` / RWKV-family student path for P117 under
+a matched vocab contract, reference runtime by default, Pallas opt-in only, and
+an HF-shaped Level 0/1 artifact expectation.
+
+P115 rejects `tiny_debug` as a serious target while retaining it as a
+deterministic control, defers KVM to a future StudentBackend/research track,
+keeps FLA as design reference rather than immediate dependency, and defers
+Vocab C / cross-vocab work to a separate vocabulary arc.
+
+P112 closed the launchpad/dry-run gate. The actual serious burn is deferred
+until P116 turns this decision into a revised burn config and launch plan.
+
+Next: P116 Revised Burn Config + Launch Plan.
+
 ## Phase 114 - HF-Compatible Student Interface Reassessment
 
 Goal: define the smallest honest HF-compatible student surface before revising
@@ -13,9 +33,9 @@ adapter target, and defers generation, lm_eval, and full `PreTrainedModel`
 integration.
 
 P112 closed the launchpad/dry-run gate. The actual serious burn is deferred
-until P114-P116 complete.
+until the P115 target decision and P116 launch plan are complete.
 
-Next: P115 Architecture Similarity / First Burn Target Decision.
+Next: P115 Architecture Similarity / First Burn Target Decision - complete.
 
 ## Phase 113 - RADLADS2 / FLA / hfattnconv / KVM Research Intake
 
@@ -37,7 +57,7 @@ remapping, or change model/runtime/math behavior.
 Next:
 
 - P114 - HF-Compatible Student Interface Reassessment - complete
-- P115 - Architecture Similarity / First Burn Target Decision
+- P115 - Architecture Similarity / First Burn Target Decision - complete
 - P116 - Revised Burn Config + Launch Plan
 - P117 - First Serious Compute Burn
 - P118 - Burn Result Analysis / Next-Arc Decision
