@@ -175,6 +175,13 @@ dependency, KVM is a future backend/research candidate, Vocab C is a separate
 cross-vocab research track, and 3Tier is a future memory scaffold outside the
 immediate burn path.
 
+HF-Compatible Student Interface:
+
+HF compatibility is treated as a layered interface target rather than a single
+all-or-nothing integration. Near-term focus is a stable artifact/config/load
+contract and a scoped forward contract. Full HF-native `PreTrainedModel`
+integration, generation, and official lm_eval wiring are deferred.
+
 OfflineTargetConsumption:
 
 - `OfflineTargetBatch`: `src/qrwkv_xla/targets/consumption.py`
@@ -281,12 +288,14 @@ Current modularity status:
 - big burn readiness report: present
 - first serious compute burn harness / dry-run gate: present
 - post-P112 research alignment intake: present
+- HF-compatible student interface reassessment: present
 
 Likely future extraction layers:
 
-- HF-compatible student interface reassessment
 - architecture similarity / first burn target decision
 - revised burn config and launch plan
+- minimal HF-style student artifact contract
+- HF-style forward wrapper smoke
 - broader student backend support
 - broader target support
 - manual serious burn execution and review
@@ -357,6 +366,13 @@ implement 3Tier, train, run the real burn, add tokenizer remapping, map vocab A
 to vocab B, alter target-store layout, alter checkpoint format, change WKV
 math, change fixture tensors, change StudentRuntime or StudentBackend behavior,
 promote Pallas, or start P114 implementation.
+
+P114 implements only HF-compatible student interface reassessment. It does not
+add a full HF wrapper, add `transformers` as a required dependency, subclass
+`PreTrainedModel`, implement generation, integrate lm_eval, train, run the real
+burn, add tokenizer remapping, hard-code Qwen or GPT-2, change WKV math, alter
+checkpoint or target-store formats, change StudentRuntime or StudentBackend
+behavior, promote Pallas, or start P115 implementation.
 
 P101 implements only the StudentBackend registry slot and default
 `current_qrwkv` architecture selection. It does not add a second backend.

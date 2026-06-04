@@ -1,5 +1,22 @@
 # QRWKV-XLA Roadmap
 
+## Phase 114 - HF-Compatible Student Interface Reassessment
+
+Goal: define the smallest honest HF-compatible student surface before revising
+the burn plan.
+
+Current checkpoint: `hf_compatible_student_interface_reassessment`. P114 defines
+HF compatibility as layered levels from artifact layout through loader,
+forward, generation, eval, and full HF-native integration. It recommends
+near-term Level 0/1 artifact and loader contracts, a scoped Level 2 forward
+adapter target, and defers generation, lm_eval, and full `PreTrainedModel`
+integration.
+
+P112 closed the launchpad/dry-run gate. The actual serious burn is deferred
+until P114-P116 complete.
+
+Next: P115 Architecture Similarity / First Burn Target Decision.
+
 ## Phase 113 - RADLADS2 / FLA / hfattnconv / KVM Research Intake
 
 Goal: ingest new RADLADS2/FLA/hfattnconv/KVM context before spending serious
@@ -19,7 +36,7 @@ remapping, or change model/runtime/math behavior.
 
 Next:
 
-- P114 - HF-Compatible Student Interface Reassessment
+- P114 - HF-Compatible Student Interface Reassessment - complete
 - P115 - Architecture Similarity / First Burn Target Decision
 - P116 - Revised Burn Config + Launch Plan
 - P117 - First Serious Compute Burn
@@ -256,7 +273,7 @@ Arc status: closed pending manual serious burn execution and review.
 ## Post-P112 Research Alignment Arc
 
 - P113 - RADLADS2 / FLA / hfattnconv / KVM Research Intake: complete
-- P114 - HF-Compatible Student Interface Reassessment
+- P114 - HF-Compatible Student Interface Reassessment: complete
 - P115 - Architecture Similarity / First Burn Target Decision
 - P116 - Revised Burn Config + Launch Plan
 - P117 - First Serious Compute Burn

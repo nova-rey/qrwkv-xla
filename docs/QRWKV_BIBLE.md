@@ -2252,3 +2252,26 @@ change, checkpoint format change, TeacherTargetStore layout change, runtime
 semantic change, StudentBackend behavior change, StudentRuntime behavior
 change, fixture tensor edit, tolerance change, or Pallas promotion was
 introduced.
+
+## Phase 114 - HF-Compatible Student Interface Reassessment
+
+P114 added the HF-Compatible Student Interface Reassessment. The phase defines
+HF compatibility as layered levels from stable artifact layout through loader,
+forward, generation, eval, and full HF-native integration.
+
+It recommends pulling stable HF-style student artifact/config expectations into
+near-term planning without blocking P117 on full Hugging Face integration. P116
+revised burn config should include an HF-style artifact/export expectation,
+while full generation, lm_eval, and `PreTrainedModel`-style integration remain
+future work.
+
+P114 also advanced stale current-phase references in README and
+QRWKV_SNAPSHOT from the prior post-P112 phase to P114.
+
+No full HF wrapper, transformers dependency, PreTrainedModel subclass,
+generation, lm_eval integration, training, real burn, tokenizer remapping,
+Qwen-specific code, GPT-2-specific assumptions, FLA dependency, KVM
+implementation, recurrence math change, WKV equation change, checkpoint format
+change, TeacherTargetStore layout change, runtime semantic change,
+StudentBackend behavior change, StudentRuntime behavior change, fixture tensor
+edit, tolerance change, or Pallas promotion was introduced.
