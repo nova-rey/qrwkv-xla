@@ -162,6 +162,19 @@ preflight, checkpoint/resume update closure, mini eval, report outputs, and
 launch command generation. Real mode requires explicit manual confirmation via
 `--confirm-serious-burn`. Baseline code does not launch serious compute.
 
+Post-P112 Research Alignment:
+
+- `docs/RADLADS2_FLA_KVM_RESEARCH_INTAKE.md`
+- `scripts/inventory_research_sources.py`
+
+P113 adds a research-intake boundary after the launchpad/dry-run gate. It
+records RADLADS2/FLA/hfattnconv/KVM evidence before spending serious compute.
+The intake concludes that HF-compatible student interfaces may need to move
+earlier, FLA/hybrid-distillation should be treated as design reference before
+dependency, KVM is a future backend/research candidate, Vocab C is a separate
+cross-vocab research track, and 3Tier is a future memory scaffold outside the
+immediate burn path.
+
 OfflineTargetConsumption:
 
 - `OfflineTargetBatch`: `src/qrwkv_xla/targets/consumption.py`
@@ -267,9 +280,13 @@ Current modularity status:
 - mini eval harness: present
 - big burn readiness report: present
 - first serious compute burn harness / dry-run gate: present
+- post-P112 research alignment intake: present
 
 Likely future extraction layers:
 
+- HF-compatible student interface reassessment
+- architecture similarity / first burn target decision
+- revised burn config and launch plan
 - broader student backend support
 - broader target support
 - manual serious burn execution and review
@@ -333,6 +350,13 @@ benchmark suites or lm_eval, add pjit/sharding, hard-code Qwen, add tokenizer
 remapping, alter target-store layout, alter checkpoint format, change WKV math,
 change fixture tensors, change StudentRuntime or StudentBackend behavior, or
 promote Pallas.
+
+P113 implements only research intake and roadmap alignment. It does not vendor
+external repos, add FLA as a dependency, implement KVM, implement Vocab C,
+implement 3Tier, train, run the real burn, add tokenizer remapping, map vocab A
+to vocab B, alter target-store layout, alter checkpoint format, change WKV
+math, change fixture tensors, change StudentRuntime or StudentBackend behavior,
+promote Pallas, or start P114 implementation.
 
 P101 implements only the StudentBackend registry slot and default
 `current_qrwkv` architecture selection. It does not add a second backend.

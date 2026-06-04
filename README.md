@@ -7,10 +7,10 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P112, first serious compute burn harness / dry-run gate. The Pallas runway is
-closed after a recorded real TPU v5 lite smoke pass for the tiny opt-in Pallas
-WKV path, and the project is now the validated core of a Radjax-shaped modular
-recurrent distillation platform.
+Current phase: P113, RADLADS2 / FLA / hfattnconv / KVM research intake. The
+Pallas runway is closed after a recorded real TPU v5 lite smoke pass for the
+tiny opt-in Pallas WKV path, and the project is now the validated core of a
+Radjax-shaped modular recurrent distillation platform.
 
 Current emphasis is teacher backend modularity, vocab contracts, target stores,
 the student backend registry, runtime separation, and the burn-readiness arc.
@@ -23,10 +23,10 @@ and transparent hugepage readiness, evaluate tiny target artifacts through a
 compatibility-gated registry-selected student path, reconstruct vocab contracts
 from metadata, select student backends by architecture id, keep runtime
 selection separate, aggregate burn-readiness evidence into a pass/warn/fail
-report, provide a guarded first serious burn dry-run/launch harness, and run
-optional/cache-local HF teacher specimen smokes without making any specimen a
-special architecture path. Baseline tests remain CPU-safe and do not require
-Hugging Face downloads, internet, Qwen, GPU, or TPU.
+report, provide a guarded first serious burn dry-run/launch harness, and now
+pause for post-P112 research alignment before spending serious compute.
+Baseline tests remain CPU-safe and do not require Hugging Face downloads,
+internet, Qwen, GPU, or TPU.
 
 Runtime policy is unchanged: `reference` remains the default WKV runtime and
 `pallas` remains opt-in. The Pallas TPU smoke result does not claim production
@@ -78,6 +78,9 @@ The big burn readiness report is documented in
 
 The first serious compute burn harness is documented in
 `docs/FIRST_SERIOUS_COMPUTE_BURN.md`.
+
+The post-P112 research intake is documented in
+`docs/RADLADS2_FLA_KVM_RESEARCH_INTAKE.md`.
 
 `scripts/run_distill_stage.py` is the primary entrypoint for staged
 distillation. It currently supports hidden-state distillation against fake

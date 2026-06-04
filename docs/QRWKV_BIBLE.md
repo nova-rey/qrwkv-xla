@@ -2229,3 +2229,26 @@ StudentBackend behavior change, StudentRuntime behavior change, fixture tensor
 edit, tolerance change, or Pallas promotion was introduced. The Real-Teacher
 Rehearsal and Burn Readiness arc is closed pending manual serious burn
 execution and review.
+
+## Phase 113 - RADLADS2 / FLA / hfattnconv / KVM Research Intake
+
+P113 began the post-P112 research alignment arc. It ingested the
+RADLADS2/FLA/hfattnconv/KVM context and documented how the new evidence affects
+the first serious burn strategy.
+
+The P112 launchpad remains valid, but real burn execution is deferred until the
+research intake, HF compatibility reassessment, architecture-similarity
+decision, and revised burn config are complete.
+
+The intake treats FLA/hybrid-distillation as design reference rather than a
+dependency, KVM as a future StudentBackend candidate, Vocab C as a separate
+cross-vocab research track, and 3Tier as future memory-scaffold work outside
+the immediate burn path.
+
+No external repo was vendored. No model behavior, training, real burn,
+tokenizer remapping, FLA dependency, KVM implementation, Vocab C
+implementation, 3Tier implementation, recurrence math change, WKV equation
+change, checkpoint format change, TeacherTargetStore layout change, runtime
+semantic change, StudentBackend behavior change, StudentRuntime behavior
+change, fixture tensor edit, tolerance change, or Pallas promotion was
+introduced.

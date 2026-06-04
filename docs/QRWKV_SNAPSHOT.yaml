@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 112
-current_phase: P112
-checkpoint: first_serious_compute_burn_harness_dry_run_gate
+phase: 113
+current_phase: P113
+checkpoint: radlads2_fla_hfattnconv_kvm_research_intake
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,17 +56,32 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Provide a guarded first serious compute burn harness and deterministic dry-run
-  gate without launching serious compute automatically.
+  Ingest RADLADS2, FLA, hfattnconv, and KVM research context before spending
+  serious compute.
 
-current_arc: real_teacher_rehearsal_and_burn_readiness
+current_arc: post_p112_research_alignment
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
-recommended_next: manual P112 dry-run review, then explicit serious burn command if accepted
+recommended_next: P114 HF-Compatible Student Interface Reassessment
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
+  post_p112_research_alignment: active
+
+p113:
+  goal: radlads2_fla_hfattnconv_kvm_research_intake
+  behavior_change_intended: false
+  research_intake_added: true
+  external_repos_vendored: false
+  fla_dependency_added: false
+  kvm_implemented: false
+  vocab_c_implemented: false
+  tier3_memory_implemented: false
+  real_burn_started: false
+  training_added: false
+  tokenizer_remapping_added: false
+  recommended_next: P114 HF-Compatible Student Interface Reassessment
 
 p112:
   goal: first_serious_compute_burn_harness_dry_run_gate

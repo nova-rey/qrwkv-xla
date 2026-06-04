@@ -1,5 +1,30 @@
 # QRWKV-XLA Roadmap
 
+## Phase 113 - RADLADS2 / FLA / hfattnconv / KVM Research Intake
+
+Goal: ingest new RADLADS2/FLA/hfattnconv/KVM context before spending serious
+compute.
+
+Current checkpoint: `radlads2_fla_hfattnconv_kvm_research_intake`. P113 adds a
+research intake and source inventory covering the uploaded `distillation-fla`
+repo, `hfattnconv` repo, and KVM paper. It records Vocab C and 3Tier as
+unavailable in this bundle and classifies them as future tracks.
+
+P112 closed the launchpad/dry-run gate. The actual serious burn is deferred
+until research intake and revised burn planning complete.
+
+P113 does not vendor external repos, add FLA as a dependency, implement KVM,
+implement Vocab C, implement 3Tier, train, run the real burn, add tokenizer
+remapping, or change model/runtime/math behavior.
+
+Next:
+
+- P114 - HF-Compatible Student Interface Reassessment
+- P115 - Architecture Similarity / First Burn Target Decision
+- P116 - Revised Burn Config + Launch Plan
+- P117 - First Serious Compute Burn
+- P118 - Burn Result Analysis / Next-Arc Decision
+
 ## Phase 112 - First Serious Compute Burn Harness / Dry-Run Gate
 
 Goal: provide a guarded launch harness for the first serious compute burn while
@@ -19,8 +44,7 @@ Baseline tests do not require TPU, GPU, internet, real HF downloads, Qwen,
 large datasets, serious compute, benchmark suites, lm_eval, tokenizer
 remapping, pjit/sharding, runtime behavior changes, or Pallas promotion.
 
-Next: manual P112 dry-run review, then explicit serious burn command if
-accepted.
+Next: P113 RADLADS2 / FLA / hfattnconv / KVM Research Intake - complete.
 
 ## Phase 111 - Big Burn Readiness Report
 
@@ -228,6 +252,15 @@ changes, CurrentQRWKV behavior changes, or Pallas promotion.
 - P112 - First Serious Compute Burn Harness / Dry-Run Gate: complete
 
 Arc status: closed pending manual serious burn execution and review.
+
+## Post-P112 Research Alignment Arc
+
+- P113 - RADLADS2 / FLA / hfattnconv / KVM Research Intake: complete
+- P114 - HF-Compatible Student Interface Reassessment
+- P115 - Architecture Similarity / First Burn Target Decision
+- P116 - Revised Burn Config + Launch Plan
+- P117 - First Serious Compute Burn
+- P118 - Burn Result Analysis / Next-Arc Decision
 
 ## Phase 101 - StudentBackend Registry / Architecture Selection
 
