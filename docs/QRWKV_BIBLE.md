@@ -2407,3 +2407,21 @@ dependency, Vocab C implementation, recurrence math change, WKV equation
 change, checkpoint format incompatibility, TeacherTargetStore layout change,
 StudentRuntime semantic change, StudentBackend behavior change, fixture tensor
 edit, tolerance change, or Pallas promotion was introduced.
+
+## Phase 117.1 - Actual Configurable Train-Step Burn
+
+P117 proved TPU allocation, multi-worker launch, environment setup,
+TeacherTextbook validation, readiness, and real-mode harness launch, but it did
+not execute training: `steps_completed=0`. P117.1 adds actual configurable
+train-step execution to the serious burn harness.
+
+The harness now accepts explicit `max_steps`, `batch_size`, and
+`allow_textbook_reuse` knobs plus a `--teacher-textbook` path. Confirmed real
+mode loads dense TeacherTextbook shards, computes finite dense distillation loss
+through a small trainable logits path, performs optimizer updates, writes
+`loss_trace.json`, writes `checkpoint.json`, and reports example/reuse counts.
+
+Real mode may no longer pass with zero completed training steps. This phase
+does not make model quality claims and does not require Qwen/Gemma, Rosetta,
+Vocab C, tokenizer remapping, full HF integration, WKV math changes, or Pallas
+promotion.

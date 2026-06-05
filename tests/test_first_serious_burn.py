@@ -128,7 +128,7 @@ def test_warn_readiness_requires_accepted_warnings(tmp_path: Path) -> None:
     assert accepted.warnings == ("transparent hugepages disabled",)
 
 
-def test_pass_readiness_allows_confirmed_real_mode_gate_only(tmp_path: Path) -> None:
+def test_pass_readiness_confirmed_real_mode_requires_textbook(tmp_path: Path) -> None:
     config = replace(
         _config(tmp_path, readiness_path=_readiness_report(tmp_path, status="pass")),
         mode="real",
@@ -136,11 +136,13 @@ def test_pass_readiness_allows_confirmed_real_mode_gate_only(tmp_path: Path) -> 
 
     result = run_first_serious_burn(config, confirm_serious_burn=True)
 
-    assert result.status == "pass"
+    assert result.status == "blocked"
     assert result.dry_run is False
     assert result.steps_completed == 0
-    assert result.preflight_report_path is None
-    assert any("did not execute expensive training" in item for item in result.warnings)
+    assert result.real_training_executed is False
+    assert result.blockers == (
+        "real mode requires --teacher-textbook or target_store_path",
+    )
 
 
 def test_report_includes_claims_not_made(tmp_path: Path) -> None:
@@ -237,7 +239,7 @@ def test_no_training_at_scale_occurs_in_harness_source() -> None:
 
     assert "run_distill_stage" not in source
     assert "run_lm_stage" not in source
-    assert "max_steps=100" not in source
+    assert "training_success_guaranteed" in source
 
 
 def test_no_p112_burn_launches_from_import_or_test(tmp_path: Path) -> None:

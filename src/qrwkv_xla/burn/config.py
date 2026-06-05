@@ -17,10 +17,12 @@ class FirstSeriousBurnConfig:
     architecture_id: str = "tiny_debug"
     runtime: str = "reference"
     target_store_path: str | None = None
+    teacher_textbook_path: str | None = None
     output_dir: str = "artifacts/p112_first_serious_burn/dry_run"
     readiness_report_path: str | None = None
     max_steps: int = 1
     batch_size: int = 1
+    allow_textbook_reuse: bool = False
     sequence_length: int = 8
     checkpoint_every_steps: int = 1
     eval_every_steps: int = 1

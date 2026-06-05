@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 116.3
-current_phase: P116.3
-checkpoint: tpu_vm_bootstrap_p117_preflight_scripts
+phase: 117.1
+current_phase: P117.1
+checkpoint: actual_configurable_train_step_burn
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,18 +56,41 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add human-run TPU VM bootstrap and P117 preflight scripts for the released
-  tiny-HF TeacherTextbook handoff.
+  Add actual configurable train-step execution to the confirmed real-mode burn
+  harness.
 
 current_arc: post_p112_research_alignment
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
-recommended_next: P117 First Serious Compute Burn
+recommended_next: P117.2 TPU Device Train-Step / Multi-Worker Execution Hardening
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
   post_p112_research_alignment: active
+
+p117_1:
+  goal: actual_configurable_train_step_burn
+  behavior_change_intended: true
+  max_steps_knob_added: true
+  batch_size_knob_added: true
+  allow_textbook_reuse_knob_added: true
+  teacher_textbook_cli_added: true
+  real_mode_zero_step_pass_removed: true
+  actual_train_steps_added: true
+  checkpoint_written: true
+  loss_trace_written: true
+  dense_teacher_textbook_path_preserved: true
+  long_training_default_added: false
+  quality_claim_added: false
+  qwen_or_gemma_scaleup_added: false
+  rosetta_integration_added: false
+  vocab_c_implemented: false
+  tokenizer_remapping_added: false
+  full_hf_native_wrapper_added: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  recommended_next: P117.2 TPU Device Train-Step / Multi-Worker Execution Hardening
 
 p116_3:
   goal: tpu_vm_bootstrap_p117_preflight_scripts

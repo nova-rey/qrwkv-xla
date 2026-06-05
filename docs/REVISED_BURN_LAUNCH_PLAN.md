@@ -158,7 +158,11 @@ python scripts/run_first_serious_burn.py \
   --config artifacts/p116_revised_burn_config.json \
   --output artifacts/p117_student_burn \
   --mode real \
-  --confirm-serious-burn
+  --confirm-serious-burn \
+  --teacher-textbook artifacts/p117_teacher_textbook \
+  --max-steps 8 \
+  --batch-size 1 \
+  --no-allow-textbook-reuse
 
 # 7. Validate student artifact
 python scripts/validate_student_artifact.py \
@@ -167,12 +171,9 @@ python scripts/validate_student_artifact.py \
   --write-report
 ```
 
-The P112 harness does not currently accept a `--teacher-textbook` flag. P116.2
-therefore keeps TeacherTextbook location as a config requirement and provides
-real-HF `scripts/build_teacher_textbook.py` plus
-`scripts/validate_teacher_textbook.py` as the explicit pre-burn artifact gate.
-P117 should not run until the config and launch wrapper route the validated
-textbook path into the burn.
+P117.1 adds the `--teacher-textbook` route and explicit `--max-steps`,
+`--batch-size`, and textbook reuse knobs. Confirmed real mode may no longer
+pass with zero completed training steps.
 
 P116.3 adds TPU VM bootstrap/preflight scripts:
 

@@ -1,5 +1,18 @@
 # QRWKV-XLA Roadmap
 
+## Phase 117.1 - Actual Configurable Train-Step Burn
+
+Goal: make confirmed real mode execute actual finite train steps instead of
+passing with `steps_completed=0`.
+
+Current checkpoint: `actual_configurable_train_step_burn`. P117.1 adds
+`--teacher-textbook`, `--max-steps`, `--batch-size`, and textbook reuse flags
+to the first serious burn harness. Real mode now loads dense TeacherTextbook
+shards, performs SGD updates through a tiny trainable logits path, writes a
+loss trace and checkpoint, and fails if zero steps complete.
+
+Next: P117.2 TPU Device Train-Step / Multi-Worker Execution Hardening.
+
 ## Phase 116.3 - TPU VM Bootstrap + P117 Preflight Scripts
 
 Goal: make TPU VM setup and P117 preflight boring, repeatable, and hard to
