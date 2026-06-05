@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 117.1
-current_phase: P117.1
-checkpoint: actual_configurable_train_step_burn
+phase: 118
+current_phase: P118
+checkpoint: burn_result_analysis_next_arc_decision
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,21 +56,55 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add actual configurable train-step execution to the confirmed real-mode burn
-  harness.
+  Analyze the successful P117.1 actual train-step TPU smoke and decide the
+  next arc without changing training behavior.
 
-current_arc: post_p112_research_alignment
+current_arc: burn_result_analysis
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
-recommended_next: P117.2 TPU Device Train-Step / Multi-Worker Execution Hardening
+recommended_next:
+  - P117.2 100-example TPU data-shard smoke
+  - Merge/reconcile P119-P122 cascade branch after conflict and test review
+  - P123 cascaded target evaluation smoke
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
   post_p112_research_alignment: active
+  burn_result_analysis: complete
+
+p118:
+  goal: burn_result_analysis_next_arc_decision
+  implementation_changes: false
+  analyzed_phase: P117.1
+  source_run: p117_1_real_train_steps_v6e16_worker0
+  docs_added: true
+  compact_summary_added: true
+  real_burn_started: false
+  training_behavior_changed: false
+  cascade_branch_merged: false
+  model_quality_claim_added: false
+  distributed_training_claim_added: false
+  recommended_next:
+    - P117.2 100-example TPU data-shard smoke
+    - Merge/reconcile P119-P122 cascade branch after conflict and test review
+    - P123 cascaded target evaluation smoke
 
 p117_1:
   goal: actual_configurable_train_step_burn
+  status: pass
+  device_backend: tpu
+  steps_requested: 8
+  steps_completed: 8
+  examples_consumed: 8
+  unique_examples_consumed: 8
+  reuse_count: 0
+  checkpoint_written: true
+  real_training_executed: true
+  claims_not_made:
+    - model_quality_proven
+    - distributed_training_ready
+    - real_qrwkv_architecture_training_proven
   behavior_change_intended: true
   max_steps_knob_added: true
   batch_size_knob_added: true

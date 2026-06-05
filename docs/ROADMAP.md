@@ -1,5 +1,26 @@
 # QRWKV-XLA Roadmap
 
+## Phase 118 - Burn Result Analysis
+
+Goal: record what the successful P117.1 actual train-step TPU smoke proves and
+does not prove.
+
+Current checkpoint: `burn_result_analysis_next_arc_decision`. P118 analyzes the
+P117.1 worker-0 report as an 8/8 real-mode TPU-backed train-step smoke with
+8 unique examples consumed, no textbook reuse, finite slight loss decrease,
+non-empty checkpoint, and empty blockers/warnings.
+
+P118 does not add training behavior, run another burn, claim model quality,
+claim true distributed/sharded training correctness, claim real QRWKV
+architecture training, merge the P119-P122 cascade branch, or change
+model/runtime math.
+
+Recommended next:
+
+- P117.2 - 100-example TPU data-shard smoke.
+- Merge/reconcile P119-P122 cascade branch after conflict and test review.
+- P123 - Cascaded Target Evaluation Smoke after cascade branch merge.
+
 ## Phase 117.1 - Actual Configurable Train-Step Burn
 
 Goal: make confirmed real mode execute actual finite train steps instead of
@@ -11,7 +32,10 @@ to the first serious burn harness. Real mode now loads dense TeacherTextbook
 shards, performs SGD updates through a tiny trainable logits path, writes a
 loss trace and checkpoint, and fails if zero steps complete.
 
-Next: P117.2 TPU Device Train-Step / Multi-Worker Execution Hardening.
+P117.1 is complete. P118 records the result as TPU-backed train-step execution
+evidence, not model-quality or distributed-training evidence.
+
+Next: P118 Burn Result Analysis - complete.
 
 ## Phase 116.3 - TPU VM Bootstrap + P117 Preflight Scripts
 

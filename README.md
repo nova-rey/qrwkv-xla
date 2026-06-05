@@ -7,10 +7,10 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P117.1, Actual Configurable Train-Step Burn. The Pallas runway
-is closed after a recorded real TPU v5 lite smoke pass for the tiny opt-in
-Pallas WKV path, and the project is now the validated core of a Radjax-shaped
-modular recurrent distillation platform.
+Current phase: P118, Burn Result Analysis. The Pallas runway is closed after a
+recorded real TPU v5 lite smoke pass for the tiny opt-in Pallas WKV path, and
+the project is now the validated core of a Radjax-shaped modular recurrent
+distillation platform.
 
 Current emphasis is teacher backend modularity, vocab contracts, target stores,
 the student backend registry, runtime separation, and the burn-readiness arc.
@@ -29,10 +29,12 @@ define the TeacherTextbook input / StudentArtifact output contracts for P117,
 build a validated fake-mode TeacherTextbook artifact from tiny text input, and
 build a guarded real-HF TeacherTextbook artifact for tiny causal-LM teachers.
 P116.3 adds human-run TPU VM bootstrap and P117 preflight scripts for the
-released mini textbook handoff. P117.1 makes confirmed real mode execute actual
+released mini textbook handoff. P117.1 made confirmed real mode execute actual
 configurable train steps against a dense TeacherTextbook and fail if zero steps
-complete. Baseline tests remain CPU-safe and do not require Hugging Face
-downloads, internet, Qwen, GPU, or TPU.
+complete. P118 records the resulting 8-step TPU-backed train-step smoke as
+execution evidence, not model-quality or distributed-training evidence.
+Baseline tests remain CPU-safe and do not require Hugging Face downloads,
+internet, Qwen, GPU, or TPU.
 
 P117 is the first serious burn using a validated TeacherTextbook input and a
 validated HF-shaped Level 0/1 StudentArtifact output.
@@ -90,6 +92,9 @@ The first serious compute burn harness is documented in
 
 The actual configurable train-step burn is documented in
 `docs/P117_1_ACTUAL_TRAIN_STEP_BURN.md`.
+
+The P117.1 result analysis is documented in
+`docs/P118_BURN_RESULT_ANALYSIS.md`.
 
 The post-P112 research intake is documented in
 `docs/RADLADS2_FLA_KVM_RESEARCH_INTAKE.md`.

@@ -175,6 +175,12 @@ P117.1 adds the `--teacher-textbook` route and explicit `--max-steps`,
 `--batch-size`, and textbook reuse knobs. Confirmed real mode may no longer
 pass with zero completed training steps.
 
+The original P117 real-mode harness pass was insufficient because it completed
+zero train steps. P117.1 replaced that with an actual 8-step TPU-backed
+train-step smoke. P118 analyzes that evidence and records it as execution
+proof only, not as model-quality proof or proof of true distributed/sharded
+training correctness.
+
 P116.3 adds TPU VM bootstrap/preflight scripts:
 
 ```bash

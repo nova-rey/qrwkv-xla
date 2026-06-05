@@ -2425,3 +2425,22 @@ Real mode may no longer pass with zero completed training steps. This phase
 does not make model quality claims and does not require Qwen/Gemma, Rosetta,
 Vocab C, tokenizer remapping, full HF integration, WKV math changes, or Pallas
 promotion.
+
+## Phase 118 - Burn Result Analysis
+
+P118 analyzed the successful P117.1 actual train-step hardware smoke. P117.1
+completed 8/8 real-mode training steps against the 8-example dense
+TeacherTextbook with `batch_size=1`, no textbook reuse,
+`checkpoint_written=true`, `checkpoint_nonzero=true`,
+`real_training_executed=true`, `blockers=[]`, `warnings=[]`, and
+`device_backend=tpu`. The archived worker-0 report listed 16 TPU devices across
+4 JAX processes on the v6e-16 allocation.
+
+P118 records this as a TPU-backed train-step smoke pass, not a model-quality
+result and not proof of true sharded/distributed training or real QRWKV
+architecture training. P118 recommends a 100-example TPU smoke/data-shard proof
+and a separate cascade-branch merge/evaluation path.
+
+No new burn, training behavior, model architecture, Rosetta/Vocab C, tokenizer
+remapping, Qwen/Gemma scale-up, Pallas default promotion, or cascade
+implementation changes were introduced by P118.
