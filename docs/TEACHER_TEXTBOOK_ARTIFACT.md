@@ -254,8 +254,12 @@ compressed artifacts must not be silently treated as dense logits.
 
 P121 adds `cascaded_soft_labels_v1`, which includes the TopK+Tail fields and
 adds `bucket_mass`, `bucket_count`, and `bucket_mean_logp`. These bucket fields
-are a printer-side contract and validator surface only; bucket-shape training
-loss is reserved for P122.
+are a printer-side contract and validator surface.
+
+P122 adds student-side consumption for the cascaded bucket fields. The student
+projects its non-top-k probabilities through artifact `bucket_edges` and can
+apply optional `bucket_shape_loss`; the default weight is `0.0`. This does not
+replace the official dense mini-textbook path.
 
 ## Dataset JSONL Format
 

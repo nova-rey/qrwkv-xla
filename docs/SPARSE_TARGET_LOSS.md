@@ -16,7 +16,7 @@ The dispatch layer reads `target_type` from the loaded teacher target batch:
 ```text
 dense_logits/full_logits/synthetic -> dense logits KL path
 topk_with_tail_v0                  -> sparse top-k head KL path
-cascaded_soft_labels_v1            -> top-k head-only path until P122
+cascaded_soft_labels_v1            -> sparse head + optional tail/bucket loss
 ```
 
 Unsupported target types fail clearly. Compressed targets must provide
@@ -63,6 +63,15 @@ tail_loss_weight = 0.0
 
 Tail regularization is off by default.
 
+For `cascaded_soft_labels_v1`, P122 adds:
+
+```text
+bucket_shape_loss_weight = 0.0
+bucket_shape_loss_type = kl
+```
+
+Bucket shape regularization is off by default.
+
 ## Reporting
 
 Sparse reports include:
@@ -82,8 +91,19 @@ mean_teacher_entropy
 
 Dense reports remain valid and do not invent sparse-only metrics.
 
-For `cascaded_soft_labels_v1`, P121 reports `bucket_loss_weight=0.0` because
-bucket-shape loss is intentionally deferred to P122.
+For `cascaded_soft_labels_v1`, P122 reports bucket fields:
+
+```text
+bucket_shape_loss
+bucket_shape_loss_weight
+bucket_shape_loss_type
+bucket_count
+mean_teacher_tail_mass
+mean_student_tail_mass
+mean_teacher_bucket_mass
+mean_student_bucket_mass
+mean_bucket_shape_kl
+```
 
 ## What P120 Implements
 
@@ -97,7 +117,6 @@ bucket-shape loss is intentionally deferred to P122.
 
 ## What P120 Defers
 
-- Bucketed cascaded tail losses.
 - Rosetta/Vocab C/tokenizer remapping.
 - Qwen/Gemma scale-up.
 - Full HF-native model integration.

@@ -51,6 +51,30 @@ def test_topk_with_tail_dispatch_calls_sparse_path() -> None:
     assert report.mean_tail_mass is not None
 
 
+def test_cascaded_soft_labels_dispatch_calls_cascaded_path() -> None:
+    report = dispatch_teacher_target_loss(
+        student_logits=jnp.asarray([[[4.0, 3.0, 0.0, -2.0]]], dtype=jnp.float32),
+        target_batch=SimpleNamespace(
+            target_type="cascaded_soft_labels_v1",
+            attention_mask=jnp.ones((1, 1), dtype=jnp.int32),
+            top_token_ids=jnp.asarray([[[0, 1]]], dtype=jnp.int32),
+            top_log_probs=jnp.asarray([[[0.0, -1.0]]], dtype=jnp.float32),
+            top_mass=jnp.asarray([[0.9]], dtype=jnp.float32),
+            tail_mass=jnp.asarray([[0.1]], dtype=jnp.float32),
+            teacher_entropy=jnp.asarray([[0.5]], dtype=jnp.float32),
+            bucket_edges=jnp.asarray([1.0, 0.1, 0.01, 0.0], dtype=jnp.float32),
+            bucket_mass=jnp.asarray([[[0.08, 0.015, 0.005]]], dtype=jnp.float32),
+        ),
+        bucket_shape_loss_weight=0.01,
+    )
+
+    assert report.target_type == "cascaded_soft_labels_v1"
+    assert report.distillation_loss_type == "cascaded_soft_labels"
+    assert report.bucket_shape_loss is not None
+    assert report.bucket_loss_weight == 0.01
+    assert report.bucket_count == 3
+
+
 def test_unsupported_target_type_fails_clearly() -> None:
     with pytest.raises(
         UnsupportedTeacherTargetType, match="unsupported teacher target_type"
@@ -70,6 +94,22 @@ def test_missing_compressed_fields_fail_clearly() -> None:
                 attention_mask=jnp.ones((1, 1), dtype=jnp.int32),
                 top_token_ids=jnp.asarray([[[0, 1]]], dtype=jnp.int32),
             ),
+        )
+
+
+def test_cascaded_missing_bucket_fields_fail_clearly() -> None:
+    with pytest.raises(ValueError, match="bucket_mass"):
+        dispatch_teacher_target_loss(
+            student_logits=jnp.zeros((1, 1, 4), dtype=jnp.float32),
+            target_batch=SimpleNamespace(
+                target_type="cascaded_soft_labels_v1",
+                attention_mask=jnp.ones((1, 1), dtype=jnp.int32),
+                top_token_ids=jnp.asarray([[[0, 1]]], dtype=jnp.int32),
+                top_log_probs=jnp.asarray([[[0.0, -1.0]]], dtype=jnp.float32),
+                tail_mass=jnp.asarray([[0.1]], dtype=jnp.float32),
+                bucket_edges=jnp.asarray([1.0, 0.1, 0.0], dtype=jnp.float32),
+            ),
+            bucket_shape_loss_weight=0.01,
         )
 
 

@@ -3,7 +3,10 @@ from __future__ import annotations
 import jax.numpy as jnp
 import numpy as np
 
-from qrwkv_xla.distill.losses import topk_tail_distillation_loss
+from qrwkv_xla.distill.losses import (
+    cascaded_soft_labels_loss,
+    topk_tail_distillation_loss,
+)
 
 
 def test_topk_tail_loss_is_near_zero_when_head_logits_match_teacher_shape() -> None:
@@ -111,3 +114,18 @@ def test_tail_loss_weight_changes_total_when_tail_mass_differs() -> None:
 
     assert float(with_tail.tail_loss) > 0.0
     assert float(with_tail.total_loss) > float(base.total_loss)
+
+
+def test_cascaded_bucket_shape_weight_defaults_to_zero() -> None:
+    report = cascaded_soft_labels_loss(
+        jnp.asarray([[[4.0, 3.0, 0.0, -2.0]]], dtype=jnp.float32),
+        jnp.asarray([[[0, 1]]], dtype=jnp.int32),
+        jnp.asarray([[[0.0, -1.0]]], dtype=jnp.float32),
+        jnp.ones((1, 1), dtype=jnp.int32),
+        tail_mass=jnp.asarray([[0.1]], dtype=jnp.float32),
+        bucket_mass=jnp.asarray([[[0.08, 0.015, 0.005]]], dtype=jnp.float32),
+        bucket_edges=jnp.asarray([1.0, 0.1, 0.01, 0.0], dtype=jnp.float32),
+    )
+
+    assert report.bucket_shape_loss_weight == 0.0
+    np.testing.assert_allclose(float(report.total_loss), float(report.head_loss))

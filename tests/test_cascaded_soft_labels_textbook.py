@@ -72,10 +72,17 @@ def test_cascaded_loader_exposes_bucket_fields_without_logits(tmp_path: Path) ->
     assert batch.bucket_mass is not None
     assert batch.bucket_count is not None
     assert batch.bucket_mean_logp is not None
+    assert batch.bucket_edges is not None
     assert batch.bucket_mass.shape == (2, 8, 5)
+    np.testing.assert_allclose(
+        batch.bucket_edges,
+        np.asarray([1.0, 1e-3, 1e-6, 1e-9, 1e-12, 0.0], dtype=np.float32),
+    )
 
 
-def test_cascaded_eval_consumes_topk_head_only_until_p122(tmp_path: Path) -> None:
+def test_cascaded_eval_consumes_bucket_metrics_with_default_zero_weight(
+    tmp_path: Path,
+) -> None:
     store = TeacherTargetStore.open(_build_cascaded(tmp_path))
 
     result = run_mini_eval_harness(
@@ -85,11 +92,34 @@ def test_cascaded_eval_consumes_topk_head_only_until_p122(tmp_path: Path) -> Non
 
     assert result.status == "pass"
     assert result.teacher_target_type == "cascaded_soft_labels_v1"
-    assert result.distillation_loss_type == "topk_head_only_until_p122"
+    assert result.distillation_loss_type == "cascaded_soft_labels"
     assert result.bucket_loss_weight == 0.0
+    assert result.bucket_shape_loss_weight == 0.0
+    assert result.bucket_shape_loss is not None
+    assert result.bucket_count == 5
     assert result.head_loss is not None
     assert result.tail_loss == 0.0
     assert result.top_k == 8
+    assert result.mean_teacher_bucket_mass is not None
+    assert result.mean_student_bucket_mass is not None
+
+
+def test_cascaded_eval_computes_bucket_shape_loss_when_weight_enabled(
+    tmp_path: Path,
+) -> None:
+    store = TeacherTargetStore.open(_build_cascaded(tmp_path))
+
+    result = run_mini_eval_harness(
+        store=store,
+        architecture_id=TINY_DEBUG_ARCHITECTURE_ID,
+        bucket_shape_loss_weight=0.01,
+    )
+
+    assert result.status == "pass"
+    assert result.teacher_target_type == "cascaded_soft_labels_v1"
+    assert result.bucket_shape_loss_weight == 0.01
+    assert result.bucket_shape_loss is not None
+    assert np.isfinite(result.bucket_shape_loss)
 
 
 def test_missing_bucket_mass_fails_validation(tmp_path: Path) -> None:

@@ -60,9 +60,19 @@ class MiniEvalResult:
     tail_loss: float | None = None
     tail_loss_weight: float = 0.0
     bucket_loss_weight: float = 0.0
+    bucket_shape_loss: float | None = None
+    bucket_shape_loss_weight: float = 0.0
+    bucket_shape_loss_type: str | None = None
+    bucket_count: int | None = None
     top_k: int | None = None
     mean_top_mass: float | None = None
     mean_tail_mass: float | None = None
+    mean_teacher_top_mass: float | None = None
+    mean_teacher_tail_mass: float | None = None
+    mean_student_tail_mass: float | None = None
+    mean_teacher_bucket_mass: float | None = None
+    mean_student_bucket_mass: float | None = None
+    mean_bucket_shape_kl: float | None = None
     mean_teacher_entropy: float | None = None
     claims_not_made: tuple[str, ...] = MINI_EVAL_CLAIMS_NOT_MADE
 
@@ -78,12 +88,23 @@ def run_mini_eval_harness(
     student_vocab_contract: VocabContract | None = None,
     tail_loss_weight: float = 0.0,
     sparse_head_loss_weight: float = 1.0,
+    bucket_shape_loss_weight: float = 0.0,
+    bucket_shape_loss_type: str = "kl",
 ) -> MiniEvalResult:
     if tail_loss_weight < 0:
         raise ValueError(f"tail_loss_weight must be >= 0, got {tail_loss_weight}")
     if sparse_head_loss_weight <= 0:
         raise ValueError(
             f"sparse_head_loss_weight must be > 0, got {sparse_head_loss_weight}"
+        )
+    if bucket_shape_loss_weight < 0:
+        raise ValueError(
+            f"bucket_shape_loss_weight must be >= 0, got {bucket_shape_loss_weight}"
+        )
+    if bucket_shape_loss_type not in {"kl", "log_mse"}:
+        raise ValueError(
+            "bucket_shape_loss_type must be 'kl' or 'log_mse', "
+            f"got {bucket_shape_loss_type!r}"
         )
     teacher_contract = vocab_contract_from_metadata(store.metadata)
     selected_contract = student_vocab_contract or teacher_contract
@@ -133,11 +154,19 @@ def run_mini_eval_harness(
     total_distillation_loss = 0.0
     total_head_loss = 0.0
     total_tail_loss = 0.0
+    total_bucket_shape_loss = 0.0
     total_metric_weight = 0.0
     total_top_mass = 0.0
     total_tail_mass = 0.0
+    total_teacher_top_mass = 0.0
+    total_teacher_tail_mass = 0.0
+    total_student_tail_mass = 0.0
+    total_teacher_bucket_mass = 0.0
+    total_student_bucket_mass = 0.0
+    total_bucket_shape_kl = 0.0
     total_teacher_entropy = 0.0
     top_k: int | None = None
+    bucket_count: int | None = None
     distillation_loss_type: str | None = None
     total_examples = 0
     total_tokens = 0
@@ -162,18 +191,53 @@ def run_mini_eval_harness(
             target_batch=batch,
             tail_loss_weight=tail_loss_weight,
             sparse_head_loss_weight=sparse_head_loss_weight,
+            bucket_shape_loss_weight=bucket_shape_loss_weight,
+            bucket_shape_loss_type=bucket_shape_loss_type,
         )
         batch_weight = float(loss_report.token_count)
         total_distillation_loss += float(loss_report.total_loss) * batch_weight
         total_head_loss += float(loss_report.head_loss) * batch_weight
         total_tail_loss += float(loss_report.tail_loss) * batch_weight
+        if loss_report.bucket_shape_loss is not None:
+            total_bucket_shape_loss += (
+                float(loss_report.bucket_shape_loss) * batch_weight
+            )
         total_metric_weight += batch_weight
         top_k = loss_report.top_k if loss_report.top_k is not None else top_k
+        bucket_count = (
+            loss_report.bucket_count
+            if loss_report.bucket_count is not None
+            else bucket_count
+        )
         distillation_loss_type = loss_report.distillation_loss_type
         if loss_report.mean_top_mass is not None:
             total_top_mass += float(loss_report.mean_top_mass) * batch_weight
         if loss_report.mean_tail_mass is not None:
             total_tail_mass += float(loss_report.mean_tail_mass) * batch_weight
+        if loss_report.mean_teacher_top_mass is not None:
+            total_teacher_top_mass += (
+                float(loss_report.mean_teacher_top_mass) * batch_weight
+            )
+        if loss_report.mean_teacher_tail_mass is not None:
+            total_teacher_tail_mass += (
+                float(loss_report.mean_teacher_tail_mass) * batch_weight
+            )
+        if loss_report.mean_student_tail_mass is not None:
+            total_student_tail_mass += (
+                float(loss_report.mean_student_tail_mass) * batch_weight
+            )
+        if loss_report.mean_teacher_bucket_mass is not None:
+            total_teacher_bucket_mass += (
+                float(loss_report.mean_teacher_bucket_mass) * batch_weight
+            )
+        if loss_report.mean_student_bucket_mass is not None:
+            total_student_bucket_mass += (
+                float(loss_report.mean_student_bucket_mass) * batch_weight
+            )
+        if loss_report.mean_bucket_shape_kl is not None:
+            total_bucket_shape_kl += (
+                float(loss_report.mean_bucket_shape_kl) * batch_weight
+            )
         if loss_report.mean_teacher_entropy is not None:
             total_teacher_entropy += (
                 float(loss_report.mean_teacher_entropy) * batch_weight
@@ -217,6 +281,11 @@ def run_mini_eval_harness(
     mean_tail_loss = (
         total_tail_loss / total_metric_weight if total_metric_weight > 0 else None
     )
+    mean_bucket_shape_loss = (
+        total_bucket_shape_loss / total_metric_weight
+        if total_metric_weight > 0 and bucket_count is not None
+        else None
+    )
     loss_finite = bool(np.isfinite(mean_distillation_loss))
     top1_agreement = (
         top1_matches / total_tokens
@@ -246,13 +315,51 @@ def run_mini_eval_harness(
         head_loss=None if mean_head_loss is None else float(mean_head_loss),
         tail_loss=None if mean_tail_loss is None else float(mean_tail_loss),
         tail_loss_weight=tail_loss_weight,
-        bucket_loss_weight=0.0,
+        bucket_loss_weight=bucket_shape_loss_weight,
+        bucket_shape_loss=(
+            None if mean_bucket_shape_loss is None else float(mean_bucket_shape_loss)
+        ),
+        bucket_shape_loss_weight=bucket_shape_loss_weight,
+        bucket_shape_loss_type=(
+            bucket_shape_loss_type if bucket_count is not None else None
+        ),
+        bucket_count=bucket_count,
         top_k=top_k,
         mean_top_mass=(
             total_top_mass / total_metric_weight if total_top_mass else None
         ),
         mean_tail_mass=(
             total_tail_mass / total_metric_weight if total_tail_mass else None
+        ),
+        mean_teacher_top_mass=(
+            total_teacher_top_mass / total_metric_weight
+            if total_metric_weight > 0 and top_k is not None
+            else None
+        ),
+        mean_teacher_tail_mass=(
+            total_teacher_tail_mass / total_metric_weight
+            if total_metric_weight > 0 and top_k is not None
+            else None
+        ),
+        mean_student_tail_mass=(
+            total_student_tail_mass / total_metric_weight
+            if total_metric_weight > 0 and bucket_count is not None
+            else None
+        ),
+        mean_teacher_bucket_mass=(
+            total_teacher_bucket_mass / total_metric_weight
+            if total_metric_weight > 0 and bucket_count is not None
+            else None
+        ),
+        mean_student_bucket_mass=(
+            total_student_bucket_mass / total_metric_weight
+            if total_metric_weight > 0 and bucket_count is not None
+            else None
+        ),
+        mean_bucket_shape_kl=(
+            total_bucket_shape_kl / total_metric_weight
+            if total_metric_weight > 0 and bucket_count is not None
+            else None
         ),
         mean_teacher_entropy=(
             total_teacher_entropy / total_metric_weight

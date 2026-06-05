@@ -27,6 +27,7 @@ class TeacherTargetBatch:
     top_mass: np.ndarray | None = None
     tail_mass: np.ndarray | None = None
     teacher_entropy: np.ndarray | None = None
+    bucket_edges: np.ndarray | None = None
     bucket_mass: np.ndarray | None = None
     bucket_count: np.ndarray | None = None
     bucket_mean_logp: np.ndarray | None = None
@@ -146,6 +147,7 @@ def load_teacher_target_batch(
             bucket_mass = np.asarray(arrays["bucket_mass"])
             bucket_count = np.asarray(arrays["bucket_count"])
             bucket_mean_logp = np.asarray(arrays["bucket_mean_logp"])
+            bucket_edges = _metadata_bucket_edges(metadata)
             expected_bucket_shape = bucket_mass.shape
             if bucket_count.shape != expected_bucket_shape:
                 raise ValueError("bucket_count shape must match bucket_mass shape")
@@ -157,6 +159,7 @@ def load_teacher_target_batch(
                     f"got {bucket_mass.shape[:2]} and {input_ids.shape}"
                 )
             kwargs = {
+                "bucket_edges": bucket_edges,
                 "bucket_mass": bucket_mass,
                 "bucket_count": bucket_count,
                 "bucket_mean_logp": bucket_mean_logp,
@@ -200,3 +203,33 @@ def _validate_common_batch_shapes(
         raise ValueError("offline attention_mask shape must match input_ids")
     if input_ids.shape[1] != sequence_length:
         raise ValueError("offline input_ids sequence length must match metadata")
+
+
+def _metadata_bucket_edges(metadata: Any) -> np.ndarray:
+    raw_edges = metadata.target_params.get("bucket_edges", "")
+    try:
+        edges = np.asarray(
+            [float(edge) for edge in raw_edges.split(",") if edge],
+            dtype=np.float32,
+        )
+    except ValueError as exc:
+        raise ValueError("metadata target_params.bucket_edges must be numeric") from exc
+    try:
+        expected_bucket_count = int(metadata.target_params.get("bucket_count", "0"))
+    except ValueError as exc:
+        raise ValueError(
+            "metadata target_params.bucket_count must be an integer"
+        ) from exc
+    if edges.shape != (expected_bucket_count + 1,):
+        raise ValueError("bucket_edges length must equal bucket_count + 1")
+    if edges.shape[0] < 2:
+        raise ValueError("bucket_edges must contain at least two edges")
+    if not np.all(np.isfinite(edges)):
+        raise ValueError("bucket_edges must be finite")
+    if not np.all(np.diff(edges) < 0):
+        raise ValueError("bucket_edges must be strictly descending")
+    if not np.isclose(edges[0], 1.0):
+        raise ValueError("bucket_edges must start at 1.0")
+    if not np.isclose(edges[-1], 0.0):
+        raise ValueError("bucket_edges must end at 0.0")
+    return edges

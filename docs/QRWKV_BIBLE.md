@@ -2479,3 +2479,21 @@ cross-vocab tail mapping, Gemma/Qwen scale-up, real burn, training, full
 HF-native integration, WKV/runtime behavior changes, StudentRuntime semantic
 changes, StudentBackend behavior changes, and Pallas promotion were not
 introduced.
+
+## Phase 122 - Bucket Shape Loss
+
+P122 added student-side Bucket Shape Loss for Cascaded Soft Labels v1 on the
+compressed-target branch `p119-p120-cascaded-targets`. The implementation
+projects the student's non-top-k tail distribution through the same fixed
+bucket lens recorded in `cascaded_soft_labels_v1`, then compares aggregate
+`bucket_mass` shape rather than exact tail token probabilities.
+
+The loss stack preserves `dense_logits` and `topk_with_tail_v0` paths while
+adding `cascaded_soft_labels_v1` consumption with head KL, optional tail mass
+regularization, and optional bucket shape loss. Bucket shape loss defaults to
+zero and is opt-in.
+
+This completes the first same-vocab cascade implementation loop before
+evaluation. P122 did not add real burn execution, quality claims, Rosetta/Vocab
+C, tokenizer remapping, cross-vocab tail mapping, Qwen/Gemma scale-up, full
+HF-native integration, WKV/runtime behavior changes, or Pallas promotion.

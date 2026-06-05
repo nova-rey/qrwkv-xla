@@ -24,6 +24,12 @@ def main() -> int:
     parser.add_argument("--runtime", default=None)
     parser.add_argument("--tail-loss-weight", type=float, default=0.0)
     parser.add_argument("--sparse-head-loss-weight", type=float, default=1.0)
+    parser.add_argument("--bucket-shape-loss-weight", type=float, default=0.0)
+    parser.add_argument(
+        "--bucket-shape-loss-type",
+        choices=("kl", "log_mse"),
+        default="kl",
+    )
     args = parser.parse_args()
 
     if args.target_store is None:
@@ -39,6 +45,8 @@ def main() -> int:
         runtime=args.runtime,
         tail_loss_weight=args.tail_loss_weight,
         sparse_head_loss_weight=args.sparse_head_loss_weight,
+        bucket_shape_loss_weight=args.bucket_shape_loss_weight,
+        bucket_shape_loss_type=args.bucket_shape_loss_type,
     )
     write_mini_eval_report(result, args.output)
     print(

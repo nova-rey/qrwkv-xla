@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import Any
 
 import jax
@@ -8,6 +7,7 @@ import jax.numpy as jnp
 
 from qrwkv_xla.distill.losses import (
     DistillationLossReport,
+    cascaded_soft_labels_loss,
     logits_kl_loss,
     topk_tail_distillation_loss,
 )
@@ -27,6 +27,8 @@ def dispatch_teacher_target_loss(
     target_batch: Any,
     tail_loss_weight: float = 0.0,
     sparse_head_loss_weight: float = 1.0,
+    bucket_shape_loss_weight: float = 0.0,
+    bucket_shape_loss_type: str = "kl",
 ) -> DistillationLossReport:
     target_type = str(getattr(target_batch, "target_type", ""))
     attention_mask = getattr(target_batch, "attention_mask", None)
@@ -59,9 +61,31 @@ def dispatch_teacher_target_loss(
             for name in ("top_token_ids", "top_log_probs", "attention_mask")
             if getattr(target_batch, name, None) is None
         ]
+        if target_type == CASCADED_TARGET_TYPE:
+            missing.extend(
+                name
+                for name in ("tail_mass", "bucket_mass", "bucket_edges")
+                if getattr(target_batch, name, None) is None
+            )
         if missing:
             raise ValueError(
                 f"target_type {target_type!r} missing compressed field(s): {missing}"
+            )
+        if target_type == CASCADED_TARGET_TYPE:
+            return cascaded_soft_labels_loss(
+                student_logits,
+                target_batch.top_token_ids,
+                target_batch.top_log_probs,
+                target_batch.attention_mask,
+                tail_mass=target_batch.tail_mass,
+                bucket_mass=target_batch.bucket_mass,
+                bucket_edges=target_batch.bucket_edges,
+                top_mass=getattr(target_batch, "top_mass", None),
+                teacher_entropy=getattr(target_batch, "teacher_entropy", None),
+                head_loss_weight=sparse_head_loss_weight,
+                tail_mass_loss_weight=tail_loss_weight,
+                bucket_shape_loss_weight=bucket_shape_loss_weight,
+                bucket_shape_loss_type=bucket_shape_loss_type,
             )
         report = topk_tail_distillation_loss(
             student_logits,
@@ -74,13 +98,6 @@ def dispatch_teacher_target_loss(
             tail_loss_weight=tail_loss_weight,
             sparse_head_loss_weight=sparse_head_loss_weight,
         )
-        if target_type == CASCADED_TARGET_TYPE:
-            return replace(
-                report,
-                target_type=CASCADED_TARGET_TYPE,
-                distillation_loss_type="topk_head_only_until_p122",
-                bucket_loss_weight=0.0,
-            )
         return report
     expected = sorted(
         (*DENSE_LOGIT_TARGET_TYPES, TOPK_TAIL_TARGET_TYPE, CASCADED_TARGET_TYPE)

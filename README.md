@@ -7,9 +7,10 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase on `p119-p120-cascaded-targets`: P121, Cascaded Soft Labels v1.
+Current phase on `p119-p120-cascaded-targets`: P122, Bucket Shape Loss.
 This branch adds opt-in compressed teacher-target printing, sparse top-k
-consumption, and printer-side bucketed tail contracts for P122 follow-on work.
+consumption, printer-side bucketed tail contracts, and optional student-side
+bucket shape loss.
 The main P117 dense mini textbook path remains intact and should not be
 replaced by this branch until the compressed-target work is reviewed.
 
@@ -35,8 +36,10 @@ probabilities, mass accounting, duplicate IDs, and entropy. P120 adds sparse
 head-KL consumption over gathered top-k student logits with optional tail mass
 regularization defaulting to `0.0`. P121 adds
 `cascaded_soft_labels_v1`, preserving the exact top-k head while storing tail
-shape through aggregate buckets. Baseline tests remain CPU-safe and do not
-require Hugging Face downloads, internet, Qwen, GPU, or TPU.
+shape through aggregate buckets. P122 projects the student's non-top-k tail
+through the same bucket lens and can compare aggregate bucket shape with
+`bucket_shape_loss_weight` defaulting to `0.0`. Baseline tests remain CPU-safe
+and do not require Hugging Face downloads, internet, Qwen, GPU, or TPU.
 
 P117 is the first serious burn using a validated TeacherTextbook input and a
 validated HF-shaped Level 0/1 StudentArtifact output.
@@ -105,6 +108,8 @@ The P120 sparse target loss is documented in `docs/SPARSE_TARGET_LOSS.md`.
 
 The P121 cascaded soft-label contract is documented in
 `docs/CASCADED_SOFT_LABELS.md`.
+
+The P122 bucket shape loss is documented in `docs/BUCKET_SHAPE_LOSS.md`.
 
 `scripts/run_distill_stage.py` is the primary entrypoint for staged
 distillation. It currently supports hidden-state distillation against fake

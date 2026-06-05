@@ -1,5 +1,24 @@
 # QRWKV-XLA Roadmap
 
+## Phase 122 - Bucket Shape Loss
+
+Goal: add student-side bucket projection and optional bucket-shape loss for
+`cascaded_soft_labels_v1`.
+
+Current checkpoint: `bucket_shape_loss_for_cascaded_soft_labels_v1` on branch
+`p119-p120-cascaded-targets`. P122 projects the student's non-top-k tail
+distribution through artifact bucket edges, compares normalized aggregate
+bucket mass by KL, and reports cascaded bucket metrics. Bucket shape loss
+defaults to `0.0` and is opt-in.
+
+P122 preserves `dense_logits`, `topk_with_tail_v0`, and the dense P117
+TeacherTextbook path. It does not add exact tail atom matching, real burn
+execution, Rosetta/Vocab C/tokenizer remapping, cross-vocab tail mapping,
+Qwen/Gemma scale-up, a full HF-native wrapper, Pallas promotion, or WKV math
+changes.
+
+Next: P123 Cascaded Target Evaluation Smoke.
+
 ## Phase 121 - Cascaded Soft Labels v1
 
 Goal: add a printer-side bucketed tail contract and validator without adding

@@ -2,12 +2,13 @@
 
 ## Purpose
 
-P121 adds `cascaded_soft_labels_v1`, a TeacherTextbook target format that keeps
+P121 added `cascaded_soft_labels_v1`, a TeacherTextbook target format that keeps
 the high-resolution top-k head and stores the tail through lossy aggregate
-buckets.
+buckets. P122 adds student-side bucket projection and optional
+`bucket_shape_loss`.
 
-P121 is printer, contract, validator, and loader work only. Bucket-shape
-training loss is reserved for P122.
+The student is compared through the same lossy bucket lens as the teacher
+artifact. The loss matches tail weather, not exact tail atoms.
 
 ## High-Resolution Head, Lossy Tail Lens
 
@@ -22,9 +23,9 @@ Bucket membership token IDs are not stored.
 `cascaded_soft_labels_v1` includes every `topk_with_tail_v0` shard field and
 adds bucketed tail summaries. It does not mutate `topk_with_tail_v0`.
 
-P120 can consume cascaded artifacts through the top-k head-only path while
-reporting bucket loss as off. P122 is expected to compare student and teacher
-tail shapes through the same bucket lens.
+P122 consumes cascaded artifacts through the sparse top-k head path plus
+optional tail mass and bucket shape terms. Bucket shape loss is off by default
+and becomes active only when its weight is nonzero.
 
 ## Target Type
 
@@ -110,6 +111,13 @@ empty-bucket `0.0` mean-log-prob sentinel.
 - Qwen/Gemma scale-up.
 - Full HF-native wrapper work.
 - Real burn execution.
+
+## What P122 Adds
+
+- Student-side bucket projection over non-top-k probabilities.
+- Optional normalized bucket-shape KL over teacher/student tail bucket mass.
+- `bucket_shape_loss_weight` defaulting to `0.0`.
+- Cascaded mini-eval reporting for teacher/student tail and bucket mass.
 
 ## Same-Vocab Scope
 
