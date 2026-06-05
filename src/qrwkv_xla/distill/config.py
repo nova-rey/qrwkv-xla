@@ -99,6 +99,8 @@ class DistillLossConfig:
     attention_or_mixer: LossWeightConfig = field(
         default_factory=lambda: LossWeightConfig(enabled=False, weight=0.0)
     )
+    bucket_shape_loss_weight: float = 0.0
+    bucket_shape_loss_type: str = "kl"
 
 
 @dataclass(frozen=True)
@@ -250,6 +252,10 @@ def validate_distill_stage_config(config: DistillStageConfig) -> None:
             enabled_positive = True
     if not enabled_positive:
         raise ValueError("at least one enabled loss must have weight > 0")
+    if config.losses.bucket_shape_loss_weight < 0:
+        raise ValueError("bucket_shape_loss_weight must be >= 0")
+    if config.losses.bucket_shape_loss_type not in {"kl", "log_mse"}:
+        raise ValueError("bucket_shape_loss_type must be 'kl' or 'log_mse'")
 
 
 def _load_student(data: Any) -> DistillStudentConfig:
@@ -343,6 +349,8 @@ def _load_losses(data: Any) -> DistillLossConfig:
         attention_or_mixer=_load_loss_weight(
             data.get("attention_or_mixer"), enabled=False, weight=0.0
         ),
+        bucket_shape_loss_weight=float(data.get("bucket_shape_loss_weight", 0.0)),
+        bucket_shape_loss_type=str(data.get("bucket_shape_loss_type", "kl")),
     )
 
 

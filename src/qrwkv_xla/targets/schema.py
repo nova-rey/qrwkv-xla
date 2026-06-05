@@ -6,14 +6,23 @@ from typing import Any
 TEACHER_TARGET_STORE_SCHEMA_VERSION = "qrwkv_xla.teacher_target_store.v1"
 TEACHER_TARGET_STORE_VERSION = "p93"
 SUPPORTED_TARGET_TYPES = {
+    "dense_logits",
     "full_logits",
     "full_logprobs",
     "top_k_logprobs",
+    "topk_with_tail_v0",
+    "cascaded_soft_labels_v1",
     "hidden_states",
     "attention_derived",
     "synthetic",
 }
-P93_ARRAY_TARGET_TYPES = {"full_logits", "synthetic"}
+P93_ARRAY_TARGET_TYPES = {
+    "dense_logits",
+    "full_logits",
+    "synthetic",
+    "topk_with_tail_v0",
+    "cascaded_soft_labels_v1",
+}
 FLOAT_DTYPES = {"float32", "fp32", "bfloat16", "bf16", "float16", "fp16"}
 
 
@@ -35,6 +44,7 @@ class TargetStoreMetadata:
     created_at: str
     source: dict[str, str] = field(default_factory=dict)
     provenance: dict[str, str] = field(default_factory=dict)
+    target_params: dict[str, str] = field(default_factory=dict)
 
 
 def target_store_metadata_to_dict(metadata: TargetStoreMetadata) -> dict[str, Any]:
@@ -61,6 +71,10 @@ def target_store_metadata_from_dict(payload: dict[str, Any]) -> TargetStoreMetad
         created_at=str(payload.get("created_at", "")),
         source=_string_mapping(payload.get("source", {}), "source"),
         provenance=_string_mapping(payload.get("provenance", {}), "provenance"),
+        target_params=_string_mapping(
+            payload.get("target_params", {}),
+            "target_params",
+        ),
     )
     validate_target_store_metadata(metadata)
     return metadata

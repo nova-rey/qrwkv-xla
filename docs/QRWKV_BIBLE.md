@@ -2444,3 +2444,20 @@ and a separate cascade-branch merge/evaluation path.
 No new burn, training behavior, model architecture, Rosetta/Vocab C, tokenizer
 remapping, Qwen/Gemma scale-up, Pallas default promotion, or cascade
 implementation changes were introduced by P118.
+
+## Phase 123 - Cascade/Main Integration Gate
+
+P123 reconciled the P119-P122 compressed/cascaded target branch with main after
+P117.1/P118. Main now contains the actual configurable train-step burn harness
+and burn analysis alongside the TopK+Tail v0 target printer/validator, sparse
+target consumption, Cascaded Soft Labels v1 bucketed artifact contract, and
+optional Bucket Shape Loss.
+
+P123 was an integration gate, not a burn or new training experiment. It
+preserved `dense_logits`, `topk_with_tail_v0`, and
+`cascaded_soft_labels_v1` target paths and preserved the P117.1 invariant that
+real mode cannot pass with zero completed training steps.
+
+P123 did not launch training, make model-quality claims, prove distributed
+training, extract `radjax-tome`, add Rosetta/Vocab C/tokenizer remapping, add
+Qwen/Gemma scale-up, or change WKV/runtime math.

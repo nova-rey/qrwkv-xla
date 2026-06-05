@@ -56,6 +56,8 @@ def main() -> None:
     parser.add_argument("--logits-kl-weight", type=float)
     parser.add_argument("--attention-mixer-weight", type=float)
     parser.add_argument("--hidden-mse-weight", type=float)
+    parser.add_argument("--bucket-shape-loss-weight", type=float)
+    parser.add_argument("--bucket-shape-loss-type", choices=("kl", "log_mse"))
     args = parser.parse_args()
 
     from qrwkv_xla.distill import (
@@ -104,24 +106,36 @@ def main() -> None:
             config,
             optimizer=replace(
                 config.optimizer,
-                type=args.optimizer
-                if args.optimizer is not None
-                else config.optimizer.type,
-                learning_rate=args.learning_rate
-                if args.learning_rate is not None
-                else config.optimizer.learning_rate,
-                beta1=args.adam_beta1
-                if args.adam_beta1 is not None
-                else config.optimizer.beta1,
-                beta2=args.adam_beta2
-                if args.adam_beta2 is not None
-                else config.optimizer.beta2,
-                epsilon=args.adam_epsilon
-                if args.adam_epsilon is not None
-                else config.optimizer.epsilon,
-                weight_decay=args.weight_decay
-                if args.weight_decay is not None
-                else config.optimizer.weight_decay,
+                type=(
+                    args.optimizer
+                    if args.optimizer is not None
+                    else config.optimizer.type
+                ),
+                learning_rate=(
+                    args.learning_rate
+                    if args.learning_rate is not None
+                    else config.optimizer.learning_rate
+                ),
+                beta1=(
+                    args.adam_beta1
+                    if args.adam_beta1 is not None
+                    else config.optimizer.beta1
+                ),
+                beta2=(
+                    args.adam_beta2
+                    if args.adam_beta2 is not None
+                    else config.optimizer.beta2
+                ),
+                epsilon=(
+                    args.adam_epsilon
+                    if args.adam_epsilon is not None
+                    else config.optimizer.epsilon
+                ),
+                weight_decay=(
+                    args.weight_decay
+                    if args.weight_decay is not None
+                    else config.optimizer.weight_decay
+                ),
             ),
         )
     if (
@@ -134,18 +148,26 @@ def main() -> None:
             config,
             lr_schedule=replace(
                 config.lr_schedule,
-                type=args.lr_schedule
-                if args.lr_schedule is not None
-                else config.lr_schedule.type,
-                warmup_steps=args.warmup_steps
-                if args.warmup_steps is not None
-                else config.lr_schedule.warmup_steps,
-                total_steps=args.total_steps
-                if args.total_steps is not None
-                else config.lr_schedule.total_steps,
-                min_learning_rate=args.min_learning_rate
-                if args.min_learning_rate is not None
-                else config.lr_schedule.min_learning_rate,
+                type=(
+                    args.lr_schedule
+                    if args.lr_schedule is not None
+                    else config.lr_schedule.type
+                ),
+                warmup_steps=(
+                    args.warmup_steps
+                    if args.warmup_steps is not None
+                    else config.lr_schedule.warmup_steps
+                ),
+                total_steps=(
+                    args.total_steps
+                    if args.total_steps is not None
+                    else config.lr_schedule.total_steps
+                ),
+                min_learning_rate=(
+                    args.min_learning_rate
+                    if args.min_learning_rate is not None
+                    else config.lr_schedule.min_learning_rate
+                ),
             ),
         )
     if (
@@ -214,9 +236,11 @@ def main() -> None:
                     if args.run_root is not None
                     else config.tracking.run_root
                 ),
-                run_name=args.run_name
-                if args.run_name is not None
-                else config.tracking.run_name,
+                run_name=(
+                    args.run_name
+                    if args.run_name is not None
+                    else config.tracking.run_name
+                ),
                 tags=[*config.tracking.tags, *args.run_tag],
                 notes=[*config.tracking.notes, *args.run_note],
                 overwrite=args.run_overwrite or config.tracking.overwrite,
@@ -228,6 +252,8 @@ def main() -> None:
         or args.logits_kl_weight is not None
         or args.attention_mixer_weight is not None
         or args.hidden_mse_weight is not None
+        or args.bucket_shape_loss_weight is not None
+        or args.bucket_shape_loss_type is not None
     ):
         logits_weight = (
             args.logits_kl_weight
@@ -262,6 +288,16 @@ def main() -> None:
                         or config.losses.attention_or_mixer.enabled
                     ),
                     weight=attention_weight,
+                ),
+                bucket_shape_loss_weight=(
+                    args.bucket_shape_loss_weight
+                    if args.bucket_shape_loss_weight is not None
+                    else config.losses.bucket_shape_loss_weight
+                ),
+                bucket_shape_loss_type=(
+                    args.bucket_shape_loss_type
+                    if args.bucket_shape_loss_type is not None
+                    else config.losses.bucket_shape_loss_type
                 ),
             ),
         )
@@ -312,6 +348,8 @@ def main() -> None:
     if result.final_attention_or_mixer is not None:
         print(f"final_attention_or_mixer: {result.final_attention_or_mixer:.8f}")
         print(f"final_attention_or_mixer_mse: {result.final_attention_or_mixer:.8f}")
+    print(f"bucket_shape_loss_weight: {config.losses.bucket_shape_loss_weight}")
+    print(f"bucket_shape_loss_type: {config.losses.bucket_shape_loss_type}")
     if result.final_grad_global_norm is not None:
         print(f"final_grad_global_norm: {result.final_grad_global_norm:.8f}")
     if result.final_grad_clipped_global_norm is not None:

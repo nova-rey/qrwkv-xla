@@ -7,10 +7,10 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P118, Burn Result Analysis. The Pallas runway is closed after a
-recorded real TPU v5 lite smoke pass for the tiny opt-in Pallas WKV path, and
-the project is now the validated core of a Radjax-shaped modular recurrent
-distillation platform.
+Current phase: P123, Cascade/Main Integration Gate. The Pallas runway is
+closed after a recorded real TPU v5 lite smoke pass for the tiny opt-in Pallas
+WKV path, and the project is now the validated core of a Radjax-shaped modular
+recurrent distillation platform.
 
 Current emphasis is teacher backend modularity, vocab contracts, target stores,
 the student backend registry, runtime separation, and the burn-readiness arc.
@@ -33,8 +33,11 @@ released mini textbook handoff. P117.1 made confirmed real mode execute actual
 configurable train steps against a dense TeacherTextbook and fail if zero steps
 complete. P118 records the resulting 8-step TPU-backed train-step smoke as
 execution evidence, not model-quality or distributed-training evidence.
-Baseline tests remain CPU-safe and do not require Hugging Face downloads,
-internet, Qwen, GPU, or TPU.
+P123 merges the P119-P122 compressed/cascaded target pipeline into main:
+`topk_with_tail_v0`, sparse target loss consumption,
+`cascaded_soft_labels_v1`, and optional Bucket Shape Loss. Baseline tests
+remain CPU-safe and do not require Hugging Face downloads, internet, Qwen, GPU,
+or TPU.
 
 P117 is the first serious burn using a validated TeacherTextbook input and a
 validated HF-shaped Level 0/1 StudentArtifact output.
@@ -96,11 +99,21 @@ The actual configurable train-step burn is documented in
 The P117.1 result analysis is documented in
 `docs/P118_BURN_RESULT_ANALYSIS.md`.
 
+The P123 cascade/main integration gate is documented in
+`docs/P123_CASCADE_MAIN_INTEGRATION_GATE.md`.
+
 The post-P112 research intake is documented in
 `docs/RADLADS2_FLA_KVM_RESEARCH_INTAKE.md`.
 
 The HF-compatible student interface reassessment is documented in
 `docs/HF_COMPATIBLE_STUDENT_INTERFACE_REASSESSMENT.md`.
+
+The merged compressed/cascaded target docs are:
+
+- `docs/TOPK_TAIL_TEXTBOOK.md`
+- `docs/SPARSE_TARGET_LOSS.md`
+- `docs/CASCADED_SOFT_LABELS.md`
+- `docs/BUCKET_SHAPE_LOSS.md`
 
 `scripts/run_distill_stage.py` is the primary entrypoint for staged
 distillation. It currently supports hidden-state distillation against fake

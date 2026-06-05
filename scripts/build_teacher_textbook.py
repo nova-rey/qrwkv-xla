@@ -26,6 +26,33 @@ def main() -> int:
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--max-examples", type=int, default=4)
     parser.add_argument("--logits-dtype", default="float32")
+    parser.add_argument(
+        "--target-type",
+        choices=("dense_logits", "topk_with_tail_v0", "cascaded_soft_labels_v1"),
+        default="dense_logits",
+    )
+    parser.add_argument("--top-k", type=int, default=256)
+    parser.add_argument(
+        "--bucket-edges",
+        default="1,1e-3,1e-6,1e-9,1e-12,0",
+        help="Descending probability bucket edges for cascaded_soft_labels_v1.",
+    )
+    parser.add_argument("--bucket-edge-type", default="probability")
+    parser.add_argument(
+        "--bucket-mass-dtype",
+        choices=("float16", "float32"),
+        default="float32",
+    )
+    parser.add_argument(
+        "--bucket-mean-logp-dtype",
+        choices=("float16", "float32"),
+        default="float32",
+    )
+    parser.add_argument(
+        "--top-log-probs-dtype",
+        choices=("float16", "float32"),
+        default="float16",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--vocab-size", type=int, default=32)
     parser.add_argument(
@@ -60,6 +87,15 @@ def main() -> int:
         seed=args.seed,
         overwrite=args.overwrite,
         vocab_size=args.vocab_size,
+        target_type=args.target_type,
+        top_k=args.top_k,
+        top_log_probs_dtype=args.top_log_probs_dtype,
+        bucket_edges=tuple(
+            float(edge.strip()) for edge in args.bucket_edges.split(",") if edge.strip()
+        ),
+        bucket_edge_type=args.bucket_edge_type,
+        bucket_mass_dtype=args.bucket_mass_dtype,
+        bucket_mean_logp_dtype=args.bucket_mean_logp_dtype,
     )
     report = build_teacher_textbook(config)
     print(

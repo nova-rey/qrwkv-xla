@@ -66,6 +66,16 @@ class TeacherTextbookValidationReport:
     shape_ok: bool = False
     dtype_ok: bool = False
     count_ok: bool = False
+    target_type: str | None = None
+    top_k: int | None = None
+    bucket_count: int | None = None
+    compressed_target_ok: bool | None = None
+    bucket_target_ok: bool | None = None
+    mass_ok: bool | None = None
+    bucket_mass_ok: bool | None = None
+    bucket_count_ok: bool | None = None
+    sort_ok: bool | None = None
+    duplicate_ok: bool | None = None
     claims_not_made: tuple[str, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
@@ -86,6 +96,16 @@ def validate_teacher_textbook(path: str | Path) -> TeacherTextbookValidationRepo
     shape_ok = False
     dtype_ok = False
     count_ok = False
+    target_type: str | None = None
+    top_k: int | None = None
+    bucket_count: int | None = None
+    compressed_target_ok: bool | None = None
+    bucket_target_ok: bool | None = None
+    mass_ok: bool | None = None
+    bucket_mass_ok: bool | None = None
+    bucket_count_ok: bool | None = None
+    sort_ok: bool | None = None
+    duplicate_ok: bool | None = None
     claims_not_made: tuple[str, ...] = ()
 
     if not root.is_dir():
@@ -116,8 +136,22 @@ def validate_teacher_textbook(path: str | Path) -> TeacherTextbookValidationRepo
     metadata = None
     try:
         store = TeacherTargetStore.open(root)
-        store.validate()
         metadata = store.metadata
+        target_type = metadata.target_type
+        if metadata.target_type in {"topk_with_tail_v0", "cascaded_soft_labels_v1"}:
+            top_k = int(metadata.target_params.get("top_k", "0"))
+        if metadata.target_type == "cascaded_soft_labels_v1":
+            bucket_count = int(metadata.target_params.get("bucket_count", "0"))
+        store.validate()
+        if metadata.target_type in {"topk_with_tail_v0", "cascaded_soft_labels_v1"}:
+            compressed_target_ok = True
+            mass_ok = True
+            sort_ok = True
+            duplicate_ok = True
+        if metadata.target_type == "cascaded_soft_labels_v1":
+            bucket_target_ok = True
+            bucket_mass_ok = True
+            bucket_count_ok = True
         metadata_ok = True
         shards_ok = True
         shape_ok = True
@@ -125,6 +159,18 @@ def validate_teacher_textbook(path: str | Path) -> TeacherTextbookValidationRepo
         count_ok = True
         checks.append("TeacherTargetStore: valid")
     except ValueError as exc:
+        if metadata is not None and metadata.target_type in {
+            "topk_with_tail_v0",
+            "cascaded_soft_labels_v1",
+        }:
+            compressed_target_ok = False
+            mass_ok = False
+            sort_ok = False
+            duplicate_ok = False
+        if metadata is not None and metadata.target_type == "cascaded_soft_labels_v1":
+            bucket_target_ok = False
+            bucket_mass_ok = False
+            bucket_count_ok = False
         blockers.append(f"TeacherTargetStore validation failed: {exc}")
 
     vocab_contract: dict[str, Any] | None = None
@@ -181,6 +227,16 @@ def validate_teacher_textbook(path: str | Path) -> TeacherTextbookValidationRepo
         shape_ok=shape_ok,
         dtype_ok=dtype_ok,
         count_ok=count_ok,
+        target_type=target_type,
+        top_k=top_k,
+        bucket_count=bucket_count,
+        compressed_target_ok=compressed_target_ok,
+        bucket_target_ok=bucket_target_ok,
+        mass_ok=mass_ok,
+        bucket_mass_ok=bucket_mass_ok,
+        bucket_count_ok=bucket_count_ok,
+        sort_ok=sort_ok,
+        duplicate_ok=duplicate_ok,
         claims_not_made=claims_not_made,
     )
 
@@ -255,6 +311,16 @@ def _report(
     shape_ok: bool = False,
     dtype_ok: bool = False,
     count_ok: bool = False,
+    target_type: str | None = None,
+    top_k: int | None = None,
+    bucket_count: int | None = None,
+    compressed_target_ok: bool | None = None,
+    bucket_target_ok: bool | None = None,
+    mass_ok: bool | None = None,
+    bucket_mass_ok: bool | None = None,
+    bucket_count_ok: bool | None = None,
+    sort_ok: bool | None = None,
+    duplicate_ok: bool | None = None,
     claims_not_made: tuple[str, ...] = (),
 ) -> TeacherTextbookValidationReport:
     blocker_tuple = tuple(blockers or ())
@@ -272,5 +338,15 @@ def _report(
         shape_ok=shape_ok,
         dtype_ok=dtype_ok,
         count_ok=count_ok,
+        target_type=target_type,
+        top_k=top_k,
+        bucket_count=bucket_count,
+        compressed_target_ok=compressed_target_ok,
+        bucket_target_ok=bucket_target_ok,
+        mass_ok=mass_ok,
+        bucket_mass_ok=bucket_mass_ok,
+        bucket_count_ok=bucket_count_ok,
+        sort_ok=sort_ok,
+        duplicate_ok=duplicate_ok,
         claims_not_made=claims_not_made,
     )

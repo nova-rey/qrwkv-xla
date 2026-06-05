@@ -7,7 +7,9 @@ import jax.numpy as jnp
 
 from qrwkv_xla.targets.consumption import (
     OfflineTargetBatch,
+    TeacherTargetBatch,
     load_offline_target_batch,
+    load_teacher_target_batch,
     mse_logits_loss,
 )
 from qrwkv_xla.targets.store import TeacherTargetStore
@@ -48,6 +50,15 @@ def iter_offline_target_batches(
 ) -> tuple[OfflineTargetBatch, ...]:
     return tuple(
         load_offline_target_batch(store, shard_id=shard_id)
+        for shard_id in iter_target_store_shard_ids(store)
+    )
+
+
+def iter_teacher_target_batches(
+    store: TeacherTargetStore,
+) -> tuple[TeacherTargetBatch, ...]:
+    return tuple(
+        load_teacher_target_batch(store, shard_id=shard_id)
         for shard_id in iter_target_store_shard_ids(store)
     )
 

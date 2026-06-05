@@ -108,8 +108,28 @@ def test_missing_sections_use_defaults(tmp_path: Path) -> None:
     assert config.student.architecture == "rwkv7_reference"
     assert config.training.max_steps == 7
     assert config.losses.hidden_mse.enabled is True
+    assert config.losses.bucket_shape_loss_weight == 0.0
+    assert config.losses.bucket_shape_loss_type == "kl"
     assert config.checkpoint.checkpoint_out is None
     assert config.gradients.max_grad_norm is None
+
+
+def test_bucket_shape_loss_config_loads(tmp_path: Path) -> None:
+    path = tmp_path / "distill.yaml"
+    path.write_text(
+        (
+            "distillation:\n"
+            "  losses:\n"
+            "    bucket_shape_loss_weight: 0.01\n"
+            "    bucket_shape_loss_type: log_mse\n"
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_distill_stage_config(path)
+
+    assert config.losses.bucket_shape_loss_weight == 0.01
+    assert config.losses.bucket_shape_loss_type == "log_mse"
 
 
 def test_missing_top_level_distillation_key_raises(tmp_path: Path) -> None:

@@ -181,6 +181,10 @@ train-step smoke. P118 analyzes that evidence and records it as execution
 proof only, not as model-quality proof or proof of true distributed/sharded
 training correctness.
 
+P123 merges the P119-P122 compressed/cascaded TeacherTextbook path into main
+without replacing this dense P117 launch path. The canonical target-type set is
+now `dense_logits`, `topk_with_tail_v0`, and `cascaded_soft_labels_v1`.
+
 P116.3 adds TPU VM bootstrap/preflight scripts:
 
 ```bash

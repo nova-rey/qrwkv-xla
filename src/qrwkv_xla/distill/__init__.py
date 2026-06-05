@@ -26,9 +26,22 @@ from qrwkv_xla.distill.config import (
 )
 
 _LAZY_EXPORTS = {
+    "DistillationLossReport": ("qrwkv_xla.distill.losses", "DistillationLossReport"),
     "LossBreakdown": ("qrwkv_xla.distill.losses", "LossBreakdown"),
+    "UnsupportedTeacherTargetType": (
+        "qrwkv_xla.distill.target_dispatch",
+        "UnsupportedTeacherTargetType",
+    ),
     "compute_distill_loss": ("qrwkv_xla.distill.losses", "compute_distill_loss"),
+    "dispatch_teacher_target_loss": (
+        "qrwkv_xla.distill.target_dispatch",
+        "dispatch_teacher_target_loss",
+    ),
     "logits_kl_loss": ("qrwkv_xla.distill.losses", "logits_kl_loss"),
+    "topk_tail_distillation_loss": (
+        "qrwkv_xla.distill.losses",
+        "topk_tail_distillation_loss",
+    ),
     "DistillationStageResult": (
         "qrwkv_xla.distill.runner",
         "DistillationStageResult",
@@ -74,12 +87,16 @@ __all__ = [
     "DistillationStudentConfig",
     "DistillationTrainingConfig",
     "DistillationTrackingConfig",
+    "DistillationLossReport",
     "LossBreakdown",
     "LossWeightConfig",
+    "UnsupportedTeacherTargetType",
     "compute_distill_loss",
+    "dispatch_teacher_target_loss",
     "load_distill_stage_config",
     "load_distillation_config",
     "logits_kl_loss",
+    "topk_tail_distillation_loss",
     "run_distill_stage",
     "run_distillation_stage",
     "validate_distill_stage_config",

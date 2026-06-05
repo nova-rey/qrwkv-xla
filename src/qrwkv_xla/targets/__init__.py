@@ -11,7 +11,9 @@ from qrwkv_xla.targets.bundle import (
 )
 from qrwkv_xla.targets.consumption import (
     OfflineTargetBatch,
+    TeacherTargetBatch,
     load_offline_target_batch,
+    load_teacher_target_batch,
     mse_logits_loss,
 )
 from qrwkv_xla.targets.manifest import (
@@ -23,6 +25,7 @@ from qrwkv_xla.targets.multishard import (
     MultiShardTargetStoreSmokeResult,
     iter_offline_target_batches,
     iter_target_store_shard_ids,
+    iter_teacher_target_batches,
     run_multishard_target_store_smoke,
 )
 from qrwkv_xla.targets.schema import (
@@ -52,6 +55,7 @@ __all__ = [
     "LoadedTeacherTargetBundle",
     "MultiShardTargetStoreSmokeResult",
     "OfflineTargetBatch",
+    "TeacherTargetBatch",
     "TargetFlags",
     "TargetShardInfo",
     "TargetStoreMetadata",
@@ -62,8 +66,10 @@ __all__ = [
     "hash_shard_arrays",
     "inspect_target_bundle",
     "iter_offline_target_batches",
+    "iter_teacher_target_batches",
     "iter_target_store_shard_ids",
     "load_offline_target_batch",
+    "load_teacher_target_batch",
     "load_teacher_target_bundle",
     "manifest_from_dict",
     "manifest_to_dict",

@@ -149,6 +149,14 @@ class TeacherTargetStore:
                 f"{sorted(P93_ARRAY_TARGET_TYPES)}, got "
                 f"{self.metadata.target_type!r}"
             )
+        if self.metadata.target_type in {
+            "topk_with_tail_v0",
+            "cascaded_soft_labels_v1",
+        }:
+            _validate_topk_tail_arrays(arrays, self.metadata)
+            if self.metadata.target_type == "cascaded_soft_labels_v1":
+                _validate_cascaded_arrays(arrays, self.metadata)
+            return
         missing = [
             name
             for name in ("input_ids", "attention_mask", "logits")
@@ -186,6 +194,231 @@ class TeacherTargetStore:
             raise ValueError("logits dtype must be floating")
         if _canonical_dtype(logits.dtype) != _canonical_dtype(self.metadata.dtype):
             raise ValueError("logits dtype must match metadata.dtype")
+
+
+def _validate_topk_tail_arrays(
+    arrays: Mapping[str, np.ndarray],
+    metadata: TargetStoreMetadata,
+) -> None:
+    required = (
+        "input_ids",
+        "attention_mask",
+        "top_token_ids",
+        "top_log_probs",
+        "top_mass",
+        "tail_mass",
+        "teacher_entropy",
+    )
+    missing = [name for name in required if name not in arrays]
+    if missing:
+        raise ValueError(f"topk_with_tail_v0 shard missing required arrays: {missing}")
+    input_ids = np.asarray(arrays["input_ids"])
+    attention_mask = np.asarray(arrays["attention_mask"])
+    top_token_ids = np.asarray(arrays["top_token_ids"])
+    top_log_probs = np.asarray(arrays["top_log_probs"])
+    top_mass = np.asarray(arrays["top_mass"])
+    tail_mass = np.asarray(arrays["tail_mass"])
+    teacher_entropy = np.asarray(arrays["teacher_entropy"])
+    top_k = _metadata_top_k(metadata)
+
+    if input_ids.ndim != 2:
+        raise ValueError("input_ids must have shape [N,T]")
+    expected_nt = input_ids.shape
+    if input_ids.shape[1] != metadata.sequence_length:
+        raise ValueError(
+            "input_ids sequence_length must match metadata.sequence_length"
+        )
+    if attention_mask.shape != expected_nt:
+        raise ValueError("attention_mask shape must match input_ids")
+    if top_token_ids.shape != (*expected_nt, top_k):
+        raise ValueError("top_token_ids shape must be [N,T,K] and match metadata top_k")
+    if top_log_probs.shape != (*expected_nt, top_k):
+        raise ValueError("top_log_probs shape must be [N,T,K] and match metadata top_k")
+    for name, value in (
+        ("top_mass", top_mass),
+        ("tail_mass", tail_mass),
+        ("teacher_entropy", teacher_entropy),
+    ):
+        if value.shape != expected_nt:
+            raise ValueError(f"{name} shape must be [N,T]")
+    if not np.issubdtype(input_ids.dtype, np.integer):
+        raise ValueError("input_ids dtype must be integer")
+    if not (
+        np.issubdtype(attention_mask.dtype, np.integer)
+        or np.issubdtype(attention_mask.dtype, np.bool_)
+    ):
+        raise ValueError("attention_mask dtype must be integer or bool")
+    if not np.issubdtype(top_token_ids.dtype, np.integer):
+        raise ValueError("top_token_ids dtype must be integer")
+    if not np.issubdtype(top_log_probs.dtype, np.floating):
+        raise ValueError("top_log_probs dtype must be floating")
+    expected_top_log_probs_dtype = metadata.target_params.get(
+        "top_log_probs_dtype",
+        metadata.dtype,
+    )
+    if _canonical_dtype(top_log_probs.dtype) != _canonical_dtype(
+        expected_top_log_probs_dtype
+    ):
+        raise ValueError("top_log_probs dtype must match metadata target_params")
+    for name, value in (
+        ("top_mass", top_mass),
+        ("tail_mass", tail_mass),
+        ("teacher_entropy", teacher_entropy),
+    ):
+        if not np.issubdtype(value.dtype, np.floating):
+            raise ValueError(f"{name} dtype must be floating")
+    if np.any(top_token_ids < 0) or np.any(top_token_ids >= metadata.vocab_size):
+        raise ValueError("top_token_ids must be within [0, vocab_size)")
+    if not np.all(np.isfinite(top_log_probs)):
+        raise ValueError("top_log_probs must be finite")
+    if np.any(np.diff(top_log_probs, axis=-1) > 0):
+        raise ValueError("top_log_probs must be sorted descending")
+    sorted_ids = np.sort(top_token_ids, axis=-1)
+    if np.any(np.diff(sorted_ids, axis=-1) == 0):
+        raise ValueError("top_token_ids must not contain duplicates per position")
+    if not np.all(np.isfinite(top_mass)):
+        raise ValueError("top_mass must be finite")
+    if not np.all(np.isfinite(tail_mass)):
+        raise ValueError("tail_mass must be finite")
+    if np.any(top_mass < 0.0) or np.any(top_mass > 1.0 + 1e-3):
+        raise ValueError("top_mass must be in [0, 1]")
+    if np.any(tail_mass < 0.0) or np.any(tail_mass > 1.0 + 1e-3):
+        raise ValueError("tail_mass must be in [0, 1]")
+    if not np.allclose(top_mass + tail_mass, 1.0, atol=_mass_tolerance(metadata)):
+        raise ValueError("top_mass + tail_mass must be approximately 1")
+    if not np.all(np.isfinite(teacher_entropy)):
+        raise ValueError("teacher_entropy must be finite")
+    if np.any(teacher_entropy < 0.0):
+        raise ValueError("teacher_entropy must be non-negative")
+
+
+def _metadata_top_k(metadata: TargetStoreMetadata) -> int:
+    try:
+        top_k = int(metadata.target_params.get("top_k", "0"))
+    except ValueError as exc:
+        raise ValueError("metadata target_params.top_k must be an integer") from exc
+    if top_k <= 0:
+        raise ValueError("metadata target_params.top_k must be > 0")
+    if top_k > metadata.vocab_size:
+        raise ValueError("metadata target_params.top_k must be <= vocab_size")
+    return top_k
+
+
+def _validate_cascaded_arrays(
+    arrays: Mapping[str, np.ndarray],
+    metadata: TargetStoreMetadata,
+) -> None:
+    required = ("bucket_mass", "bucket_count", "bucket_mean_logp")
+    missing = [name for name in required if name not in arrays]
+    if missing:
+        raise ValueError(
+            f"cascaded_soft_labels_v1 shard missing required arrays: {missing}"
+        )
+    input_ids = np.asarray(arrays["input_ids"])
+    top_mass = np.asarray(arrays["top_mass"])
+    tail_mass = np.asarray(arrays["tail_mass"])
+    bucket_mass = np.asarray(arrays["bucket_mass"])
+    bucket_count = np.asarray(arrays["bucket_count"])
+    bucket_mean_logp = np.asarray(arrays["bucket_mean_logp"])
+    top_k = _metadata_top_k(metadata)
+    bucket_edges = _metadata_bucket_edges(metadata)
+    bucket_total = len(bucket_edges) - 1
+    expected_shape = (*input_ids.shape, bucket_total)
+
+    if bucket_mass.shape != expected_shape:
+        raise ValueError("bucket_mass shape must be [N,T,B]")
+    if bucket_count.shape != expected_shape:
+        raise ValueError("bucket_count shape must be [N,T,B]")
+    if bucket_mean_logp.shape != expected_shape:
+        raise ValueError("bucket_mean_logp shape must be [N,T,B]")
+    if not np.issubdtype(bucket_mass.dtype, np.floating):
+        raise ValueError("bucket_mass dtype must be floating")
+    if not np.issubdtype(bucket_count.dtype, np.integer):
+        raise ValueError("bucket_count dtype must be integer")
+    if not np.issubdtype(bucket_mean_logp.dtype, np.floating):
+        raise ValueError("bucket_mean_logp dtype must be floating")
+    expected_bucket_mass_dtype = metadata.target_params.get(
+        "bucket_mass_dtype",
+        "float32",
+    )
+    if _canonical_dtype(bucket_mass.dtype) != _canonical_dtype(
+        expected_bucket_mass_dtype
+    ):
+        raise ValueError("bucket_mass dtype must match metadata target_params")
+    expected_bucket_mean_logp_dtype = metadata.target_params.get(
+        "bucket_mean_logp_dtype",
+        "float32",
+    )
+    if _canonical_dtype(bucket_mean_logp.dtype) != _canonical_dtype(
+        expected_bucket_mean_logp_dtype
+    ):
+        raise ValueError("bucket_mean_logp dtype must match metadata target_params")
+    if np.any(bucket_count < 0):
+        raise ValueError("bucket_count must be non-negative")
+    if not np.all(np.isfinite(bucket_mass)):
+        raise ValueError("bucket_mass must be finite")
+    if np.any(bucket_mass < 0.0):
+        raise ValueError("bucket_mass must be non-negative")
+    if not np.all(np.isfinite(bucket_mean_logp)):
+        raise ValueError("bucket_mean_logp must be finite")
+    empty_mask = bucket_count == 0
+    if np.any(bucket_mean_logp[empty_mask] != 0.0):
+        raise ValueError("bucket_mean_logp must be 0.0 when bucket_count is 0")
+    if np.any(bucket_mean_logp[~empty_mask] > 0.0):
+        raise ValueError("bucket_mean_logp must be <= 0.0 for non-empty buckets")
+
+    expected_tail_count = metadata.vocab_size - top_k
+    if np.any(np.sum(bucket_count, axis=-1) != expected_tail_count):
+        raise ValueError("sum(bucket_count) must equal vocab_size - top_k")
+    bucket_mass_sum = np.sum(bucket_mass.astype(np.float32), axis=-1)
+    tolerance = _mass_tolerance(metadata)
+    if not np.allclose(bucket_mass_sum, tail_mass, atol=tolerance):
+        raise ValueError("sum(bucket_mass) must approximately match tail_mass")
+    if not np.allclose(top_mass + bucket_mass_sum, 1.0, atol=tolerance):
+        raise ValueError("top_mass + sum(bucket_mass) must be approximately 1")
+
+
+def _metadata_bucket_edges(metadata: TargetStoreMetadata) -> tuple[float, ...]:
+    edge_type = metadata.target_params.get("bucket_edge_type", "")
+    if edge_type != "probability":
+        raise ValueError("metadata target_params.bucket_edge_type must be probability")
+    raw_edges = metadata.target_params.get("bucket_edges", "")
+    try:
+        edges = tuple(float(edge) for edge in raw_edges.split(",") if edge)
+    except ValueError as exc:
+        raise ValueError("metadata target_params.bucket_edges must be numeric") from exc
+    try:
+        expected_bucket_count = int(metadata.target_params.get("bucket_count", "0"))
+    except ValueError as exc:
+        raise ValueError(
+            "metadata target_params.bucket_count must be an integer"
+        ) from exc
+    if len(edges) != expected_bucket_count + 1:
+        raise ValueError("bucket_edges length must equal bucket_count + 1")
+    edge_array = np.asarray(edges, dtype=np.float64)
+    if len(edges) < 2:
+        raise ValueError("bucket_edges must contain at least two edges")
+    if not np.all(np.isfinite(edge_array)):
+        raise ValueError("bucket_edges must be finite")
+    if not np.all(np.diff(edge_array) < 0):
+        raise ValueError("bucket_edges must be strictly descending")
+    if not np.isclose(edge_array[0], 1.0):
+        raise ValueError("bucket_edges must start at 1.0")
+    if not np.isclose(edge_array[-1], 0.0):
+        raise ValueError("bucket_edges must end at 0.0")
+    return edges
+
+
+def _mass_tolerance(metadata: TargetStoreMetadata) -> float:
+    dtypes = {
+        _canonical_dtype(
+            metadata.target_params.get("top_log_probs_dtype", metadata.dtype)
+        ),
+        _canonical_dtype(
+            metadata.target_params.get("bucket_mass_dtype", metadata.dtype)
+        ),
+    }
+    return 1e-3 if "float16" in dtypes else 1e-5
 
 
 def _canonical_dtype(dtype: object) -> str:

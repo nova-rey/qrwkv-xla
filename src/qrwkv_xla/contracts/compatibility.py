@@ -7,8 +7,10 @@ from typing import Any
 from qrwkv_xla.contracts.vocab import VocabContract, vocab_contract_from_metadata
 from qrwkv_xla.targets.store import TeacherTargetStore
 
-DIRECT_LOGIT_TARGET_TYPES = {"full_logits", "synthetic"}
+DIRECT_LOGIT_TARGET_TYPES = {"dense_logits", "full_logits", "synthetic"}
 DIRECT_LOGIT_LOSS_MODES = {"direct_logits", "mse_logits"}
+SPARSE_TOPK_TARGET_TYPES = {"topk_with_tail_v0", "cascaded_soft_labels_v1"}
+SPARSE_TOPK_LOSS_MODES = {"topk_tail_sparse", "sparse_targets"}
 
 
 class CompatibilityStatus(StrEnum):
@@ -108,10 +110,44 @@ def validate_direct_logit_eligibility(
     target_type: str,
     loss_mode: str = "direct_logits",
 ) -> TeacherStudentCompatibility:
+    if loss_mode in SPARSE_TOPK_LOSS_MODES:
+        if target_type not in SPARSE_TOPK_TARGET_TYPES:
+            return TeacherStudentCompatibility(
+                status=CompatibilityStatus.UNSUPPORTED,
+                reason=(
+                    f"target_type {target_type!r} is not eligible for "
+                    f"{loss_mode} in P120"
+                ),
+                target_type=target_type,
+                loss_mode=loss_mode,
+                teacher_contract=teacher_contract,
+                student_contract=student_contract,
+            )
+        vocab_result = validate_vocab_compatibility(
+            teacher_contract,
+            student_contract,
+        )
+        if not vocab_result.compatible:
+            return TeacherStudentCompatibility(
+                status=CompatibilityStatus.INCOMPATIBLE,
+                reason=vocab_result.reason,
+                target_type=target_type,
+                loss_mode=loss_mode,
+                teacher_contract=teacher_contract,
+                student_contract=student_contract,
+            )
+        return TeacherStudentCompatibility(
+            status=CompatibilityStatus.COMPATIBLE,
+            reason="compatible: topk_with_tail_v0 sparse target contracts match",
+            target_type=target_type,
+            loss_mode=loss_mode,
+            teacher_contract=teacher_contract,
+            student_contract=student_contract,
+        )
     if loss_mode not in DIRECT_LOGIT_LOSS_MODES:
         return TeacherStudentCompatibility(
             status=CompatibilityStatus.UNSUPPORTED,
-            reason=f"loss_mode {loss_mode!r} is not implemented for P99",
+            reason=f"loss_mode {loss_mode!r} is not implemented for P99/P120",
             target_type=target_type,
             loss_mode=loss_mode,
             teacher_contract=teacher_contract,

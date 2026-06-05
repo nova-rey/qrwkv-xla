@@ -1,5 +1,27 @@
 # QRWKV-XLA Roadmap
 
+## Phase 123 - Cascade/Main Integration Gate
+
+Goal: reconcile the P119-P122 compressed/cascaded target branch with main after
+P117.1 and P118.
+
+Current checkpoint: `cascade_main_merge_integration_gate`. Main now contains
+the actual configurable train-step burn harness, the P118 burn result analysis,
+TopK+Tail v0 TeacherTextbook printing/validation, sparse target loss
+consumption, Cascaded Soft Labels v1 bucketed artifacts, and optional Bucket
+Shape Loss.
+
+P123 is an integration gate. It does not launch a burn, run training, claim
+model quality, prove distributed training, extract `radjax-tome`, add
+Rosetta/Vocab C/tokenizer remapping, add Qwen/Gemma scale-up, or change
+WKV/runtime math.
+
+Recommended next:
+
+- P124 - 100-example dense TPU smoke.
+- P125 - radjax-tome repo extraction.
+- P126 - Cascaded Target Evaluation Smoke.
+
 ## Phase 118 - Burn Result Analysis
 
 Goal: record what the successful P117.1 actual train-step TPU smoke proves and
@@ -15,11 +37,9 @@ claim true distributed/sharded training correctness, claim real QRWKV
 architecture training, merge the P119-P122 cascade branch, or change
 model/runtime math.
 
-Recommended next:
+P118 is complete. P123 merged the P119-P122 cascade branch into main.
 
-- P117.2 - 100-example TPU data-shard smoke.
-- Merge/reconcile P119-P122 cascade branch after conflict and test review.
-- P123 - Cascaded Target Evaluation Smoke after cascade branch merge.
+Next: P123 Cascade/Main Integration Gate - complete.
 
 ## Phase 117.1 - Actual Configurable Train-Step Burn
 

@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 118
-current_phase: P118
-checkpoint: burn_result_analysis_next_arc_decision
+phase: 123
+current_phase: P123
+checkpoint: cascade_main_merge_integration_gate
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,22 +56,58 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Analyze the successful P117.1 actual train-step TPU smoke and decide the
-  next arc without changing training behavior.
+  Merge the P119-P122 compressed/cascaded target pipeline into main after
+  P117.1 and P118.
 
-current_arc: burn_result_analysis
+current_arc: integration_gate
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P117.2 100-example TPU data-shard smoke
-  - Merge/reconcile P119-P122 cascade branch after conflict and test review
-  - P123 cascaded target evaluation smoke
+  - P124 100-example dense TPU smoke
+  - P125 radjax-tome repo extraction
+  - P126 cascaded target evaluation smoke
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
   post_p112_research_alignment: active
   burn_result_analysis: complete
+  integration_gate: complete
+
+main_contains:
+  p117_1_actual_train_step_burn: true
+  p118_burn_result_analysis: true
+  p119_topk_tail_textbook_v0: true
+  p120_sparse_target_loss_consumption: true
+  p121_cascaded_soft_labels_v1_contract: true
+  p122_bucket_shape_loss: true
+
+teacher_target_types:
+  - dense_logits
+  - topk_with_tail_v0
+  - cascaded_soft_labels_v1
+
+p117_1_invariants_preserved:
+  real_mode_zero_step_pass_allowed: false
+  max_steps_configurable: true
+  batch_size_configurable: true
+  textbook_reuse_configurable: true
+
+p123:
+  goal: cascade_main_merge_integration_gate
+  burn_launched: false
+  training_behavior_changed: false
+  radjax_tome_extracted: false
+  model_quality_claimed: false
+  distributed_training_claimed: false
+  dense_path_preserved: true
+  topk_tail_v0_preserved: true
+  cascaded_soft_labels_v1_preserved: true
+  bucket_shape_loss_default_weight: 0.0
+  recommended_next:
+    - P124 100-example dense TPU smoke
+    - P125 radjax-tome repo extraction
+    - P126 cascaded target evaluation smoke
 
 p118:
   goal: burn_result_analysis_next_arc_decision
