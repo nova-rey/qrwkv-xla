@@ -133,3 +133,7 @@ a renormalized top-k head KL against `top_log_probs`.
 Tail mass regularization is optional and defaults off with
 `tail_loss_weight=0.0`. `tail_mass`, `top_mass`, and `teacher_entropy` are used
 for reporting and guarded optional calibration, not as exact dense labels.
+
+P121 adds `cascaded_soft_labels_v1` as a sibling target type, not a mutation of
+`topk_with_tail_v0`. It preserves all TopK+Tail fields and adds aggregate tail
+bucket summaries for future P122 bucket-shape loss.

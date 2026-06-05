@@ -28,8 +28,11 @@ DEFAULT_FAKE_TOKENIZER_ID = "fake-deterministic-tokenizer"
 DEFAULT_FAKE_VOCAB_SIZE = 32
 DEFAULT_TARGET_TYPE = "dense_logits"
 TOPK_TAIL_TARGET_TYPE = "topk_with_tail_v0"
+CASCADED_TARGET_TYPE = "cascaded_soft_labels_v1"
 DEFAULT_TOP_K = 256
 DEFAULT_TOP_LOG_PROBS_DTYPE = "float16"
+DEFAULT_BUCKET_EDGES = (1.0, 1e-3, 1e-6, 1e-9, 1e-12, 0.0)
+DEFAULT_BUCKET_EDGE_TYPE = "probability"
 DEFAULT_TEXT_EXAMPLES = (
     "hello world",
     "tiny teacher textbook",
@@ -47,6 +50,14 @@ TOPK_TAIL_CLAIMS_NOT_MADE = (
     "not_dense_logits",
     "not_full_distribution_exact",
     "not_trainer_consumable_until_p120",
+    "not_model_quality_claim",
+)
+CASCADED_CLAIMS_NOT_MADE = (
+    "not_dense_logits",
+    "not_full_distribution_exact",
+    "not_tail_membership_exact",
+    "not_bucket_loss_consumable_until_p122",
+    "not_cross_vocab",
     "not_model_quality_claim",
 )
 HF_CLAIMS_NOT_MADE = (
@@ -83,6 +94,10 @@ class TeacherTextbookBuildConfig:
     target_type: str = DEFAULT_TARGET_TYPE
     top_k: int = DEFAULT_TOP_K
     top_log_probs_dtype: str = DEFAULT_TOP_LOG_PROBS_DTYPE
+    bucket_edges: tuple[float, ...] = DEFAULT_BUCKET_EDGES
+    bucket_edge_type: str = DEFAULT_BUCKET_EDGE_TYPE
+    bucket_mass_dtype: str = "float32"
+    bucket_mean_logp_dtype: str = "float32"
 
 
 def build_teacher_textbook(
@@ -182,7 +197,7 @@ def build_hf_teacher_textbook(
 
     created_at = datetime.now(UTC).replace(microsecond=0).isoformat()
     vocab_size = _hf_vocab_size(tokenizer, config)
-    if config.target_type == TOPK_TAIL_TARGET_TYPE and config.top_k > vocab_size:
+    if _is_compressed_target(config.target_type) and config.top_k > vocab_size:
         raise ValueError("top_k must be <= tokenizer vocab_size")
     shard_count = (len(examples) + config.batch_size - 1) // config.batch_size
     tokenizer_id = str(
@@ -286,18 +301,26 @@ def _validate_config(config: TeacherTextbookBuildConfig) -> None:
         raise ValueError("max_examples must be > 0")
     if config.vocab_size <= 0:
         raise ValueError("vocab_size must be > 0")
-    if config.target_type not in {"dense_logits", TOPK_TAIL_TARGET_TYPE}:
+    if config.target_type not in {
+        "dense_logits",
+        TOPK_TAIL_TARGET_TYPE,
+        CASCADED_TARGET_TYPE,
+    }:
         raise ValueError(f"unsupported target_type: {config.target_type!r}")
     if config.top_k <= 0:
         raise ValueError("top_k must be > 0")
     if (
-        config.target_type == TOPK_TAIL_TARGET_TYPE
+        _is_compressed_target(config.target_type)
         and config.teacher_mode == "fake"
         and config.top_k > config.vocab_size
     ):
         raise ValueError("top_k must be <= vocab_size")
+    if config.target_type == CASCADED_TARGET_TYPE:
+        _validate_bucket_edges(config.bucket_edges, config.bucket_edge_type)
     _canonical_dtype(config.logits_dtype)
     _canonical_dtype(config.top_log_probs_dtype)
+    _canonical_dtype(config.bucket_mass_dtype)
+    _canonical_dtype(config.bucket_mean_logp_dtype)
 
 
 def _fake_arrays(
@@ -327,7 +350,7 @@ def _fake_arrays(
         "attention_mask": attention_mask,
         "logits": logits,
     }
-    if config.target_type == TOPK_TAIL_TARGET_TYPE:
+    if _is_compressed_target(config.target_type):
         return _compress_dense_arrays(
             dense, config=config, vocab_size=config.vocab_size
         )
@@ -535,7 +558,7 @@ def _hf_arrays(
         "attention_mask": attention_mask,
         "logits": logits,
     }
-    if config.target_type == TOPK_TAIL_TARGET_TYPE:
+    if _is_compressed_target(config.target_type):
         return _compress_dense_arrays(dense, config=config, vocab_size=vocab_size)
     return dense
 
@@ -630,9 +653,9 @@ def _dataset_source(path: Path | None) -> str:
 
 
 def _target_params(config: TeacherTextbookBuildConfig) -> dict[str, str]:
-    if config.target_type != TOPK_TAIL_TARGET_TYPE:
+    if not _is_compressed_target(config.target_type):
         return {}
-    return {
+    params = {
         "top_k": str(config.top_k),
         "top_log_probs_dtype": _canonical_dtype(config.top_log_probs_dtype),
         "top_token_ids_dtype": "int32",
@@ -640,12 +663,27 @@ def _target_params(config: TeacherTextbookBuildConfig) -> dict[str, str]:
         "tail_mass_dtype": "float32",
         "teacher_entropy_dtype": "float32",
     }
+    if config.target_type == CASCADED_TARGET_TYPE:
+        params.update(
+            {
+                "bucket_edges": _bucket_edges_string(config.bucket_edges),
+                "bucket_edge_type": config.bucket_edge_type,
+                "bucket_count": str(len(config.bucket_edges) - 1),
+                "bucket_mass_dtype": _canonical_dtype(config.bucket_mass_dtype),
+                "bucket_count_dtype": "int32",
+                "bucket_mean_logp_dtype": _canonical_dtype(
+                    config.bucket_mean_logp_dtype
+                ),
+                "empty_bucket_mean_logp_sentinel": "0.0",
+            }
+        )
+    return params
 
 
 def _manifest_topk_fields(config: TeacherTextbookBuildConfig) -> dict[str, object]:
-    if config.target_type != TOPK_TAIL_TARGET_TYPE:
+    if not _is_compressed_target(config.target_type):
         return {}
-    return {
+    fields: dict[str, object] = {
         "top_k": config.top_k,
         "top_log_probs_dtype": _canonical_dtype(config.top_log_probs_dtype),
         "top_token_ids_dtype": "int32",
@@ -653,15 +691,42 @@ def _manifest_topk_fields(config: TeacherTextbookBuildConfig) -> dict[str, objec
         "tail_mass_dtype": "float32",
         "teacher_entropy_dtype": "float32",
     }
+    if config.target_type == CASCADED_TARGET_TYPE:
+        fields.update(
+            {
+                "bucket_edges": list(config.bucket_edges),
+                "bucket_edge_type": config.bucket_edge_type,
+                "bucket_count": len(config.bucket_edges) - 1,
+                "bucket_mass_dtype": _canonical_dtype(config.bucket_mass_dtype),
+                "bucket_count_dtype": "int32",
+                "bucket_mean_logp_dtype": _canonical_dtype(
+                    config.bucket_mean_logp_dtype
+                ),
+            }
+        )
+    return fields
 
 
 def _emission_topk_fields(config: TeacherTextbookBuildConfig) -> dict[str, object]:
-    if config.target_type != TOPK_TAIL_TARGET_TYPE:
+    if not _is_compressed_target(config.target_type):
         return {}
-    return {
+    fields: dict[str, object] = {
         "top_k": config.top_k,
         "top_log_probs_dtype": _canonical_dtype(config.top_log_probs_dtype),
     }
+    if config.target_type == CASCADED_TARGET_TYPE:
+        fields.update(
+            {
+                "bucket_edges": list(config.bucket_edges),
+                "bucket_edge_type": config.bucket_edge_type,
+                "bucket_count": len(config.bucket_edges) - 1,
+                "bucket_mass_dtype": _canonical_dtype(config.bucket_mass_dtype),
+                "bucket_mean_logp_dtype": _canonical_dtype(
+                    config.bucket_mean_logp_dtype
+                ),
+            }
+        )
+    return fields
 
 
 def _claims_not_made(
@@ -673,6 +738,8 @@ def _claims_not_made(
     claims = list(base)
     if config.target_type == TOPK_TAIL_TARGET_TYPE:
         claims.extend(TOPK_TAIL_CLAIMS_NOT_MADE)
+    if config.target_type == CASCADED_TARGET_TYPE:
+        claims.extend(CASCADED_CLAIMS_NOT_MADE)
     return claims
 
 
@@ -691,7 +758,7 @@ def _compress_dense_arrays(
     tail_mass = np.clip(1.0 - top_mass, 0.0, 1.0).astype(np.float32)
     probs = np.exp(log_probs).astype(np.float32)
     teacher_entropy = -np.sum(probs * log_probs, axis=-1, dtype=np.float32)
-    return {
+    compressed = {
         "input_ids": arrays["input_ids"],
         "attention_mask": arrays["attention_mask"],
         "top_token_ids": top_token_ids.astype(np.int32),
@@ -702,6 +769,81 @@ def _compress_dense_arrays(
         "tail_mass": tail_mass,
         "teacher_entropy": teacher_entropy.astype(np.float32),
     }
+    if config.target_type == CASCADED_TARGET_TYPE:
+        compressed.update(
+            _bucket_tail_arrays(
+                probs=probs,
+                log_probs=log_probs,
+                top_token_ids=top_token_ids,
+                config=config,
+            )
+        )
+    return compressed
+
+
+def _bucket_tail_arrays(
+    *,
+    probs: np.ndarray,
+    log_probs: np.ndarray,
+    top_token_ids: np.ndarray,
+    config: TeacherTextbookBuildConfig,
+) -> dict[str, np.ndarray]:
+    edges = np.asarray(config.bucket_edges, dtype=np.float32)
+    bucket_count = len(edges) - 1
+    top_mask = np.zeros(probs.shape, dtype=bool)
+    np.put_along_axis(top_mask, top_token_ids, True, axis=-1)
+    bucket_mass = np.zeros((*probs.shape[:2], bucket_count), dtype=np.float32)
+    bucket_token_count = np.zeros((*probs.shape[:2], bucket_count), dtype=np.int32)
+    bucket_mean_logp = np.zeros((*probs.shape[:2], bucket_count), dtype=np.float32)
+    for bucket_id in range(bucket_count):
+        upper = edges[bucket_id]
+        lower = edges[bucket_id + 1]
+        mask = (~top_mask) & (probs < upper) & (probs >= lower)
+        mass = np.sum(np.where(mask, probs, 0.0), axis=-1, dtype=np.float32)
+        count = np.sum(mask, axis=-1, dtype=np.int32)
+        logp_sum = np.sum(np.where(mask, log_probs, 0.0), axis=-1, dtype=np.float32)
+        mean_logp = np.divide(
+            logp_sum,
+            count,
+            out=np.zeros_like(logp_sum, dtype=np.float32),
+            where=count > 0,
+        )
+        bucket_mass[..., bucket_id] = mass
+        bucket_token_count[..., bucket_id] = count
+        bucket_mean_logp[..., bucket_id] = mean_logp
+    return {
+        "bucket_mass": bucket_mass.astype(
+            np.dtype(_canonical_dtype(config.bucket_mass_dtype))
+        ),
+        "bucket_count": bucket_token_count.astype(np.int32),
+        "bucket_mean_logp": bucket_mean_logp.astype(
+            np.dtype(_canonical_dtype(config.bucket_mean_logp_dtype))
+        ),
+    }
+
+
+def _is_compressed_target(target_type: str) -> bool:
+    return target_type in {TOPK_TAIL_TARGET_TYPE, CASCADED_TARGET_TYPE}
+
+
+def _validate_bucket_edges(edges: tuple[float, ...], edge_type: str) -> None:
+    if edge_type != DEFAULT_BUCKET_EDGE_TYPE:
+        raise ValueError("bucket_edge_type must be 'probability'")
+    if len(edges) < 2:
+        raise ValueError("bucket_edges must contain at least two edges")
+    edge_array = np.asarray(edges, dtype=np.float64)
+    if not np.all(np.isfinite(edge_array)):
+        raise ValueError("bucket_edges must be finite")
+    if not np.all(np.diff(edge_array) < 0):
+        raise ValueError("bucket_edges must be strictly descending")
+    if not np.isclose(edge_array[0], 1.0):
+        raise ValueError("bucket_edges must start at 1.0")
+    if not np.isclose(edge_array[-1], 0.0):
+        raise ValueError("bucket_edges must end at 0.0")
+
+
+def _bucket_edges_string(edges: tuple[float, ...]) -> str:
+    return ",".join(f"{edge:.12g}" for edge in edges)
 
 
 def _log_softmax(logits: np.ndarray) -> np.ndarray:

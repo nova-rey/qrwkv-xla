@@ -1,5 +1,23 @@
 # QRWKV-XLA Roadmap
 
+## Phase 121 - Cascaded Soft Labels v1
+
+Goal: add a printer-side bucketed tail contract and validator without adding
+bucket-shape training loss.
+
+Current checkpoint: `cascaded_soft_labels_v1_bucketed_tail_contract` on branch
+`p119-p120-cascaded-targets`. P121 adds
+`target_type=cascaded_soft_labels_v1`, default bucket edges
+`[1,1e-3,1e-6,1e-9,1e-12,0]`, bucketed tail arrays, metadata/manifest/emission
+fields, validator integrity checks, and loader exposure of bucket fields.
+
+P121 preserves `dense_logits` and `topk_with_tail_v0`. It does not add bucket
+loss, real burn execution, Rosetta/Vocab C/tokenizer remapping, Qwen/Gemma
+scale-up, a full HF-native wrapper, Pallas promotion, or WKV math changes.
+
+Next: P122 Bucket Shape Loss on the same branch. Do not merge into the main
+P117 path until reviewed.
+
 ## Phase 120 - Sparse Target Loss Consumption
 
 Goal: teach student-side target consumption to read `topk_with_tail_v0`
@@ -15,10 +33,7 @@ P120 does not add bucket loss, Rosetta/Vocab C/tokenizer remapping,
 Qwen/Gemma scale-up, a full HF-native wrapper, real burn execution, Pallas
 promotion, or WKV math changes.
 
-Next:
-
-- P121 - Cascaded Buckets v1 on the same branch
-- P122 - follow-on compressed-target branch work, if reviewed
+Next: P121 Cascaded Buckets v1 on the same branch - complete.
 
 ## Phase 119 - TopK Tail TeacherTextbook v0
 

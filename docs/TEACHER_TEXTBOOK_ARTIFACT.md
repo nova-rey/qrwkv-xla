@@ -252,6 +252,11 @@ P120 makes `topk_with_tail_v0` artifacts consumable by a sparse head-KL loss
 path. The official P117 dense mini-burn path remains unchanged until reviewed;
 compressed artifacts must not be silently treated as dense logits.
 
+P121 adds `cascaded_soft_labels_v1`, which includes the TopK+Tail fields and
+adds `bucket_mass`, `bucket_count`, and `bucket_mean_logp`. These bucket fields
+are a printer-side contract and validator surface only; bucket-shape training
+loss is reserved for P122.
+
 ## Dataset JSONL Format
 
 JSONL rows must be objects with non-empty `text`:

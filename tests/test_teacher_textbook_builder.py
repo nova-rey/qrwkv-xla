@@ -274,6 +274,45 @@ def test_hf_mode_can_emit_topk_tail_without_persisting_dense_logits(
         assert shard["top_token_ids"].shape == (2, 8, 4)
 
 
+def test_hf_mode_can_emit_cascaded_without_persisting_dense_logits(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: dict[str, list[bool]] = {"tokenizer": [], "model": []}
+    _install_mock_hf_modules(monkeypatch, calls=calls)
+    output = tmp_path / "teacher_textbook"
+
+    report = build_teacher_textbook(
+        TeacherTextbookBuildConfig(
+            output_dir=output,
+            teacher_mode="hf",
+            teacher_model_id="local/tiny-hf",
+            sequence_length=8,
+            batch_size=2,
+            max_examples=2,
+            logits_dtype="float32",
+            local_files_only=True,
+            allow_downloads=False,
+            target_type="cascaded_soft_labels_v1",
+            top_k=4,
+            top_log_probs_dtype="float32",
+        )
+    )
+
+    assert report.status == "pass"
+    assert validate_teacher_textbook(output).status == "pass"
+    assert calls["tokenizer"] == [True]
+    assert calls["model"] == [True]
+    manifest = read_json_object(output / "teacher_manifest.json")
+    assert manifest["target_type"] == "cascaded_soft_labels_v1"
+    assert manifest["top_k"] == 4
+    assert manifest["bucket_count"] == 5
+    with np.load(output / "shards" / "shard-00000.npz", allow_pickle=False) as shard:
+        assert "logits" not in shard.files
+        assert shard["top_token_ids"].shape == (2, 8, 4)
+        assert shard["bucket_mass"].shape == (2, 8, 5)
+
+
 def test_hf_mode_local_files_only_wins_over_downloads(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="local-files-only"):
         build_teacher_textbook(

@@ -149,8 +149,13 @@ class TeacherTargetStore:
                 f"{sorted(P93_ARRAY_TARGET_TYPES)}, got "
                 f"{self.metadata.target_type!r}"
             )
-        if self.metadata.target_type == "topk_with_tail_v0":
+        if self.metadata.target_type in {
+            "topk_with_tail_v0",
+            "cascaded_soft_labels_v1",
+        }:
             _validate_topk_tail_arrays(arrays, self.metadata)
+            if self.metadata.target_type == "cascaded_soft_labels_v1":
+                _validate_cascaded_arrays(arrays, self.metadata)
             return
         missing = [
             name
@@ -299,9 +304,121 @@ def _metadata_top_k(metadata: TargetStoreMetadata) -> int:
     return top_k
 
 
+def _validate_cascaded_arrays(
+    arrays: Mapping[str, np.ndarray],
+    metadata: TargetStoreMetadata,
+) -> None:
+    required = ("bucket_mass", "bucket_count", "bucket_mean_logp")
+    missing = [name for name in required if name not in arrays]
+    if missing:
+        raise ValueError(
+            f"cascaded_soft_labels_v1 shard missing required arrays: {missing}"
+        )
+    input_ids = np.asarray(arrays["input_ids"])
+    top_mass = np.asarray(arrays["top_mass"])
+    tail_mass = np.asarray(arrays["tail_mass"])
+    bucket_mass = np.asarray(arrays["bucket_mass"])
+    bucket_count = np.asarray(arrays["bucket_count"])
+    bucket_mean_logp = np.asarray(arrays["bucket_mean_logp"])
+    top_k = _metadata_top_k(metadata)
+    bucket_edges = _metadata_bucket_edges(metadata)
+    bucket_total = len(bucket_edges) - 1
+    expected_shape = (*input_ids.shape, bucket_total)
+
+    if bucket_mass.shape != expected_shape:
+        raise ValueError("bucket_mass shape must be [N,T,B]")
+    if bucket_count.shape != expected_shape:
+        raise ValueError("bucket_count shape must be [N,T,B]")
+    if bucket_mean_logp.shape != expected_shape:
+        raise ValueError("bucket_mean_logp shape must be [N,T,B]")
+    if not np.issubdtype(bucket_mass.dtype, np.floating):
+        raise ValueError("bucket_mass dtype must be floating")
+    if not np.issubdtype(bucket_count.dtype, np.integer):
+        raise ValueError("bucket_count dtype must be integer")
+    if not np.issubdtype(bucket_mean_logp.dtype, np.floating):
+        raise ValueError("bucket_mean_logp dtype must be floating")
+    expected_bucket_mass_dtype = metadata.target_params.get(
+        "bucket_mass_dtype",
+        "float32",
+    )
+    if _canonical_dtype(bucket_mass.dtype) != _canonical_dtype(
+        expected_bucket_mass_dtype
+    ):
+        raise ValueError("bucket_mass dtype must match metadata target_params")
+    expected_bucket_mean_logp_dtype = metadata.target_params.get(
+        "bucket_mean_logp_dtype",
+        "float32",
+    )
+    if _canonical_dtype(bucket_mean_logp.dtype) != _canonical_dtype(
+        expected_bucket_mean_logp_dtype
+    ):
+        raise ValueError("bucket_mean_logp dtype must match metadata target_params")
+    if np.any(bucket_count < 0):
+        raise ValueError("bucket_count must be non-negative")
+    if not np.all(np.isfinite(bucket_mass)):
+        raise ValueError("bucket_mass must be finite")
+    if np.any(bucket_mass < 0.0):
+        raise ValueError("bucket_mass must be non-negative")
+    if not np.all(np.isfinite(bucket_mean_logp)):
+        raise ValueError("bucket_mean_logp must be finite")
+    empty_mask = bucket_count == 0
+    if np.any(bucket_mean_logp[empty_mask] != 0.0):
+        raise ValueError("bucket_mean_logp must be 0.0 when bucket_count is 0")
+    if np.any(bucket_mean_logp[~empty_mask] > 0.0):
+        raise ValueError("bucket_mean_logp must be <= 0.0 for non-empty buckets")
+
+    expected_tail_count = metadata.vocab_size - top_k
+    if np.any(np.sum(bucket_count, axis=-1) != expected_tail_count):
+        raise ValueError("sum(bucket_count) must equal vocab_size - top_k")
+    bucket_mass_sum = np.sum(bucket_mass.astype(np.float32), axis=-1)
+    tolerance = _mass_tolerance(metadata)
+    if not np.allclose(bucket_mass_sum, tail_mass, atol=tolerance):
+        raise ValueError("sum(bucket_mass) must approximately match tail_mass")
+    if not np.allclose(top_mass + bucket_mass_sum, 1.0, atol=tolerance):
+        raise ValueError("top_mass + sum(bucket_mass) must be approximately 1")
+
+
+def _metadata_bucket_edges(metadata: TargetStoreMetadata) -> tuple[float, ...]:
+    edge_type = metadata.target_params.get("bucket_edge_type", "")
+    if edge_type != "probability":
+        raise ValueError("metadata target_params.bucket_edge_type must be probability")
+    raw_edges = metadata.target_params.get("bucket_edges", "")
+    try:
+        edges = tuple(float(edge) for edge in raw_edges.split(",") if edge)
+    except ValueError as exc:
+        raise ValueError("metadata target_params.bucket_edges must be numeric") from exc
+    try:
+        expected_bucket_count = int(metadata.target_params.get("bucket_count", "0"))
+    except ValueError as exc:
+        raise ValueError(
+            "metadata target_params.bucket_count must be an integer"
+        ) from exc
+    if len(edges) != expected_bucket_count + 1:
+        raise ValueError("bucket_edges length must equal bucket_count + 1")
+    edge_array = np.asarray(edges, dtype=np.float64)
+    if len(edges) < 2:
+        raise ValueError("bucket_edges must contain at least two edges")
+    if not np.all(np.isfinite(edge_array)):
+        raise ValueError("bucket_edges must be finite")
+    if not np.all(np.diff(edge_array) < 0):
+        raise ValueError("bucket_edges must be strictly descending")
+    if not np.isclose(edge_array[0], 1.0):
+        raise ValueError("bucket_edges must start at 1.0")
+    if not np.isclose(edge_array[-1], 0.0):
+        raise ValueError("bucket_edges must end at 0.0")
+    return edges
+
+
 def _mass_tolerance(metadata: TargetStoreMetadata) -> float:
-    dtype = metadata.target_params.get("top_log_probs_dtype", metadata.dtype)
-    return 1e-3 if _canonical_dtype(dtype) == "float16" else 1e-5
+    dtypes = {
+        _canonical_dtype(
+            metadata.target_params.get("top_log_probs_dtype", metadata.dtype)
+        ),
+        _canonical_dtype(
+            metadata.target_params.get("bucket_mass_dtype", metadata.dtype)
+        ),
+    }
+    return 1e-3 if "float16" in dtypes else 1e-5
 
 
 def _canonical_dtype(dtype: object) -> str:

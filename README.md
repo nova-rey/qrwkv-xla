@@ -7,11 +7,11 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase on `p119-p120-cascaded-targets`: P120, Sparse Target Loss
-Consumption. This branch adds opt-in compressed teacher-target printing and
-student/eval-side sparse consumption for P121/P122 follow-on work. The main
-P117 dense mini textbook path remains intact and should not be replaced by this
-branch until the compressed-target work is reviewed.
+Current phase on `p119-p120-cascaded-targets`: P121, Cascaded Soft Labels v1.
+This branch adds opt-in compressed teacher-target printing, sparse top-k
+consumption, and printer-side bucketed tail contracts for P122 follow-on work.
+The main P117 dense mini textbook path remains intact and should not be
+replaced by this branch until the compressed-target work is reviewed.
 
 Current emphasis is teacher backend modularity, vocab contracts, target stores,
 the student backend registry, runtime separation, and the burn-readiness arc.
@@ -33,7 +33,9 @@ P119 adds `topk_with_tail_v0` TeacherTextbook emission with default
 `top_k=256`, compressed sidecar metadata, and validation for sorted top-k log
 probabilities, mass accounting, duplicate IDs, and entropy. P120 adds sparse
 head-KL consumption over gathered top-k student logits with optional tail mass
-regularization defaulting to `0.0`. Baseline tests remain CPU-safe and do not
+regularization defaulting to `0.0`. P121 adds
+`cascaded_soft_labels_v1`, preserving the exact top-k head while storing tail
+shape through aggregate buckets. Baseline tests remain CPU-safe and do not
 require Hugging Face downloads, internet, Qwen, GPU, or TPU.
 
 P117 is the first serious burn using a validated TeacherTextbook input and a
@@ -100,6 +102,9 @@ The P119 compressed TeacherTextbook target is documented in
 `docs/TOPK_TAIL_TEXTBOOK.md`.
 
 The P120 sparse target loss is documented in `docs/SPARSE_TARGET_LOSS.md`.
+
+The P121 cascaded soft-label contract is documented in
+`docs/CASCADED_SOFT_LABELS.md`.
 
 `scripts/run_distill_stage.py` is the primary entrypoint for staged
 distillation. It currently supports hidden-state distillation against fake

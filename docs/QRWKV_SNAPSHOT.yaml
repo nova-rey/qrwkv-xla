@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 120
-current_phase: P120
-checkpoint: sparse_target_loss_consumption
+phase: 121
+current_phase: P121
+checkpoint: cascaded_soft_labels_v1_bucketed_tail_contract
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,19 +56,50 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add sparse target loss consumption for TopK-with-tail TeacherTextbooks on
-  the p119-p120-cascaded-targets branch.
+  Add Cascaded Soft Labels v1 bucketed tail TeacherTextbook contract and
+  validation on the p119-p120-cascaded-targets branch.
 
 current_arc: compressed_teacher_targets
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
-recommended_next: P121 Cascaded Buckets v1 on p119-p120-cascaded-targets
+recommended_next: P122 Bucket Shape Loss on p119-p120-cascaded-targets
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
   post_p112_research_alignment: active
   compressed_teacher_targets: active
+
+p121:
+  goal: cascaded_soft_labels_v1_bucketed_tail_contract
+  branch: p119-p120-cascaded-targets
+  behavior_change_intended: false
+  target_type_added: cascaded_soft_labels_v1
+  default_top_k: 256
+  default_bucket_edges:
+    - 1.0
+    - 0.001
+    - 0.000001
+    - 0.000000001
+    - 0.000000000001
+    - 0.0
+  bucket_edge_type: probability
+  dense_path_preserved: true
+  topk_tail_v0_preserved: true
+  bucket_tail_printer_added: true
+  bucket_tail_validator_added: true
+  bucket_loss_added: false
+  real_burn_started: false
+  training_started: false
+  rosetta_integration_added: false
+  vocab_c_implemented: false
+  tokenizer_remapping_added: false
+  cross_vocab_tail_mapping_added: false
+  qwen_or_gemma_scaleup_added: false
+  full_hf_native_wrapper_added: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  recommended_next: P122 Bucket Shape Loss on same branch
 
 p120:
   goal: sparse_target_loss_consumption

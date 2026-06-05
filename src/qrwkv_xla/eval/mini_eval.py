@@ -59,6 +59,7 @@ class MiniEvalResult:
     head_loss: float | None = None
     tail_loss: float | None = None
     tail_loss_weight: float = 0.0
+    bucket_loss_weight: float = 0.0
     top_k: int | None = None
     mean_top_mass: float | None = None
     mean_tail_mass: float | None = None
@@ -93,7 +94,8 @@ def run_mini_eval_harness(
     )
     loss_mode = (
         "topk_tail_sparse"
-        if store.metadata.target_type == "topk_with_tail_v0"
+        if store.metadata.target_type
+        in {"topk_with_tail_v0", "cascaded_soft_labels_v1"}
         else "direct_logits"
     )
     compatibility = validate_store_for_student_config(
@@ -244,6 +246,7 @@ def run_mini_eval_harness(
         head_loss=None if mean_head_loss is None else float(mean_head_loss),
         tail_loss=None if mean_tail_loss is None else float(mean_tail_loss),
         tail_loss_weight=tail_loss_weight,
+        bucket_loss_weight=0.0,
         top_k=top_k,
         mean_top_mass=(
             total_top_mass / total_metric_weight if total_top_mass else None

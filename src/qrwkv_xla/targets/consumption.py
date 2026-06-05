@@ -27,6 +27,9 @@ class TeacherTargetBatch:
     top_mass: np.ndarray | None = None
     tail_mass: np.ndarray | None = None
     teacher_entropy: np.ndarray | None = None
+    bucket_mass: np.ndarray | None = None
+    bucket_count: np.ndarray | None = None
+    bucket_mean_logp: np.ndarray | None = None
 
 
 def load_offline_target_batch(
@@ -85,8 +88,8 @@ def load_teacher_target_batch(
             attention_mask=dense.attention_mask,
             teacher_logits=dense.teacher_logits,
         )
-    if target_type == "topk_with_tail_v0":
-        required = (
+    if target_type in {"topk_with_tail_v0", "cascaded_soft_labels_v1"}:
+        required = [
             "input_ids",
             "attention_mask",
             "top_token_ids",
@@ -94,7 +97,9 @@ def load_teacher_target_batch(
             "top_mass",
             "tail_mass",
             "teacher_entropy",
-        )
+        ]
+        if target_type == "cascaded_soft_labels_v1":
+            required.extend(["bucket_mass", "bucket_count", "bucket_mean_logp"])
         missing = [name for name in required if name not in arrays]
         if missing:
             raise ValueError(
@@ -136,6 +141,26 @@ def load_teacher_target_batch(
                 "top_token_ids contains ids outside teacher vocab range "
                 f"[0, {metadata.vocab_size})"
             )
+        kwargs: dict[str, np.ndarray | str | None] = {}
+        if target_type == "cascaded_soft_labels_v1":
+            bucket_mass = np.asarray(arrays["bucket_mass"])
+            bucket_count = np.asarray(arrays["bucket_count"])
+            bucket_mean_logp = np.asarray(arrays["bucket_mean_logp"])
+            expected_bucket_shape = bucket_mass.shape
+            if bucket_count.shape != expected_bucket_shape:
+                raise ValueError("bucket_count shape must match bucket_mass shape")
+            if bucket_mean_logp.shape != expected_bucket_shape:
+                raise ValueError("bucket_mean_logp shape must match bucket_mass shape")
+            if bucket_mass.shape[:2] != input_ids.shape:
+                raise ValueError(
+                    "bucket arrays [N,T] must match input_ids, "
+                    f"got {bucket_mass.shape[:2]} and {input_ids.shape}"
+                )
+            kwargs = {
+                "bucket_mass": bucket_mass,
+                "bucket_count": bucket_count,
+                "bucket_mean_logp": bucket_mean_logp,
+            }
         return TeacherTargetBatch(
             target_type=target_type,
             input_ids=input_ids,
@@ -145,6 +170,7 @@ def load_teacher_target_batch(
             top_mass=top_mass,
             tail_mass=tail_mass,
             teacher_entropy=teacher_entropy,
+            **kwargs,
         )
     raise ValueError(
         f"unsupported target_type {target_type!r} for teacher target consumption"

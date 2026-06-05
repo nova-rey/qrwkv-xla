@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 import jax
@@ -13,6 +14,7 @@ from qrwkv_xla.distill.losses import (
 
 DENSE_LOGIT_TARGET_TYPES = frozenset({"dense_logits", "full_logits", "synthetic"})
 TOPK_TAIL_TARGET_TYPE = "topk_with_tail_v0"
+CASCADED_TARGET_TYPE = "cascaded_soft_labels_v1"
 
 
 class UnsupportedTeacherTargetType(ValueError):
@@ -51,7 +53,7 @@ def dispatch_teacher_target_loss(
             top_k=None,
             sparse_head_loss_weight=0.0,
         )
-    if target_type == TOPK_TAIL_TARGET_TYPE:
+    if target_type in {TOPK_TAIL_TARGET_TYPE, CASCADED_TARGET_TYPE}:
         missing = [
             name
             for name in ("top_token_ids", "top_log_probs", "attention_mask")
@@ -61,7 +63,7 @@ def dispatch_teacher_target_loss(
             raise ValueError(
                 f"target_type {target_type!r} missing compressed field(s): {missing}"
             )
-        return topk_tail_distillation_loss(
+        report = topk_tail_distillation_loss(
             student_logits,
             target_batch.top_token_ids,
             target_batch.top_log_probs,
@@ -72,9 +74,19 @@ def dispatch_teacher_target_loss(
             tail_loss_weight=tail_loss_weight,
             sparse_head_loss_weight=sparse_head_loss_weight,
         )
+        if target_type == CASCADED_TARGET_TYPE:
+            return replace(
+                report,
+                target_type=CASCADED_TARGET_TYPE,
+                distillation_loss_type="topk_head_only_until_p122",
+                bucket_loss_weight=0.0,
+            )
+        return report
+    expected = sorted(
+        (*DENSE_LOGIT_TARGET_TYPES, TOPK_TAIL_TARGET_TYPE, CASCADED_TARGET_TYPE)
+    )
     raise UnsupportedTeacherTargetType(
-        f"unsupported teacher target_type {target_type!r}; expected one of "
-        f"{sorted((*DENSE_LOGIT_TARGET_TYPES, TOPK_TAIL_TARGET_TYPE))}"
+        f"unsupported teacher target_type {target_type!r}; expected one of {expected}"
     )
 
 

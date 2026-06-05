@@ -9,7 +9,7 @@ from qrwkv_xla.targets.store import TeacherTargetStore
 
 DIRECT_LOGIT_TARGET_TYPES = {"dense_logits", "full_logits", "synthetic"}
 DIRECT_LOGIT_LOSS_MODES = {"direct_logits", "mse_logits"}
-SPARSE_TOPK_TARGET_TYPES = {"topk_with_tail_v0"}
+SPARSE_TOPK_TARGET_TYPES = {"topk_with_tail_v0", "cascaded_soft_labels_v1"}
 SPARSE_TOPK_LOSS_MODES = {"topk_tail_sparse", "sparse_targets"}
 
 

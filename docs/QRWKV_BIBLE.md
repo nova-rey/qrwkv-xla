@@ -2459,3 +2459,23 @@ scale-up, implement full HF-native integration, change WKV math, change
 StudentRuntime semantics, change StudentBackend behavior, or promote Pallas.
 Recommended next phase is P121 Cascaded Buckets v1 on the same branch after
 reviewing sparse loss behavior.
+
+## Phase 121 - Cascaded Soft Labels v1
+
+P121 added Cascaded Soft Labels v1 on the compressed-target branch
+`p119-p120-cascaded-targets`. This extends the P119/P120 TopK+Tail path with
+`target_type=cascaded_soft_labels_v1`, preserving the exact top-k head while
+adding bucketed aggregate tail summaries: `bucket_edges`, `bucket_mass`,
+`bucket_count`, and `bucket_mean_logp`.
+
+The dense `dense_logits` path and `topk_with_tail_v0` path remain preserved.
+P121 implements the teacher-side printer, contract, loader surface, and
+validator for bucketed tails but does not add bucket-shape training loss; that
+is reserved for P122. P120 can consume cascaded artifacts through top-k
+head-only loss while reporting `bucket_loss_weight=0.0`.
+
+The implementation is same-vocab only. Rosetta/Vocab C, tokenizer remapping,
+cross-vocab tail mapping, Gemma/Qwen scale-up, real burn, training, full
+HF-native integration, WKV/runtime behavior changes, StudentRuntime semantic
+changes, StudentBackend behavior changes, and Pallas promotion were not
+introduced.

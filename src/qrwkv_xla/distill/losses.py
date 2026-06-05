@@ -27,6 +27,7 @@ class DistillationLossReport:
     token_count: jax.Array
     target_type: str
     distillation_loss_type: str
+    bucket_loss_weight: float = 0.0
     top_k: int | None = None
     sparse_head_loss_weight: float = 1.0
     mean_top_mass: jax.Array | None = None

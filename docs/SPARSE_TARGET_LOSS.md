@@ -16,6 +16,7 @@ The dispatch layer reads `target_type` from the loaded teacher target batch:
 ```text
 dense_logits/full_logits/synthetic -> dense logits KL path
 topk_with_tail_v0                  -> sparse top-k head KL path
+cascaded_soft_labels_v1            -> top-k head-only path until P122
 ```
 
 Unsupported target types fail clearly. Compressed targets must provide
@@ -80,6 +81,9 @@ mean_teacher_entropy
 ```
 
 Dense reports remain valid and do not invent sparse-only metrics.
+
+For `cascaded_soft_labels_v1`, P121 reports `bucket_loss_weight=0.0` because
+bucket-shape loss is intentionally deferred to P122.
 
 ## What P120 Implements
 
