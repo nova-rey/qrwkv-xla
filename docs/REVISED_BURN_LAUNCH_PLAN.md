@@ -185,6 +185,12 @@ The preflight script downloads the released tiny-HF textbook, verifies SHA256,
 validates the TeacherTextbook, runs readiness, runs dry-run mode, packages
 reports, and prints the reviewed real-burn command without executing it.
 
+P119 branch note: `p119-p120-cascaded-targets` adds opt-in
+`topk_with_tail_v0` TeacherTextbook printing for future sparse loss
+consumption. It does not replace this P117 dense mini textbook launch plan and
+does not make a compressed target trainer-ready until P120 is implemented and
+reviewed.
+
 ## Stop Conditions
 
 Stop before or during P117 if:

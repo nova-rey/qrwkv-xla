@@ -26,6 +26,10 @@ from qrwkv_xla.targets.store import TeacherTargetStore
 DEFAULT_FAKE_TEACHER_MODEL_ID = "fake-deterministic-teacher"
 DEFAULT_FAKE_TOKENIZER_ID = "fake-deterministic-tokenizer"
 DEFAULT_FAKE_VOCAB_SIZE = 32
+DEFAULT_TARGET_TYPE = "dense_logits"
+TOPK_TAIL_TARGET_TYPE = "topk_with_tail_v0"
+DEFAULT_TOP_K = 256
+DEFAULT_TOP_LOG_PROBS_DTYPE = "float16"
 DEFAULT_TEXT_EXAMPLES = (
     "hello world",
     "tiny teacher textbook",
@@ -38,6 +42,12 @@ CLAIMS_NOT_MADE = (
     "no_qwen_parity_claim",
     "no_training_claim",
     "no_remote_teacher_service_claim",
+)
+TOPK_TAIL_CLAIMS_NOT_MADE = (
+    "not_dense_logits",
+    "not_full_distribution_exact",
+    "not_trainer_consumable_until_p120",
+    "not_model_quality_claim",
 )
 HF_CLAIMS_NOT_MADE = (
     "no_model_quality_claim",
@@ -70,6 +80,9 @@ class TeacherTextbookBuildConfig:
     overwrite: bool = False
     vocab_size: int = DEFAULT_FAKE_VOCAB_SIZE
     include_hidden_states: bool = False
+    target_type: str = DEFAULT_TARGET_TYPE
+    top_k: int = DEFAULT_TOP_K
+    top_log_probs_dtype: str = DEFAULT_TOP_LOG_PROBS_DTYPE
 
 
 def build_teacher_textbook(
@@ -105,7 +118,7 @@ def build_fake_teacher_textbook(
         tokenizer_id=DEFAULT_FAKE_TOKENIZER_ID,
         tokenizer_hash=None,
         vocab_size=config.vocab_size,
-        target_type="synthetic",
+        target_type=config.target_type,
         dtype=_canonical_dtype(config.logits_dtype),
         sequence_length=config.sequence_length,
         num_examples=len(examples),
@@ -113,7 +126,8 @@ def build_fake_teacher_textbook(
         created_by="qrwkv_xla.artifacts.teacher_textbook_builder",
         created_at=created_at,
         source={"kind": _dataset_source(config.dataset_path)},
-        provenance={"phase": "P116.1", "teacher_mode": "fake"},
+        provenance={"phase": "P119", "teacher_mode": "fake"},
+        target_params=_target_params(config),
     )
     store = TeacherTargetStore.create(config.output_dir, metadata, overwrite=True)
     for shard_id, start in enumerate(range(0, len(examples), config.batch_size)):
@@ -168,6 +182,8 @@ def build_hf_teacher_textbook(
 
     created_at = datetime.now(UTC).replace(microsecond=0).isoformat()
     vocab_size = _hf_vocab_size(tokenizer, config)
+    if config.target_type == TOPK_TAIL_TARGET_TYPE and config.top_k > vocab_size:
+        raise ValueError("top_k must be <= tokenizer vocab_size")
     shard_count = (len(examples) + config.batch_size - 1) // config.batch_size
     tokenizer_id = str(
         getattr(tokenizer, "name_or_path", None) or config.teacher_model_id
@@ -180,7 +196,7 @@ def build_hf_teacher_textbook(
         tokenizer_id=tokenizer_id,
         tokenizer_hash=None,
         vocab_size=vocab_size,
-        target_type="full_logits",
+        target_type=config.target_type,
         dtype=_canonical_dtype(config.logits_dtype),
         sequence_length=config.sequence_length,
         num_examples=len(examples),
@@ -188,7 +204,8 @@ def build_hf_teacher_textbook(
         created_by="qrwkv_xla.artifacts.teacher_textbook_builder",
         created_at=created_at,
         source={"kind": _dataset_source(config.dataset_path)},
-        provenance={"phase": "P116.2", "teacher_mode": "hf"},
+        provenance={"phase": "P119", "teacher_mode": "hf"},
+        target_params=_target_params(config),
     )
     store = TeacherTargetStore.create(config.output_dir, metadata, overwrite=True)
     inference_context = getattr(torch, "inference_mode", None) or torch.no_grad
@@ -269,7 +286,18 @@ def _validate_config(config: TeacherTextbookBuildConfig) -> None:
         raise ValueError("max_examples must be > 0")
     if config.vocab_size <= 0:
         raise ValueError("vocab_size must be > 0")
+    if config.target_type not in {"dense_logits", TOPK_TAIL_TARGET_TYPE}:
+        raise ValueError(f"unsupported target_type: {config.target_type!r}")
+    if config.top_k <= 0:
+        raise ValueError("top_k must be > 0")
+    if (
+        config.target_type == TOPK_TAIL_TARGET_TYPE
+        and config.teacher_mode == "fake"
+        and config.top_k > config.vocab_size
+    ):
+        raise ValueError("top_k must be <= vocab_size")
     _canonical_dtype(config.logits_dtype)
+    _canonical_dtype(config.top_log_probs_dtype)
 
 
 def _fake_arrays(
@@ -294,11 +322,16 @@ def _fake_arrays(
                 row_seed=config.seed + row,
                 vocab_size=config.vocab_size,
             )
-    return {
+    dense = {
         "input_ids": input_ids,
         "attention_mask": attention_mask,
         "logits": logits,
     }
+    if config.target_type == TOPK_TAIL_TARGET_TYPE:
+        return _compress_dense_arrays(
+            dense, config=config, vocab_size=config.vocab_size
+        )
+    return dense
 
 
 def _fake_token_ids(
@@ -353,15 +386,16 @@ def _write_sidecars(
             "tokenizer_id": DEFAULT_FAKE_TOKENIZER_ID,
             "vocab_size": config.vocab_size,
             "vocab_contract_path": "vocab_contract.json",
-            "target_type": "synthetic",
+            "target_type": config.target_type,
             "dtype": _canonical_dtype(config.logits_dtype),
             "sequence_length": config.sequence_length,
             "num_examples": len(examples),
             "shard_count": shard_count,
+            **_manifest_topk_fields(config),
             "created_at": created_at,
             "local_files_only": config.local_files_only,
             "allow_downloads": config.allow_downloads,
-            "claims_not_made": list(CLAIMS_NOT_MADE),
+            "claims_not_made": _claims_not_made(config, teacher_mode="fake"),
         },
     )
     write_json(
@@ -372,11 +406,13 @@ def _write_sidecars(
             "batch_size": config.batch_size,
             "sequence_length": config.sequence_length,
             "logits_dtype": _canonical_dtype(config.logits_dtype),
+            "target_type": config.target_type,
             "include_hidden_states": config.include_hidden_states,
             "sampling_used": False,
             "temperature": None,
             "top_p": None,
             "top_k": None,
+            **_emission_topk_fields(config),
             "seed": config.seed,
             "teacher_mode": config.teacher_mode,
         },
@@ -424,15 +460,16 @@ def _write_hf_sidecars(
             "tokenizer_id": tokenizer_id,
             "vocab_size": vocab_size,
             "vocab_contract_path": "vocab_contract.json",
-            "target_type": "full_logits",
+            "target_type": config.target_type,
             "dtype": _canonical_dtype(config.logits_dtype),
             "sequence_length": config.sequence_length,
             "num_examples": len(examples),
             "shard_count": shard_count,
+            **_manifest_topk_fields(config),
             "created_at": created_at,
             "local_files_only": local_files_only,
             "allow_downloads": config.allow_downloads and not local_files_only,
-            "claims_not_made": list(HF_CLAIMS_NOT_MADE),
+            "claims_not_made": _claims_not_made(config, teacher_mode="hf"),
         },
     )
     write_json(
@@ -443,11 +480,13 @@ def _write_hf_sidecars(
             "batch_size": config.batch_size,
             "sequence_length": config.sequence_length,
             "logits_dtype": _canonical_dtype(config.logits_dtype),
+            "target_type": config.target_type,
             "include_hidden_states": False,
             "sampling_used": False,
             "temperature": None,
             "top_p": None,
             "top_k": None,
+            **_emission_topk_fields(config),
             "seed": config.seed,
             "teacher_mode": "hf",
             "teacher_model_id": config.teacher_model_id,
@@ -491,11 +530,14 @@ def _hf_arrays(
             f"expected {(len(examples), config.sequence_length, vocab_size)}, "
             f"got {logits.shape}"
         )
-    return {
+    dense = {
         "input_ids": input_ids,
         "attention_mask": attention_mask,
         "logits": logits,
     }
+    if config.target_type == TOPK_TAIL_TARGET_TYPE:
+        return _compress_dense_arrays(dense, config=config, vocab_size=vocab_size)
+    return dense
 
 
 def _tensor_to_numpy(value: Any) -> np.ndarray:
@@ -585,6 +627,87 @@ def _optional_int(value: Any) -> int | None:
 
 def _dataset_source(path: Path | None) -> str:
     return "builtin_examples" if path is None else str(path)
+
+
+def _target_params(config: TeacherTextbookBuildConfig) -> dict[str, str]:
+    if config.target_type != TOPK_TAIL_TARGET_TYPE:
+        return {}
+    return {
+        "top_k": str(config.top_k),
+        "top_log_probs_dtype": _canonical_dtype(config.top_log_probs_dtype),
+        "top_token_ids_dtype": "int32",
+        "top_mass_dtype": "float32",
+        "tail_mass_dtype": "float32",
+        "teacher_entropy_dtype": "float32",
+    }
+
+
+def _manifest_topk_fields(config: TeacherTextbookBuildConfig) -> dict[str, object]:
+    if config.target_type != TOPK_TAIL_TARGET_TYPE:
+        return {}
+    return {
+        "top_k": config.top_k,
+        "top_log_probs_dtype": _canonical_dtype(config.top_log_probs_dtype),
+        "top_token_ids_dtype": "int32",
+        "top_mass_dtype": "float32",
+        "tail_mass_dtype": "float32",
+        "teacher_entropy_dtype": "float32",
+    }
+
+
+def _emission_topk_fields(config: TeacherTextbookBuildConfig) -> dict[str, object]:
+    if config.target_type != TOPK_TAIL_TARGET_TYPE:
+        return {}
+    return {
+        "top_k": config.top_k,
+        "top_log_probs_dtype": _canonical_dtype(config.top_log_probs_dtype),
+    }
+
+
+def _claims_not_made(
+    config: TeacherTextbookBuildConfig,
+    *,
+    teacher_mode: str,
+) -> list[str]:
+    base = HF_CLAIMS_NOT_MADE if teacher_mode == "hf" else CLAIMS_NOT_MADE
+    claims = list(base)
+    if config.target_type == TOPK_TAIL_TARGET_TYPE:
+        claims.extend(TOPK_TAIL_CLAIMS_NOT_MADE)
+    return claims
+
+
+def _compress_dense_arrays(
+    arrays: dict[str, np.ndarray],
+    *,
+    config: TeacherTextbookBuildConfig,
+    vocab_size: int,
+) -> dict[str, np.ndarray]:
+    logits = np.asarray(arrays["logits"], dtype=np.float32)
+    log_probs = _log_softmax(logits)
+    top_token_ids = np.argsort(log_probs, axis=-1)[..., -config.top_k :][..., ::-1]
+    top_log_probs = np.take_along_axis(log_probs, top_token_ids, axis=-1)
+    top_probs = np.exp(top_log_probs).astype(np.float32)
+    top_mass = np.sum(top_probs, axis=-1, dtype=np.float32)
+    tail_mass = np.clip(1.0 - top_mass, 0.0, 1.0).astype(np.float32)
+    probs = np.exp(log_probs).astype(np.float32)
+    teacher_entropy = -np.sum(probs * log_probs, axis=-1, dtype=np.float32)
+    return {
+        "input_ids": arrays["input_ids"],
+        "attention_mask": arrays["attention_mask"],
+        "top_token_ids": top_token_ids.astype(np.int32),
+        "top_log_probs": top_log_probs.astype(
+            np.dtype(_canonical_dtype(config.top_log_probs_dtype))
+        ),
+        "top_mass": top_mass.astype(np.float32),
+        "tail_mass": tail_mass,
+        "teacher_entropy": teacher_entropy.astype(np.float32),
+    }
+
+
+def _log_softmax(logits: np.ndarray) -> np.ndarray:
+    shifted = logits - np.max(logits, axis=-1, keepdims=True)
+    logsumexp = np.log(np.sum(np.exp(shifted), axis=-1, keepdims=True))
+    return shifted - logsumexp
 
 
 def _canonical_dtype(dtype: str) -> str:

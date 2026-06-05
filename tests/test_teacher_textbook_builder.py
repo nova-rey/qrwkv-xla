@@ -200,7 +200,7 @@ def test_hf_mode_builds_valid_artifact_with_mocked_dependencies(
     emission = read_json_object(output / "emission_config.json")
     vocab = read_json_object(output / "vocab_contract.json")
     assert manifest["teacher_backend_type"] == "hf"
-    assert manifest["target_type"] == "full_logits"
+    assert manifest["target_type"] == "dense_logits"
     assert manifest["vocab_size"] == 11
     assert emission["teacher_mode"] == "hf"
     assert emission["sampling_used"] is False
@@ -235,6 +235,43 @@ def test_hf_mode_allows_downloads_only_when_explicit(
 
     assert calls["tokenizer"] == [False]
     assert calls["model"] == [False]
+
+
+def test_hf_mode_can_emit_topk_tail_without_persisting_dense_logits(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: dict[str, list[bool]] = {"tokenizer": [], "model": []}
+    _install_mock_hf_modules(monkeypatch, calls=calls)
+    output = tmp_path / "teacher_textbook"
+
+    report = build_teacher_textbook(
+        TeacherTextbookBuildConfig(
+            output_dir=output,
+            teacher_mode="hf",
+            teacher_model_id="local/tiny-hf",
+            sequence_length=8,
+            batch_size=2,
+            max_examples=2,
+            logits_dtype="float32",
+            local_files_only=True,
+            allow_downloads=False,
+            target_type="topk_with_tail_v0",
+            top_k=4,
+            top_log_probs_dtype="float32",
+        )
+    )
+
+    assert report.status == "pass"
+    assert validate_teacher_textbook(output).status == "pass"
+    assert calls["tokenizer"] == [True]
+    assert calls["model"] == [True]
+    manifest = read_json_object(output / "teacher_manifest.json")
+    assert manifest["target_type"] == "topk_with_tail_v0"
+    assert manifest["top_k"] == 4
+    with np.load(output / "shards" / "shard-00000.npz", allow_pickle=False) as shard:
+        assert "logits" not in shard.files
+        assert shard["top_token_ids"].shape == (2, 8, 4)
 
 
 def test_hf_mode_local_files_only_wins_over_downloads(tmp_path: Path) -> None:

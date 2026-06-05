@@ -8,8 +8,9 @@ supported targets, vocab contract, emission settings, and validation evidence.
 
 P116 defines the contract and adds a small CPU-only validator. P116.1 adds the
 fake-mode builder button for small artifacts. P116.2 adds a guarded real-HF
-teacher mode for tiny causal-LM teachers. It does not train or start the real
-burn.
+teacher mode for tiny causal-LM teachers. P119 adds an opt-in compressed
+`topk_with_tail_v0` target type on the `p119-p120-cascaded-targets` branch. It
+does not train or start the real burn.
 
 ## Relationship to TeacherTargetStore
 
@@ -78,6 +79,11 @@ claims_not_made
 For P117, the preferred teacher model id is `sshleifer/tiny-gpt2`, used as a
 tiny real HF causal-LM lab specimen.
 
+For P119 compressed targets, `teacher_manifest.json` also records `top_k`,
+`top_log_probs_dtype`, and compressed array dtype fields. Dense P117 artifacts
+continue to use `target_type: dense_logits` and persist the dense `logits`
+array.
+
 ## Emission Config
 
 `emission_config.json` fields:
@@ -119,6 +125,12 @@ shards_ok
 shape_ok
 dtype_ok
 count_ok
+target_type
+top_k
+compressed_target_ok
+mass_ok
+sort_ok
+duplicate_ok
 claims_not_made
 ```
 
@@ -215,6 +227,26 @@ P116.3 publishes the default P117 mini textbook handoff path through
 `p117_teacher_textbook_tiny_gpt2_smoke.tar.gz`, verifies its SHA256, extracts
 it, and runs the same TeacherTextbook validator. The artifact proves handoff and
 ingestion only; it is not large enough to train a useful model.
+
+P119 adds compressed print-side emission:
+
+```bash
+python scripts/build_teacher_textbook.py \
+  --teacher-mode fake \
+  --output artifacts/p119_topk_tail_smoke \
+  --sequence-length 16 \
+  --batch-size 2 \
+  --max-examples 4 \
+  --vocab-size 512 \
+  --target-type topk_with_tail_v0 \
+  --top-k 256 \
+  --top-log-probs-dtype float16
+```
+
+Compressed shards omit dense `logits` and write `top_token_ids`,
+`top_log_probs`, `top_mass`, `tail_mass`, and `teacher_entropy`. This is for
+P120 sparse target consumption and does not replace the official P117 dense mini
+textbook path.
 
 ## Dataset JSONL Format
 

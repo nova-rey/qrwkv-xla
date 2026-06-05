@@ -1,5 +1,22 @@
 # QRWKV-XLA Roadmap
 
+## Phase 119 - TopK Tail TeacherTextbook v0
+
+Goal: add an opt-in compressed teacher-target print format without changing the
+P117 dense mini textbook path.
+
+Current checkpoint: `topk_tail_teacher_textbook_v0` on branch
+`p119-p120-cascaded-targets`. P119 adds `target_type=topk_with_tail_v0`, default
+`top_k=256`, compressed shard arrays, manifest/emission metadata, validation
+for shape/dtype/sorted IDs/mass/entropy, and CPU-safe fake/mocked-HF coverage.
+
+P119 does not add trainer loss consumption, training, a real burn,
+Rosetta/Vocab C/tokenizer remapping, Qwen/Gemma scale-up, Pallas promotion, or
+WKV math changes.
+
+Next: P120 Sparse Target Loss Consumption on the same branch. Do not merge into
+the main P117 path until reviewed.
+
 ## Phase 116.3 - TPU VM Bootstrap + P117 Preflight Scripts
 
 Goal: make TPU VM setup and P117 preflight boring, repeatable, and hard to

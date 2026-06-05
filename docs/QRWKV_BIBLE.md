@@ -2407,3 +2407,29 @@ dependency, Vocab C implementation, recurrence math change, WKV equation
 change, checkpoint format incompatibility, TeacherTargetStore layout change,
 StudentRuntime semantic change, StudentBackend behavior change, fixture tensor
 edit, tolerance change, or Pallas promotion was introduced.
+
+## Phase 119 - TopK Tail TeacherTextbook v0
+
+P119 adds an opt-in compressed TeacherTextbook target type on branch
+`p119-p120-cascaded-targets`: `topk_with_tail_v0`. The builder can emit
+compressed shards from fake and HF teacher modes using stable full-distribution
+log-softmax, sorted top-k token IDs and log probabilities, retained mass, tail
+mass, and full-distribution teacher entropy. The default `top_k` contract is
+256.
+
+Compressed shards contain `input_ids`, `attention_mask`, `top_token_ids`,
+`top_log_probs`, `top_mass`, `tail_mass`, and `teacher_entropy`; they do not
+persist dense `logits`. Metadata, teacher manifest, and emission config record
+the target type, top-k value, and compressed dtype fields.
+
+The TeacherTargetStore and TeacherTextbook validators now accept dense and
+top-k-tail artifacts. The compressed path validates required arrays, shapes,
+top-k width, token ID range, duplicate IDs per position, descending log-prob
+order, finite values, mass accounting, and non-negative entropy.
+
+P119 preserves the dense P117 mini textbook path and does not add trainer loss,
+training, a real burn, Rosetta/Vocab C/tokenizer remapping, Qwen/Gemma
+scale-up, full HF model behavior changes, recurrence math changes, WKV equation
+changes, or Pallas promotion. Recommended next phase is P120 sparse target loss
+consumption on the same branch, before review and any merge into the main P117
+path.

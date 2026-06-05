@@ -7,10 +7,11 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P116.3, TPU VM Bootstrap + P117 Preflight Scripts. The Pallas runway is
-closed after a recorded real TPU v5 lite smoke pass for the tiny opt-in Pallas
-WKV path, and the project is now the validated core of a Radjax-shaped modular
-recurrent distillation platform.
+Current phase on `p119-p120-cascaded-targets`: P119, TopK Tail
+TeacherTextbook v0. This branch adds an opt-in compressed teacher-target print
+format for P120 sparse consumption work. The main P117 dense mini textbook path
+remains intact and should not be replaced by this branch until P119/P120 are
+reviewed together.
 
 Current emphasis is teacher backend modularity, vocab contracts, target stores,
 the student backend registry, runtime separation, and the burn-readiness arc.
@@ -28,12 +29,11 @@ the HF-compatible student interface, select the first serious burn target,
 define the TeacherTextbook input / StudentArtifact output contracts for P117,
 build a validated fake-mode TeacherTextbook artifact from tiny text input, and
 build a guarded real-HF TeacherTextbook artifact for tiny causal-LM teachers.
-P116.3 adds human-run TPU VM bootstrap and P117 preflight scripts for the
-released mini textbook handoff.
-Current arc: post-P112 research alignment. The P112 harness exists, but actual
-real burn execution is deferred until the P116 launch plan is reviewed and a
-validated TeacherTextbook is available. Baseline tests remain
-CPU-safe and do not require Hugging Face downloads, internet, Qwen, GPU, or TPU.
+P119 adds `topk_with_tail_v0` TeacherTextbook emission with default
+`top_k=256`, compressed sidecar metadata, and validation for sorted top-k log
+probabilities, mass accounting, duplicate IDs, and entropy. Baseline tests
+remain CPU-safe and do not require Hugging Face downloads, internet, Qwen, GPU,
+or TPU.
 
 P117 is the first serious burn using a validated TeacherTextbook input and a
 validated HF-shaped Level 0/1 StudentArtifact output.
@@ -94,6 +94,9 @@ The post-P112 research intake is documented in
 
 The HF-compatible student interface reassessment is documented in
 `docs/HF_COMPATIBLE_STUDENT_INTERFACE_REASSESSMENT.md`.
+
+The P119 compressed TeacherTextbook target is documented in
+`docs/TOPK_TAIL_TEXTBOOK.md`.
 
 `scripts/run_distill_stage.py` is the primary entrypoint for staged
 distillation. It currently supports hidden-state distillation against fake
