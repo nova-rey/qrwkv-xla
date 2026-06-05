@@ -1,5 +1,25 @@
 # QRWKV-XLA Roadmap
 
+## Phase 120 - Sparse Target Loss Consumption
+
+Goal: teach student-side target consumption to read `topk_with_tail_v0`
+TeacherTextbooks without reconstructing or pretending they are dense logits.
+
+Current checkpoint: `sparse_target_loss_consumption` on branch
+`p119-p120-cascaded-targets`. P120 adds a target dispatcher, dense-path
+preservation, sparse top-k head KL over gathered student logits, optional tail
+mass regularization with default `tail_loss_weight=0.0`, dispatch-aware target
+batch loading, and sparse mini-eval reporting.
+
+P120 does not add bucket loss, Rosetta/Vocab C/tokenizer remapping,
+Qwen/Gemma scale-up, a full HF-native wrapper, real burn execution, Pallas
+promotion, or WKV math changes.
+
+Next:
+
+- P121 - Cascaded Buckets v1 on the same branch
+- P122 - follow-on compressed-target branch work, if reviewed
+
 ## Phase 119 - TopK Tail TeacherTextbook v0
 
 Goal: add an opt-in compressed teacher-target print format without changing the
@@ -14,8 +34,7 @@ P119 does not add trainer loss consumption, training, a real burn,
 Rosetta/Vocab C/tokenizer remapping, Qwen/Gemma scale-up, Pallas promotion, or
 WKV math changes.
 
-Next: P120 Sparse Target Loss Consumption on the same branch. Do not merge into
-the main P117 path until reviewed.
+Next: P120 Sparse Target Loss Consumption on the same branch - complete.
 
 ## Phase 116.3 - TPU VM Bootstrap + P117 Preflight Scripts
 

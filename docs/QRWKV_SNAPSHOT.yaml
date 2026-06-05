@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 119
-current_phase: P119
-checkpoint: topk_tail_teacher_textbook_v0
+phase: 120
+current_phase: P120
+checkpoint: sparse_target_loss_consumption
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,19 +56,42 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add opt-in TopK-with-tail TeacherTextbook v0 print-side target artifacts on
+  Add sparse target loss consumption for TopK-with-tail TeacherTextbooks on
   the p119-p120-cascaded-targets branch.
 
 current_arc: compressed_teacher_targets
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
-recommended_next: P120 Sparse Target Loss Consumption on p119-p120-cascaded-targets
+recommended_next: P121 Cascaded Buckets v1 on p119-p120-cascaded-targets
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
   post_p112_research_alignment: active
   compressed_teacher_targets: active
+
+p120:
+  goal: sparse_target_loss_consumption
+  branch: p119-p120-cascaded-targets
+  behavior_change_intended: true
+  dense_path_preserved: true
+  topk_tail_target_consumption_added: true
+  sparse_head_loss_added: true
+  sparse_head_loss_weight_default: 1.0
+  default_tail_loss_weight: 0.0
+  tail_regularization_optional: true
+  bucket_loss_added: false
+  rosetta_integration_added: false
+  vocab_c_implemented: false
+  tokenizer_remapping_added: false
+  qwen_or_gemma_scaleup_added: false
+  full_hf_native_wrapper_added: false
+  real_burn_started: false
+  training_burn_started: false
+  p117_dense_path_replaced: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  recommended_next: P121 Cascaded Buckets v1 on same branch
 
 p119:
   goal: topk_tail_teacher_textbook_v0

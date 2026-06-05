@@ -248,6 +248,10 @@ Compressed shards omit dense `logits` and write `top_token_ids`,
 P120 sparse target consumption and does not replace the official P117 dense mini
 textbook path.
 
+P120 makes `topk_with_tail_v0` artifacts consumable by a sparse head-KL loss
+path. The official P117 dense mini-burn path remains unchanged until reviewed;
+compressed artifacts must not be silently treated as dense logits.
+
 ## Dataset JSONL Format
 
 JSONL rows must be objects with non-empty `text`:

@@ -123,3 +123,13 @@ changes, Pallas promotion, or WKV math changes.
 Recommended next phase: P120 Sparse Target Loss Consumption on the same
 `p119-p120-cascaded-targets` branch. Do not merge into the main P117 dense burn
 path until P119/P120 are reviewed together.
+
+## P120 Consumption
+
+P120 adds trainer/eval-side sparse head loss consumption for
+`topk_with_tail_v0`. The student gathers logits at `top_token_ids` and computes
+a renormalized top-k head KL against `top_log_probs`.
+
+Tail mass regularization is optional and defaults off with
+`tail_loss_weight=0.0`. `tail_mass`, `top_mass`, and `teacher_entropy` are used
+for reporting and guarded optional calibration, not as exact dense labels.

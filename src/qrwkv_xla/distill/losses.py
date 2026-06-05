@@ -18,6 +18,22 @@ class LossBreakdown:
     attention_or_mixer: jax.Array | None = None
 
 
+@dataclass(frozen=True)
+class DistillationLossReport:
+    total_loss: jax.Array
+    head_loss: jax.Array
+    tail_loss: jax.Array
+    tail_loss_weight: float
+    token_count: jax.Array
+    target_type: str
+    distillation_loss_type: str
+    top_k: int | None = None
+    sparse_head_loss_weight: float = 1.0
+    mean_top_mass: jax.Array | None = None
+    mean_tail_mass: jax.Array | None = None
+    mean_teacher_entropy: jax.Array | None = None
+
+
 def logits_kl_loss(
     student_logits: jax.Array,
     teacher_logits: jax.Array,
@@ -56,6 +72,115 @@ def logits_kl_loss(
     numerator = jnp.sum(token_kl * mask)
     denominator = jnp.maximum(jnp.sum(mask), jnp.asarray(1, dtype=token_kl.dtype))
     return numerator / denominator
+
+
+def topk_tail_distillation_loss(
+    student_logits: jax.Array,
+    top_token_ids: jax.Array,
+    top_log_probs: jax.Array,
+    attention_mask: jax.Array,
+    *,
+    tail_mass: jax.Array | None = None,
+    top_mass: jax.Array | None = None,
+    teacher_entropy: jax.Array | None = None,
+    tail_loss_weight: float = 0.0,
+    sparse_head_loss_weight: float = 1.0,
+    eps: float = 1e-8,
+) -> DistillationLossReport:
+    if tail_loss_weight < 0:
+        raise ValueError(f"tail_loss_weight must be >= 0, got {tail_loss_weight}")
+    if sparse_head_loss_weight <= 0:
+        raise ValueError(
+            f"sparse_head_loss_weight must be > 0, got {sparse_head_loss_weight}"
+        )
+    if eps <= 0:
+        raise ValueError(f"eps must be > 0, got {eps}")
+
+    student = jnp.asarray(student_logits, dtype=jnp.float32)
+    token_ids = jnp.asarray(top_token_ids, dtype=jnp.int32)
+    teacher_top = jnp.asarray(top_log_probs, dtype=jnp.float32)
+    mask = jnp.asarray(attention_mask, dtype=jnp.float32)
+
+    if student.ndim != 3:
+        raise ValueError(f"student_logits must have shape [B,T,V], got {student.shape}")
+    if token_ids.ndim != 3:
+        raise ValueError(
+            f"top_token_ids must have shape [B,T,K], got {token_ids.shape}"
+        )
+    if teacher_top.shape != token_ids.shape:
+        raise ValueError(
+            "top_token_ids shape must match top_log_probs shape, "
+            f"got {token_ids.shape} and {teacher_top.shape}"
+        )
+    if token_ids.shape[:2] != student.shape[:2]:
+        raise ValueError(
+            "top_token_ids [B,T] must match student_logits [B,T], "
+            f"got {token_ids.shape[:2]} and {student.shape[:2]}"
+        )
+    if mask.shape != student.shape[:2]:
+        raise ValueError(
+            f"attention_mask must have shape {student.shape[:2]}, got {mask.shape}"
+        )
+    if student.shape[-1] <= 0:
+        raise ValueError("student_logits vocab dimension must be > 0")
+    if _array_has_any(token_ids < 0) or _array_has_any(token_ids >= student.shape[-1]):
+        raise ValueError(
+            "top_token_ids contains ids outside student vocab range "
+            f"[0, {student.shape[-1]}) for target_type topk_with_tail_v0"
+        )
+    if tail_loss_weight > 0 and tail_mass is None:
+        raise ValueError(
+            "tail_loss_weight > 0 requires tail_mass for target_type topk_with_tail_v0"
+        )
+
+    student_top_logits = jnp.take_along_axis(student, token_ids, axis=-1)
+    teacher_head_log_probs = jax.nn.log_softmax(teacher_top, axis=-1)
+    student_head_log_probs = jax.nn.log_softmax(student_top_logits, axis=-1)
+    teacher_head_probs = jnp.exp(teacher_head_log_probs)
+    per_token_head_kl = jnp.sum(
+        teacher_head_probs * (teacher_head_log_probs - student_head_log_probs),
+        axis=-1,
+    )
+    token_count = jnp.maximum(jnp.sum(mask), jnp.asarray(1.0, dtype=jnp.float32))
+    head_loss = jnp.sum(per_token_head_kl * mask) / token_count
+
+    tail_loss = jnp.asarray(0.0, dtype=jnp.float32)
+    if tail_loss_weight > 0:
+        teacher_tail = jnp.asarray(tail_mass, dtype=jnp.float32)
+        if teacher_tail.shape != student.shape[:2]:
+            raise ValueError(
+                f"tail_mass must have shape {student.shape[:2]}, got "
+                f"{teacher_tail.shape}"
+            )
+        student_head_logsumexp = jax.nn.logsumexp(student_top_logits, axis=-1)
+        student_full_logsumexp = jax.nn.logsumexp(student, axis=-1)
+        student_top_mass = jnp.exp(student_head_logsumexp - student_full_logsumexp)
+        student_tail_mass = jnp.clip(1.0 - student_top_mass, eps, 1.0)
+        teacher_tail_mass = jnp.clip(teacher_tail, eps, 1.0)
+        per_token_tail_loss = jnp.square(
+            jnp.log(student_tail_mass) - jnp.log(teacher_tail_mass)
+        )
+        tail_loss = jnp.sum(per_token_tail_loss * mask) / token_count
+
+    total = head_loss * jnp.asarray(
+        sparse_head_loss_weight, dtype=jnp.float32
+    ) + tail_loss * jnp.asarray(tail_loss_weight, dtype=jnp.float32)
+    return DistillationLossReport(
+        total_loss=total,
+        head_loss=head_loss,
+        tail_loss=tail_loss,
+        tail_loss_weight=tail_loss_weight,
+        token_count=token_count,
+        target_type="topk_with_tail_v0",
+        distillation_loss_type="topk_tail_head_kl",
+        top_k=int(token_ids.shape[-1]),
+        sparse_head_loss_weight=sparse_head_loss_weight,
+        mean_top_mass=_masked_mean(top_mass, mask) if top_mass is not None else None,
+        mean_tail_mass=_masked_mean(tail_mass, mask) if tail_mass is not None else None,
+        mean_teacher_entropy=(
+            _masked_mean(teacher_entropy, mask) if teacher_entropy is not None else None
+        ),
+    )
 
 
 def compute_distill_loss(
@@ -165,3 +290,18 @@ def attention_mixer_mse_loss(
         teacher_attention_targets,
         attention_mask,
     )
+
+
+def _masked_mean(values: jax.Array, mask: jax.Array) -> jax.Array:
+    value_array = jnp.asarray(values, dtype=jnp.float32)
+    if value_array.shape != mask.shape:
+        raise ValueError(
+            "metric array shape must match attention_mask, got "
+            f"{value_array.shape} and {mask.shape}"
+        )
+    denominator = jnp.maximum(jnp.sum(mask), jnp.asarray(1.0, dtype=jnp.float32))
+    return jnp.sum(value_array * mask) / denominator
+
+
+def _array_has_any(value: jax.Array) -> bool:
+    return bool(jnp.asarray(jnp.any(value)))

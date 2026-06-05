@@ -2433,3 +2433,29 @@ scale-up, full HF model behavior changes, recurrence math changes, WKV equation
 changes, or Pallas promotion. Recommended next phase is P120 sparse target loss
 consumption on the same branch, before review and any merge into the main P117
 path.
+
+## Phase 120 - Sparse Target Loss Consumption
+
+P120 added trainer/eval-side sparse target consumption for TopK+Tail
+TeacherTextbooks on branch `p119-p120-cascaded-targets`. The target dispatcher
+preserves dense logits loss while adding `topk_with_tail_v0` head-KL loss over
+student logits gathered at teacher `top_token_ids`.
+
+The sparse head loss renormalizes both teacher `top_log_probs` and gathered
+student logits over K before computing KL. Tail mass regularization is optional
+and defaults to `tail_loss_weight=0.0` because `topk_with_tail_v0` stores tail
+calibration but not exact tail membership.
+
+Dispatch-aware target batches can load compressed TeacherTextbooks without a
+dense `logits` array. Mini eval reports now identify
+`teacher_target_type`, `distillation_loss_type`, sparse `head_loss`,
+`tail_loss`, `tail_loss_weight`, `top_k`, and teacher mass/entropy metrics where
+available. Dense reports remain valid and the official dense P117 mini-burn path
+remains preserved.
+
+P120 did not run a real burn, replace the P117 dense path, make quality claims,
+add bucket loss, add Rosetta/Vocab C/tokenizer remapping, add Qwen/Gemma
+scale-up, implement full HF-native integration, change WKV math, change
+StudentRuntime semantics, change StudentBackend behavior, or promote Pallas.
+Recommended next phase is P121 Cascaded Buckets v1 on the same branch after
+reviewing sparse loss behavior.

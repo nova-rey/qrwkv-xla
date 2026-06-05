@@ -11,6 +11,13 @@ from qrwkv_xla.artifacts import (
     validate_teacher_textbook,
 )
 from qrwkv_xla.artifacts._json import read_json_object
+from qrwkv_xla.contracts import vocab_contract_from_metadata
+from qrwkv_xla.eval import run_mini_eval_harness
+from qrwkv_xla.students import TINY_DEBUG_ARCHITECTURE_ID
+from qrwkv_xla.targets import (
+    TeacherTargetStore,
+    load_teacher_target_batch,
+)
 
 
 def test_fake_builder_writes_topk_tail_target_without_dense_logits(
@@ -65,6 +72,99 @@ def test_dense_logits_path_remains_default_and_valid(tmp_path: Path) -> None:
         assert "logits" in shard.files
         assert "top_token_ids" not in shard.files
         assert shard["logits"].shape == (2, 8, 17)
+
+
+def test_loader_reads_topk_tail_textbook_without_logits_array(tmp_path: Path) -> None:
+    output = _build_topk(tmp_path)
+    store = TeacherTargetStore.open(output)
+
+    batch = load_teacher_target_batch(store, shard_id=0)
+
+    assert batch.target_type == "topk_with_tail_v0"
+    assert batch.teacher_logits is None
+    assert batch.top_token_ids is not None
+    assert batch.top_log_probs is not None
+    assert batch.top_token_ids.shape == (2, 8, 8)
+
+
+def test_loader_reads_dense_textbook_with_logits_array(tmp_path: Path) -> None:
+    output = tmp_path / "dense"
+    build_teacher_textbook(_config(output))
+    store = TeacherTargetStore.open(output)
+
+    batch = load_teacher_target_batch(store, shard_id=0)
+
+    assert batch.target_type == "dense_logits"
+    assert batch.teacher_logits is not None
+    assert batch.top_token_ids is None
+    assert batch.teacher_logits.shape == (2, 8, 17)
+
+
+def test_mini_eval_consumes_topk_tail_textbook_and_reports_sparse_metrics(
+    tmp_path: Path,
+) -> None:
+    output = _build_topk(tmp_path)
+    store = TeacherTargetStore.open(output)
+
+    result = run_mini_eval_harness(
+        store=store,
+        architecture_id=TINY_DEBUG_ARCHITECTURE_ID,
+    )
+
+    assert result.status == "pass"
+    assert result.teacher_target_type == "topk_with_tail_v0"
+    assert result.distillation_loss_type == "topk_tail_head_kl"
+    assert result.mean_distillation_loss is not None
+    assert result.mean_mse_loss is None
+    assert result.head_loss is not None
+    assert result.tail_loss == 0.0
+    assert result.tail_loss_weight == 0.0
+    assert result.top_k == 8
+    assert result.mean_top_mass is not None
+    assert result.mean_tail_mass is not None
+    assert result.mean_teacher_entropy is not None
+
+
+def test_mini_eval_dense_report_remains_valid(tmp_path: Path) -> None:
+    output = tmp_path / "dense"
+    build_teacher_textbook(_config(output))
+    store = TeacherTargetStore.open(output)
+
+    result = run_mini_eval_harness(
+        store=store,
+        architecture_id=TINY_DEBUG_ARCHITECTURE_ID,
+    )
+
+    assert result.status == "pass"
+    assert result.teacher_target_type == "dense_logits"
+    assert result.distillation_loss_type == "dense_logits_kl"
+    assert result.mean_mse_loss is not None
+    assert result.mean_distillation_loss is not None
+    assert result.top_k is None
+    assert result.mean_top_mass is None
+
+
+def test_mini_eval_student_vocab_mismatch_fails_before_sparse_consumption(
+    tmp_path: Path,
+) -> None:
+    output = _build_topk(tmp_path)
+    store = TeacherTargetStore.open(output)
+    contract = vocab_contract_from_metadata(store.metadata)
+
+    result = run_mini_eval_harness(
+        store=store,
+        architecture_id=TINY_DEBUG_ARCHITECTURE_ID,
+        student_vocab_contract=contract.__class__(
+            tokenizer_id=contract.tokenizer_id,
+            tokenizer_hash=contract.tokenizer_hash,
+            vocab_size=contract.vocab_size + 1,
+            model_id=contract.model_id,
+            model_family=contract.model_family,
+        ),
+    )
+
+    assert result.status == "incompatible"
+    assert "vocab_size mismatch" in result.compatibility_reason
 
 
 def test_topk_validator_rejects_missing_required_array(tmp_path: Path) -> None:
