@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 126
-current_phase: P126
-checkpoint: contract_unification_cascaded_burn_wiring
+phase: 128
+current_phase: P128
+checkpoint: distributed_example_sharding_proof
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,17 +56,16 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Unify the dense TeacherTextbook contract, wire cascaded targets into the
-  guarded real-burn path, and record the P124/P125 artifact and TPU smoke
-  results without overclaiming distributed readiness.
+  Prove deterministic, non-overlapping example sharding across JAX processes
+  for the guarded real-burn path while keeping optimizer synchronization and
+  full distributed training correctness out of scope.
 
-current_arc: post_p125_contract_closure
+current_arc: distributed_example_sharding
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P127 TPU rerun of the 100-example cascaded real-burn smoke
-  - P128 distributed example-sharding proof
+  - P129 gradient/optimizer synchronization proof
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -74,6 +73,7 @@ arc_status:
   burn_result_analysis: complete
   integration_gate: complete
   contract_unification_cascaded_burn_wiring: complete
+  distributed_example_sharding: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -87,6 +87,9 @@ main_contains:
   p126_dense_contract_unification: true
   p126_cascaded_real_burn_wiring: true
   p126_worker_process_observability: true
+  p128_example_sharding_utility: true
+  p128_real_burn_example_sharding: true
+  p128_local_global_sharding_reports: true
 
 teacher_target_types:
   - dense_logits
@@ -98,6 +101,30 @@ p117_1_invariants_preserved:
   max_steps_configurable: true
   batch_size_configurable: true
   textbook_reuse_configurable: true
+
+p128:
+  goal: distributed_example_sharding_proof
+  status: complete
+  default_multi_process_strategy: contiguous_by_process
+  single_process_strategy: single_process
+  round_robin_strategy_available: true
+  local_shard_report_written: true
+  global_sharding_report_written_by_process_zero: true
+  examples_available_global_reported: true
+  examples_available_local_reported: true
+  examples_consumed_local_reported: true
+  unique_examples_consumed_local_reported: true
+  deterministic_coverage_verification: true
+  deterministic_overlap_verification: true
+  distributed_example_sharding_verified_when_multi_process: true
+  distributed_training_ready: false
+  optimizer_synchronization_verified: false
+  model_quality_claimed: false
+  qwen_support_added: false
+  tokenizer_remapping_added: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  recommended_next: P129 gradient/optimizer synchronization proof
 
 p126:
   goal: contract_unification_cascaded_burn_wiring

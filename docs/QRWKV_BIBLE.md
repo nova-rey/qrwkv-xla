@@ -2511,3 +2511,25 @@ explicitly keep `distributed_training_ready`,
 P126 did not launch a full burn, prove model quality, prove distributed
 training, change WKV math, promote Pallas, add tokenizer remapping, or add Qwen
 scale-up support.
+
+## Phase 128 - Distributed Example Sharding Proof
+
+P127 verified that the P126 cascaded real-burn path executes on TPU with 4 JAX
+processes and 16 TPU devices, but it still reported unsharded example
+consumption. P128 isolates the next proof: deterministic example assignment
+only.
+
+P128 adds pure contiguous and round-robin example-sharding utilities. The real
+burn harness now defaults to `contiguous_by_process` when
+`jax.process_count() > 1`, slices dense and cascaded TeacherTextbook arrays to
+the local process shard, writes per-process shard reports, and has process 0
+write a deterministic global coverage/overlap report. Burn reports now
+distinguish global and local example counts and expose local shard min/max/sample
+diagnostics.
+
+P128 may claim deterministic distributed example sharding when
+`distributed_example_sharding_verified=true`. It does not prove optimizer
+synchronization, synchronized global batch semantics, full distributed training
+correctness, model quality, WKV/Pallas changes, tokenizer remapping, or Qwen
+scale-up support. P129 remains reserved for gradient/optimizer synchronization
+proof.

@@ -11,6 +11,13 @@ import jax.numpy as jnp
 import numpy as np
 
 from qrwkv_xla.burn.config import FirstSeriousBurnConfig
+from qrwkv_xla.burn.example_sharding import (
+    CONTIGUOUS_BY_PROCESS,
+    ROUND_ROBIN_BY_PROCESS,
+    ExampleShard,
+    build_example_shard,
+    verify_global_example_shards,
+)
 from qrwkv_xla.checkpointing import run_checkpoint_resume_update_rehearsal
 from qrwkv_xla.distill.target_dispatch import (
     CASCADED_TARGET_TYPE,
@@ -80,10 +87,15 @@ class FirstSeriousBurnResult:
     student_logits_materialization: str | None = None
     max_steps_requested: int = 0
     batch_size: int = 1
+    local_batch_size: int = 1
     allow_textbook_reuse: bool = False
     examples_available: int = 0
     examples_consumed: int = 0
     unique_examples_consumed: int = 0
+    examples_available_global: int = 0
+    examples_available_local: int = 0
+    examples_consumed_local: int = 0
+    unique_examples_consumed_local: int = 0
     reuse_count: int = 0
     epochs_completed_or_fractional: float = 0.0
     loss_initial: float | None = None
@@ -106,6 +118,8 @@ class FirstSeriousBurnResult:
     distributed_sharding_verified: bool = False
     sharding_strategy: str = "single_process_or_unsharded"
     distributed_example_sharding_verified: bool = False
+    example_sharding_local_report_path: str | None = None
+    example_sharding_global_report_path: str | None = None
     example_id_min: int | None = None
     example_id_max: int | None = None
     example_id_sample: tuple[int, ...] = ()
@@ -293,6 +307,7 @@ class _TrainingRun:
     examples_available: int
     examples_consumed: int
     unique_examples_consumed: int
+    local_batch_size: int
     reuse_count: int
     epochs_completed_or_fractional: float
     loss_trace: tuple[float, ...]
@@ -310,6 +325,17 @@ class _TrainingRun:
     example_id_min: int | None
     example_id_max: int | None
     example_id_sample: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class _ExampleShardingPlan:
+    strategy: str
+    shard: ExampleShard
+    local_batch_size: int
+    local_report_path: Path
+    global_report_path: Path | None
+    distributed_example_sharding_verified: bool
+    distributed_sharding_verified: bool
 
 
 def _run_real_training(
@@ -339,9 +365,16 @@ def _run_real_training(
         if target_type in DENSE_LOGIT_TARGET_TYPES
         else _load_teacher_textbook_arrays(store)
     )
+    global_example_count = int(arrays.input_ids.shape[0])
+    sharding_plan = _resolve_example_sharding_plan(
+        config=config,
+        output_dir=output_dir,
+        global_example_count=global_example_count,
+    )
+    arrays = _slice_textbook_arrays(arrays, sharding_plan.shard.local_indices)
     exhaustion_blocker = _exhaustion_blocker(
         examples_available=arrays.input_ids.shape[0],
-        batch_size=config.batch_size,
+        batch_size=sharding_plan.local_batch_size,
         max_steps=config.max_steps,
         allow_reuse=config.allow_textbook_reuse,
     )
@@ -361,6 +394,23 @@ def _run_real_training(
             teacher_textbook_sequence_length=store.metadata.sequence_length,
             teacher_textbook_vocab_size=store.metadata.vocab_size,
             examples_available=arrays.input_ids.shape[0],
+            examples_available_global=global_example_count,
+            examples_available_local=arrays.input_ids.shape[0],
+            local_batch_size=sharding_plan.local_batch_size,
+            sharding_strategy=sharding_plan.strategy,
+            distributed_example_sharding_verified=(
+                sharding_plan.distributed_example_sharding_verified
+            ),
+            distributed_sharding_verified=sharding_plan.distributed_sharding_verified,
+            example_sharding_local_report_path=str(sharding_plan.local_report_path),
+            example_sharding_global_report_path=(
+                str(sharding_plan.global_report_path)
+                if sharding_plan.global_report_path
+                else None
+            ),
+            example_id_min=sharding_plan.shard.example_id_min,
+            example_id_max=sharding_plan.shard.example_id_max,
+            example_id_sample=sharding_plan.shard.example_id_sample,
         )
 
     training = _train_textbook(
@@ -368,6 +418,8 @@ def _run_real_training(
         output_dir=output_dir,
         config=config,
         teacher_textbook_path=textbook_path,
+        local_batch_size=sharding_plan.local_batch_size,
+        local_example_ids=sharding_plan.shard.local_indices,
     )
     blockers = _real_training_blockers(training)
     loss_initial = training.loss_trace[0] if training.loss_trace else None
@@ -402,10 +454,15 @@ def _run_real_training(
         student_logits_materialization=training.student_logits_materialization,
         max_steps_requested=config.max_steps,
         batch_size=config.batch_size,
+        local_batch_size=training.local_batch_size,
         allow_textbook_reuse=config.allow_textbook_reuse,
         examples_available=training.examples_available,
         examples_consumed=training.examples_consumed,
         unique_examples_consumed=training.unique_examples_consumed,
+        examples_available_global=global_example_count,
+        examples_available_local=training.examples_available,
+        examples_consumed_local=training.examples_consumed,
+        unique_examples_consumed_local=training.unique_examples_consumed,
         reuse_count=training.reuse_count,
         epochs_completed_or_fractional=training.epochs_completed_or_fractional,
         loss_initial=loss_initial,
@@ -428,6 +485,17 @@ def _run_real_training(
         worker_id=_worker_id(),
         hostname=socket.gethostname(),
         real_training_executed=training.steps_completed > 0,
+        distributed_sharding_verified=sharding_plan.distributed_sharding_verified,
+        sharding_strategy=sharding_plan.strategy,
+        distributed_example_sharding_verified=(
+            sharding_plan.distributed_example_sharding_verified
+        ),
+        example_sharding_local_report_path=str(sharding_plan.local_report_path),
+        example_sharding_global_report_path=(
+            str(sharding_plan.global_report_path)
+            if sharding_plan.global_report_path
+            else None
+        ),
         example_id_min=training.example_id_min,
         example_id_max=training.example_id_max,
         example_id_sample=training.example_id_sample,
@@ -503,6 +571,17 @@ def _blocked_result(
     teacher_textbook_sequence_length: int = 0,
     teacher_textbook_vocab_size: int = 0,
     examples_available: int = 0,
+    examples_available_global: int = 0,
+    examples_available_local: int = 0,
+    local_batch_size: int | None = None,
+    sharding_strategy: str = "single_process_or_unsharded",
+    distributed_example_sharding_verified: bool = False,
+    distributed_sharding_verified: bool = False,
+    example_sharding_local_report_path: str | None = None,
+    example_sharding_global_report_path: str | None = None,
+    example_id_min: int | None = None,
+    example_id_max: int | None = None,
+    example_id_sample: tuple[int, ...] = (),
 ) -> FirstSeriousBurnResult:
     return FirstSeriousBurnResult(
         phase=config.phase,
@@ -530,8 +609,11 @@ def _blocked_result(
         teacher_textbook_vocab_size=teacher_textbook_vocab_size,
         max_steps_requested=config.max_steps,
         batch_size=config.batch_size,
+        local_batch_size=local_batch_size or config.batch_size,
         allow_textbook_reuse=config.allow_textbook_reuse,
         examples_available=examples_available,
+        examples_available_global=examples_available_global,
+        examples_available_local=examples_available_local,
         device_backend=_jax_backend(),
         jax_devices=_jax_devices(),
         jax_process_index=_jax_process_index(),
@@ -541,6 +623,14 @@ def _blocked_result(
         jax_backend=_jax_backend(),
         worker_id=_worker_id(),
         hostname=socket.gethostname(),
+        distributed_sharding_verified=distributed_sharding_verified,
+        sharding_strategy=sharding_strategy,
+        distributed_example_sharding_verified=distributed_example_sharding_verified,
+        example_sharding_local_report_path=example_sharding_local_report_path,
+        example_sharding_global_report_path=example_sharding_global_report_path,
+        example_id_min=example_id_min,
+        example_id_max=example_id_max,
+        example_id_sample=example_id_sample,
     )
 
 
@@ -573,8 +663,10 @@ def _warnings_accepted(
 
 
 def _validate_config(config: FirstSeriousBurnConfig) -> None:
-    if config.phase not in {"P112", "P117.1"}:
-        raise ValueError(f"phase must be 'P112' or 'P117.1', got {config.phase!r}")
+    if config.phase not in {"P112", "P117.1", "P128"}:
+        raise ValueError(
+            f"phase must be 'P112', 'P117.1', or 'P128', got {config.phase!r}"
+        )
     if config.mode not in {"dry_run", "real"}:
         raise ValueError("mode must be 'dry_run' or 'real'")
     if config.max_steps <= 0:
@@ -589,11 +681,140 @@ def _validate_config(config: FirstSeriousBurnConfig) -> None:
         raise ValueError("eval_every_steps must be > 0")
     if config.allow_downloads and config.local_files_only:
         raise ValueError("allow_downloads=True conflicts with local_files_only=True")
+    if config.example_sharding not in {
+        "auto",
+        "none",
+        CONTIGUOUS_BY_PROCESS,
+        ROUND_ROBIN_BY_PROCESS,
+    }:
+        raise ValueError(
+            "example_sharding must be one of 'auto', 'none', "
+            f"{CONTIGUOUS_BY_PROCESS!r}, {ROUND_ROBIN_BY_PROCESS!r}"
+        )
 
 
 def _teacher_textbook_path(config: FirstSeriousBurnConfig) -> Path | None:
     raw_path = config.teacher_textbook_path or config.target_store_path
     return None if raw_path is None else Path(raw_path)
+
+
+def _resolve_example_sharding_plan(
+    *,
+    config: FirstSeriousBurnConfig,
+    output_dir: Path,
+    global_example_count: int,
+) -> _ExampleShardingPlan:
+    process_index = _jax_process_index() or 0
+    process_count = _jax_process_count() or 1
+    strategy = _select_example_sharding_strategy(
+        requested=config.example_sharding,
+        process_count=process_count,
+    )
+    if strategy == "single_process":
+        shard = ExampleShard(
+            strategy=strategy,
+            process_index=process_index,
+            process_count=process_count,
+            global_example_count=global_example_count,
+            local_indices=tuple(range(global_example_count)),
+            local_example_count=global_example_count,
+            example_id_min=0 if global_example_count else None,
+            example_id_max=global_example_count - 1 if global_example_count else None,
+            example_id_sample=tuple(range(min(global_example_count, 8))),
+        )
+        global_report = None
+        verified = False
+    else:
+        shard = build_example_shard(
+            strategy=strategy,
+            global_example_count=global_example_count,
+            process_index=process_index,
+            process_count=process_count,
+        )
+        all_shards = [
+            build_example_shard(
+                strategy=strategy,
+                global_example_count=global_example_count,
+                process_index=index,
+                process_count=process_count,
+            )
+            for index in range(process_count)
+        ]
+        global_report = verify_global_example_shards(all_shards)
+        verified = bool(
+            process_count > 1
+            and global_report["coverage_verified"]
+            and global_report["overlap_verified"]
+        )
+
+    local_report_path = _write_example_shard_report(output_dir, shard)
+    global_report_path = (
+        _write_global_example_sharding_report(output_dir, global_report)
+        if global_report is not None and process_index == 0
+        else None
+    )
+    return _ExampleShardingPlan(
+        strategy=strategy,
+        shard=shard,
+        local_batch_size=_local_batch_size(
+            global_batch_size=config.batch_size,
+            process_count=process_count,
+            sharded=strategy != "single_process",
+        ),
+        local_report_path=local_report_path,
+        global_report_path=global_report_path,
+        distributed_example_sharding_verified=verified,
+        distributed_sharding_verified=verified,
+    )
+
+
+def _select_example_sharding_strategy(
+    *,
+    requested: str,
+    process_count: int,
+) -> str:
+    if requested == "none":
+        return "single_process"
+    if requested == "auto":
+        return CONTIGUOUS_BY_PROCESS if process_count > 1 else "single_process"
+    return requested
+
+
+def _local_batch_size(
+    *,
+    global_batch_size: int,
+    process_count: int,
+    sharded: bool,
+) -> int:
+    if not sharded:
+        return global_batch_size
+    return max(1, (global_batch_size + process_count - 1) // process_count)
+
+
+def _write_example_shard_report(output_dir: Path, shard: ExampleShard) -> Path:
+    path = output_dir / f"example_shard_process_{shard.process_index}.json"
+    path.write_text(
+        json.dumps(
+            shard.to_report(include_all_indices=shard.local_example_count <= 4096),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def _write_global_example_sharding_report(
+    output_dir: Path,
+    report: dict[str, Any],
+) -> Path:
+    path = output_dir / "example_sharding_global_report.json"
+    path.write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return path
 
 
 def _load_dense_textbook_arrays(store: TeacherTargetStore) -> _TeacherTextbookArrays:
@@ -654,6 +875,36 @@ def _load_teacher_textbook_arrays(store: TeacherTargetStore) -> _TeacherTextbook
     )
 
 
+def _slice_textbook_arrays(
+    arrays: _TeacherTextbookArrays,
+    local_indices: tuple[int, ...],
+) -> _TeacherTextbookArrays:
+    index = np.asarray(local_indices, dtype=np.int64)
+    return _TeacherTextbookArrays(
+        target_type=arrays.target_type,
+        input_ids=arrays.input_ids[index],
+        attention_mask=arrays.attention_mask[index],
+        vocab_size=arrays.vocab_size,
+        teacher_logits=_optional_numpy_take(arrays.teacher_logits, index),
+        top_token_ids=_optional_numpy_take(arrays.top_token_ids, index),
+        top_log_probs=_optional_numpy_take(arrays.top_log_probs, index),
+        top_mass=_optional_numpy_take(arrays.top_mass, index),
+        tail_mass=_optional_numpy_take(arrays.tail_mass, index),
+        teacher_entropy=_optional_numpy_take(arrays.teacher_entropy, index),
+        bucket_edges=arrays.bucket_edges,
+        bucket_mass=_optional_numpy_take(arrays.bucket_mass, index),
+        bucket_count=_optional_numpy_take(arrays.bucket_count, index),
+        bucket_mean_logp=_optional_numpy_take(arrays.bucket_mean_logp, index),
+    )
+
+
+def _optional_numpy_take(
+    value: np.ndarray | None,
+    index: np.ndarray,
+) -> np.ndarray | None:
+    return None if value is None else value[index]
+
+
 def _exhaustion_blocker(
     *,
     examples_available: int,
@@ -679,6 +930,8 @@ def _train_textbook(
     output_dir: Path,
     config: FirstSeriousBurnConfig,
     teacher_textbook_path: Path,
+    local_batch_size: int,
+    local_example_ids: tuple[int, ...],
 ) -> _TrainingRun:
     input_ids = jnp.asarray(arrays.input_ids, dtype=jnp.int32)
     attention_mask = jnp.asarray(arrays.attention_mask, dtype=jnp.float32)
@@ -700,7 +953,7 @@ def _train_textbook(
     for step in range(config.max_steps):
         indices = _batch_indices(
             step=step,
-            batch_size=config.batch_size,
+            batch_size=local_batch_size,
             examples_available=arrays.input_ids.shape[0],
             allow_reuse=config.allow_textbook_reuse,
         )
@@ -730,7 +983,7 @@ def _train_textbook(
             grads,
         )
         loss_trace.append(float(loss))
-        seen.extend(indices)
+        seen.extend(int(local_example_ids[index]) for index in indices)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     loss_trace_path = output_dir / "loss_trace.json"
@@ -769,6 +1022,7 @@ def _train_textbook(
         "target_loss_kind": _target_loss_kind(arrays.target_type),
         "bucket_shape_loss_weight": 0.0,
         "batch_size": config.batch_size,
+        "local_batch_size": local_batch_size,
         "max_steps": config.max_steps,
         "allow_textbook_reuse": config.allow_textbook_reuse,
         "loss_trace": loss_trace,
@@ -783,6 +1037,7 @@ def _train_textbook(
         examples_available=arrays.input_ids.shape[0],
         examples_consumed=len(seen),
         unique_examples_consumed=unique_seen,
+        local_batch_size=local_batch_size,
         reuse_count=len(seen) - unique_seen,
         epochs_completed_or_fractional=len(seen) / arrays.input_ids.shape[0],
         loss_trace=tuple(loss_trace),

@@ -1,5 +1,27 @@
 # QRWKV-XLA Roadmap
 
+## Phase 128 - Distributed Example Sharding Proof
+
+Goal: prove deterministic, non-overlapping example assignment across JAX
+processes for the guarded real-burn path.
+
+Current checkpoint: `distributed_example_sharding_proof`. P127 verified that
+the P126 cascaded real-burn path runs on TPU with 4 JAX processes and 16 TPU
+devices, but still reported unsharded 100-example consumption on every process.
+P128 adds pure example-sharding utilities, wires contiguous-by-process sharding
+into real mode by default when `jax.process_count() > 1`, writes local/global
+sharding reports, and separates global vs local example counts in burn reports.
+
+P128 may claim deterministic example sharding when
+`distributed_example_sharding_verified=true`. It does not prove optimizer
+synchronization, global batch semantics, model quality, production training
+readiness, Qwen/tokenizer remapping, Pallas default readiness, or WKV/runtime
+math changes.
+
+Recommended next:
+
+- P129 - gradient/optimizer synchronization proof.
+
 ## Phase 126 - Contract Unification + Cascaded Burn Wiring
 
 Goal: close the P124/P125 target-contract gaps before another serious burn.

@@ -34,6 +34,16 @@ def main() -> int:
     parser.add_argument("--max-steps", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument(
+        "--example-sharding",
+        choices=(
+            "auto",
+            "none",
+            "contiguous_by_process",
+            "round_robin_by_process",
+        ),
+        default=None,
+    )
+    parser.add_argument(
         "--allow-textbook-reuse",
         dest="allow_textbook_reuse",
         action="store_true",
@@ -61,6 +71,8 @@ def main() -> int:
         config = replace(config, max_steps=args.max_steps)
     if args.batch_size is not None:
         config = replace(config, batch_size=args.batch_size)
+    if args.example_sharding is not None:
+        config = replace(config, example_sharding=args.example_sharding)
     if args.allow_textbook_reuse is not None:
         config = replace(config, allow_textbook_reuse=args.allow_textbook_reuse)
     if config_missing:
