@@ -2556,3 +2556,30 @@ single-writer checkpoint safety, model quality, Pallas default readiness,
 Qwen/tokenizer remapping, or WKV/runtime math changes. A future phase must move
 the train step into a valid JAX collective context and compare per-process
 fingerprints before distributed training readiness can be claimed.
+
+## Phase 130 - True Distributed Gradient Synchronization
+
+P130 implements synchronized gradient/update behavior for the minimal
+first-serious-burn trainer. For verified multi-process sharded burns,
+`distributed_sync=auto` resolves to `gradient_pmean`; explicit `none` preserves
+local-only behavior, and explicit `gradient_pmean` blocks unless distributed
+example sharding is verified.
+
+The current burn train state remains intentionally small: `vocab_bias`,
+`token_scale`, and stateless SGD with fixed learning rate. P130 gathers each
+gradient leaf across JAX processes with
+`jax.experimental.multihost_utils.process_allgather`, averages the gathered
+gradients, globally averages the scalar loss, and applies the same averaged
+update on each process. Final parameter sync is verified with a collective
+checksum min/max check. Optimizer sync is explicit because the optimizer has no
+state.
+
+P130 may set `distributed_training_ready=true` only when example sharding,
+collective communication, gradient sync, parameter checksum sync, stateless
+optimizer sync, global loss semantics, and `jax.process_count() > 1` are all
+verified. Checkpoint fingerprint matching remains reported separately, and
+single-writer checkpoint/export hygiene is deferred to P131.
+
+P130 does not claim model quality, production readiness, large-scale
+performance, Qwen/tokenizer remapping, Pallas default readiness, or WKV/runtime
+math changes.

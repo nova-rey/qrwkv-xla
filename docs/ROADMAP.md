@@ -1,5 +1,26 @@
 # QRWKV-XLA Roadmap
 
+## Phase 130 - True Distributed Gradient Synchronization
+
+Goal: make the P128 sharded burn path apply synchronized gradients before the
+minimal burn-harness update.
+
+Current checkpoint: `distributed_gradient_sync_implementation`. P130 extends
+`distributed_sync=auto` so verified multi-process sharded runs select
+`gradient_pmean`. The current minimal trainer gathers gradient leaves across
+JAX processes, averages them, applies the same stateless-SGD update, globally
+averages loss, and verifies final parameter sync with a collective checksum
+min/max check. Optimizer state is explicitly stateless.
+
+P130 may claim distributed training-step readiness when the sync predicates
+pass. It still does not claim model quality, production readiness, large-scale
+performance, Qwen/tokenizer remapping, Pallas default readiness, WKV/runtime
+math changes, or single-writer checkpoint/export hygiene.
+
+Recommended next:
+
+- P131 - checkpoint/export single-writer hygiene for synchronized burns.
+
 ## Phase 129 - Gradient / Optimizer Synchronization Audit
 
 Goal: determine whether the P128 sharded real-burn path is synchronizing

@@ -121,6 +121,7 @@ def _real_config(
         batch_size=batch_size,
         allow_textbook_reuse=False,
         example_sharding="auto",
+        distributed_sync="none",
     )
 
 

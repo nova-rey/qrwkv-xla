@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 129
-current_phase: P129
-checkpoint: gradient_optimizer_sync_audit
+phase: 130
+current_phase: P130
+checkpoint: distributed_gradient_sync_implementation
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,16 +56,16 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Audit gradient and optimizer synchronization for the guarded real-burn path
-  and prevent distributed-training claims until synchronization is actually
-  proven.
+  Implement true synchronized gradient/update behavior for the guarded
+  multi-process sharded burn path while keeping checkpoint/export hygiene and
+  production-readiness claims out of scope.
 
-current_arc: distributed_sync_audit
+current_arc: distributed_gradient_sync
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P130 true distributed train-step collective implementation
+  - P131 checkpoint/export single-writer hygiene
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -75,6 +75,7 @@ arc_status:
   contract_unification_cascaded_burn_wiring: complete
   distributed_example_sharding: complete
   distributed_sync_audit: complete
+  distributed_gradient_sync: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -96,6 +97,10 @@ main_contains:
   p129_optimizer_state_fingerprints: true
   p129_sync_reports: true
   p129_readiness_gating: true
+  p130_gradient_allgather_mean: true
+  p130_global_loss_mean: true
+  p130_parameter_checksum_sync_verification: true
+  p130_stateless_optimizer_sync: true
 
 teacher_target_types:
   - dense_logits
@@ -107,6 +112,27 @@ p117_1_invariants_preserved:
   max_steps_configurable: true
   batch_size_configurable: true
   textbook_reuse_configurable: true
+
+p130:
+  goal: distributed_gradient_sync_implementation
+  status: complete
+  auto_multi_process_sync_mode: gradient_pmean
+  gradient_sync_method: jax.experimental.multihost_utils.process_allgather_mean
+  gradient_sync_enabled_when_multi_process_sharded: true
+  global_loss_reduction: global_mean
+  parameter_sync_verification_method: collective_checksum_minmax
+  optimizer_state_kind: stateless_sgd
+  optimizer_state_sync_verification_method: stateless_sgd_no_state
+  distributed_training_ready_gate_added: true
+  checkpoint_single_writer_verified: false
+  checkpoint_hygiene_deferred_to: P131
+  model_quality_claimed: false
+  production_readiness_claimed: false
+  qwen_support_added: false
+  tokenizer_remapping_added: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  recommended_next: P131 checkpoint/export single-writer hygiene
 
 p129:
   goal: gradient_optimizer_sync_audit

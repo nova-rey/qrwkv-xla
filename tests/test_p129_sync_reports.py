@@ -102,13 +102,13 @@ def test_burn_sync_report_is_honest_local_update_audit(
     assert result.status == "pass"
     assert result.distributed_example_sharding_verified is True
     assert result.distributed_sync_mode == "none"
-    assert result.distributed_sync_requested == "auto"
+    assert result.distributed_sync_requested == "none"
     assert result.gradient_sync_enabled is False
     assert result.gradient_sync_verified is False
     assert result.collective_sync_probe_enabled is False
     assert result.collective_sync_probe_verified is False
     assert result.parameter_sync_verified is False
-    assert result.optimizer_state_kind == "stateless_sgd_no_momentum"
+    assert result.optimizer_state_kind == "stateless_sgd"
     assert result.optimizer_state_absent is True
     assert result.optimizer_state_sync_verified is False
     assert result.checkpoint_fingerprint_match is False
@@ -129,7 +129,7 @@ def test_burn_sync_report_is_honest_local_update_audit(
     assert sync_report["gradient_sync_enabled"] is False
     assert sync_report["loss_reduction"] == "local_only"
     assert result.sync_global_report_path is not None
-    assert "gradient synchronization is not implemented" in result.warnings[0]
+    assert result.warnings == ()
 
 
 def _patch_jax_process(monkeypatch, *, process_index: int, process_count: int) -> None:
@@ -163,7 +163,7 @@ def _real_config(
         batch_size=batch_size,
         allow_textbook_reuse=False,
         example_sharding="auto",
-        distributed_sync="auto",
+        distributed_sync="none",
     )
 
 
