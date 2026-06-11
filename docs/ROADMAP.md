@@ -1,5 +1,35 @@
 # QRWKV-XLA Roadmap
 
+## Phase 126 - Contract Unification + Cascaded Burn Wiring
+
+Goal: close the P124/P125 target-contract gaps before another serious burn.
+
+Current checkpoint:
+`contract_unification_cascaded_burn_wiring`. P126 records the P124 100-example
+dense/cascaded tome-generation result and the P125 TPU 100-example training
+smoke result. The real-burn path now accepts canonical `dense_logits` without
+metadata patching, preserves legacy `full_logits`, and can run a minimal
+confirmed real-mode train step against `cascaded_soft_labels_v1` by dispatching
+through the P122 sparse/cascaded loss path with bucket-shape loss defaulted off.
+This tiny trainer still materializes dense full-vocab student logits and does
+not claim cascaded runtime memory savings.
+
+Burn reports now include JAX process/device observability, use
+`jax.process_index()` for `worker_id`, and expose example-id diagnostics. P126
+does not prove distributed example sharding; reports still mark distributed
+training and distributed sharding as not ready/verified.
+
+P126 does not launch a full burn, claim model quality, claim production
+training readiness, add Qwen/tokenizer remapping, promote Pallas, change WKV
+math, or prove distributed training.
+
+Recommended next:
+
+- P127 - TPU rerun of the 100-example cascaded real-burn smoke with the fixed
+  contract and observability fields.
+- P128 - explicit distributed example-sharding proof before any multi-worker
+  training claim.
+
 ## Phase 123 - Cascade/Main Integration Gate
 
 Goal: reconcile the P119-P122 compressed/cascaded target branch with main after

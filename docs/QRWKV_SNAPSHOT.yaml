@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 123
-current_phase: P123
-checkpoint: cascade_main_merge_integration_gate
+phase: 126
+current_phase: P126
+checkpoint: contract_unification_cascaded_burn_wiring
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,23 +56,24 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Merge the P119-P122 compressed/cascaded target pipeline into main after
-  P117.1 and P118.
+  Unify the dense TeacherTextbook contract, wire cascaded targets into the
+  guarded real-burn path, and record the P124/P125 artifact and TPU smoke
+  results without overclaiming distributed readiness.
 
-current_arc: integration_gate
+current_arc: post_p125_contract_closure
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P124 100-example dense TPU smoke
-  - P125 radjax-tome repo extraction
-  - P126 cascaded target evaluation smoke
+  - P127 TPU rerun of the 100-example cascaded real-burn smoke
+  - P128 distributed example-sharding proof
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
   post_p112_research_alignment: active
   burn_result_analysis: complete
   integration_gate: complete
+  contract_unification_cascaded_burn_wiring: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -81,6 +82,11 @@ main_contains:
   p120_sparse_target_loss_consumption: true
   p121_cascaded_soft_labels_v1_contract: true
   p122_bucket_shape_loss: true
+  p124_tome_100_generation_result_docs: true
+  p125_tpu_100_example_training_smoke_result_docs: true
+  p126_dense_contract_unification: true
+  p126_cascaded_real_burn_wiring: true
+  p126_worker_process_observability: true
 
 teacher_target_types:
   - dense_logits
@@ -92,6 +98,35 @@ p117_1_invariants_preserved:
   max_steps_configurable: true
   batch_size_configurable: true
   textbook_reuse_configurable: true
+
+p126:
+  goal: contract_unification_cascaded_burn_wiring
+  status: complete
+  p124_result_documented: true
+  p125_result_documented: true
+  dense_logits_real_burn_accepted: true
+  full_logits_legacy_alias_preserved: true
+  cascaded_soft_labels_v1_real_burn_wired: true
+  cascaded_loss_dispatch: p122_sparse_cascaded_loss
+  bucket_shape_loss_default_weight: 0.0
+  student_logits_materialization: dense_full_vocab
+  cascaded_runtime_memory_savings_claimed: false
+  worker_id_source: jax.process_index
+  jax_process_observability_fields_added: true
+  example_id_diagnostics_added: true
+  sharding_strategy: single_process_or_unsharded
+  distributed_training_ready: false
+  distributed_sharding_verified: false
+  distributed_example_sharding_verified: false
+  full_burn_launched: false
+  model_quality_claimed: false
+  qwen_support_added: false
+  tokenizer_remapping_added: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  recommended_next:
+    - P127 TPU rerun of the 100-example cascaded real-burn smoke
+    - P128 distributed example-sharding proof
 
 p123:
   goal: cascade_main_merge_integration_gate

@@ -12,6 +12,12 @@ import numpy as np
 
 from qrwkv_xla.burn.config import FirstSeriousBurnConfig
 from qrwkv_xla.checkpointing import run_checkpoint_resume_update_rehearsal
+from qrwkv_xla.distill.target_dispatch import (
+    CASCADED_TARGET_TYPE,
+    DENSE_LOGIT_TARGET_TYPES,
+    TOPK_TAIL_TARGET_TYPE,
+    dispatch_teacher_target_loss,
+)
 from qrwkv_xla.eval import (
     create_builtin_mini_eval_store,
     run_mini_eval_harness,
@@ -22,7 +28,12 @@ from qrwkv_xla.readiness import (
     build_big_burn_readiness_report,
     write_big_burn_readiness_report,
 )
-from qrwkv_xla.targets import TeacherTargetStore, load_offline_target_batch
+from qrwkv_xla.targets import (
+    TeacherTargetBatch,
+    TeacherTargetStore,
+    load_offline_target_batch,
+    load_teacher_target_batch,
+)
 from qrwkv_xla.xla import run_runtime_environment_preflight
 
 FIRST_SERIOUS_BURN_CLAIMS_NOT_MADE: tuple[str, ...] = (
@@ -57,9 +68,16 @@ class FirstSeriousBurnResult:
     warnings: tuple[str, ...]
     teacher_textbook_path: str | None = None
     teacher_target_type: str | None = None
+    teacher_target_type_legacy_alias: str | None = None
     teacher_textbook_examples: int = 0
     teacher_textbook_sequence_length: int = 0
     teacher_textbook_vocab_size: int = 0
+    target_loss_kind: str | None = None
+    top_k: int | None = None
+    bucket_shape_loss_enabled: bool = False
+    bucket_shape_loss_weight: float = 0.0
+    cascaded_real_training_executed: bool = False
+    student_logits_materialization: str | None = None
     max_steps_requested: int = 0
     batch_size: int = 1
     allow_textbook_reuse: bool = False
@@ -76,9 +94,21 @@ class FirstSeriousBurnResult:
     checkpoint_nonzero: bool = False
     device_backend: str | None = None
     jax_devices: tuple[str, ...] = ()
+    jax_process_index: int | None = None
+    jax_process_count: int | None = None
+    jax_local_device_count: int | None = None
+    jax_global_device_count: int | None = None
+    jax_backend: str | None = None
     worker_id: str | None = None
     hostname: str | None = None
     real_training_executed: bool = False
+    distributed_training_ready: bool = False
+    distributed_sharding_verified: bool = False
+    sharding_strategy: str = "single_process_or_unsharded"
+    distributed_example_sharding_verified: bool = False
+    example_id_min: int | None = None
+    example_id_max: int | None = None
+    example_id_sample: tuple[int, ...] = ()
     claims_not_made: tuple[str, ...] = FIRST_SERIOUS_BURN_CLAIMS_NOT_MADE
 
     def to_report(self) -> dict[str, Any]:
@@ -229,16 +259,32 @@ def _run_dry_run(
         allow_textbook_reuse=config.allow_textbook_reuse,
         device_backend=_jax_backend(),
         jax_devices=_jax_devices(),
-        worker_id="0",
+        jax_process_index=_jax_process_index(),
+        jax_process_count=_jax_process_count(),
+        jax_local_device_count=_jax_local_device_count(),
+        jax_global_device_count=_jax_global_device_count(),
+        jax_backend=_jax_backend(),
+        worker_id=_worker_id(),
         hostname=socket.gethostname(),
     )
 
 
 @dataclass(frozen=True)
-class _DenseTextbookArrays:
+class _TeacherTextbookArrays:
+    target_type: str
     input_ids: np.ndarray
     attention_mask: np.ndarray
-    teacher_logits: np.ndarray
+    vocab_size: int
+    teacher_logits: np.ndarray | None = None
+    top_token_ids: np.ndarray | None = None
+    top_log_probs: np.ndarray | None = None
+    top_mass: np.ndarray | None = None
+    tail_mass: np.ndarray | None = None
+    teacher_entropy: np.ndarray | None = None
+    bucket_edges: np.ndarray | None = None
+    bucket_mass: np.ndarray | None = None
+    bucket_count: np.ndarray | None = None
+    bucket_mean_logp: np.ndarray | None = None
 
 
 @dataclass(frozen=True)
@@ -255,6 +301,15 @@ class _TrainingRun:
     checkpoint_written: bool
     checkpoint_nonzero: bool
     params_changed: bool
+    target_loss_kind: str | None
+    top_k: int | None
+    bucket_shape_loss_enabled: bool
+    bucket_shape_loss_weight: float
+    cascaded_real_training_executed: bool
+    student_logits_materialization: str
+    example_id_min: int | None
+    example_id_max: int | None
+    example_id_sample: tuple[int, ...]
 
 
 def _run_real_training(
@@ -278,7 +333,12 @@ def _run_real_training(
         )
     store = TeacherTargetStore.open(textbook_path)
     store.validate()
-    arrays = _load_dense_textbook_arrays(store)
+    target_type = store.metadata.target_type
+    arrays = (
+        _load_dense_textbook_arrays(store)
+        if target_type in DENSE_LOGIT_TARGET_TYPES
+        else _load_teacher_textbook_arrays(store)
+    )
     exhaustion_blocker = _exhaustion_blocker(
         examples_available=arrays.input_ids.shape[0],
         batch_size=config.batch_size,
@@ -295,25 +355,25 @@ def _run_real_training(
             blockers=(exhaustion_blocker,),
             warnings=warnings,
             teacher_textbook_path=str(textbook_path),
-            teacher_target_type=store.metadata.target_type,
+            teacher_target_type=target_type,
+            teacher_target_type_legacy_alias=_dense_legacy_alias(target_type),
             teacher_textbook_examples=store.metadata.num_examples,
             teacher_textbook_sequence_length=store.metadata.sequence_length,
             teacher_textbook_vocab_size=store.metadata.vocab_size,
             examples_available=arrays.input_ids.shape[0],
         )
 
-    training = _train_dense_textbook(
+    training = _train_textbook(
         arrays,
         output_dir=output_dir,
         config=config,
         teacher_textbook_path=textbook_path,
-        target_type=store.metadata.target_type,
     )
     blockers = _real_training_blockers(training)
     loss_initial = training.loss_trace[0] if training.loss_trace else None
     loss_final = training.loss_trace[-1] if training.loss_trace else None
     return FirstSeriousBurnResult(
-        phase="P117.1",
+        phase=config.phase,
         status="fail" if blockers else "pass",
         mode=config.mode,
         dry_run=False,
@@ -329,10 +389,17 @@ def _run_real_training(
         blockers=blockers,
         warnings=warnings,
         teacher_textbook_path=str(textbook_path),
-        teacher_target_type=store.metadata.target_type,
+        teacher_target_type=target_type,
+        teacher_target_type_legacy_alias=_dense_legacy_alias(target_type),
         teacher_textbook_examples=store.metadata.num_examples,
         teacher_textbook_sequence_length=store.metadata.sequence_length,
         teacher_textbook_vocab_size=store.metadata.vocab_size,
+        target_loss_kind=training.target_loss_kind,
+        top_k=training.top_k,
+        bucket_shape_loss_enabled=training.bucket_shape_loss_enabled,
+        bucket_shape_loss_weight=training.bucket_shape_loss_weight,
+        cascaded_real_training_executed=training.cascaded_real_training_executed,
+        student_logits_materialization=training.student_logits_materialization,
         max_steps_requested=config.max_steps,
         batch_size=config.batch_size,
         allow_textbook_reuse=config.allow_textbook_reuse,
@@ -353,9 +420,17 @@ def _run_real_training(
         checkpoint_nonzero=training.checkpoint_nonzero,
         device_backend=_jax_backend(),
         jax_devices=_jax_devices(),
-        worker_id="0",
+        jax_process_index=_jax_process_index(),
+        jax_process_count=_jax_process_count(),
+        jax_local_device_count=_jax_local_device_count(),
+        jax_global_device_count=_jax_global_device_count(),
+        jax_backend=_jax_backend(),
+        worker_id=_worker_id(),
         hostname=socket.gethostname(),
         real_training_executed=training.steps_completed > 0,
+        example_id_min=training.example_id_min,
+        example_id_max=training.example_id_max,
+        example_id_sample=training.example_id_sample,
     )
 
 
@@ -423,13 +498,14 @@ def _blocked_result(
     warnings: tuple[str, ...],
     teacher_textbook_path: str | None = None,
     teacher_target_type: str | None = None,
+    teacher_target_type_legacy_alias: str | None = None,
     teacher_textbook_examples: int = 0,
     teacher_textbook_sequence_length: int = 0,
     teacher_textbook_vocab_size: int = 0,
     examples_available: int = 0,
 ) -> FirstSeriousBurnResult:
     return FirstSeriousBurnResult(
-        phase="P112",
+        phase=config.phase,
         status="blocked",
         mode=config.mode,
         dry_run=config.mode == "dry_run",
@@ -448,6 +524,7 @@ def _blocked_result(
         warnings=warnings,
         teacher_textbook_path=teacher_textbook_path,
         teacher_target_type=teacher_target_type,
+        teacher_target_type_legacy_alias=teacher_target_type_legacy_alias,
         teacher_textbook_examples=teacher_textbook_examples,
         teacher_textbook_sequence_length=teacher_textbook_sequence_length,
         teacher_textbook_vocab_size=teacher_textbook_vocab_size,
@@ -457,7 +534,12 @@ def _blocked_result(
         examples_available=examples_available,
         device_backend=_jax_backend(),
         jax_devices=_jax_devices(),
-        worker_id="0",
+        jax_process_index=_jax_process_index(),
+        jax_process_count=_jax_process_count(),
+        jax_local_device_count=_jax_local_device_count(),
+        jax_global_device_count=_jax_global_device_count(),
+        jax_backend=_jax_backend(),
+        worker_id=_worker_id(),
         hostname=socket.gethostname(),
     )
 
@@ -514,26 +596,61 @@ def _teacher_textbook_path(config: FirstSeriousBurnConfig) -> Path | None:
     return None if raw_path is None else Path(raw_path)
 
 
-def _load_dense_textbook_arrays(store: TeacherTargetStore) -> _DenseTextbookArrays:
-    if store.metadata.target_type not in {"full_logits", "synthetic"}:
+def _load_dense_textbook_arrays(store: TeacherTargetStore) -> _TeacherTextbookArrays:
+    if store.metadata.target_type not in DENSE_LOGIT_TARGET_TYPES:
         raise ValueError(
             "P117.1 real training supports dense TeacherTextbook target types "
-            f"{{'full_logits', 'synthetic'}}, got {store.metadata.target_type!r}"
+            f"{sorted(DENSE_LOGIT_TARGET_TYPES)}, got {store.metadata.target_type!r}"
         )
     batches = [
         load_offline_target_batch(store, shard_id=shard_id)
         for shard_id in range(store.metadata.shard_count)
     ]
-    return _DenseTextbookArrays(
+    return _TeacherTextbookArrays(
+        target_type=store.metadata.target_type,
         input_ids=np.concatenate([batch.input_ids for batch in batches], axis=0),
         attention_mask=np.concatenate(
             [batch.attention_mask for batch in batches],
             axis=0,
         ),
+        vocab_size=store.metadata.vocab_size,
         teacher_logits=np.concatenate(
             [batch.teacher_logits for batch in batches],
             axis=0,
         ),
+    )
+
+
+def _load_teacher_textbook_arrays(store: TeacherTargetStore) -> _TeacherTextbookArrays:
+    if store.metadata.target_type not in {TOPK_TAIL_TARGET_TYPE, CASCADED_TARGET_TYPE}:
+        supported = sorted(
+            (*DENSE_LOGIT_TARGET_TYPES, TOPK_TAIL_TARGET_TYPE, CASCADED_TARGET_TYPE)
+        )
+        raise ValueError(
+            "P117.1 real training supports TeacherTextbook target types "
+            f"{supported}, got {store.metadata.target_type!r}"
+        )
+    batches = [
+        load_teacher_target_batch(store, shard_id=shard_id)
+        for shard_id in range(store.metadata.shard_count)
+    ]
+    return _TeacherTextbookArrays(
+        target_type=store.metadata.target_type,
+        input_ids=np.concatenate([batch.input_ids for batch in batches], axis=0),
+        attention_mask=np.concatenate(
+            [batch.attention_mask for batch in batches],
+            axis=0,
+        ),
+        vocab_size=store.metadata.vocab_size,
+        top_token_ids=_concat_required(batches, "top_token_ids"),
+        top_log_probs=_concat_required(batches, "top_log_probs"),
+        top_mass=_concat_required(batches, "top_mass"),
+        tail_mass=_concat_required(batches, "tail_mass"),
+        teacher_entropy=_concat_required(batches, "teacher_entropy"),
+        bucket_edges=batches[0].bucket_edges,
+        bucket_mass=_concat_optional(batches, "bucket_mass"),
+        bucket_count=_concat_optional(batches, "bucket_count"),
+        bucket_mean_logp=_concat_optional(batches, "bucket_mean_logp"),
     )
 
 
@@ -556,24 +673,27 @@ def _exhaustion_blocker(
     )
 
 
-def _train_dense_textbook(
-    arrays: _DenseTextbookArrays,
+def _train_textbook(
+    arrays: _TeacherTextbookArrays,
     *,
     output_dir: Path,
     config: FirstSeriousBurnConfig,
     teacher_textbook_path: Path,
-    target_type: str,
 ) -> _TrainingRun:
     input_ids = jnp.asarray(arrays.input_ids, dtype=jnp.int32)
     attention_mask = jnp.asarray(arrays.attention_mask, dtype=jnp.float32)
-    teacher_logits = jnp.asarray(arrays.teacher_logits, dtype=jnp.float32)
-    vocab_size = int(teacher_logits.shape[-1])
+    teacher_logits = (
+        None
+        if arrays.teacher_logits is None
+        else jnp.asarray(arrays.teacher_logits, dtype=jnp.float32)
+    )
+    vocab_size = arrays.vocab_size
+    textbook = _jax_textbook_arrays(arrays)
     params = {
         "vocab_bias": jnp.zeros((vocab_size,), dtype=jnp.float32),
         "token_scale": jnp.asarray(0.01, dtype=jnp.float32),
     }
     initial_params = params
-    loss_and_grad = jax.value_and_grad(_dense_distill_loss)
     loss_trace: list[float] = []
     seen: list[int] = []
 
@@ -584,15 +704,26 @@ def _train_dense_textbook(
             examples_available=arrays.input_ids.shape[0],
             allow_reuse=config.allow_textbook_reuse,
         )
-        batch_input_ids = input_ids[jnp.asarray(indices)]
-        batch_attention_mask = attention_mask[jnp.asarray(indices)]
-        batch_teacher_logits = teacher_logits[jnp.asarray(indices)]
-        loss, grads = loss_and_grad(
-            params,
-            batch_input_ids,
-            batch_attention_mask,
-            batch_teacher_logits,
+        batch = _slice_teacher_batch(
+            arrays=textbook,
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            teacher_logits=teacher_logits,
+            indices=jnp.asarray(indices),
         )
+
+        def loss_for_params(
+            current_params: dict[str, jax.Array],
+            *,
+            target_batch: TeacherTargetBatch = batch,
+        ) -> jax.Array:
+            return _teacher_target_loss(
+                current_params,
+                target_batch,
+                vocab_size,
+            )
+
+        loss, grads = jax.value_and_grad(loss_for_params)(params)
         params = jax.tree_util.tree_map(
             lambda param, grad: param - jnp.asarray(0.05, dtype=jnp.float32) * grad,
             params,
@@ -617,7 +748,7 @@ def _train_dense_textbook(
     checkpoint_payload = {
         "step": len(loss_trace),
         "model_config": {
-            "kind": "tiny_dense_logit_bias_student",
+            "kind": "tiny_teacher_target_logit_bias_student",
             "vocab_size": vocab_size,
             "sequence_length": int(input_ids.shape[1]),
         },
@@ -633,7 +764,10 @@ def _train_dense_textbook(
         },
         "rng_state": None,
         "teacher_textbook_path": str(teacher_textbook_path),
-        "teacher_target_type": target_type,
+        "teacher_target_type": arrays.target_type,
+        "teacher_target_type_legacy_alias": _dense_legacy_alias(arrays.target_type),
+        "target_loss_kind": _target_loss_kind(arrays.target_type),
+        "bucket_shape_loss_weight": 0.0,
         "batch_size": config.batch_size,
         "max_steps": config.max_steps,
         "allow_textbook_reuse": config.allow_textbook_reuse,
@@ -658,7 +792,95 @@ def _train_dense_textbook(
         checkpoint_nonzero=checkpoint_path.is_file()
         and checkpoint_path.stat().st_size > 0,
         params_changed=params_changed,
+        target_loss_kind=_target_loss_kind(arrays.target_type),
+        top_k=_target_top_k(arrays),
+        bucket_shape_loss_enabled=False,
+        bucket_shape_loss_weight=0.0,
+        cascaded_real_training_executed=arrays.target_type == CASCADED_TARGET_TYPE,
+        student_logits_materialization="dense_full_vocab",
+        example_id_min=(min(seen) if seen else None),
+        example_id_max=(max(seen) if seen else None),
+        example_id_sample=tuple(int(index) for index in seen[:8]),
     )
+
+
+def _concat_required(
+    batches: list[TeacherTargetBatch],
+    name: str,
+) -> np.ndarray:
+    values = [getattr(batch, name) for batch in batches]
+    if any(value is None for value in values):
+        raise ValueError(f"teacher target batch missing required field {name!r}")
+    return np.concatenate(values, axis=0)
+
+
+def _concat_optional(
+    batches: list[TeacherTargetBatch],
+    name: str,
+) -> np.ndarray | None:
+    values = [getattr(batch, name) for batch in batches]
+    if all(value is None for value in values):
+        return None
+    if any(value is None for value in values):
+        raise ValueError(f"teacher target batch inconsistently provides {name!r}")
+    return np.concatenate(values, axis=0)
+
+
+def _jax_textbook_arrays(arrays: _TeacherTextbookArrays) -> TeacherTargetBatch:
+    return TeacherTargetBatch(
+        target_type=arrays.target_type,
+        input_ids=jnp.asarray(arrays.input_ids, dtype=jnp.int32),
+        attention_mask=jnp.asarray(arrays.attention_mask, dtype=jnp.float32),
+        teacher_logits=_optional_jax_array(arrays.teacher_logits, dtype=jnp.float32),
+        top_token_ids=_optional_jax_array(arrays.top_token_ids, dtype=jnp.int32),
+        top_log_probs=_optional_jax_array(arrays.top_log_probs, dtype=jnp.float32),
+        top_mass=_optional_jax_array(arrays.top_mass, dtype=jnp.float32),
+        tail_mass=_optional_jax_array(arrays.tail_mass, dtype=jnp.float32),
+        teacher_entropy=_optional_jax_array(arrays.teacher_entropy, dtype=jnp.float32),
+        bucket_edges=_optional_jax_array(arrays.bucket_edges, dtype=jnp.float32),
+        bucket_mass=_optional_jax_array(arrays.bucket_mass, dtype=jnp.float32),
+        bucket_count=_optional_jax_array(arrays.bucket_count, dtype=jnp.int32),
+        bucket_mean_logp=_optional_jax_array(
+            arrays.bucket_mean_logp, dtype=jnp.float32
+        ),
+    )
+
+
+def _optional_jax_array(
+    value: np.ndarray | None,
+    *,
+    dtype: Any,
+) -> jax.Array | None:
+    return None if value is None else jnp.asarray(value, dtype=dtype)
+
+
+def _slice_teacher_batch(
+    *,
+    arrays: TeacherTargetBatch,
+    input_ids: jax.Array,
+    attention_mask: jax.Array,
+    teacher_logits: jax.Array | None,
+    indices: jax.Array,
+) -> TeacherTargetBatch:
+    return TeacherTargetBatch(
+        target_type=arrays.target_type,
+        input_ids=input_ids[indices],
+        attention_mask=attention_mask[indices],
+        teacher_logits=(None if teacher_logits is None else teacher_logits[indices]),
+        top_token_ids=_optional_slice(arrays.top_token_ids, indices),
+        top_log_probs=_optional_slice(arrays.top_log_probs, indices),
+        top_mass=_optional_slice(arrays.top_mass, indices),
+        tail_mass=_optional_slice(arrays.tail_mass, indices),
+        teacher_entropy=_optional_slice(arrays.teacher_entropy, indices),
+        bucket_edges=arrays.bucket_edges,
+        bucket_mass=_optional_slice(arrays.bucket_mass, indices),
+        bucket_count=_optional_slice(arrays.bucket_count, indices),
+        bucket_mean_logp=_optional_slice(arrays.bucket_mean_logp, indices),
+    )
+
+
+def _optional_slice(value: jax.Array | None, indices: jax.Array) -> jax.Array | None:
+    return None if value is None else value[indices]
 
 
 def _batch_indices(
@@ -674,6 +896,22 @@ def _batch_indices(
             int((start + offset) % examples_available) for offset in range(batch_size)
         ]
     return [int(start + offset) for offset in range(batch_size)]
+
+
+def _teacher_target_loss(
+    params: dict[str, jax.Array],
+    target_batch: TeacherTargetBatch,
+    vocab_size: int,
+) -> jax.Array:
+    student_logits = params["vocab_bias"][None, None, :] + params[
+        "token_scale"
+    ] * jax.nn.one_hot(target_batch.input_ids, vocab_size)
+    report = dispatch_teacher_target_loss(
+        student_logits=student_logits,
+        target_batch=target_batch,
+        bucket_shape_loss_weight=0.0,
+    )
+    return report.total_loss
 
 
 def _dense_distill_loss(
@@ -724,6 +962,28 @@ def _real_training_blockers(training: _TrainingRun) -> tuple[str, ...]:
     return tuple(blockers)
 
 
+def _dense_legacy_alias(target_type: str | None) -> str | None:
+    if target_type in {"dense_logits", "full_logits"}:
+        return "full_logits"
+    return None
+
+
+def _target_loss_kind(target_type: str) -> str:
+    if target_type in DENSE_LOGIT_TARGET_TYPES:
+        return "dense_logits_kl"
+    if target_type == TOPK_TAIL_TARGET_TYPE:
+        return "topk_tail_head_kl"
+    if target_type == CASCADED_TARGET_TYPE:
+        return "cascaded_soft_labels"
+    return "unsupported"
+
+
+def _target_top_k(arrays: _TeacherTextbookArrays) -> int | None:
+    if arrays.top_token_ids is None:
+        return None
+    return int(arrays.top_token_ids.shape[-1])
+
+
 def _jax_backend() -> str:
     try:
         return str(jax.default_backend())
@@ -736,6 +996,39 @@ def _jax_devices() -> tuple[str, ...]:
         return tuple(str(device) for device in jax.devices())
     except Exception:
         return ()
+
+
+def _jax_process_index() -> int | None:
+    try:
+        return int(jax.process_index())
+    except Exception:
+        return None
+
+
+def _jax_process_count() -> int | None:
+    try:
+        return int(jax.process_count())
+    except Exception:
+        return None
+
+
+def _jax_local_device_count() -> int | None:
+    try:
+        return int(jax.local_device_count())
+    except Exception:
+        return None
+
+
+def _jax_global_device_count() -> int | None:
+    try:
+        return int(jax.device_count())
+    except Exception:
+        return None
+
+
+def _worker_id() -> str | None:
+    process_index = _jax_process_index()
+    return None if process_index is None else str(process_index)
 
 
 def _launch_commands_markdown() -> str:

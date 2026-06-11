@@ -2461,3 +2461,53 @@ real mode cannot pass with zero completed training steps.
 P123 did not launch training, make model-quality claims, prove distributed
 training, extract `radjax-tome`, add Rosetta/Vocab C/tokenizer remapping, add
 Qwen/Gemma scale-up, or change WKV/runtime math.
+
+## Phase 124 - 100-Example Tome Generation Result
+
+P124 produced 100-example dense and `cascaded_soft_labels_v1` TeacherTextbook
+artifacts from WikiText-103 using `sshleifer/tiny-gpt2`. Both artifacts
+validated successfully: the dense artifact was approximately `1.2G`, and the
+cascaded artifact was approximately `13M`.
+
+P124 is an artifact-generation and validation result. It does not prove model
+quality, production training readiness, distributed training readiness, Qwen
+support, tokenizer remapping, or large-scale performance.
+
+## Phase 125 - TPU 100-Example Training Smoke Result
+
+P125 attempted the 100-example TPU consumption path on a v6e-16 slice with 4
+JAX processes and 16 TPU devices observed. The cascaded path was uploaded but
+rejected by the P117.1 dense-only real-burn loader. The canonical
+`dense_logits` dense path was also rejected until metadata was patched to the
+legacy `full_logits` name.
+
+The patched dense salvage run completed 25/25 confirmed real TPU train steps
+with batch size 4, 100 examples consumed, no reuse, finite loss trace,
+non-empty checkpoint, and no blockers/warnings. It is a TPU train-step smoke,
+not a quality claim.
+
+P125 exposed weak distributed observability: multiple per-worker reports
+reported `worker_id: "0"`, and each appeared to consume the full 100-example
+set. Distributed example sharding was not proven and must not be claimed from
+P125.
+
+## Phase 126 - Contract Unification + Cascaded Burn Wiring
+
+P126 closes the P124/P125 contract gaps in the guarded burn harness. Real mode
+now accepts canonical `dense_logits` directly, preserves legacy `full_logits`,
+and reports `teacher_target_type_legacy_alias` for dense artifacts. Real mode
+also detects `cascaded_soft_labels_v1`, loads it through the target consumption
+abstraction, and dispatches to the P122 sparse/cascaded loss path with
+`bucket_shape_loss_weight=0.0` by default.
+The tiny burn trainer still materializes dense full-vocab student logits, so
+P126 does not claim cascaded runtime memory savings.
+
+Burn reports now include JAX process/device observability fields, derive
+`worker_id` from `jax.process_index()`, record example-id diagnostics, and
+explicitly keep `distributed_training_ready`,
+`distributed_sharding_verified`, and
+`distributed_example_sharding_verified` false.
+
+P126 did not launch a full burn, prove model quality, prove distributed
+training, change WKV math, promote Pallas, add tokenizer remapping, or add Qwen
+scale-up support.
