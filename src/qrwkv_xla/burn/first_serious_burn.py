@@ -18,6 +18,12 @@ from qrwkv_xla.burn.example_sharding import (
     build_example_shard,
     verify_global_example_shards,
 )
+from qrwkv_xla.burn.fingerprints import fingerprint_bytes, fingerprint_pytree
+from qrwkv_xla.burn.sync_diagnostics import (
+    CollectiveSyncProbe,
+    evaluate_distributed_training_readiness,
+    run_collective_sync_probe,
+)
 from qrwkv_xla.checkpointing import run_checkpoint_resume_update_rehearsal
 from qrwkv_xla.distill.target_dispatch import (
     CASCADED_TARGET_TYPE,
@@ -88,6 +94,8 @@ class FirstSeriousBurnResult:
     max_steps_requested: int = 0
     batch_size: int = 1
     local_batch_size: int = 1
+    global_batch_size: int = 1
+    global_batch_size_semantics: str = "single_process_local_batch"
     allow_textbook_reuse: bool = False
     examples_available: int = 0
     examples_consumed: int = 0
@@ -115,6 +123,36 @@ class FirstSeriousBurnResult:
     hostname: str | None = None
     real_training_executed: bool = False
     distributed_training_ready: bool = False
+    distributed_sync_mode: str = "none"
+    distributed_sync_requested: str = "auto"
+    gradient_sync_enabled: bool = False
+    gradient_sync_method: str | None = None
+    gradient_sync_axis_name: str | None = None
+    gradient_sync_verified: bool = False
+    collective_sync_probe_enabled: bool = False
+    collective_sync_probe_method: str | None = None
+    collective_sync_probe_local_value: float | None = None
+    collective_sync_probe_reduced_value: float | None = None
+    collective_sync_probe_expected_value: float | None = None
+    collective_sync_probe_verified: bool = False
+    collective_sync_probe_error: str | None = None
+    optimizer_state_kind: str | None = None
+    optimizer_state_absent: bool = False
+    optimizer_state_sync_verified: bool = False
+    parameter_sync_verified: bool = False
+    checkpoint_fingerprint_match: bool = False
+    parameter_fingerprint_initial: str | None = None
+    parameter_fingerprint_final: str | None = None
+    optimizer_state_fingerprint_initial: str | None = None
+    optimizer_state_fingerprint_final: str | None = None
+    checkpoint_fingerprint: str | None = None
+    checkpoint_write_strategy: str = "per_process_existing"
+    single_writer_checkpoint_verified: bool = False
+    loss_reduction: str = "local_only"
+    loss_is_global: bool = False
+    sync_report_path: str | None = None
+    sync_global_report_path: str | None = None
+    distributed_training_missing_predicates: tuple[str, ...] = ()
     distributed_sharding_verified: bool = False
     sharding_strategy: str = "single_process_or_unsharded"
     distributed_example_sharding_verified: bool = False
@@ -322,6 +360,11 @@ class _TrainingRun:
     bucket_shape_loss_weight: float
     cascaded_real_training_executed: bool
     student_logits_materialization: str
+    parameter_fingerprint_initial: str
+    parameter_fingerprint_final: str
+    optimizer_state_fingerprint_initial: str
+    optimizer_state_fingerprint_final: str
+    checkpoint_fingerprint: str
     example_id_min: int | None
     example_id_max: int | None
     example_id_sample: tuple[int, ...]
@@ -336,6 +379,31 @@ class _ExampleShardingPlan:
     global_report_path: Path | None
     distributed_example_sharding_verified: bool
     distributed_sharding_verified: bool
+
+
+@dataclass(frozen=True)
+class _SyncReport:
+    distributed_sync_mode: str
+    distributed_sync_requested: str
+    gradient_sync_enabled: bool
+    gradient_sync_method: str | None
+    gradient_sync_axis_name: str | None
+    gradient_sync_verified: bool
+    collective_probe: CollectiveSyncProbe
+    optimizer_state_kind: str
+    optimizer_state_absent: bool
+    optimizer_state_sync_verified: bool
+    parameter_sync_verified: bool
+    checkpoint_fingerprint_match: bool
+    checkpoint_write_strategy: str
+    single_writer_checkpoint_verified: bool
+    loss_reduction: str
+    loss_is_global: bool
+    distributed_training_ready: bool
+    missing_predicates: tuple[str, ...]
+    warnings: tuple[str, ...]
+    local_report_path: Path
+    global_report_path: Path | None
 
 
 def _run_real_training(
@@ -421,7 +489,14 @@ def _run_real_training(
         local_batch_size=sharding_plan.local_batch_size,
         local_example_ids=sharding_plan.shard.local_indices,
     )
+    sync_report = _build_sync_report(
+        config=config,
+        output_dir=output_dir,
+        sharding_plan=sharding_plan,
+        training=training,
+    )
     blockers = _real_training_blockers(training)
+    warnings = warnings + sync_report.warnings
     loss_initial = training.loss_trace[0] if training.loss_trace else None
     loss_final = training.loss_trace[-1] if training.loss_trace else None
     return FirstSeriousBurnResult(
@@ -455,6 +530,8 @@ def _run_real_training(
         max_steps_requested=config.max_steps,
         batch_size=config.batch_size,
         local_batch_size=training.local_batch_size,
+        global_batch_size=training.local_batch_size * (_jax_process_count() or 1),
+        global_batch_size_semantics="local_batch_size * jax_process_count",
         allow_textbook_reuse=config.allow_textbook_reuse,
         examples_available=training.examples_available,
         examples_consumed=training.examples_consumed,
@@ -485,6 +562,43 @@ def _run_real_training(
         worker_id=_worker_id(),
         hostname=socket.gethostname(),
         real_training_executed=training.steps_completed > 0,
+        distributed_training_ready=sync_report.distributed_training_ready,
+        distributed_sync_mode=sync_report.distributed_sync_mode,
+        distributed_sync_requested=sync_report.distributed_sync_requested,
+        gradient_sync_enabled=sync_report.gradient_sync_enabled,
+        gradient_sync_method=sync_report.gradient_sync_method,
+        gradient_sync_axis_name=sync_report.gradient_sync_axis_name,
+        gradient_sync_verified=sync_report.gradient_sync_verified,
+        collective_sync_probe_enabled=sync_report.collective_probe.enabled,
+        collective_sync_probe_method=sync_report.collective_probe.method,
+        collective_sync_probe_local_value=sync_report.collective_probe.local_value,
+        collective_sync_probe_reduced_value=sync_report.collective_probe.reduced_value,
+        collective_sync_probe_expected_value=sync_report.collective_probe.expected_value,
+        collective_sync_probe_verified=sync_report.collective_probe.verified,
+        collective_sync_probe_error=sync_report.collective_probe.error,
+        optimizer_state_kind=sync_report.optimizer_state_kind,
+        optimizer_state_absent=sync_report.optimizer_state_absent,
+        optimizer_state_sync_verified=sync_report.optimizer_state_sync_verified,
+        parameter_sync_verified=sync_report.parameter_sync_verified,
+        checkpoint_fingerprint_match=sync_report.checkpoint_fingerprint_match,
+        parameter_fingerprint_initial=training.parameter_fingerprint_initial,
+        parameter_fingerprint_final=training.parameter_fingerprint_final,
+        optimizer_state_fingerprint_initial=(
+            training.optimizer_state_fingerprint_initial
+        ),
+        optimizer_state_fingerprint_final=training.optimizer_state_fingerprint_final,
+        checkpoint_fingerprint=training.checkpoint_fingerprint,
+        checkpoint_write_strategy=sync_report.checkpoint_write_strategy,
+        single_writer_checkpoint_verified=sync_report.single_writer_checkpoint_verified,
+        loss_reduction=sync_report.loss_reduction,
+        loss_is_global=sync_report.loss_is_global,
+        sync_report_path=str(sync_report.local_report_path),
+        sync_global_report_path=(
+            str(sync_report.global_report_path)
+            if sync_report.global_report_path
+            else None
+        ),
+        distributed_training_missing_predicates=sync_report.missing_predicates,
         distributed_sharding_verified=sharding_plan.distributed_sharding_verified,
         sharding_strategy=sharding_plan.strategy,
         distributed_example_sharding_verified=(
@@ -663,9 +777,9 @@ def _warnings_accepted(
 
 
 def _validate_config(config: FirstSeriousBurnConfig) -> None:
-    if config.phase not in {"P112", "P117.1", "P128"}:
+    if config.phase not in {"P112", "P117.1", "P128", "P129"}:
         raise ValueError(
-            f"phase must be 'P112', 'P117.1', or 'P128', got {config.phase!r}"
+            f"phase must be 'P112', 'P117.1', 'P128', or 'P129', got {config.phase!r}"
         )
     if config.mode not in {"dry_run", "real"}:
         raise ValueError("mode must be 'dry_run' or 'real'")
@@ -690,6 +804,10 @@ def _validate_config(config: FirstSeriousBurnConfig) -> None:
         raise ValueError(
             "example_sharding must be one of 'auto', 'none', "
             f"{CONTIGUOUS_BY_PROCESS!r}, {ROUND_ROBIN_BY_PROCESS!r}"
+        )
+    if config.distributed_sync not in {"auto", "none", "gradient_pmean"}:
+        raise ValueError(
+            "distributed_sync must be one of 'auto', 'none', or 'gradient_pmean'"
         )
 
 
@@ -815,6 +933,138 @@ def _write_global_example_sharding_report(
         encoding="utf-8",
     )
     return path
+
+
+def _build_sync_report(
+    *,
+    config: FirstSeriousBurnConfig,
+    output_dir: Path,
+    sharding_plan: _ExampleShardingPlan,
+    training: _TrainingRun,
+) -> _SyncReport:
+    process_index = _jax_process_index() or 0
+    process_count = _jax_process_count() or 1
+    requested = config.distributed_sync
+    resolved_mode = "none"
+    gradient_sync_enabled = False
+    gradient_sync_method = None
+    gradient_sync_axis_name = None
+    gradient_sync_verified = False
+    warnings: list[str] = []
+    if process_count > 1 and requested in {"auto", "gradient_pmean"}:
+        warnings.append(
+            "gradient synchronization is not implemented in the current burn "
+            "update path; updates are local to each process"
+        )
+    if requested == "gradient_pmean":
+        warnings.append(
+            "distributed_sync=gradient_pmean was requested, but the burn train "
+            "step is not inside a JAX named-axis collective context"
+        )
+
+    collective_probe = run_collective_sync_probe(
+        process_index=process_index,
+        process_count=process_count,
+        enabled=process_count > 1 and requested == "gradient_pmean",
+    )
+    readiness = evaluate_distributed_training_readiness(
+        distributed_example_sharding_verified=(
+            sharding_plan.distributed_example_sharding_verified
+        ),
+        collective_sync_probe_verified=collective_probe.verified,
+        gradient_sync_enabled=gradient_sync_enabled,
+        gradient_sync_verified=gradient_sync_verified,
+        parameter_sync_verified=False,
+        optimizer_state_sync_verified=False,
+        loss_is_global=False,
+        checkpoint_fingerprint_match=False,
+    )
+    local_report = {
+        "process_index": process_index,
+        "process_count": process_count,
+        "distributed_sync_requested": requested,
+        "distributed_sync_mode": resolved_mode,
+        "gradient_sync_enabled": gradient_sync_enabled,
+        "gradient_sync_method": gradient_sync_method,
+        "gradient_sync_axis_name": gradient_sync_axis_name,
+        "gradient_sync_verified": gradient_sync_verified,
+        "collective_sync_probe": collective_probe.to_report(),
+        "parameter_fingerprint_initial": training.parameter_fingerprint_initial,
+        "parameter_fingerprint_final": training.parameter_fingerprint_final,
+        "optimizer_state_kind": "stateless_sgd_no_momentum",
+        "optimizer_state_absent": True,
+        "optimizer_state_fingerprint_initial": (
+            training.optimizer_state_fingerprint_initial
+        ),
+        "optimizer_state_fingerprint_final": training.optimizer_state_fingerprint_final,
+        "checkpoint_fingerprint": training.checkpoint_fingerprint,
+        "parameter_sync_verified": False,
+        "optimizer_state_sync_verified": False,
+        "checkpoint_fingerprint_match": False,
+        "checkpoint_write_strategy": "per_process_existing",
+        "single_writer_checkpoint_verified": False,
+        "local_batch_size": training.local_batch_size,
+        "global_batch_size": training.local_batch_size * process_count,
+        "global_batch_size_semantics": "local_batch_size * jax_process_count",
+        "loss_reduction": "local_only",
+        "loss_is_global": False,
+        "distributed_training_ready": readiness.distributed_training_ready,
+        "distributed_training_missing_predicates": readiness.missing_predicates,
+        "warnings": tuple(warnings),
+    }
+    local_report_path = output_dir / f"sync_report_process_{process_index}.json"
+    local_report_path.write_text(
+        json.dumps(local_report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    global_report_path = None
+    if process_index == 0:
+        global_report_path = output_dir / "sync_global_report.json"
+        global_report_path.write_text(
+            json.dumps(
+                {
+                    "process_index": process_index,
+                    "process_count": process_count,
+                    "verification_scope": (
+                        "process_0_local_view; per-process report comparison or "
+                        "true gradient collective implementation still required"
+                    ),
+                    "distributed_sync_mode": resolved_mode,
+                    "distributed_training_ready": readiness.distributed_training_ready,
+                    "distributed_training_missing_predicates": (
+                        readiness.missing_predicates
+                    ),
+                    "warnings": tuple(warnings),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    return _SyncReport(
+        distributed_sync_mode=resolved_mode,
+        distributed_sync_requested=requested,
+        gradient_sync_enabled=gradient_sync_enabled,
+        gradient_sync_method=gradient_sync_method,
+        gradient_sync_axis_name=gradient_sync_axis_name,
+        gradient_sync_verified=gradient_sync_verified,
+        collective_probe=collective_probe,
+        optimizer_state_kind="stateless_sgd_no_momentum",
+        optimizer_state_absent=True,
+        optimizer_state_sync_verified=False,
+        parameter_sync_verified=False,
+        checkpoint_fingerprint_match=False,
+        checkpoint_write_strategy="per_process_existing",
+        single_writer_checkpoint_verified=False,
+        loss_reduction="local_only",
+        loss_is_global=False,
+        distributed_training_ready=readiness.distributed_training_ready,
+        missing_predicates=readiness.missing_predicates,
+        warnings=tuple(warnings),
+        local_report_path=local_report_path,
+        global_report_path=global_report_path,
+    )
 
 
 def _load_dense_textbook_arrays(store: TeacherTargetStore) -> _TeacherTextbookArrays:
@@ -947,6 +1197,9 @@ def _train_textbook(
         "token_scale": jnp.asarray(0.01, dtype=jnp.float32),
     }
     initial_params = params
+    optimizer_state = {"kind": "stateless_sgd", "learning_rate": 0.05}
+    parameter_fingerprint_initial = fingerprint_pytree(initial_params)
+    optimizer_state_fingerprint_initial = fingerprint_pytree(optimizer_state)
     loss_trace: list[float] = []
     seen: list[int] = []
 
@@ -1031,6 +1284,7 @@ def _train_textbook(
         json.dumps(checkpoint_payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    checkpoint_fingerprint = fingerprint_bytes(checkpoint_path.read_bytes())
     unique_seen = len(set(seen))
     return _TrainingRun(
         steps_completed=len(loss_trace),
@@ -1053,6 +1307,11 @@ def _train_textbook(
         bucket_shape_loss_weight=0.0,
         cascaded_real_training_executed=arrays.target_type == CASCADED_TARGET_TYPE,
         student_logits_materialization="dense_full_vocab",
+        parameter_fingerprint_initial=parameter_fingerprint_initial,
+        parameter_fingerprint_final=fingerprint_pytree(params),
+        optimizer_state_fingerprint_initial=optimizer_state_fingerprint_initial,
+        optimizer_state_fingerprint_final=fingerprint_pytree(optimizer_state),
+        checkpoint_fingerprint=checkpoint_fingerprint,
         example_id_min=(min(seen) if seen else None),
         example_id_max=(max(seen) if seen else None),
         example_id_sample=tuple(int(index) for index in seen[:8]),

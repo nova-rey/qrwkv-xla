@@ -24,6 +24,7 @@ class FirstSeriousBurnConfig:
     batch_size: int = 1
     allow_textbook_reuse: bool = False
     example_sharding: str = "auto"
+    distributed_sync: str = "auto"
     sequence_length: int = 8
     checkpoint_every_steps: int = 1
     eval_every_steps: int = 1

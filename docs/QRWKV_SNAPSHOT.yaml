@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 128
-current_phase: P128
-checkpoint: distributed_example_sharding_proof
+phase: 129
+current_phase: P129
+checkpoint: gradient_optimizer_sync_audit
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,16 +56,16 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Prove deterministic, non-overlapping example sharding across JAX processes
-  for the guarded real-burn path while keeping optimizer synchronization and
-  full distributed training correctness out of scope.
+  Audit gradient and optimizer synchronization for the guarded real-burn path
+  and prevent distributed-training claims until synchronization is actually
+  proven.
 
-current_arc: distributed_example_sharding
+current_arc: distributed_sync_audit
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P129 gradient/optimizer synchronization proof
+  - P130 true distributed train-step collective implementation
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -74,6 +74,7 @@ arc_status:
   integration_gate: complete
   contract_unification_cascaded_burn_wiring: complete
   distributed_example_sharding: complete
+  distributed_sync_audit: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -90,6 +91,11 @@ main_contains:
   p128_example_sharding_utility: true
   p128_real_burn_example_sharding: true
   p128_local_global_sharding_reports: true
+  p129_sync_config: true
+  p129_parameter_fingerprints: true
+  p129_optimizer_state_fingerprints: true
+  p129_sync_reports: true
+  p129_readiness_gating: true
 
 teacher_target_types:
   - dense_logits
@@ -101,6 +107,31 @@ p117_1_invariants_preserved:
   max_steps_configurable: true
   batch_size_configurable: true
   textbook_reuse_configurable: true
+
+p129:
+  goal: gradient_optimizer_sync_audit
+  status: complete
+  distributed_sync_config_added: true
+  current_update_path: local_only
+  gradient_sync_enabled: false
+  gradient_sync_verified: false
+  optimizer_state_kind: stateless_sgd_no_momentum
+  optimizer_state_sync_verified: false
+  parameter_sync_verified: false
+  checkpoint_fingerprint_match: false
+  loss_reduction: local_only
+  loss_is_global: false
+  distributed_training_ready: false
+  sync_reports_written: true
+  parameter_fingerprints_emitted: true
+  optimizer_state_fingerprints_emitted: true
+  checkpoint_fingerprint_emitted: true
+  model_quality_claimed: false
+  qwen_support_added: false
+  tokenizer_remapping_added: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  recommended_next: P130 true distributed train-step collective implementation
 
 p128:
   goal: distributed_example_sharding_proof

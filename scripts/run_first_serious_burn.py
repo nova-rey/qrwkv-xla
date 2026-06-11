@@ -44,6 +44,11 @@ def main() -> int:
         default=None,
     )
     parser.add_argument(
+        "--distributed-sync",
+        choices=("auto", "none", "gradient_pmean"),
+        default=None,
+    )
+    parser.add_argument(
         "--allow-textbook-reuse",
         dest="allow_textbook_reuse",
         action="store_true",
@@ -73,6 +78,8 @@ def main() -> int:
         config = replace(config, batch_size=args.batch_size)
     if args.example_sharding is not None:
         config = replace(config, example_sharding=args.example_sharding)
+    if args.distributed_sync is not None:
+        config = replace(config, distributed_sync=args.distributed_sync)
     if args.allow_textbook_reuse is not None:
         config = replace(config, allow_textbook_reuse=args.allow_textbook_reuse)
     if config_missing:

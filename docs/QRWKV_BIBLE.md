@@ -2533,3 +2533,26 @@ synchronization, synchronized global batch semantics, full distributed training
 correctness, model quality, WKV/Pallas changes, tokenizer remapping, or Qwen
 scale-up support. P129 remains reserved for gradient/optimizer synchronization
 proof.
+
+## Phase 129 - Gradient / Optimizer Synchronization Audit
+
+P129 audits whether the P128 sharded real-burn path is synchronizing gradients
+and optimizer/update state across JAX processes. The answer is no for the
+current minimal burn train step: each process computes local loss and local
+gradients on its shard, then applies a local stateless-SGD update outside a
+JAX named-axis collective context.
+
+P129 adds explicit `distributed_sync` configuration, parameter fingerprints,
+stateless optimizer fingerprints, checkpoint byte fingerprints, per-process
+sync reports, process-0 audit metadata, local/global batch fields, loss
+semantics fields, and distributed-training readiness gating. The report now
+explains that `loss_reduction=local_only`, `loss_is_global=false`,
+`gradient_sync_enabled=false`, `parameter_sync_verified=false`, and
+`distributed_training_ready=false`.
+
+P129 does not claim gradient synchronization, optimizer synchronization,
+matching final parameter fingerprints across processes, global batch semantics,
+single-writer checkpoint safety, model quality, Pallas default readiness,
+Qwen/tokenizer remapping, or WKV/runtime math changes. A future phase must move
+the train step into a valid JAX collective context and compare per-process
+fingerprints before distributed training readiness can be claimed.

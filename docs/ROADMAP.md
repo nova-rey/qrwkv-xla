@@ -1,5 +1,27 @@
 # QRWKV-XLA Roadmap
 
+## Phase 129 - Gradient / Optimizer Synchronization Audit
+
+Goal: determine whether the P128 sharded real-burn path is synchronizing
+gradients and optimizer/update state across JAX processes.
+
+Current checkpoint: `gradient_optimizer_sync_audit`. P129 adds explicit
+distributed sync configuration, parameter/optimizer/checkpoint fingerprints,
+per-process sync reports, batch/loss semantics fields, and readiness gating.
+The current burn update path remains local-only: it is not inside a JAX
+named-axis collective context, gradients are not averaged across processes, and
+`distributed_training_ready` remains false.
+
+P129 does not claim optimizer synchronization, global loss semantics, matching
+post-step parameter fingerprints across processes, model quality, production
+readiness, Qwen/tokenizer remapping, Pallas default readiness, or WKV/runtime
+math changes.
+
+Recommended next:
+
+- P130 - implement a true distributed train step using a valid JAX collective
+  context and compare per-process fingerprints.
+
 ## Phase 128 - Distributed Example Sharding Proof
 
 Goal: prove deterministic, non-overlapping example assignment across JAX
