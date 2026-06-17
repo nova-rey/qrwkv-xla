@@ -1,5 +1,22 @@
 # QRWKV-XLA Roadmap
 
+## Phase 136.1 - Fingerprint Smoke Robustness Cleanup
+
+Goal: make the P136 standalone smoke harder to misunderstand and harder to
+false-pass.
+
+Current checkpoint: `fingerprint_smoke_robustness_cleanup`. P136.1 adds
+explicit report metadata for the tiny position-logit smoke, labels that it does
+not use `input_ids`, does not integrate the main runner, and does not enable
+exemplar reservoirs. Pass/fail now requires completed requested updates,
+nonzero optimizer batch consumption, finite losses/metrics, and non-negative
+final loss; loss non-increase is reported as a diagnostic rather than a pass
+requirement.
+
+Recommended next:
+
+- P137 - exemplar reservoir integration.
+
 ## Phase 136 - Tiny Fingerprint Training Smoke
 
 Goal: prove the P132-P135 behavioral fingerprint stack can run a minimal

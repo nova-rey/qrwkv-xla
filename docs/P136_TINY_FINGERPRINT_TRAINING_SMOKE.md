@@ -25,6 +25,33 @@ The tiny student is a deterministic position-logit head sized from the
 fingerprint artifact's `max_seq_len` and `vocab_size`. It is smoke support only
 and does not represent a real QRWKV architecture.
 
+## P136.1 Robustness Note
+
+P136.1 labels the treadmill clearly:
+
+- `smoke_student_kind: tiny_position_logit_head`
+- `smoke_student_uses_input_ids: false`
+- `main_runner_integrated: false`
+- `teacher_required: false`
+- `exemplar_reservoir_enabled: false`
+- `training_path_kind: standalone_fingerprint_smoke`
+
+The position-logit smoke does not condition on `input_ids`; it trains one
+position-indexed logit table and selects target-position logits from it. This
+is useful for verifying the standalone artifact-loader/stat/loss/optimizer
+chain, but it is not real QRWKV student-backend integration and it is not main
+staged-runner support.
+
+`steps` means optimizer updates requested. The smoke cycles finite batches until
+that many updates complete. `train_batches_consumed` is reported and must be
+greater than zero; a configuration that yields no optimizer batches fails
+clearly.
+
+Loss movement is diagnostic only. A smoke passes when the requested updates
+complete, at least one optimizer batch is consumed, losses/metrics are finite,
+and final loss is non-negative. `loss_non_increasing` and `loss_delta` remain in
+the report to show whether the tiny run moved in the preferred direction.
+
 ## CLI
 
 ```bash
@@ -64,5 +91,6 @@ The smoke emits the P135 metric surface:
 P136 proves only that the tiny fingerprint-only training stack can move on CPU
 without a live teacher. It does not prove model quality, production readiness,
 real teacher fingerprint generation, exemplar reservoir training, mixed
-CSL/fingerprint training, Qwen support, tokenizer remapping, Pallas readiness,
-or WKV/runtime math changes.
+CSL/fingerprint training, real student-backend integration, main-runner
+integration, Qwen support, tokenizer remapping, Pallas readiness, or WKV/runtime
+math changes.

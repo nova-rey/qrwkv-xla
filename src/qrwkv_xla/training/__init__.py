@@ -11,6 +11,7 @@ from qrwkv_xla.training.fingerprint_smoke import (
     FINGERPRINT_SMOKE_METRIC_KEYS,
     FingerprintTrainingSmokeConfig,
     FingerprintTrainingSmokeResult,
+    classify_fingerprint_smoke_status,
     run_tiny_fingerprint_training_smoke,
 )
 from qrwkv_xla.training.fingerprint_stats import (
@@ -44,6 +45,7 @@ __all__ = [
     "RealTeacherOverfitResult",
     "TinyOverfitResult",
     "clip_gradients_by_global_norm",
+    "classify_fingerprint_smoke_status",
     "compute_fingerprint_corridor_loss",
     "compute_fingerprint_distribution_stats",
     "compute_fingerprint_distribution_stats_at_positions",

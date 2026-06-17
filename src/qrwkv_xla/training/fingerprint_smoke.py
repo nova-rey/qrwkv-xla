@@ -63,27 +63,59 @@ class FingerprintTrainingSmokeResult:
     status: str
     initial_loss: float
     final_loss: float
+    loss_delta: float
     steps: int
+    completed_steps: int
+    train_batches_consumed: int
     loss_finite: bool
     loss_non_negative: bool
     loss_non_increasing: bool
+    metrics_finite: bool
     metrics: dict[str, float]
     output_dir: str
     metrics_path: str
     checkpoint_path: str
     report_path: str
+    smoke_student_kind: str = "tiny_position_logit_head"
+    smoke_student_uses_input_ids: bool = False
+    main_runner_integrated: bool = False
+    teacher_required: bool = False
+    exemplar_reservoir_enabled: bool = False
+    artifact_kind: str = "behavioral_fingerprint"
+    training_path_kind: str = "standalone_fingerprint_smoke"
     claims_not_made: tuple[str, ...] = FINGERPRINT_SMOKE_CLAIMS_NOT_MADE
 
     def to_report(self) -> dict[str, Any]:
         return {
             **asdict(self),
-            "phase": "P136",
+            "phase": "P136.1",
             "scope": "tiny_fingerprint_training_smoke",
             "fingerprint_only": True,
-            "teacher_required": False,
             "hf_download_required": False,
             "gpu_or_tpu_required": False,
         }
+
+
+def classify_fingerprint_smoke_status(
+    *,
+    completed_steps: int,
+    requested_steps: int,
+    train_batches_consumed: int,
+    initial_loss: float,
+    final_loss: float,
+    metrics_finite: bool,
+) -> str:
+    loss_finite = bool(jnp.isfinite(initial_loss) & jnp.isfinite(final_loss))
+    loss_non_negative = bool(final_loss >= 0.0)
+    if (
+        completed_steps == requested_steps
+        and train_batches_consumed > 0
+        and loss_finite
+        and loss_non_negative
+        and metrics_finite
+    ):
+        return "pass"
+    return "fail"
 
 
 def run_tiny_fingerprint_training_smoke(
@@ -106,6 +138,9 @@ def run_tiny_fingerprint_training_smoke(
     )
     if dataset.num_records == 0:
         raise ValueError("fingerprint smoke requires at least one target record")
+    train_batches = tuple(dataset.iter_batches())
+    if not train_batches:
+        raise ValueError("Fingerprint smoke consumed zero optimizer batches.")
 
     params = _init_tiny_fingerprint_student(
         max_seq_len=dataset.max_seq_len,
@@ -124,30 +159,39 @@ def run_tiny_fingerprint_training_smoke(
     initial_output = _loss_output(params, full_batch, config.loss_config)
     initial_loss = initial_output.loss
 
-    for _ in range(config.steps):
-        for batch in dataset.iter_batches():
-            loss, grads = jax.value_and_grad(_loss_value)(
-                params,
-                batch,
-                config.loss_config,
-            )
-            del loss
-            params = jax.tree_util.tree_map(
-                lambda param, grad: param - config.learning_rate * grad,
-                params,
-                grads,
-            )
+    train_batches_consumed = 0
+    for update_index in range(config.steps):
+        batch = train_batches[update_index % len(train_batches)]
+        loss, grads = jax.value_and_grad(_loss_value)(
+            params,
+            batch,
+            config.loss_config,
+        )
+        del loss
+        params = jax.tree_util.tree_map(
+            lambda param, grad: param - config.learning_rate * grad,
+            params,
+            grads,
+        )
+        train_batches_consumed += 1
 
     final_output = _loss_output(params, full_batch, config.loss_config)
     final_loss = final_output.loss
     metrics = _metrics_from_output(final_output)
     initial_loss_float = float(initial_loss)
     final_loss_float = float(final_loss)
+    loss_delta = final_loss_float - initial_loss_float
     loss_finite = bool(jnp.isfinite(initial_loss) & jnp.isfinite(final_loss))
     loss_non_negative = bool((initial_loss >= 0.0) & (final_loss >= 0.0))
     loss_non_increasing = bool(final_loss <= initial_loss + 1e-6)
-    status = (
-        "pass" if loss_finite and loss_non_negative and loss_non_increasing else "fail"
+    metrics_finite = all(bool(jnp.isfinite(value)) for value in metrics.values())
+    status = classify_fingerprint_smoke_status(
+        completed_steps=train_batches_consumed,
+        requested_steps=config.steps,
+        train_batches_consumed=train_batches_consumed,
+        initial_loss=initial_loss_float,
+        final_loss=final_loss_float,
+        metrics_finite=metrics_finite,
     )
 
     output_dir = Path(config.output_dir)
@@ -159,7 +203,10 @@ def run_tiny_fingerprint_training_smoke(
     metrics_payload = {
         "initial_loss": initial_loss_float,
         "final_loss": final_loss_float,
+        "loss_delta": loss_delta,
         "steps": config.steps,
+        "completed_steps": train_batches_consumed,
+        "train_batches_consumed": train_batches_consumed,
         **metrics,
     }
     metrics_path.write_text(
@@ -173,6 +220,7 @@ def run_tiny_fingerprint_training_smoke(
                 "max_seq_len": dataset.max_seq_len,
                 "vocab_size": dataset.vocab_size,
                 "steps": config.steps,
+                "completed_steps": train_batches_consumed,
                 "position_logits_shape": list(params["position_logits"].shape),
                 "position_logits_l2": float(jnp.linalg.norm(params["position_logits"])),
             },
@@ -187,10 +235,14 @@ def run_tiny_fingerprint_training_smoke(
         status=status,
         initial_loss=initial_loss_float,
         final_loss=final_loss_float,
+        loss_delta=loss_delta,
         steps=config.steps,
+        completed_steps=train_batches_consumed,
+        train_batches_consumed=train_batches_consumed,
         loss_finite=loss_finite,
         loss_non_negative=loss_non_negative,
         loss_non_increasing=loss_non_increasing,
+        metrics_finite=metrics_finite,
         metrics=metrics,
         output_dir=str(output_dir),
         metrics_path=str(metrics_path),

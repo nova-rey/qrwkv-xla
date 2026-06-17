@@ -55,8 +55,10 @@ def main() -> int:
     )
     print(
         f"status={result.status} steps={result.steps} "
+        f"train_batches={result.train_batches_consumed} "
         f"initial_loss={result.initial_loss:.8f} "
         f"final_loss={result.final_loss:.8f} "
+        f"loss_non_increasing={result.loss_non_increasing} "
         f"metrics={result.metrics_path} checkpoint={result.checkpoint_path}"
     )
     return 0 if result.status == "pass" else 1

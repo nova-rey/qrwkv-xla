@@ -2712,3 +2712,23 @@ quality.
 P136 does not add exemplar reservoirs, mixed CSL/fingerprint batches, real
 teacher fingerprint generation, dynamic top-k, quality benchmarks, Qwen/tokenizer
 remapping, Pallas promotion, or WKV/runtime math changes.
+
+## Phase 136.1 - Fingerprint Smoke Robustness Cleanup
+
+P136.1 tightens the P136 smoke without expanding its research scope. Reports
+now explicitly identify the smoke path as a standalone
+`tiny_position_logit_head`, record that it does not use `input_ids`, does not
+integrate the main runner, does not require a teacher, and does not enable an
+exemplar reservoir.
+
+The smoke now treats `steps` as requested optimizer updates and cycles the tiny
+finite batch stream until that count completes. It reports
+`train_batches_consumed` and refuses to pass when no optimizer batch is
+available. Loss non-increase is now diagnostic only through
+`loss_non_increasing` and `loss_delta`; pass/fail is based on completed updates,
+nonzero batch consumption, finite losses/metrics, and non-negative final loss.
+
+P136.1 does not add real student-backend integration, main staged-runner
+integration, exemplar reservoirs, mixed CSL/fingerprint batches, teacher
+generation, Qwen/tokenizer remapping, Pallas promotion, or WKV/runtime math
+changes.

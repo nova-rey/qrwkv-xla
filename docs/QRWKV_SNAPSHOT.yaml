@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 136
-current_phase: P136
-checkpoint: tiny_fingerprint_training_smoke
+phase: 136.1
+current_phase: P136.1
+checkpoint: fingerprint_smoke_robustness_cleanup
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,10 +56,10 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Prove a tiny CPU-only fingerprint training smoke can run through the
-  P132-P135 artifact-loader-stats-loss stack without a live teacher.
+  Make the tiny fingerprint smoke explicit about its position-logit limitation,
+  non-main-runner status, and optimizer-batch completion criteria.
 
-current_arc: behavioral_fingerprint_training_smoke
+current_arc: behavioral_fingerprint_smoke_hygiene
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
@@ -81,6 +81,7 @@ arc_status:
   behavioral_fingerprint_student_stats: complete
   behavioral_fingerprint_corridor_loss: complete
   behavioral_fingerprint_training_smoke: complete
+  behavioral_fingerprint_smoke_hygiene: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -129,6 +130,9 @@ main_contains:
   p136_tiny_fingerprint_training_smoke: true
   p136_fingerprint_metrics_emitted: true
   p136_checkpoint_artifact_written: true
+  p136_1_smoke_metadata_explicit: true
+  p136_1_loss_non_increase_diagnostic_only: true
+  p136_1_train_batches_consumed_guard: true
 
 teacher_target_types:
   - dense_logits
@@ -366,6 +370,38 @@ p136:
   gpu_or_tpu_required: false
   exemplar_reservoir_added: false
   mixed_csl_fingerprint_training_added: false
+  production_readiness_claimed: false
+  model_quality_claimed: false
+  qwen_support_added: false
+  tokenizer_remapping_added: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  docs:
+    - docs/P136_TINY_FINGERPRINT_TRAINING_SMOKE.md
+  recommended_next: P137 exemplar reservoir integration
+
+p136_1:
+  goal: fingerprint_smoke_robustness_cleanup
+  status: complete
+  depends_on: P136 tiny fingerprint training smoke
+  smoke_student_kind: tiny_position_logit_head
+  smoke_student_uses_input_ids: false
+  main_runner_integrated: false
+  teacher_required: false
+  exemplar_reservoir_enabled: false
+  artifact_kind: behavioral_fingerprint
+  training_path_kind: standalone_fingerprint_smoke
+  steps_semantics: optimizer_updates_requested
+  train_batches_consumed_reported: true
+  zero_optimizer_batch_guard: true
+  loss_non_increasing_required_for_pass: false
+  loss_non_increasing_reported: true
+  loss_delta_reported: true
+  jsonl_physical_line_sanity_test: true
+  main_runner_integration_added: false
+  real_student_backend_integration_added: false
+  exemplar_reservoir_added: false
+  teacher_generation_added: false
   production_readiness_claimed: false
   model_quality_claimed: false
   qwen_support_added: false
