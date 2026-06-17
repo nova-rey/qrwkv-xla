@@ -24,9 +24,7 @@ def test_exemplar_loss_zero_for_matching_uniform_distribution() -> None:
 
 
 def test_exemplar_loss_one_hot_matches_negative_log_probability() -> None:
-    batch = _batch(
-        teacher_probs=np.asarray([[1.0, 0.0, 0.0, 0.0]], dtype=np.float32)
-    )
+    batch = _batch(teacher_probs=np.asarray([[1.0, 0.0, 0.0, 0.0]], dtype=np.float32))
     logits = jnp.asarray([[0.0, 1.0, 2.0, 3.0]], dtype=jnp.float32)
     expected = -jax_log_softmax(logits)[0, 0]
 

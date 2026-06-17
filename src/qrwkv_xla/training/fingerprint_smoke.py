@@ -251,9 +251,7 @@ def classify_fingerprint_mixed_smoke_status(
     loss_finite = bool(
         jnp.isfinite(initial_mixed_loss) & jnp.isfinite(final_mixed_loss)
     )
-    loss_non_negative = bool(
-        (initial_mixed_loss >= 0.0) & (final_mixed_loss >= 0.0)
-    )
+    loss_non_negative = bool((initial_mixed_loss >= 0.0) & (final_mixed_loss >= 0.0))
     if (
         optimizer_steps_completed == requested_steps
         and corridor_batches_consumed > 0
@@ -738,9 +736,7 @@ def _mixed_metrics_from_output(
             output.corridor.top1_margin_loss
         ),
         "fingerprint/corridor_loss_top8_mass": float(output.corridor.top8_mass_loss),
-        "fingerprint/corridor_loss_top32_mass": float(
-            output.corridor.top32_mass_loss
-        ),
+        "fingerprint/corridor_loss_top32_mass": float(output.corridor.top32_mass_loss),
         "fingerprint/corridor_loss_tail_mass": float(output.corridor.tail_mass_loss),
         "fingerprint/corridor_inside_entropy_rate": float(
             output.corridor.entropy_inside_rate

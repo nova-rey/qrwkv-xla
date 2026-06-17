@@ -14,9 +14,7 @@ from qrwkv_xla.training import (
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Run tiny fingerprint smoke modes."
-    )
+    parser = argparse.ArgumentParser(description="Run tiny fingerprint smoke modes.")
     parser.add_argument(
         "--mode",
         choices=("corridor", "mixed"),
