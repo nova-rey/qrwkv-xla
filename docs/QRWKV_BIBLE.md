@@ -2694,3 +2694,21 @@ P135 does not wire the loss into any trainer, optimizer, checkpoint path, burn
 harness, or CLI training flow. It does not implement exemplar reservoirs,
 teacher fingerprint generation, mode-classifier losses, Qwen/tokenizer
 remapping, Pallas promotion, or WKV/runtime math changes.
+
+## Phase 136 - Tiny Fingerprint Training Smoke
+
+P136 wires the P132-P135 behavioral fingerprint stack into its first tiny
+training smoke. The new `qrwkv_xla.training.fingerprint_smoke` path loads a
+P133 `FingerprintTargetDataset`, applies a deterministic trainable
+position-logit head, selects target-position logits, computes P134 student
+distribution statistics, computes P135 corridor loss, performs SGD updates, and
+writes metrics, checkpoint, and report JSON artifacts.
+
+The smoke has a CLI at `scripts/run_fingerprint_smoke.py` and is CPU-only. It
+requires no teacher backend, no Hugging Face download, no internet, no GPU, and
+no TPU. The smoke is designed to verify wiring and finite metrics, not model
+quality.
+
+P136 does not add exemplar reservoirs, mixed CSL/fingerprint batches, real
+teacher fingerprint generation, dynamic top-k, quality benchmarks, Qwen/tokenizer
+remapping, Pallas promotion, or WKV/runtime math changes.

@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 135
-current_phase: P135
-checkpoint: corridor_loss
+phase: 136
+current_phase: P136
+checkpoint: tiny_fingerprint_training_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,15 +56,15 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Compare student distribution statistics against behavioral fingerprint
-  corridor bounds with squared-hinge penalties, without trainer wiring.
+  Prove a tiny CPU-only fingerprint training smoke can run through the
+  P132-P135 artifact-loader-stats-loss stack without a live teacher.
 
-current_arc: behavioral_fingerprint_corridor_loss
+current_arc: behavioral_fingerprint_training_smoke
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P136 tiny fingerprint training smoke
+  - P137 exemplar reservoir integration
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -80,6 +80,7 @@ arc_status:
   behavioral_fingerprint_loader: complete
   behavioral_fingerprint_student_stats: complete
   behavioral_fingerprint_corridor_loss: complete
+  behavioral_fingerprint_training_smoke: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -125,6 +126,9 @@ main_contains:
   p135_squared_hinge_penalty: true
   p135_inside_rate_diagnostics: true
   p135_record_weights: true
+  p136_tiny_fingerprint_training_smoke: true
+  p136_fingerprint_metrics_emitted: true
+  p136_checkpoint_artifact_written: true
 
 teacher_target_types:
   - dense_logits
@@ -337,6 +341,40 @@ p135:
   docs:
     - docs/P135_CORRIDOR_LOSS.md
   recommended_next: P136 tiny fingerprint training smoke
+
+p136:
+  goal: tiny_fingerprint_training_smoke
+  status: complete
+  depends_on:
+    - P132 behavioral fingerprint artifact schema validator
+    - P133 behavioral fingerprint target loader
+    - P134 student distribution stats
+    - P135 corridor loss
+  module: qrwkv_xla.training.fingerprint_smoke
+  script: scripts/run_fingerprint_smoke.py
+  smoke_student: tiny_position_logit_head
+  consumes: qrwkv_xla.artifacts.FingerprintTargetDataset
+  computes_stats: true
+  computes_corridor_loss: true
+  optimizer_step: sgd
+  metrics_json_written: true
+  checkpoint_json_written: true
+  report_json_written: true
+  deterministic_seeded: true
+  teacher_required: false
+  hf_download_required: false
+  gpu_or_tpu_required: false
+  exemplar_reservoir_added: false
+  mixed_csl_fingerprint_training_added: false
+  production_readiness_claimed: false
+  model_quality_claimed: false
+  qwen_support_added: false
+  tokenizer_remapping_added: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  docs:
+    - docs/P136_TINY_FINGERPRINT_TRAINING_SMOKE.md
+  recommended_next: P137 exemplar reservoir integration
 
 p129:
   goal: gradient_optimizer_sync_audit

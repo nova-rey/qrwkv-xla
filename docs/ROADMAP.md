@@ -1,5 +1,22 @@
 # QRWKV-XLA Roadmap
 
+## Phase 136 - Tiny Fingerprint Training Smoke
+
+Goal: prove the P132-P135 behavioral fingerprint stack can run a minimal
+CPU-only training step path without teacher logits or live teacher calls.
+
+Current checkpoint: `tiny_fingerprint_training_smoke`. P136 adds a tiny
+fingerprint-only training smoke utility, a CLI, deterministic position-logit
+student parameters, SGD updates through P135 corridor loss, finite fingerprint
+metrics, and simple metrics/checkpoint/report artifacts.
+
+P136 does not add exemplar reservoirs, mixed CSL/fingerprint training, teacher
+generation, TPU/GPU burns, benchmark claims, or production readiness.
+
+Recommended next:
+
+- P137 - exemplar reservoir integration.
+
 ## Phase 135 - Corridor Loss
 
 Goal: compare P134 student distribution statistics against P133 fingerprint
