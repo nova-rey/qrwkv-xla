@@ -45,6 +45,14 @@ Bounds require numeric `min` and `max`, `min <= max`, and optional `mean` inside
 the same interval. Probability-like stats are constrained to `[0.0, 1.0]`;
 `entropy` must be non-negative.
 
+Tracked stat meanings are fixed by P134:
+
+- `entropy`: natural-log distribution entropy, `-sum(p * ln(p))`.
+- `top1_margin`: probability-space `p_top1 - p_top2`.
+- `top8_mass`: cumulative probability mass of the largest 8 tokens.
+- `top32_mass`: cumulative probability mass of the largest 32 tokens.
+- `tail_mass`: probability mass outside the top-32 tokens, `1.0 - top32_mass`.
+
 ## Target Rows
 
 Each JSONL row describes one corridor target:

@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 133
-current_phase: P133
-checkpoint: behavioral_fingerprint_target_loader
+phase: 134
+current_phase: P134
+checkpoint: student_distribution_stats
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,15 +56,15 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Load validated behavioral fingerprint artifacts into typed records and
-  fixed-shape NumPy batches for future corridor training phases.
+  Compute student-side behavioral fingerprint distribution statistics from
+  logits without adding corridor loss or trainer wiring.
 
-current_arc: behavioral_fingerprint_loader
+current_arc: behavioral_fingerprint_student_stats
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P134 student distribution statistics
+  - P135 corridor loss
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -78,6 +78,7 @@ arc_status:
   distributed_artifact_hygiene: complete
   behavioral_fingerprint_contract: complete
   behavioral_fingerprint_loader: complete
+  behavioral_fingerprint_student_stats: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -115,6 +116,10 @@ main_contains:
   p133_numpy_batch_loader: true
   p133_deterministic_shuffle: true
   p133_fixed_shape_input_ids: true
+  p134_student_distribution_stats: true
+  p134_position_logit_selection: true
+  p134_natural_log_entropy: true
+  p134_probability_space_top1_margin: true
 
 teacher_target_types:
   - dense_logits
@@ -255,6 +260,43 @@ p133:
   docs:
     - docs/P133_BEHAVIORAL_FINGERPRINT_TARGET_LOADER.md
   recommended_next: P134 student distribution statistics
+
+p134:
+  goal: student_distribution_stats
+  status: complete
+  depends_on:
+    - P132 behavioral fingerprint artifact schema validator
+    - P133 behavioral fingerprint target loader
+  module: qrwkv_xla.training.fingerprint_stats
+  stats_type: qrwkv_xla.training.FingerprintDistributionStats
+  compute_api: qrwkv_xla.training.compute_fingerprint_distribution_stats
+  position_select_api: qrwkv_xla.training.select_position_logits
+  position_wrapper_api: qrwkv_xla.training.compute_fingerprint_distribution_stats_at_positions
+  input_logits_shape: "[batch, vocab]"
+  sequence_logits_shape: "[batch, seq, vocab]"
+  output_stat_shape: "[batch]"
+  entropy_units: natural_log
+  top1_margin_space: probability
+  top8_mass_definition: cumulative_probability_largest_8_tokens
+  top32_mass_definition: cumulative_probability_largest_32_tokens
+  tail_mass_definition: 1_minus_top32_mass
+  stable_softmax_log_softmax: true
+  topk_clamps_to_vocab_size: true
+  shape_value_errors: true
+  corridor_loss_added: false
+  bounds_comparison_added: false
+  student_training_changed: false
+  optimizer_changed: false
+  exemplar_reservoir_added: false
+  production_readiness_claimed: false
+  model_quality_claimed: false
+  qwen_support_added: false
+  tokenizer_remapping_added: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  docs:
+    - docs/P134_STUDENT_DISTRIBUTION_STATS.md
+  recommended_next: P135 corridor loss
 
 p129:
   goal: gradient_optimizer_sync_audit

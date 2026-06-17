@@ -2655,3 +2655,23 @@ loss, exemplar reservoirs, teacher fingerprint generation, or any training
 objective changes. It does not claim model quality, production training
 readiness, Qwen/tokenizer remapping, Pallas default readiness, or WKV/runtime
 math changes.
+
+## Phase 134 - Student Distribution Stats
+
+P134 adds the pure student-side statistic layer needed before corridor loss.
+The new `qrwkv_xla.training.fingerprint_stats` module computes behavioral
+fingerprint statistics from `[batch, vocab]` logits using stable softmax and
+log-softmax. It returns natural-log entropy, probability-space top-1 margin,
+top-8 mass, top-32 mass, and tail mass defined as `1.0 - top32_mass`.
+
+P134 also adds JAX-friendly target-position selection from `[batch, seq, vocab]`
+logits using `[batch]` positions, plus a convenience wrapper that selects
+positions before computing stats. Top-k mass clamps to vocabulary size when the
+vocabulary is smaller than 8 or 32, and non-jitted shape misuse raises clear
+`ValueError`s.
+
+P134 does not compare stats to fingerprint bounds, implement corridor loss,
+modify training objectives, change optimizers, add exemplar reservoirs, or
+generate teacher fingerprints. It does not claim model quality, production
+training readiness, Qwen/tokenizer remapping, Pallas default readiness, or
+WKV/runtime math changes.

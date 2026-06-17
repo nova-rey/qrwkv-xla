@@ -1,5 +1,23 @@
 # QRWKV-XLA Roadmap
 
+## Phase 134 - Student Distribution Stats
+
+Goal: compute student-side behavioral fingerprint statistics from logits
+without adding corridor loss or trainer wiring.
+
+Current checkpoint: `student_distribution_stats`. P134 adds pure JAX utilities
+for entropy, probability-space top-1 margin, top-8 mass, top-32 mass, tail mass,
+target-position logit selection, and a convenience selected-position stats
+wrapper. Shape checks fail early with clear `ValueError`s for non-jitted use.
+
+P134 does not compare stats to corridor bounds, implement loss, modify
+optimizers, add exemplar reservoirs, generate teacher fingerprints, or change
+training objectives.
+
+Recommended next:
+
+- P135 - corridor loss against P132/P133 fingerprint target bounds.
+
 ## Phase 133 - Behavioral Fingerprint Target Loader
 
 Goal: load validated behavioral fingerprint artifacts into typed records and

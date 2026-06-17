@@ -1,5 +1,11 @@
 """Training utilities for QRWKV-XLA."""
 
+from qrwkv_xla.training.fingerprint_stats import (
+    FingerprintDistributionStats,
+    compute_fingerprint_distribution_stats,
+    compute_fingerprint_distribution_stats_at_positions,
+    select_position_logits,
+)
 from qrwkv_xla.training.gradients import (
     GradientClipResult,
     clip_gradients_by_global_norm,
@@ -16,10 +22,14 @@ from qrwkv_xla.training.tiny_overfit import (
 
 __all__ = [
     "GradientClipResult",
+    "FingerprintDistributionStats",
     "RealTeacherOverfitResult",
     "TinyOverfitResult",
     "clip_gradients_by_global_norm",
+    "compute_fingerprint_distribution_stats",
+    "compute_fingerprint_distribution_stats_at_positions",
     "global_gradient_norm",
     "run_tiny_real_teacher_overfit_rehearsal",
     "run_tiny_overfit_rehearsal",
+    "select_position_logits",
 ]
