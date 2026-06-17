@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 132
-current_phase: P132
-checkpoint: behavioral_fingerprint_artifact_schema_validator
+phase: 133
+current_phase: P133
+checkpoint: behavioral_fingerprint_target_loader
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,15 +56,15 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Define the teacher-pure behavioral fingerprint artifact v0.1 contract and
-  validate tiny synthetic fixtures before any training loader consumes it.
+  Load validated behavioral fingerprint artifacts into typed records and
+  fixed-shape NumPy batches for future corridor training phases.
 
-current_arc: behavioral_fingerprint_contract
+current_arc: behavioral_fingerprint_loader
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P133 fingerprint target loader
+  - P134 student distribution statistics
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -77,6 +77,7 @@ arc_status:
   distributed_gradient_sync: complete
   distributed_artifact_hygiene: complete
   behavioral_fingerprint_contract: complete
+  behavioral_fingerprint_loader: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -110,6 +111,10 @@ main_contains:
   p132_behavioral_fingerprint_schema: true
   p132_fingerprint_validator_cli: true
   p132_tiny_synthetic_fixture: true
+  p133_fingerprint_target_dataset: true
+  p133_numpy_batch_loader: true
+  p133_deterministic_shuffle: true
+  p133_fixed_shape_input_ids: true
 
 teacher_target_types:
   - dense_logits
@@ -216,6 +221,40 @@ p132:
   docs:
     - docs/P132_BEHAVIORAL_FINGERPRINT_ARTIFACT_SCHEMA.md
   recommended_next: P133 fingerprint target loader
+
+p133:
+  goal: behavioral_fingerprint_target_loader
+  status: complete
+  depends_on: P132 behavioral fingerprint artifact schema validator
+  loader_api: qrwkv_xla.artifacts.load_fingerprint_targets
+  dataset_type: qrwkv_xla.artifacts.FingerprintTargetDataset
+  record_type: qrwkv_xla.artifacts.FingerprintTargetRecord
+  batch_type: qrwkv_xla.artifacts.FingerprintBatch
+  config_type: qrwkv_xla.artifacts.FingerprintLoaderConfig
+  batch_arrays: numpy
+  validates_by_default: true
+  manifest_order_loading: true
+  deterministic_shuffle_seeded: true
+  max_records_supported: true
+  drop_remainder_supported: true
+  fixed_shape_input_ids_required: true
+  hidden_padding_policy_added: false
+  inspect_cli: scripts/inspect_fingerprint_targets.py
+  jsonl_physical_line_sanity_test: true
+  generation_added: false
+  student_stats_added: false
+  corridor_loss_added: false
+  exemplar_reservoir_added: false
+  student_training_changed: false
+  production_readiness_claimed: false
+  model_quality_claimed: false
+  qwen_support_added: false
+  tokenizer_remapping_added: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  docs:
+    - docs/P133_BEHAVIORAL_FINGERPRINT_TARGET_LOADER.md
+  recommended_next: P134 student distribution statistics
 
 p129:
   goal: gradient_optimizer_sync_audit

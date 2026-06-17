@@ -1,5 +1,24 @@
 # QRWKV-XLA Roadmap
 
+## Phase 133 - Behavioral Fingerprint Target Loader
+
+Goal: load validated behavioral fingerprint artifacts into typed records and
+fixed-shape NumPy batches for future JAX/XLA training code.
+
+Current checkpoint: `behavioral_fingerprint_target_loader`. P133 adds a
+`FingerprintTargetDataset`, loader config, target record type, batch type,
+deterministic shuffling, `max_records`, `drop_remainder`, fixed-shape
+`input_ids` enforcement, an inspect CLI, and loader tests over the P132 tiny
+fixture.
+
+P133 does not generate teacher fingerprints, compute student distribution
+statistics, implement corridor loss, add exemplar reservoirs, or modify the
+training objective.
+
+Recommended next:
+
+- P134 - compute student-side distribution statistics from logits.
+
 ## Phase 132 - Behavioral Fingerprint Artifact Schema + Validator
 
 Goal: define the first teacher-pure behavioral fingerprint artifact contract

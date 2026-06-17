@@ -2634,3 +2634,24 @@ target loader, student distribution statistics, corridor loss, exemplar
 reservoirs, live teacher calls, student-aware repair, or training changes. It
 does not claim model quality, production training readiness, Qwen/tokenizer
 remapping, Pallas default readiness, or WKV/runtime math changes.
+
+## Phase 133 - Behavioral Fingerprint Target Loader
+
+P133 adds the first consumer-facing bridge for P132 behavioral fingerprint
+artifacts. The new loader validates artifacts by default, loads target shards in
+manifest order, represents rows as `FingerprintTargetRecord`, and batches them
+as NumPy-backed `FingerprintBatch` objects with fixed shapes for future JAX/XLA
+training code.
+
+The loader supports deterministic seeded shuffling, `max_records`, and
+`drop_remainder`. It intentionally rejects variable-length `input_ids` at the
+loader boundary because P132 did not define a pad token or padding policy. The
+tiny P132 fixture now uses exactly `sequence.max_seq_len` token slots per JSONL
+row, and tests assert one JSON object per physical line.
+
+P133 also adds `scripts/inspect_fingerprint_targets.py` for quick batch-shape
+inspection. It does not implement student distribution statistics, corridor
+loss, exemplar reservoirs, teacher fingerprint generation, or any training
+objective changes. It does not claim model quality, production training
+readiness, Qwen/tokenizer remapping, Pallas default readiness, or WKV/runtime
+math changes.

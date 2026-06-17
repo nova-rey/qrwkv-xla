@@ -58,6 +58,10 @@ Each JSONL row describes one corridor target:
 All token ids must satisfy `0 <= token_id < teacher.vocab_size`, and
 `len(input_ids)` must not exceed `sequence.max_seq_len`.
 
+P133 adds the stricter loader boundary for training-shaped batches:
+`len(input_ids)` must equal `sequence.max_seq_len`. P132 remains the broader
+schema validator.
+
 Row bounds must remain inside the selected mode bounds:
 
 ```text

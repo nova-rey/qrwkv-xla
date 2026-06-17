@@ -10,6 +10,10 @@ __all__ = [
     "STUDENT_ARTIFACT_VERSION",
     "TEACHER_TEXTBOOK_VERSION",
     "FingerprintManifest",
+    "FingerprintBatch",
+    "FingerprintLoaderConfig",
+    "FingerprintTargetDataset",
+    "FingerprintTargetRecord",
     "StudentArtifactValidationReport",
     "TeacherTextbookValidationReport",
     "TeacherTextbookBuildConfig",
@@ -19,6 +23,7 @@ __all__ = [
     "build_hf_teacher_textbook",
     "build_teacher_textbook",
     "load_text_examples",
+    "load_fingerprint_targets",
     "validate_fingerprint_artifact",
     "validate_student_artifact",
     "validate_teacher_textbook",
@@ -32,6 +37,13 @@ _FINGERPRINT_EXPORTS = {
     "FingerprintManifest",
     "ValidationResult",
     "validate_fingerprint_artifact",
+}
+_FINGERPRINT_LOADER_EXPORTS = {
+    "FingerprintBatch",
+    "FingerprintLoaderConfig",
+    "FingerprintTargetDataset",
+    "FingerprintTargetRecord",
+    "load_fingerprint_targets",
 }
 _STUDENT_EXPORTS = {
     "STUDENT_ARTIFACT_VERSION",
@@ -60,6 +72,10 @@ def __getattr__(name: str) -> Any:
         from qrwkv_xla.artifacts import fingerprint
 
         return getattr(fingerprint, name)
+    if name in _FINGERPRINT_LOADER_EXPORTS:
+        from qrwkv_xla.artifacts import fingerprint_loader
+
+        return getattr(fingerprint_loader, name)
     if name in _STUDENT_EXPORTS:
         from qrwkv_xla.artifacts import student_artifact
 
