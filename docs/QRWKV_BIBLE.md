@@ -2675,3 +2675,22 @@ modify training objectives, change optimizers, add exemplar reservoirs, or
 generate teacher fingerprints. It does not claim model quality, production
 training readiness, Qwen/tokenizer remapping, Pallas default readiness, or
 WKV/runtime math changes.
+
+## Phase 135 - Corridor Loss
+
+P135 adds the first judgment layer for behavioral fingerprint distillation. The
+new `qrwkv_xla.training.fingerprint_loss` module compares P134 student
+distribution statistics against P133 fingerprint batch bounds with simple
+squared-hinge penalties. Bounds are inclusive, so exact-boundary values are
+inside the corridor and receive zero penalty.
+
+The loss utilities support non-negative per-stat weights, optional
+`FingerprintBatch.weight` record weighting, scalar total and per-stat losses,
+per-stat inside rates, `all_inside_rate`, and `mean_weight`. Per-stat losses
+include config weights, so setting a stat weight to zero reports that stat loss
+as zero.
+
+P135 does not wire the loss into any trainer, optimizer, checkpoint path, burn
+harness, or CLI training flow. It does not implement exemplar reservoirs,
+teacher fingerprint generation, mode-classifier losses, Qwen/tokenizer
+remapping, Pallas promotion, or WKV/runtime math changes.

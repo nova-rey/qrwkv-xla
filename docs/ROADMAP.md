@@ -1,5 +1,23 @@
 # QRWKV-XLA Roadmap
 
+## Phase 135 - Corridor Loss
+
+Goal: compare P134 student distribution statistics against P133 fingerprint
+target bounds with simple squared-hinge penalties.
+
+Current checkpoint: `corridor_loss`. P135 adds bounded corridor penalty
+primitives, inclusive inside-bound checks, configurable per-stat weights,
+optional record weighting, scalar total/per-stat losses, and inside-rate
+diagnostics for future logging.
+
+P135 does not wire the loss into a trainer, change optimizers/checkpoints,
+generate teacher fingerprints, add exemplar reservoirs, or launch a training
+smoke.
+
+Recommended next:
+
+- P136 - tiny fingerprint training smoke using the P132-P135 stack.
+
 ## Phase 134 - Student Distribution Stats
 
 Goal: compute student-side behavioral fingerprint statistics from logits
