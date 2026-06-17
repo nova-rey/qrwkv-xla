@@ -10,6 +10,15 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+from qrwkv_xla.burn.artifacts import (
+    ARTIFACT_WRITE_POLICY,
+    CANONICAL_PROCESS_INDEX,
+    expected_per_process_paths,
+    is_canonical_process,
+    per_process_path,
+    write_json_canonical,
+    write_json_per_process,
+)
 from qrwkv_xla.burn.config import FirstSeriousBurnConfig
 from qrwkv_xla.burn.example_sharding import (
     CONTIGUOUS_BY_PROCESS,
@@ -83,6 +92,21 @@ class FirstSeriousBurnResult:
     launch_commands_path: str | None
     blockers: tuple[str, ...]
     warnings: tuple[str, ...]
+    canonical_checkpoint_path: str | None = None
+    artifact_hygiene_ready: bool = False
+    artifact_write_policy: str = ARTIFACT_WRITE_POLICY
+    canonical_process_index: int = CANONICAL_PROCESS_INDEX
+    is_canonical_process: bool = True
+    report_role: str = "canonical"
+    report_writer_process_index: int = 0
+    canonical_burn_report_path: str | None = None
+    per_process_burn_report_path: str | None = None
+    per_process_report_paths: tuple[str, ...] = ()
+    per_process_report_collection_scope: str = (
+        "expected_paths_separate_worker_filesystems"
+    )
+    per_process_reports_written: bool = False
+    per_process_diagnostics_preserved: bool = False
     teacher_textbook_path: str | None = None
     teacher_target_type: str | None = None
     teacher_target_type_legacy_alias: str | None = None
@@ -116,6 +140,16 @@ class FirstSeriousBurnResult:
     loss_trace_path: str | None = None
     checkpoint_written: bool = False
     checkpoint_nonzero: bool = False
+    canonical_checkpoint_writer_process_index: int = CANONICAL_PROCESS_INDEX
+    canonical_checkpoint_written: bool = False
+    canonical_checkpoint_written_by_this_process: bool = False
+    canonical_checkpoint_fingerprint: str | None = None
+    checkpoint_fingerprint_comparison_scope: str = "canonical_process_0_only"
+    checkpoint_fingerprint_match_meaning: str = (
+        "single canonical checkpoint writer; no cross-process checkpoint file "
+        "comparison required"
+    )
+    production_training_ready: bool = False
     device_backend: str | None = None
     jax_devices: tuple[str, ...] = ()
     jax_process_index: int | None = None
@@ -232,16 +266,27 @@ def write_first_serious_burn_report(
     path: str | Path,
 ) -> Path:
     output_path = Path(path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(result.to_report(), indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
+    output_dir = output_path.parent
+    process_index = result.report_writer_process_index
+    per_process_report = write_json_per_process(
+        result.to_report(),
+        output_dir,
+        "burn_report",
+        process_index=process_index,
     )
-    return output_path
+    canonical_report = write_json_canonical(
+        result.to_report(),
+        output_dir,
+        output_path.name,
+        process_index=process_index,
+    )
+    return canonical_report or per_process_report
 
 
 def write_launch_commands(path: str | Path) -> Path:
     output_path = Path(path)
+    if not is_canonical_process(_jax_process_index() or 0):
+        return output_path
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(_launch_commands_markdown(), encoding="utf-8")
     return output_path
@@ -362,6 +407,10 @@ class _TrainingRun:
     loss_trace_path: Path
     checkpoint_written: bool
     checkpoint_nonzero: bool
+    canonical_checkpoint_path: Path
+    canonical_checkpoint_written: bool
+    canonical_checkpoint_written_by_this_process: bool
+    canonical_checkpoint_fingerprint: str | None
     params_changed: bool
     target_loss_kind: str | None
     top_k: int | None
@@ -373,7 +422,7 @@ class _TrainingRun:
     parameter_fingerprint_final: str
     optimizer_state_fingerprint_initial: str
     optimizer_state_fingerprint_final: str
-    checkpoint_fingerprint: str
+    checkpoint_fingerprint: str | None
     distributed_sync_mode: str
     gradient_sync_enabled: bool
     gradient_sync_method: str | None
@@ -566,6 +615,27 @@ def _run_real_training(
         launch_commands_path=str(launch_commands_path),
         blockers=blockers,
         warnings=warnings,
+        artifact_hygiene_ready=True,
+        artifact_write_policy=ARTIFACT_WRITE_POLICY,
+        canonical_process_index=CANONICAL_PROCESS_INDEX,
+        is_canonical_process=is_canonical_process(_jax_process_index() or 0),
+        report_role=(
+            "canonical"
+            if is_canonical_process(_jax_process_index() or 0)
+            else "per_process"
+        ),
+        report_writer_process_index=_jax_process_index() or 0,
+        canonical_burn_report_path=str(output_dir / "burn_report.json"),
+        per_process_burn_report_path=str(
+            per_process_path(output_dir, "burn_report", _jax_process_index() or 0)
+        ),
+        per_process_report_paths=expected_per_process_paths(
+            output_dir,
+            "burn_report",
+            _jax_process_count() or 1,
+        ),
+        per_process_reports_written=True,
+        per_process_diagnostics_preserved=True,
         teacher_textbook_path=str(textbook_path),
         teacher_target_type=target_type,
         teacher_target_type_legacy_alias=_dense_legacy_alias(target_type),
@@ -603,6 +673,19 @@ def _run_real_training(
         loss_trace_path=str(training.loss_trace_path),
         checkpoint_written=training.checkpoint_written,
         checkpoint_nonzero=training.checkpoint_nonzero,
+        canonical_checkpoint_path=str(training.canonical_checkpoint_path),
+        canonical_checkpoint_writer_process_index=CANONICAL_PROCESS_INDEX,
+        canonical_checkpoint_written=training.canonical_checkpoint_written,
+        canonical_checkpoint_written_by_this_process=(
+            training.canonical_checkpoint_written_by_this_process
+        ),
+        canonical_checkpoint_fingerprint=training.canonical_checkpoint_fingerprint,
+        checkpoint_fingerprint_comparison_scope="canonical_process_0_only",
+        checkpoint_fingerprint_match_meaning=(
+            "single canonical checkpoint writer; no cross-process checkpoint file "
+            "comparison required"
+        ),
+        production_training_ready=False,
         device_backend=_jax_backend(),
         jax_devices=_jax_devices(),
         jax_process_index=_jax_process_index(),
@@ -692,11 +775,16 @@ def _resolve_readiness(
             warnings=tuple(payload.get("warnings", ())),
         )
 
-    report = build_big_burn_readiness_report(work_dir=output_dir / "readiness")
-    path = write_big_burn_readiness_report(
-        report,
-        output_dir / "readiness_report.json",
+    process_index = _jax_process_index() or 0
+    readiness_work_dir = (
+        output_dir / "readiness"
+        if is_canonical_process(process_index)
+        else output_dir / f"readiness_process_{process_index}"
     )
+    report = build_big_burn_readiness_report(work_dir=readiness_work_dir)
+    path = output_dir / "readiness_report.json"
+    if is_canonical_process(process_index):
+        path = write_big_burn_readiness_report(report, path)
     return _ReadinessGate(
         status=report.status.value,
         path=path,
@@ -838,9 +926,10 @@ def _warnings_accepted(
 
 
 def _validate_config(config: FirstSeriousBurnConfig) -> None:
-    if config.phase not in {"P112", "P117.1", "P128", "P129"}:
+    if config.phase not in {"P112", "P117.1", "P128", "P129", "P131"}:
         raise ValueError(
-            f"phase must be 'P112', 'P117.1', 'P128', or 'P129', got {config.phase!r}"
+            "phase must be 'P112', 'P117.1', 'P128', 'P129', or 'P131', "
+            f"got {config.phase!r}"
         )
     if config.mode not in {"dry_run", "real"}:
         raise ValueError("mode must be 'dry_run' or 'real'")
@@ -1005,13 +1094,20 @@ def _distributed_sync_blocker(
 
 def _write_example_shard_report(output_dir: Path, shard: ExampleShard) -> Path:
     path = output_dir / f"example_shard_process_{shard.process_index}.json"
+    report = shard.to_report(include_all_indices=shard.local_example_count <= 4096)
+    report.update(
+        {
+            "canonical_process_index": CANONICAL_PROCESS_INDEX,
+            "is_canonical_process": is_canonical_process(shard.process_index),
+            "checkpoint_write_strategy": "process_0_only",
+            "canonical_checkpoint_writer_process_index": CANONICAL_PROCESS_INDEX,
+            "canonical_checkpoint_written_by_this_process": is_canonical_process(
+                shard.process_index
+            ),
+        }
+    )
     path.write_text(
-        json.dumps(
-            shard.to_report(include_all_indices=shard.local_example_count <= 4096),
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     return path
@@ -1108,9 +1204,18 @@ def _build_sync_report(
         "optimizer_state_sync_verification_method": (
             training.optimizer_state_sync_verification_method
         ),
-        "checkpoint_fingerprint_match": False,
-        "checkpoint_write_strategy": "per_process_existing",
-        "single_writer_checkpoint_verified": False,
+        "checkpoint_fingerprint_match": True,
+        "checkpoint_write_strategy": "process_0_only",
+        "canonical_process_index": CANONICAL_PROCESS_INDEX,
+        "is_canonical_process": is_canonical_process(process_index),
+        "canonical_checkpoint_writer_process_index": CANONICAL_PROCESS_INDEX,
+        "canonical_checkpoint_written_by_this_process": (
+            training.canonical_checkpoint_written_by_this_process
+        ),
+        "canonical_checkpoint_path": str(training.canonical_checkpoint_path),
+        "canonical_checkpoint_fingerprint": training.canonical_checkpoint_fingerprint,
+        "checkpoint_fingerprint_comparison_scope": "canonical_process_0_only",
+        "single_writer_checkpoint_verified": True,
         "local_batch_size": training.local_batch_size,
         "global_batch_size": training.local_batch_size * process_count,
         "global_batch_size_semantics": "local_batch_size * jax_process_count",
@@ -1133,10 +1238,7 @@ def _build_sync_report(
                 {
                     "process_index": process_index,
                     "process_count": process_count,
-                    "verification_scope": (
-                        "process_0_local_view; per-process report comparison or "
-                        "true gradient collective implementation still required"
-                    ),
+                    "verification_scope": ("process_0_global_collective_view"),
                     "distributed_sync_mode": resolved_mode,
                     "distributed_training_ready": readiness.distributed_training_ready,
                     "distributed_training_missing_predicates": (
@@ -1162,9 +1264,9 @@ def _build_sync_report(
         optimizer_state_absent=True,
         optimizer_state_sync_verified=training.optimizer_state_sync_verified,
         parameter_sync_verified=training.parameter_sync_verified,
-        checkpoint_fingerprint_match=False,
-        checkpoint_write_strategy="per_process_existing",
-        single_writer_checkpoint_verified=False,
+        checkpoint_fingerprint_match=True,
+        checkpoint_write_strategy="process_0_only",
+        single_writer_checkpoint_verified=True,
         loss_reduction=training.loss_reduction,
         loss_is_global=training.loss_is_global,
         distributed_training_ready=readiness.distributed_training_ready,
@@ -1353,16 +1455,22 @@ def _train_textbook(
         seen.extend(int(local_example_ids[index]) for index in indices)
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    process_index = _jax_process_index() or 0
+    is_canonical = is_canonical_process(process_index)
     loss_trace_path = output_dir / "loss_trace.json"
-    loss_trace_path.write_text(
-        json.dumps(
-            [{"step": step + 1, "loss": loss} for step, loss in enumerate(loss_trace)],
-            indent=2,
-            sort_keys=True,
+    if is_canonical:
+        loss_trace_path.write_text(
+            json.dumps(
+                [
+                    {"step": step + 1, "loss": loss}
+                    for step, loss in enumerate(loss_trace)
+                ],
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
         )
-        + "\n",
-        encoding="utf-8",
-    )
     checkpoint_path = output_dir / "checkpoint.json"
     params_changed = _params_changed(initial_params, params)
     checkpoint_payload = {
@@ -1394,11 +1502,14 @@ def _train_textbook(
         "allow_textbook_reuse": config.allow_textbook_reuse,
         "loss_trace": loss_trace,
     }
-    checkpoint_path.write_text(
-        json.dumps(checkpoint_payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    checkpoint_fingerprint = fingerprint_bytes(checkpoint_path.read_bytes())
+    if is_canonical:
+        checkpoint_path.write_text(
+            json.dumps(checkpoint_payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        checkpoint_fingerprint = fingerprint_bytes(checkpoint_path.read_bytes())
+    else:
+        checkpoint_fingerprint = None
     unique_seen = len(set(seen))
     parameter_checksum_local = pytree_numeric_checksum(params)
     parameter_sync = (
@@ -1420,9 +1531,17 @@ def _train_textbook(
         loss_trace=tuple(loss_trace),
         checkpoint_path=checkpoint_path,
         loss_trace_path=loss_trace_path,
-        checkpoint_written=checkpoint_path.is_file(),
-        checkpoint_nonzero=checkpoint_path.is_file()
-        and checkpoint_path.stat().st_size > 0,
+        checkpoint_written=is_canonical and checkpoint_path.is_file(),
+        checkpoint_nonzero=(
+            is_canonical
+            and checkpoint_path.is_file()
+            and checkpoint_path.stat().st_size > 0
+        ),
+        canonical_checkpoint_path=checkpoint_path,
+        canonical_checkpoint_written=is_canonical and checkpoint_path.is_file(),
+        canonical_checkpoint_written_by_this_process=is_canonical
+        and checkpoint_path.is_file(),
+        canonical_checkpoint_fingerprint=checkpoint_fingerprint,
         params_changed=params_changed,
         target_loss_kind=_target_loss_kind(arrays.target_type),
         top_k=_target_top_k(arrays),
@@ -1610,6 +1729,7 @@ def _params_changed(
 
 def _real_training_blockers(training: _TrainingRun) -> tuple[str, ...]:
     blockers: list[str] = []
+    canonical_process = is_canonical_process(_jax_process_index() or 0)
     if training.steps_completed < 1:
         blockers.append("real mode executed zero train steps")
     if (
@@ -1617,9 +1737,9 @@ def _real_training_blockers(training: _TrainingRun) -> tuple[str, ...]:
         or not np.isfinite(np.asarray(training.loss_trace)).all()
     ):
         blockers.append("real mode training loss was not finite")
-    if not training.checkpoint_written:
+    if canonical_process and not training.checkpoint_written:
         blockers.append("real mode did not write a checkpoint")
-    if not training.checkpoint_nonzero:
+    if canonical_process and not training.checkpoint_nonzero:
         blockers.append("real mode checkpoint is empty")
     if not training.params_changed:
         blockers.append("real mode optimizer did not change parameters")

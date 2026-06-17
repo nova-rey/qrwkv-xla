@@ -1,5 +1,16 @@
 """First serious compute burn launchpad helpers."""
 
+from qrwkv_xla.burn.artifacts import (
+    ARTIFACT_WRITE_POLICY,
+    CANONICAL_PROCESS_INDEX,
+    canonical_only_path,
+    expected_canonical_path,
+    expected_per_process_paths,
+    is_canonical_process,
+    per_process_path,
+    write_json_canonical,
+    write_json_per_process,
+)
 from qrwkv_xla.burn.config import (
     FirstSeriousBurnConfig,
     default_first_serious_burn_config,
@@ -35,6 +46,8 @@ from qrwkv_xla.burn.sync_diagnostics import (
 
 __all__ = [
     "FIRST_SERIOUS_BURN_CLAIMS_NOT_MADE",
+    "ARTIFACT_WRITE_POLICY",
+    "CANONICAL_PROCESS_INDEX",
     "CONTIGUOUS_BY_PROCESS",
     "CollectiveSyncProbe",
     "ROUND_ROBIN_BY_PROCESS",
@@ -44,13 +57,18 @@ __all__ = [
     "SyncReadiness",
     "average_pytree_across_processes",
     "build_example_shard",
+    "canonical_only_path",
     "contiguous_example_shard",
     "default_first_serious_burn_config",
     "evaluate_distributed_training_readiness",
+    "expected_canonical_path",
+    "expected_per_process_paths",
     "fingerprint_bytes",
     "fingerprint_pytree",
     "global_mean_scalar",
+    "is_canonical_process",
     "load_first_serious_burn_config",
+    "per_process_path",
     "pytree_numeric_checksum",
     "round_robin_example_shard",
     "run_collective_sync_probe",
@@ -59,4 +77,6 @@ __all__ = [
     "verify_global_example_shards",
     "write_first_serious_burn_config",
     "write_first_serious_burn_report",
+    "write_json_canonical",
+    "write_json_per_process",
 ]

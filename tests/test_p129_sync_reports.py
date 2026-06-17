@@ -111,7 +111,10 @@ def test_burn_sync_report_is_honest_local_update_audit(
     assert result.optimizer_state_kind == "stateless_sgd"
     assert result.optimizer_state_absent is True
     assert result.optimizer_state_sync_verified is False
-    assert result.checkpoint_fingerprint_match is False
+    assert result.checkpoint_write_strategy == "process_0_only"
+    assert result.checkpoint_fingerprint_match is True
+    assert result.checkpoint_fingerprint_comparison_scope == "canonical_process_0_only"
+    assert result.single_writer_checkpoint_verified is True
     assert result.loss_reduction == "local_only"
     assert result.loss_is_global is False
     assert result.global_batch_size == 4
@@ -128,6 +131,8 @@ def test_burn_sync_report_is_honest_local_update_audit(
     assert sync_report["distributed_training_ready"] is False
     assert sync_report["gradient_sync_enabled"] is False
     assert sync_report["loss_reduction"] == "local_only"
+    assert sync_report["checkpoint_write_strategy"] == "process_0_only"
+    assert sync_report["checkpoint_fingerprint_match"] is True
     assert result.sync_global_report_path is not None
     assert result.warnings == ()
 

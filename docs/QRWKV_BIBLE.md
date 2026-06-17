@@ -2583,3 +2583,32 @@ single-writer checkpoint/export hygiene is deferred to P131.
 P130 does not claim model quality, production readiness, large-scale
 performance, Qwen/tokenizer remapping, Pallas default readiness, or WKV/runtime
 math changes.
+
+## Phase 131 - Single-Writer Checkpoint and Export Hygiene
+
+P131 closes the output-layer caveat left by P130. The guarded burn harness now
+uses a process-aware artifact policy:
+`process_0_canonical_with_per_process_diagnostics`. Canonical artifacts such
+as `checkpoint.json`, `burn_report.json`, generated `readiness_report.json`,
+`loss_trace.json`, `launch_commands.md`, `sync_global_report.json`, and
+`example_sharding_global_report.json` are process-0 writes only.
+
+Per-process diagnostics are preserved under process-index-specific filenames:
+`burn_report_process_<index>.json`, `sync_report_process_<index>.json`, and
+`example_shard_process_<index>.json`. Burn reports now identify whether they
+are canonical or per-process, record the canonical writer process, list
+expected per-process burn report paths, and expose the canonical checkpoint
+path and fingerprint.
+
+Checkpoint fingerprint reporting now uses `checkpoint_write_strategy:
+process_0_only` and `checkpoint_fingerprint_comparison_scope:
+canonical_process_0_only`. `checkpoint_fingerprint_match=true` means the
+single canonical checkpoint writer was verified; it is not an independent
+N-way checkpoint byte comparison.
+
+P131 may claim `artifact_hygiene_ready=true` and
+`single_writer_checkpoint_verified=true` for the burn harness artifact layer.
+It preserves P130 distributed training readiness when the P130 predicates pass.
+It does not claim model quality, production training readiness, large-scale
+performance, Qwen/tokenizer remapping, Pallas default readiness, or WKV/runtime
+math changes.

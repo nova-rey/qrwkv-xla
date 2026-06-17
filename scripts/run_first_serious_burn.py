@@ -90,11 +90,11 @@ def main() -> int:
         confirm_serious_burn=args.confirm_serious_burn,
     )
     report_path = args.output / "burn_report.json"
-    write_first_serious_burn_report(result, report_path)
+    written_report_path = write_first_serious_burn_report(result, report_path)
     print(
         f"status={result.status} mode={result.mode} dry_run={result.dry_run} "
         f"readiness={result.readiness_status} blockers={len(result.blockers)} "
-        f"warnings={len(result.warnings)} report={report_path}"
+        f"warnings={len(result.warnings)} report={written_report_path}"
     )
     return 0 if result.status in {"dry_run_pass", "pass"} else 1
 

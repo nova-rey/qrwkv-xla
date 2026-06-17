@@ -1,5 +1,29 @@
 # QRWKV-XLA Roadmap
 
+## Phase 131 - Single-Writer Checkpoint and Export Hygiene
+
+Goal: make synchronized distributed burns write canonical artifacts safely
+without changing the P130 train-step math.
+
+Current checkpoint: `single_writer_checkpoint_export_hygiene`. P131 adds a
+process-aware artifact helper layer, makes canonical checkpoint, burn report,
+generated readiness report, loss trace, and launch command writes process-0
+only, and preserves per-process diagnostic reports with process-index-specific
+filenames. Burn reports now distinguish canonical and per-process report roles
+and explain checkpoint fingerprint semantics under the `process_0_only`
+strategy.
+
+P131 may claim `artifact_hygiene_ready=true` and
+`single_writer_checkpoint_verified=true` for the guarded burn harness artifact
+layer. It still does not claim model quality, production readiness,
+large-scale performance, Qwen/tokenizer remapping, Pallas default readiness, or
+WKV/runtime math changes.
+
+Recommended next:
+
+- TPU smoke P131 on the small cascaded tome to confirm process-0-only writes
+  across real workers.
+
 ## Phase 130 - True Distributed Gradient Synchronization
 
 Goal: make the P128 sharded burn path apply synchronized gradients before the

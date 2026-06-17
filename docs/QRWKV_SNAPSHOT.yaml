@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 130
-current_phase: P130
-checkpoint: distributed_gradient_sync_implementation
+phase: 131
+current_phase: P131
+checkpoint: single_writer_checkpoint_export_hygiene
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,16 +56,15 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Implement true synchronized gradient/update behavior for the guarded
-  multi-process sharded burn path while keeping checkpoint/export hygiene and
-  production-readiness claims out of scope.
+  Make the guarded synchronized burn path write canonical artifacts through a
+  process-0-only policy while preserving per-process diagnostics.
 
-current_arc: distributed_gradient_sync
+current_arc: distributed_artifact_hygiene
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P131 checkpoint/export single-writer hygiene
+  - P131 TPU smoke on the small cascaded tome to confirm process-0-only writes
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -76,6 +75,7 @@ arc_status:
   distributed_example_sharding: complete
   distributed_sync_audit: complete
   distributed_gradient_sync: complete
+  distributed_artifact_hygiene: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -101,6 +101,11 @@ main_contains:
   p130_global_loss_mean: true
   p130_parameter_checksum_sync_verification: true
   p130_stateless_optimizer_sync: true
+  p131_artifact_helpers: true
+  p131_process_0_canonical_writes: true
+  p131_per_process_burn_reports: true
+  p131_single_writer_checkpoint_verified: true
+  p131_artifact_hygiene_ready: true
 
 teacher_target_types:
   - dense_logits
@@ -133,6 +138,41 @@ p130:
   pallas_promoted: false
   wkv_math_changed: false
   recommended_next: P131 checkpoint/export single-writer hygiene
+
+p131:
+  goal: single_writer_checkpoint_export_hygiene
+  status: complete
+  artifact_write_policy: process_0_canonical_with_per_process_diagnostics
+  canonical_process_index: 0
+  canonical_checkpoint_writer_process_index: 0
+  checkpoint_write_strategy: process_0_only
+  checkpoint_fingerprint_comparison_scope: canonical_process_0_only
+  checkpoint_fingerprint_match_meaning: single canonical checkpoint writer; no cross-process checkpoint file comparison required
+  canonical_artifacts_process_0_only:
+    - checkpoint.json
+    - burn_report.json
+    - readiness_report.json
+    - loss_trace.json
+    - launch_commands.md
+    - sync_global_report.json
+    - example_sharding_global_report.json
+  per_process_diagnostics:
+    - burn_report_process_<index>.json
+    - sync_report_process_<index>.json
+    - example_shard_process_<index>.json
+  artifact_hygiene_ready: true
+  single_writer_checkpoint_verified: true
+  per_process_diagnostics_preserved: true
+  distributed_training_ready_preserved_from_p130_when_predicates_pass: true
+  production_readiness_claimed: false
+  model_quality_claimed: false
+  qwen_support_added: false
+  tokenizer_remapping_added: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  docs:
+    - docs/P131_SINGLE_WRITER_CHECKPOINT_EXPORT_HYGIENE.md
+  recommended_next: P131 TPU smoke on the small cascaded tome
 
 p129:
   goal: gradient_optimizer_sync_audit
