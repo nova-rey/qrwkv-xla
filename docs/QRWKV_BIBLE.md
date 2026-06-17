@@ -2732,3 +2732,32 @@ P136.1 does not add real student-backend integration, main staged-runner
 integration, exemplar reservoirs, mixed CSL/fingerprint batches, teacher
 generation, Qwen/tokenizer remapping, Pallas promotion, or WKV/runtime math
 changes.
+
+## Phase 137 - Exemplar Reservoir Integration
+
+P137 adds the optional landmark path for behavioral fingerprint artifacts. The
+`behavioral_fingerprint` manifest may now include an `exemplar_reservoir` block
+with `enabled`, `payload_type: dense_probs`, `loss: kl`, `num_records`, and
+shard metadata. Existing artifacts without the block remain valid.
+
+The validator checks exemplar shard existence, physical JSONL counts, required
+record fields, fixed-length `input_ids`, positions inside the sequence, token
+ids inside vocabulary, dense teacher probability length and normalization,
+finite non-negative weights, known optional `mode_id`, finite optional
+interestingness scores, and string reason codes.
+
+P137 adds `FingerprintExemplarDataset`, `FingerprintExemplarBatch`,
+`load_fingerprint_exemplars`, and `scripts/inspect_fingerprint_exemplars.py`.
+The loader preserves manifest order by default, supports deterministic shuffle,
+`max_records`, and `drop_remainder`, and uses `-1` as the missing `mode_id`
+sentinel in batches.
+
+P137 also adds `qrwkv_xla.training.fingerprint_exemplar_loss`, including direct
+`[batch, vocab]` KL loss and a selected-position wrapper for
+`[batch, seq, vocab]` logits. The loss is standalone and is not mixed with the
+P135 corridor objective in this phase.
+
+P137 does not add mixed corridor + exemplar training, main runner integration,
+teacher generation, real student-backend training, CSL/cascaded exemplar
+compression, dynamic top-k, learned critics, TPU/GPU burns, quality claims,
+Pallas promotion, or WKV/runtime math changes.

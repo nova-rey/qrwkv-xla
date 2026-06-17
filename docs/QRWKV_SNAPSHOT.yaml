@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 136.1
-current_phase: P136.1
-checkpoint: fingerprint_smoke_robustness_cleanup
+phase: 137
+current_phase: P137
+checkpoint: exemplar_reservoir_integration
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,15 +56,15 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Make the tiny fingerprint smoke explicit about its position-logit limitation,
-  non-main-runner status, and optimizer-batch completion criteria.
+  Add optional dense exemplar reservoirs to behavioral fingerprint artifacts,
+  with validation, loading, inspection, and standalone KL loss utilities.
 
-current_arc: behavioral_fingerprint_smoke_hygiene
+current_arc: behavioral_fingerprint_exemplar_reservoir
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P137 exemplar reservoir integration
+  - P138 mixed corridor plus exemplar smoke
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -82,6 +82,7 @@ arc_status:
   behavioral_fingerprint_corridor_loss: complete
   behavioral_fingerprint_training_smoke: complete
   behavioral_fingerprint_smoke_hygiene: complete
+  behavioral_fingerprint_exemplar_reservoir: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -133,12 +134,18 @@ main_contains:
   p136_1_smoke_metadata_explicit: true
   p136_1_loss_non_increase_diagnostic_only: true
   p136_1_train_batches_consumed_guard: true
+  p137_exemplar_reservoir_schema: true
+  p137_exemplar_validator: true
+  p137_exemplar_loader: true
+  p137_exemplar_kl_loss: true
+  p137_exemplar_inspect_cli: true
 
 teacher_target_types:
   - dense_logits
   - topk_with_tail_v0
   - cascaded_soft_labels_v1
   - behavioral_fingerprint
+  - behavioral_fingerprint_exemplars_dense_probs
 
 p117_1_invariants_preserved:
   real_mode_zero_step_pass_allowed: false
@@ -396,6 +403,8 @@ p136_1:
   zero_optimizer_batch_guard: true
   loss_non_increasing_required_for_pass: false
   loss_non_increasing_reported: true
+  initial_loss_non_negative_required_for_pass: true
+  final_loss_non_negative_required_for_pass: true
   loss_delta_reported: true
   jsonl_physical_line_sanity_test: true
   main_runner_integration_added: false
@@ -411,6 +420,46 @@ p136_1:
   docs:
     - docs/P136_TINY_FINGERPRINT_TRAINING_SMOKE.md
   recommended_next: P137 exemplar reservoir integration
+
+p137:
+  goal: exemplar_reservoir_integration
+  status: complete
+  depends_on:
+    - P132 behavioral fingerprint artifact schema validator
+    - P133 behavioral fingerprint target loader
+    - P134 student distribution stats
+    - P135 corridor loss
+    - P136 tiny fingerprint training smoke
+    - P136.1 fingerprint smoke robustness cleanup
+  manifest_extension: exemplar_reservoir
+  payload_type_supported: dense_probs
+  exemplar_loss_supported: kl
+  existing_artifacts_without_exemplars_valid: true
+  require_exemplars_loader_guard: true
+  validator_checks_exemplar_shards: true
+  validator_checks_dense_probabilities: true
+  fixture: tests/fixtures/behavioral_fingerprint/v0_1_with_exemplars_tiny
+  loader_api: qrwkv_xla.artifacts.load_fingerprint_exemplars
+  dataset_api: qrwkv_xla.artifacts.FingerprintExemplarDataset
+  batch_api: qrwkv_xla.artifacts.FingerprintExemplarBatch
+  inspect_cli: scripts/inspect_fingerprint_exemplars.py
+  loss_module: qrwkv_xla.training.fingerprint_exemplar_loss
+  loss_api: qrwkv_xla.training.compute_fingerprint_exemplar_loss
+  position_loss_api: qrwkv_xla.training.compute_fingerprint_exemplar_loss_at_positions
+  mixed_corridor_exemplar_training_added: false
+  main_runner_integration_added: false
+  teacher_generation_added: false
+  real_student_backend_training_added: false
+  csl_exemplar_compression_added: false
+  dynamic_topk_added: false
+  production_readiness_claimed: false
+  model_quality_claimed: false
+  gpu_or_tpu_burn_run: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  docs:
+    - docs/P137_EXEMPLAR_RESERVOIR_INTEGRATION.md
+  recommended_next: P138 mixed corridor plus exemplar smoke
 
 p129:
   goal: gradient_optimizer_sync_audit

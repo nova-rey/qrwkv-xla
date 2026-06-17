@@ -1,5 +1,29 @@
 # QRWKV-XLA Roadmap
 
+## Phase 137 - Exemplar Reservoir Integration
+
+Goal: add the optional landmark side of behavioral fingerprint artifacts
+without mixing it into corridor training yet.
+
+Current checkpoint: `exemplar_reservoir_integration`. P137 extends
+`behavioral_fingerprint` version `0.1` with an optional
+`exemplar_reservoir`, validates tiny dense-probability exemplar shards, adds
+`FingerprintExemplarDataset` and batch APIs, exposes a standalone KL exemplar
+loss and selected-position wrapper, adds an inspect CLI, and includes a tiny
+synthetic fixture.
+
+Existing artifacts without exemplars remain valid. A caller that explicitly
+requires exemplars receives a clear loader error when the reservoir is absent.
+
+P137 does not add mixed corridor + exemplar training, main runner integration,
+teacher generation, real student-backend training, CSL/cascaded exemplar
+compression, dynamic top-k, quality claims, TPU/GPU burns, or WKV/runtime math
+changes.
+
+Recommended next:
+
+- P138 - mixed corridor plus exemplar smoke.
+
 ## Phase 136.1 - Fingerprint Smoke Robustness Cleanup
 
 Goal: make the P136 standalone smoke harder to misunderstand and harder to
@@ -10,8 +34,8 @@ explicit report metadata for the tiny position-logit smoke, labels that it does
 not use `input_ids`, does not integrate the main runner, and does not enable
 exemplar reservoirs. Pass/fail now requires completed requested updates,
 nonzero optimizer batch consumption, finite losses/metrics, and non-negative
-final loss; loss non-increase is reported as a diagnostic rather than a pass
-requirement.
+initial and final losses; loss non-increase is reported as a diagnostic rather
+than a pass requirement.
 
 Recommended next:
 

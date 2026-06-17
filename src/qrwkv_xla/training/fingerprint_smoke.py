@@ -106,7 +106,7 @@ def classify_fingerprint_smoke_status(
     metrics_finite: bool,
 ) -> str:
     loss_finite = bool(jnp.isfinite(initial_loss) & jnp.isfinite(final_loss))
-    loss_non_negative = bool(final_loss >= 0.0)
+    loss_non_negative = bool((initial_loss >= 0.0) & (final_loss >= 0.0))
     if (
         completed_steps == requested_steps
         and train_batches_consumed > 0

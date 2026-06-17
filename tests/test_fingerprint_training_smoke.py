@@ -127,6 +127,19 @@ def test_fingerprint_smoke_status_does_not_require_loss_non_increase() -> None:
     assert status == "pass"
 
 
+def test_fingerprint_smoke_status_requires_non_negative_initial_loss() -> None:
+    status = classify_fingerprint_smoke_status(
+        completed_steps=3,
+        requested_steps=3,
+        train_batches_consumed=3,
+        initial_loss=-0.1,
+        final_loss=0.1,
+        metrics_finite=True,
+    )
+
+    assert status == "fail"
+
+
 def test_tiny_fingerprint_training_smoke_rejects_zero_optimizer_batches(
     tmp_path: Path,
 ) -> None:

@@ -1,0 +1,43 @@
+{
+  "artifact_type": "behavioral_fingerprint",
+  "artifact_version": "0.1",
+  "created_by": "p137_synthetic_exemplar_fixture",
+  "exemplar_reservoir": {
+    "enabled": true,
+    "loss": "kl",
+    "num_records": 4,
+    "payload_type": "dense_probs",
+    "shards": [
+      {
+        "num_records": 4,
+        "path": "exemplars/exemplars-00000.jsonl"
+      }
+    ]
+  },
+  "modes_file": "modes.json",
+  "sequence": {
+    "max_seq_len": 8,
+    "target_positions": 4
+  },
+  "stats": {
+    "tracked": [
+      "entropy",
+      "top1_margin",
+      "top8_mass",
+      "top32_mass",
+      "tail_mass"
+    ]
+  },
+  "target_shards": [
+    {
+      "num_records": 4,
+      "path": "targets/targets-00000.jsonl"
+    }
+  ],
+  "teacher": {
+    "dtype": "float32",
+    "model_name": "synthetic-p137-teacher",
+    "tokenizer_name": "synthetic-p137-tokenizer",
+    "vocab_size": 16
+  }
+}

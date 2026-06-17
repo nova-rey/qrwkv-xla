@@ -14,6 +14,8 @@ fingerprint_artifact/
   modes.json
   targets/
     targets-00000.jsonl
+  exemplars/                 # optional from P137 onward
+    exemplars-00000.jsonl
 ```
 
 The schema is sharded from the start. Each manifest shard entry names a JSONL
@@ -31,9 +33,15 @@ target shard and its expected `num_records`.
 - non-empty `stats.tracked`
 - `modes_file`
 - non-empty `target_shards`
+- optional `exemplar_reservoir`
 
 If `sequence.target_positions` is present, it must equal the total records
 across all listed target shards.
+
+P137 extends the manifest with an optional `exemplar_reservoir` block for dense
+landmark examples. The block is valid when absent. When present for P137 it
+must use `payload_type: dense_probs`, `loss: kl`, a non-negative `num_records`,
+and non-empty shard entries with physical JSONL counts that match the manifest.
 
 ## Modes
 
@@ -78,6 +86,22 @@ mode.min <= row.min <= row.max <= mode.max
 
 P132 keeps this strict so P133 can load fixed-shape batches against a predictable
 contract.
+
+## Exemplar Rows
+
+P137 exemplar rows are optional and live under shards referenced by
+`exemplar_reservoir`. Each row requires:
+
+- string `example_id`
+- integer `position` inside `[0, sequence.max_seq_len)`
+- fixed-length integer `input_ids` matching `sequence.max_seq_len`
+- dense `teacher_probs` of length `teacher.vocab_size`
+- finite, non-negative `teacher_probs` summing to `1.0 +/- 1e-5`
+- finite, non-negative `weight`
+
+Optional `mode_id` must reference a known mode when present. Optional
+`reason_codes` must be strings, and optional `interestingness_score` must be
+finite.
 
 ## Validator
 

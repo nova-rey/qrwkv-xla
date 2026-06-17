@@ -1,5 +1,11 @@
 """Training utilities for QRWKV-XLA."""
 
+from qrwkv_xla.training.fingerprint_exemplar_loss import (
+    FingerprintExemplarLossConfig,
+    FingerprintExemplarLossOutput,
+    compute_fingerprint_exemplar_loss,
+    compute_fingerprint_exemplar_loss_at_positions,
+)
 from qrwkv_xla.training.fingerprint_loss import (
     FingerprintCorridorLossConfig,
     FingerprintCorridorLossOutput,
@@ -39,6 +45,8 @@ __all__ = [
     "FingerprintCorridorLossConfig",
     "FingerprintCorridorLossOutput",
     "FingerprintDistributionStats",
+    "FingerprintExemplarLossConfig",
+    "FingerprintExemplarLossOutput",
     "FingerprintTrainingSmokeConfig",
     "FingerprintTrainingSmokeResult",
     "FINGERPRINT_SMOKE_METRIC_KEYS",
@@ -49,6 +57,8 @@ __all__ = [
     "compute_fingerprint_corridor_loss",
     "compute_fingerprint_distribution_stats",
     "compute_fingerprint_distribution_stats_at_positions",
+    "compute_fingerprint_exemplar_loss",
+    "compute_fingerprint_exemplar_loss_at_positions",
     "global_gradient_norm",
     "inside_bounds",
     "run_tiny_fingerprint_training_smoke",

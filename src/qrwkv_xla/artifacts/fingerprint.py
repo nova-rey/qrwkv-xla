@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -25,9 +26,11 @@ class FingerprintManifest:
     stats: dict[str, Any]
     modes_file: str
     target_shards: tuple[dict[str, Any], ...]
+    exemplar_reservoir: dict[str, Any] | None = None
 
     @classmethod
     def from_payload(cls, payload: dict[str, Any]) -> FingerprintManifest:
+        exemplar_reservoir = payload.get("exemplar_reservoir")
         return cls(
             artifact_type=str(payload.get("artifact_type", "")),
             artifact_version=str(payload.get("artifact_version", "")),
@@ -38,6 +41,11 @@ class FingerprintManifest:
             modes_file=str(payload.get("modes_file", "")),
             target_shards=tuple(
                 _mapping_or_empty(item) for item in payload.get("target_shards", ())
+            ),
+            exemplar_reservoir=(
+                _mapping_or_empty(exemplar_reservoir)
+                if exemplar_reservoir is not None
+                else None
             ),
         )
 
@@ -69,6 +77,10 @@ def validate_fingerprint_artifact(path: str | Path) -> ValidationResult:
         "shards": 0,
         "records": 0,
         "modes": 0,
+        "exemplar_reservoir_enabled": False,
+        "exemplar_payload_type": None,
+        "exemplar_records": 0,
+        "exemplar_shards": 0,
     }
 
     if not root.is_dir():
@@ -148,6 +160,16 @@ def validate_fingerprint_artifact(path: str | Path) -> ValidationResult:
                 "sequence.target_positions mismatch: "
                 f"expected {expected_total}, got {total_records}"
             )
+
+    exemplar_metadata, exemplar_blockers = _validate_exemplar_reservoir(
+        root,
+        manifest.exemplar_reservoir,
+        vocab_size=vocab_size,
+        max_seq_len=max_seq_len,
+        modes_by_id=modes_by_id,
+    )
+    metadata.update(exemplar_metadata)
+    blockers.extend(exemplar_blockers)
 
     return _result(blockers=blockers, warnings=warnings, metadata=metadata)
 
@@ -326,6 +348,237 @@ def _validate_target_row(
     return blockers
 
 
+def _validate_exemplar_reservoir(
+    root: Path,
+    reservoir: dict[str, Any] | None,
+    *,
+    vocab_size: int | None,
+    max_seq_len: int | None,
+    modes_by_id: dict[int, dict[str, Any]],
+) -> tuple[dict[str, Any], list[str]]:
+    metadata: dict[str, Any] = {
+        "exemplar_reservoir_enabled": False,
+        "exemplar_payload_type": None,
+        "exemplar_records": 0,
+        "exemplar_shards": 0,
+    }
+    blockers: list[str] = []
+    if reservoir is None:
+        return metadata, blockers
+    if not isinstance(reservoir, dict) or not reservoir:
+        return metadata, ["exemplar_reservoir must be an object when present"]
+
+    enabled = reservoir.get("enabled")
+    if not isinstance(enabled, bool):
+        blockers.append("exemplar_reservoir.enabled must be a boolean")
+    metadata["exemplar_reservoir_enabled"] = bool(enabled)
+
+    payload_type = reservoir.get("payload_type")
+    if payload_type != "dense_probs":
+        blockers.append(
+            "exemplar_reservoir.payload_type must be 'dense_probs' for P137"
+        )
+    metadata["exemplar_payload_type"] = (
+        payload_type if isinstance(payload_type, str) else None
+    )
+
+    loss = reservoir.get("loss")
+    if loss != "kl":
+        blockers.append("exemplar_reservoir.loss must be 'kl' for P137")
+
+    expected_total = _non_negative_int(reservoir.get("num_records"))
+    if expected_total is None:
+        blockers.append("exemplar_reservoir.num_records must be a non-negative integer")
+
+    shards = reservoir.get("shards")
+    if not isinstance(shards, list) or not shards:
+        blockers.append("exemplar_reservoir.shards must be a non-empty list")
+        return metadata, blockers
+    metadata["exemplar_shards"] = len(shards)
+
+    total_records = 0
+    for shard_index, shard in enumerate(shards):
+        if not isinstance(shard, dict):
+            blockers.append(
+                f"exemplar_reservoir.shards[{shard_index}] must be an object"
+            )
+            continue
+        shard_path_value = shard.get("path")
+        if not isinstance(shard_path_value, str) or not shard_path_value.strip():
+            blockers.append(
+                f"exemplar_reservoir.shards[{shard_index}] missing non-empty path"
+            )
+            continue
+        expected_records = _non_negative_int(shard.get("num_records"))
+        if expected_records is None:
+            blockers.append(
+                f"exemplar_reservoir.shards[{shard_index}].num_records must be a "
+                "non-negative integer"
+            )
+        shard_path = root / shard_path_value
+        if not shard_path.is_file():
+            blockers.append(f"exemplar shard does not exist: {shard_path_value}")
+            continue
+        actual_records, shard_blockers = _validate_exemplar_shard(
+            shard_path,
+            root=root,
+            vocab_size=vocab_size,
+            max_seq_len=max_seq_len,
+            modes_by_id=modes_by_id,
+        )
+        total_records += actual_records
+        blockers.extend(shard_blockers)
+        if expected_records is not None and actual_records != expected_records:
+            blockers.append(
+                f"exemplar shard record count mismatch for {shard_path_value}: "
+                f"expected {expected_records}, got {actual_records}"
+            )
+
+    metadata["exemplar_records"] = total_records
+    if expected_total is not None and total_records != expected_total:
+        blockers.append(
+            "exemplar_reservoir.num_records mismatch: "
+            f"expected {expected_total}, got {total_records}"
+        )
+    return metadata, blockers
+
+
+def _validate_exemplar_shard(
+    shard_path: Path,
+    *,
+    root: Path,
+    vocab_size: int | None,
+    max_seq_len: int | None,
+    modes_by_id: dict[int, dict[str, Any]],
+) -> tuple[int, list[str]]:
+    blockers: list[str] = []
+    record_count = 0
+    relative_path = _relative_path(shard_path, root)
+    for line_number, line in enumerate(
+        shard_path.read_text(encoding="utf-8").splitlines(), 1
+    ):
+        if not line.strip():
+            continue
+        record_count += 1
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError as exc:
+            blockers.append(
+                f"malformed JSONL row in {relative_path} line {line_number}: {exc.msg}"
+            )
+            continue
+        if not isinstance(row, dict):
+            blockers.append(
+                f"row in {relative_path} line {line_number} must be an object"
+            )
+            continue
+        blockers.extend(
+            _validate_exemplar_row(
+                row,
+                source=f"{relative_path} line {line_number}",
+                vocab_size=vocab_size,
+                max_seq_len=max_seq_len,
+                modes_by_id=modes_by_id,
+            )
+        )
+    return record_count, blockers
+
+
+def _validate_exemplar_row(
+    row: dict[str, Any],
+    *,
+    source: str,
+    vocab_size: int | None,
+    max_seq_len: int | None,
+    modes_by_id: dict[int, dict[str, Any]],
+) -> list[str]:
+    blockers: list[str] = []
+    if not isinstance(row.get("example_id"), str) or not row["example_id"].strip():
+        blockers.append(f"{source}: example_id must be a non-empty string")
+    position = row.get("position")
+    if not isinstance(position, int):
+        blockers.append(f"{source}: position must be an integer")
+    elif max_seq_len is not None and not 0 <= position < max_seq_len:
+        blockers.append(
+            f"{source}: position={position} outside sequence range [0, {max_seq_len})"
+        )
+
+    input_ids = row.get("input_ids")
+    if not isinstance(input_ids, list) or not input_ids:
+        blockers.append(f"{source}: input_ids must be a non-empty list")
+    else:
+        if max_seq_len is not None and len(input_ids) != max_seq_len:
+            blockers.append(
+                f"{source}: len(input_ids)={len(input_ids)} must equal "
+                f"sequence.max_seq_len={max_seq_len}"
+            )
+        for offset, token_id in enumerate(input_ids):
+            if not isinstance(token_id, int):
+                blockers.append(f"{source}: input_ids[{offset}] must be an integer")
+            elif vocab_size is not None and not 0 <= token_id < vocab_size:
+                blockers.append(
+                    f"{source}: token id {token_id} outside vocabulary "
+                    f"range [0, {vocab_size})"
+                )
+
+    teacher_probs = row.get("teacher_probs")
+    if not isinstance(teacher_probs, list):
+        blockers.append(f"{source}: teacher_probs must be a list")
+    else:
+        if vocab_size is not None and len(teacher_probs) != vocab_size:
+            blockers.append(
+                f"{source}: len(teacher_probs)={len(teacher_probs)} must equal "
+                f"teacher.vocab_size={vocab_size}"
+            )
+        prob_sum = 0.0
+        prob_values_ok = True
+        for offset, value in enumerate(teacher_probs):
+            probability = _finite_number(value)
+            if probability is None:
+                blockers.append(f"{source}: teacher_probs[{offset}] must be finite")
+                prob_values_ok = False
+                continue
+            if probability < 0.0:
+                blockers.append(
+                    f"{source}: teacher_probs[{offset}] must be non-negative"
+                )
+                prob_values_ok = False
+            prob_sum += probability
+        if prob_values_ok and abs(prob_sum - 1.0) > 1e-5:
+            blockers.append(
+                f"{source}: teacher_probs must sum to 1.0 within 1e-5, got {prob_sum}"
+            )
+
+    weight = _finite_number(row.get("weight"))
+    if weight is None:
+        blockers.append(f"{source}: weight must be finite")
+    elif weight < 0.0:
+        blockers.append(f"{source}: weight must be non-negative")
+
+    mode_id = row.get("mode_id")
+    if mode_id is not None:
+        if not isinstance(mode_id, int):
+            blockers.append(f"{source}: mode_id must be an integer when present")
+        elif mode_id not in modes_by_id:
+            blockers.append(f"unknown mode_id={mode_id} in {source}")
+
+    score = row.get("interestingness_score")
+    if score is not None and _finite_number(score) is None:
+        blockers.append(f"{source}: interestingness_score must be finite when present")
+
+    reason_codes = row.get("reason_codes")
+    if reason_codes is not None:
+        if not isinstance(reason_codes, list):
+            blockers.append(f"{source}: reason_codes must be a list when present")
+        else:
+            for offset, reason in enumerate(reason_codes):
+                if not isinstance(reason, str):
+                    blockers.append(
+                        f"{source}: reason_codes[{offset}] must be a string"
+                    )
+    return blockers
+
+
 def _validate_bound(value: Any, source: str, stat: str) -> list[str]:
     blockers: list[str] = []
     if not isinstance(value, dict):
@@ -409,6 +662,13 @@ def _number(value: Any) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     return float(value)
+
+
+def _finite_number(value: Any) -> float | None:
+    number = _number(value)
+    if number is None or not math.isfinite(number):
+        return None
+    return number
 
 
 def _relative_path(path: Path, root: Path) -> str:
