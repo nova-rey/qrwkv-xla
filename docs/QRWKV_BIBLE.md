@@ -2612,3 +2612,25 @@ It preserves P130 distributed training readiness when the P130 predicates pass.
 It does not claim model quality, production training readiness, large-scale
 performance, Qwen/tokenizer remapping, Pallas default readiness, or WKV/runtime
 math changes.
+
+## Phase 132 - Behavioral Fingerprint Artifact Schema + Validator
+
+P132 introduces the first teacher-pure `behavioral_fingerprint` artifact
+contract at version `0.1`. The artifact uses a human-inspectable
+`manifest.json`, `modes.json`, and sharded JSONL target rows under `targets/`.
+It is designed as a structural contract for later fixed-shape JAX/XLA loading,
+not as a training path.
+
+The P132 validator checks artifact type/version, teacher and sequence metadata,
+tracked stats, mode id uniqueness, mode bounds, target shard existence, JSONL
+row shape, token id vocabulary bounds, row bounds inside mode bounds, shard
+record counts, and total `sequence.target_positions` when present. The repo
+now includes a tiny synthetic valid fixture at
+`tests/fixtures/behavioral_fingerprint/v0_1_valid_tiny` and a CLI:
+`scripts/validate_fingerprint_artifact.py`.
+
+P132 does not implement teacher-side fingerprint generation, a fingerprint
+target loader, student distribution statistics, corridor loss, exemplar
+reservoirs, live teacher calls, student-aware repair, or training changes. It
+does not claim model quality, production training readiness, Qwen/tokenizer
+remapping, Pallas default readiness, or WKV/runtime math changes.

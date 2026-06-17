@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 131
-current_phase: P131
-checkpoint: single_writer_checkpoint_export_hygiene
+phase: 132
+current_phase: P132
+checkpoint: behavioral_fingerprint_artifact_schema_validator
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,15 +56,15 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Make the guarded synchronized burn path write canonical artifacts through a
-  process-0-only policy while preserving per-process diagnostics.
+  Define the teacher-pure behavioral fingerprint artifact v0.1 contract and
+  validate tiny synthetic fixtures before any training loader consumes it.
 
-current_arc: distributed_artifact_hygiene
+current_arc: behavioral_fingerprint_contract
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P131 TPU smoke on the small cascaded tome to confirm process-0-only writes
+  - P133 fingerprint target loader
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -76,6 +76,7 @@ arc_status:
   distributed_sync_audit: complete
   distributed_gradient_sync: complete
   distributed_artifact_hygiene: complete
+  behavioral_fingerprint_contract: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -106,11 +107,15 @@ main_contains:
   p131_per_process_burn_reports: true
   p131_single_writer_checkpoint_verified: true
   p131_artifact_hygiene_ready: true
+  p132_behavioral_fingerprint_schema: true
+  p132_fingerprint_validator_cli: true
+  p132_tiny_synthetic_fixture: true
 
 teacher_target_types:
   - dense_logits
   - topk_with_tail_v0
   - cascaded_soft_labels_v1
+  - behavioral_fingerprint
 
 p117_1_invariants_preserved:
   real_mode_zero_step_pass_allowed: false
@@ -173,6 +178,44 @@ p131:
   docs:
     - docs/P131_SINGLE_WRITER_CHECKPOINT_EXPORT_HYGIENE.md
   recommended_next: P131 TPU smoke on the small cascaded tome
+
+p132:
+  goal: behavioral_fingerprint_artifact_schema_validator
+  status: complete
+  artifact_type: behavioral_fingerprint
+  artifact_version: "0.1"
+  teacher_pure: true
+  sharded_from_day_one: true
+  fixed_shape_friendly_contract: true
+  manifest_file: manifest.json
+  modes_file: modes.json
+  target_shards: targets/*.jsonl
+  validator_api: qrwkv_xla.artifacts.validate_fingerprint_artifact
+  validator_cli: scripts/validate_fingerprint_artifact.py
+  valid_fixture: tests/fixtures/behavioral_fingerprint/v0_1_valid_tiny
+  validates:
+    - artifact_type_and_version
+    - teacher_vocab_and_sequence_metadata
+    - tracked_stats
+    - mode_ids_and_bounds
+    - shard_paths_and_record_counts
+    - jsonl_row_shape
+    - token_id_vocab_bounds
+    - row_bounds_inside_mode_bounds
+  generation_added: false
+  loader_added: false
+  student_training_changed: false
+  corridor_loss_added: false
+  exemplar_reservoir_added: false
+  production_readiness_claimed: false
+  model_quality_claimed: false
+  qwen_support_added: false
+  tokenizer_remapping_added: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  docs:
+    - docs/P132_BEHAVIORAL_FINGERPRINT_ARTIFACT_SCHEMA.md
+  recommended_next: P133 fingerprint target loader
 
 p129:
   goal: gradient_optimizer_sync_audit

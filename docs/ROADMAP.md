@@ -1,5 +1,25 @@
 # QRWKV-XLA Roadmap
 
+## Phase 132 - Behavioral Fingerprint Artifact Schema + Validator
+
+Goal: define the first teacher-pure behavioral fingerprint artifact contract
+and validate tiny synthetic fixtures before any training path consumes it.
+
+Current checkpoint: `behavioral_fingerprint_artifact_schema_validator`. P132
+adds a `behavioral_fingerprint` artifact version `0.1`, a JSON manifest and
+modes/target-shard validator, a CLI wrapper, and a tiny synthetic fixture. The
+validator checks mode bounds, row bounds, shard counts, token ranges, known
+mode references, and total target-position counts.
+
+P132 does not generate teacher fingerprints, add a JAX loader, compute student
+distribution statistics, implement corridor loss, add exemplar reservoirs,
+change training code, or claim model quality or production readiness.
+
+Recommended next:
+
+- P133 - load fingerprint corridor targets into fixed-shape batches for later
+  JAX/XLA training.
+
 ## Phase 131 - Single-Writer Checkpoint and Export Hygiene
 
 Goal: make synchronized distributed burns write canonical artifacts safely
