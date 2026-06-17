@@ -2726,7 +2726,8 @@ finite batch stream until that count completes. It reports
 `train_batches_consumed` and refuses to pass when no optimizer batch is
 available. Loss non-increase is now diagnostic only through
 `loss_non_increasing` and `loss_delta`; pass/fail is based on completed updates,
-nonzero batch consumption, finite losses/metrics, and non-negative final loss.
+nonzero batch consumption, finite losses/metrics, and non-negative initial and
+final losses.
 
 P136.1 does not add real student-backend integration, main staged-runner
 integration, exemplar reservoirs, mixed CSL/fingerprint batches, teacher
@@ -2761,3 +2762,44 @@ P137 does not add mixed corridor + exemplar training, main runner integration,
 teacher generation, real student-backend training, CSL/cascaded exemplar
 compression, dynamic top-k, learned critics, TPU/GPU burns, quality claims,
 Pallas promotion, or WKV/runtime math changes.
+
+## Phase 138 - Mixed Corridor + Exemplar Smoke
+
+P138 adds the first standalone mixed behavioral fingerprint smoke. The new
+`run_mixed_fingerprint_training_smoke` path loads P133 corridor batches and
+P137 exemplar batches from the same artifact, cycles both finite batch streams,
+and applies the existing tiny `tiny_position_logit_head` model.
+
+Each optimizer step computes P134 distribution stats over corridor
+target-position logits, feeds those stats to the P135 corridor loss, computes
+P137 dense exemplar KL over exemplar target-position logits, and combines the
+two branches as:
+
+```text
+mixed_loss =
+    corridor_loss_weight * corridor_loss
+  + exemplar_loss_weight * exemplar_kl_loss
+```
+
+Loss weights must be non-negative, and both weights cannot be zero. P138 emits
+mixed, corridor, exemplar, and batch-consumption metrics, including
+`fingerprint/mixed_loss_total`, branch loss totals, exemplar KL/cross-entropy/
+teacher entropy, corridor inside rates, and consumed corridor/exemplar batch
+counts.
+
+The existing `scripts/run_fingerprint_smoke.py` keeps corridor-only behavior by
+default and adds `--mode mixed` for the P138 path. The mixed report identifies
+`training_path_kind: standalone_mixed_fingerprint_smoke`,
+`exemplar_reservoir_enabled: true`, `teacher_required: false`,
+`main_runner_integrated: false`, and `real_student_backend_integrated: false`.
+It requires no Hugging Face download, internet, GPU, or TPU.
+
+Pass/fail requires completed requested optimizer steps, nonzero consumed
+corridor and exemplar batches, finite mixed losses/metrics, and non-negative
+initial/final mixed losses. `mixed_loss_non_increasing` and branch deltas are
+diagnostic only.
+
+P138 does not add real student-backend training, main runner integration,
+teacher generation, live teacher queries, CSL/cascaded exemplar payloads,
+dynamic top-k, learned critics, TPU/GPU burns, quality claims, production
+readiness, Pallas promotion, or WKV/runtime math changes.

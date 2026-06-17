@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 137
-current_phase: P137
-checkpoint: exemplar_reservoir_integration
+phase: 138
+current_phase: P138
+checkpoint: mixed_corridor_exemplar_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,15 +56,15 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Add optional dense exemplar reservoirs to behavioral fingerprint artifacts,
-  with validation, loading, inspection, and standalone KL loss utilities.
+  Prove the tiny standalone behavioral fingerprint smoke can consume both
+  corridor targets and dense exemplar reservoirs in one weighted objective.
 
-current_arc: behavioral_fingerprint_exemplar_reservoir
+current_arc: behavioral_fingerprint_mixed_smoke
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P138 mixed corridor plus exemplar smoke
+  - P139 diagnostics, reports, and next-arc readiness notes
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -83,6 +83,7 @@ arc_status:
   behavioral_fingerprint_training_smoke: complete
   behavioral_fingerprint_smoke_hygiene: complete
   behavioral_fingerprint_exemplar_reservoir: complete
+  behavioral_fingerprint_mixed_smoke: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -139,6 +140,12 @@ main_contains:
   p137_exemplar_loader: true
   p137_exemplar_kl_loss: true
   p137_exemplar_inspect_cli: true
+  p138_mixed_smoke_config: true
+  p138_mixed_smoke_runner: true
+  p138_mixed_metrics_emitted: true
+  p138_mixed_checkpoint_artifact_written: true
+  p138_mixed_report_artifact_written: true
+  p138_weighted_corridor_exemplar_objective: true
 
 teacher_target_types:
   - dense_logits
@@ -146,6 +153,7 @@ teacher_target_types:
   - cascaded_soft_labels_v1
   - behavioral_fingerprint
   - behavioral_fingerprint_exemplars_dense_probs
+  - behavioral_fingerprint_mixed_smoke
 
 p117_1_invariants_preserved:
   real_mode_zero_step_pass_allowed: false
@@ -460,6 +468,63 @@ p137:
   docs:
     - docs/P137_EXEMPLAR_RESERVOIR_INTEGRATION.md
   recommended_next: P138 mixed corridor plus exemplar smoke
+
+p138:
+  goal: mixed_corridor_exemplar_smoke
+  status: complete
+  depends_on:
+    - P132 behavioral fingerprint artifact schema validator
+    - P133 fingerprint target loader
+    - P134 student distribution stats
+    - P135 corridor loss
+    - P136 tiny fingerprint training smoke
+    - P136.1 fingerprint smoke robustness cleanup
+    - P137 exemplar reservoir integration
+  module: qrwkv_xla.training.fingerprint_smoke
+  config_api: qrwkv_xla.training.FingerprintMixedSmokeConfig
+  result_api: qrwkv_xla.training.FingerprintMixedSmokeResult
+  runner_api: qrwkv_xla.training.run_mixed_fingerprint_training_smoke
+  cli: scripts/run_fingerprint_smoke.py --mode mixed
+  fixture: tests/fixtures/behavioral_fingerprint/v0_1_with_exemplars_tiny
+  objective: weighted_corridor_loss_plus_exemplar_kl
+  corridor_loss_weight_non_negative: true
+  exemplar_loss_weight_non_negative: true
+  rejects_both_loss_weights_zero: true
+  consumes_corridor_batches: true
+  consumes_exemplar_batches: true
+  cycles_finite_batch_streams: true
+  zero_corridor_batch_guard: true
+  zero_exemplar_batch_guard: true
+  emits_mixed_metrics: true
+  emits_corridor_metrics: true
+  emits_exemplar_metrics: true
+  emits_batch_consumption_metrics: true
+  writes_metrics_json: true
+  writes_checkpoint_json: true
+  writes_report_json: true
+  smoke_student_kind: tiny_position_logit_head
+  smoke_student_uses_input_ids: false
+  training_path_kind: standalone_mixed_fingerprint_smoke
+  teacher_required: false
+  hf_download_required: false
+  gpu_or_tpu_required: false
+  main_runner_integrated: false
+  real_student_backend_integrated: false
+  mixed_loss_non_increasing_required_for_pass: false
+  mixed_loss_non_increasing_reported: true
+  branch_loss_deltas_reported: true
+  real_student_backend_training_added: false
+  teacher_generation_added: false
+  live_teacher_queries_added: false
+  csl_exemplar_payloads_added: false
+  dynamic_topk_added: false
+  production_readiness_claimed: false
+  model_quality_claimed: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  docs:
+    - docs/P138_MIXED_CORRIDOR_EXEMPLAR_SMOKE.md
+  recommended_next: P139 diagnostics, reports, and next-arc readiness notes
 
 p129:
   goal: gradient_optimizer_sync_audit

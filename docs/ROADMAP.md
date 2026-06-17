@@ -1,5 +1,31 @@
 # QRWKV-XLA Roadmap
 
+## Phase 138 - Mixed Corridor + Exemplar Smoke
+
+Goal: prove the tiny standalone behavioral fingerprint loop can consume both
+corridor-map targets and exemplar-landmark records in one weighted objective.
+
+Current checkpoint: `mixed_corridor_exemplar_smoke`. P138 adds
+`FingerprintMixedSmokeConfig`, `FingerprintMixedSmokeResult`, mixed status
+classification, and `run_mixed_fingerprint_training_smoke`. Each optimizer
+step consumes one cycled corridor batch and one cycled exemplar batch, computes
+P135 corridor loss and P137 dense exemplar KL, combines them with explicit
+non-negative weights, and writes mixed metrics, checkpoint, and report JSON.
+
+The existing `scripts/run_fingerprint_smoke.py` defaults to the P136 corridor
+mode and adds `--mode mixed` for the P138 smoke. Reports identify the path as
+`standalone_mixed_fingerprint_smoke` and keep the tiny position-logit model,
+no-input-id limitation, no-teacher status, no-main-runner status, and
+no-accelerator requirement explicit.
+
+P138 does not add real student-backend training, main runner integration,
+teacher generation, live teacher queries, CSL/cascaded exemplar payloads,
+dynamic top-k, quality claims, TPU/GPU burns, or WKV/runtime math changes.
+
+Recommended next:
+
+- P139 - diagnostics, reports, and next-arc readiness notes.
+
 ## Phase 137 - Exemplar Reservoir Integration
 
 Goal: add the optional landmark side of behavioral fingerprint artifacts
