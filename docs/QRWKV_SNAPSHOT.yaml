@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 141
-current_phase: P141
-checkpoint: main_runner_fingerprint_mode
+phase: 142
+current_phase: P142
+checkpoint: input_conditioned_tiny_student_rehearsal
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,16 +56,16 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Make corridor-only behavioral fingerprint training a first-class main
-  staged-runner mode over the real registered QRWKV student backend while
-  keeping teacher capture and exemplar/mixed objectives out of scope.
+  Prove the main fingerprint_corridor runner path is attached to
+  input-conditioned real student behavior, moves real parameters, and remains
+  teacher-free and corridor-only.
 
 current_arc: real_student_integration_and_teacher_pure_capture
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P142 input-conditioned tiny student rehearsal
+  - P143 teacher-side fingerprint capture skeleton
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -88,6 +88,7 @@ arc_status:
   behavioral_fingerprint_diagnostics_reports_readiness: complete
   real_student_fingerprint_forward_smoke: complete
   main_runner_fingerprint_mode: complete
+  input_conditioned_tiny_student_rehearsal: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -170,6 +171,12 @@ main_contains:
   p141_teacher_required: false
   p141_exemplar_reservoir_enabled: false
   p141_optimizer_checkpoint_plumbing: true
+  p142_input_conditioned_rehearsal: true
+  p142_input_conditioning_detected: true
+  p142_params_changed_diagnostic: true
+  p142_param_delta_norm_metric: true
+  p142_loss_non_increasing_required: false
+  p142_teacher_required: false
 
 teacher_target_types:
   - dense_logits

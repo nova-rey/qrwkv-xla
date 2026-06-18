@@ -21,6 +21,9 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int)
     parser.add_argument("--fingerprint-max-records", type=int)
     parser.add_argument("--fingerprint-drop-remainder", action="store_true")
+    parser.add_argument(
+        "--fingerprint-input-conditioned-rehearsal", action="store_true"
+    )
     parser.add_argument("--output-dir")
     parser.add_argument(
         "--student-architecture",
@@ -93,6 +96,7 @@ def main() -> None:
         or args.batch_size is not None
         or args.fingerprint_max_records is not None
         or args.fingerprint_drop_remainder
+        or args.fingerprint_input_conditioned_rehearsal
         or args.output_dir is not None
     ):
         config = replace(
@@ -129,6 +133,10 @@ def main() -> None:
                     Path(args.output_dir)
                     if args.output_dir is not None
                     else config.fingerprint.output_dir
+                ),
+                input_conditioned_rehearsal=(
+                    args.fingerprint_input_conditioned_rehearsal
+                    or config.fingerprint.input_conditioned_rehearsal
                 ),
             ),
         )

@@ -521,7 +521,15 @@ def _run_fingerprint_corridor_stage(
         learning_rate=config.optimizer.learning_rate,
         optimizer_state=optimizer_state,
     )
+    initial_params_for_diagnostics = params
     jax_batches = [_fingerprint_batch_to_jax(batch) for batch in fingerprint_batches]
+    input_conditioning_detected, input_conditioning_delta_norm = (
+        _detect_input_conditioning(
+            backend=backend,
+            params=params,
+            batches=fingerprint_batches,
+        )
+    )
 
     checkpoint_out = config.checkpoint.checkpoint_out
     checkpoint_overwrite = config.checkpoint.overwrite
@@ -657,7 +665,37 @@ def _run_fingerprint_corridor_stage(
         raise ValueError("fingerprint_corridor mode consumed zero batches")
     loss_finite = bool(np.isfinite(initial_loss) and np.isfinite(final_metrics["loss"]))
     loss_non_negative = bool(initial_loss >= 0.0 and final_metrics["loss"] >= 0.0)
+    loss_delta = final_metrics["loss"] - initial_loss
+    loss_non_increasing = bool(final_metrics["loss"] <= initial_loss + 1e-6)
+    param_delta_norm = _tree_delta_norm(initial_params_for_diagnostics, state.params)
+    params_changed = bool(param_delta_norm > 1e-12)
+    final_metrics.update(
+        {
+            "fingerprint/rehearsal/input_conditioning_detected": float(
+                input_conditioning_detected
+            ),
+            "fingerprint/rehearsal/input_conditioning_delta_norm": float(
+                input_conditioning_delta_norm
+            ),
+            "fingerprint/rehearsal/params_changed": float(params_changed),
+            "fingerprint/rehearsal/param_delta_norm": float(param_delta_norm),
+            "fingerprint/rehearsal/initial_loss": float(initial_loss),
+            "fingerprint/rehearsal/final_loss": float(final_metrics["loss"]),
+            "fingerprint/rehearsal/loss_delta": float(loss_delta),
+            "fingerprint/rehearsal/loss_non_increasing": float(loss_non_increasing),
+        }
+    )
+    for record in metric_records:
+        record.setdefault(
+            "fingerprint/rehearsal/input_conditioning_detected",
+            float(input_conditioning_detected),
+        )
+        record.setdefault(
+            "fingerprint/rehearsal/input_conditioning_delta_norm",
+            float(input_conditioning_delta_norm),
+        )
     metrics_finite = all(bool(np.isfinite(value)) for value in final_metrics.values())
+    rehearsal_required = config.fingerprint.input_conditioned_rehearsal
     status = (
         "pass"
         if (
@@ -665,6 +703,8 @@ def _run_fingerprint_corridor_stage(
             and batches_consumed > 0
             and loss_finite
             and loss_non_negative
+            and (input_conditioning_detected or not rehearsal_required)
+            and (params_changed or not rehearsal_required)
             and metrics_finite
         )
         else "fail"
@@ -722,6 +762,10 @@ def _run_fingerprint_corridor_stage(
         summary_path=summary_path,
         student_config=student_config,
         status=status,
+        input_conditioning_detected=input_conditioning_detected,
+        input_conditioning_delta_norm=input_conditioning_delta_norm,
+        params_changed=params_changed,
+        param_delta_norm=param_delta_norm,
     )
     if output_dir is not None:
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -729,7 +773,11 @@ def _run_fingerprint_corridor_stage(
         metrics_path.write_text(
             json.dumps(
                 {
-                    "phase": "P141",
+                    "phase": (
+                        "P142"
+                        if config.fingerprint.input_conditioned_rehearsal
+                        else "P141"
+                    ),
                     "distill_mode": config.mode,
                     "final": final_metrics,
                     "steps": metric_records,
@@ -994,6 +1042,53 @@ def _fingerprint_batch_to_jax(batch: FingerprintBatch) -> dict[str, jax.Array]:
     }
 
 
+def _detect_input_conditioning(
+    *,
+    backend: Any,
+    params: Any,
+    batches: tuple[FingerprintBatch, ...],
+) -> tuple[bool, float]:
+    pair = _first_distinct_input_pair(batches)
+    if pair is None:
+        return False, 0.0
+    inputs = jnp.asarray(np.stack(pair, axis=0), dtype=jnp.int32)
+    output, _state = backend.forward_full(params, inputs)
+    logits = backend.logits(output)
+    if logits is None:
+        return False, 0.0
+    delta = jnp.linalg.norm(jnp.asarray(logits[0]) - jnp.asarray(logits[1]))
+    delta_float = float(delta)
+    return bool(np.isfinite(delta_float) and delta_float > 1e-7), delta_float
+
+
+def _first_distinct_input_pair(
+    batches: tuple[FingerprintBatch, ...],
+) -> tuple[np.ndarray, np.ndarray] | None:
+    seen: list[np.ndarray] = []
+    for batch in batches:
+        for row in batch.input_ids:
+            candidate = np.asarray(row, dtype=np.int32)
+            for prior in seen:
+                if not np.array_equal(candidate, prior):
+                    return prior, candidate
+            seen.append(candidate)
+    return None
+
+
+def _tree_delta_norm(before: Any, after: Any) -> float:
+    leaves_before, tree_def = jax.tree_util.tree_flatten(before)
+    leaves_after, after_tree_def = jax.tree_util.tree_flatten(after)
+    if tree_def != after_tree_def:
+        raise ValueError(
+            "parameter tree structure changed during fingerprint rehearsal"
+        )
+    total = 0.0
+    for left, right in zip(leaves_before, leaves_after, strict=True):
+        delta = np.asarray(right) - np.asarray(left)
+        total += float(np.sum(np.square(delta)))
+    return float(np.sqrt(total))
+
+
 def _fingerprint_loss_config(
     config: DistillFingerprintLossConfig,
 ) -> FingerprintCorridorLossConfig:
@@ -1095,9 +1190,16 @@ def _fingerprint_corridor_report(
     summary_path: Path | None,
     student_config: dict[str, Any],
     status: str,
+    input_conditioning_detected: bool,
+    input_conditioning_delta_norm: float,
+    params_changed: bool,
+    param_delta_norm: float,
 ) -> dict[str, Any]:
+    phase = "P142" if config.fingerprint.input_conditioned_rehearsal else "P141"
+    loss_delta = final_metrics["loss"] - initial_loss
+    loss_non_increasing = bool(final_metrics["loss"] <= initial_loss + 1e-6)
     return {
-        "phase": "P141",
+        "phase": phase,
         "status": status,
         "distill_mode": config.mode,
         "training_path_kind": "main_runner_fingerprint_corridor",
@@ -1110,18 +1212,29 @@ def _fingerprint_corridor_report(
         "exemplar_forward_enabled": False,
         "student_uses_input_ids": True,
         "student_backend": config.fingerprint.student_backend,
+        "input_conditioned_rehearsal": config.fingerprint.input_conditioned_rehearsal,
+        "input_conditioning_detected": input_conditioning_detected,
+        "input_conditioning_delta_norm": input_conditioning_delta_norm,
+        "params_changed": params_changed,
+        "param_delta_norm": param_delta_norm,
         "optimizer_steps_completed": int(state.step - start_step),
         "requested_steps": config.training.max_steps,
         "batches_consumed": batches_consumed,
+        "initial_loss": initial_loss,
+        "final_loss": final_metrics["loss"],
+        "loss_delta": loss_delta,
+        "loss_non_increasing": loss_non_increasing,
+        "loss_non_increasing_required": False,
         "loss": {
             "initial_total": initial_loss,
             "final_total": final_metrics["loss"],
-            "delta_total": final_metrics["loss"] - initial_loss,
+            "delta_total": loss_delta,
             "finite": bool(
                 np.isfinite(initial_loss) and np.isfinite(final_metrics["loss"])
             ),
             "non_negative": bool(initial_loss >= 0.0 and final_metrics["loss"] >= 0.0),
-            "non_increasing": bool(final_metrics["loss"] <= initial_loss + 1e-6),
+            "non_increasing": loss_non_increasing,
+            "non_increasing_required": False,
         },
         "student": student_config,
         "artifact": {
@@ -1169,7 +1282,13 @@ def _fingerprint_corridor_report(
         "metrics_path": None if metrics_path is None else str(metrics_path),
         "summary_path": None if summary_path is None else str(summary_path),
         "limitations": (
-            "This is main-runner corridor-only fingerprint training.",
+            (
+                "This is an input-conditioned tiny rehearsal."
+                if phase == "P142"
+                else "This is main-runner corridor-only fingerprint training."
+            ),
+            "It uses the main fingerprint_corridor runner mode.",
+            "It trains a real registered student backend.",
             "No exemplar reservoir training is active.",
             "No teacher backend is required.",
             "Teacher-side fingerprint capture remains future work.",
@@ -1182,10 +1301,16 @@ def _render_fingerprint_corridor_summary(report: dict[str, Any]) -> str:
     artifact = report["artifact"]
     metrics = report["corridor_metrics"]
     loss = report["loss"]
+    heading = (
+        "# Input-Conditioned Tiny Fingerprint Rehearsal Summary"
+        if report.get("phase") == "P142"
+        else "# Main Runner Fingerprint Corridor Summary"
+    )
     return "\n".join(
         (
-            "# Main Runner Fingerprint Corridor Summary",
+            heading,
             "",
+            f"Phase: {report['phase']}",
             f"Status: {report['status']}",
             f"Mode: {report['distill_mode']}",
             f"Training path: {report['training_path_kind']}",
@@ -1195,7 +1320,13 @@ def _render_fingerprint_corridor_summary(report: dict[str, Any]) -> str:
             "Teacher required: false",
             "Exemplar reservoir enabled: false",
             "",
-            "This is main-runner corridor-only fingerprint training.",
+            (
+                "This is an input-conditioned tiny rehearsal."
+                if report.get("phase") == "P142"
+                else "This is main-runner corridor-only fingerprint training."
+            ),
+            "It uses the main fingerprint_corridor runner mode.",
+            "It trains a real registered student backend.",
             "No exemplar reservoir training is active.",
             "No teacher backend is required.",
             "Teacher-side fingerprint capture remains future work.",
@@ -1211,12 +1342,16 @@ def _render_fingerprint_corridor_summary(report: dict[str, Any]) -> str:
             f"- Optimizer steps completed: {report['optimizer_steps_completed']}",
             f"- Batches consumed: {report['batches_consumed']}",
             f"- Checkpoint: {report['checkpoint_out']}",
+            f"- Input conditioning detected: {report['input_conditioning_detected']}",
+            f"- Params changed: {report['params_changed']}",
+            f"- Param delta norm: {report['param_delta_norm']}",
             "",
             "## Loss",
             f"- Initial: {loss['initial_total']}",
             f"- Final: {loss['final_total']}",
             f"- Delta: {loss['delta_total']}",
             f"- Non-increasing: {loss['non_increasing']} (diagnostic only)",
+            f"- Non-increasing required: {loss['non_increasing_required']}",
             "",
             "## Corridor Metrics",
             f"- Loss total: {metrics['loss_total']}",

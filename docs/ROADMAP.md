@@ -1,5 +1,30 @@
 # QRWKV-XLA Roadmap
 
+## Phase 142 - Input-Conditioned Tiny Student Rehearsal
+
+Goal: prove the main `fingerprint_corridor` runner mode is attached to
+input-conditioned real student behavior and moves real parameters.
+
+Current checkpoint: `input_conditioned_tiny_student_rehearsal`. P142 adds
+`fingerprint.input_conditioned_rehearsal`, P142 report identity, rehearsal
+diagnostics for input-conditioning and parameter movement, and focused tests
+that load the normal checkpoint artifacts and verify teacher-free execution.
+
+P142 keeps the P141 mode and runner path. It uses synthetic fingerprint targets,
+`current_qrwkv`, P133/P134/P135 corridor loss, normal optimizer/checkpoint
+plumbing, and no teacher backend. It emits
+`fingerprint/rehearsal/input_conditioning_detected`,
+`fingerprint/rehearsal/params_changed`,
+`fingerprint/rehearsal/param_delta_norm`, and loss movement diagnostics.
+
+P142 does not add teacher-side capture, exemplar reservoir training, mixed
+objectives, real teacher artifacts, benchmark comparisons, quality claims,
+TPU/GPU burns, or Pallas promotion.
+
+Recommended next:
+
+- P143 - teacher-side fingerprint capture skeleton.
+
 ## Phase 141 - Main Runner Fingerprint Mode
 
 Goal: make corridor-only behavioral fingerprint training a first-class staged

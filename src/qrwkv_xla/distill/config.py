@@ -105,6 +105,7 @@ class DistillFingerprintConfig:
     student_vocab_size: int | None = None
     student_max_seq_len: int | None = None
     output_dir: Path | None = None
+    input_conditioned_rehearsal: bool = False
 
 
 @dataclass(frozen=True)
@@ -413,6 +414,12 @@ def _load_fingerprint(data: Any) -> DistillFingerprintConfig:
             data.get("student_max_seq_len", data.get("fingerprint_student_max_seq_len"))
         ),
         output_dir=_optional_path(raw_output),
+        input_conditioned_rehearsal=bool(
+            data.get(
+                "input_conditioned_rehearsal",
+                data.get("fingerprint_input_conditioned_rehearsal", False),
+            )
+        ),
     )
 
 

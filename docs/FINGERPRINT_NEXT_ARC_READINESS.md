@@ -4,10 +4,12 @@ P139 closed the tiny standalone behavioral fingerprint arc. P140 opened the
 next serious arc by proving a forward-only real student backend path over
 validated fingerprint corridor batches. P141 then wired corridor-only
 fingerprint training into the main staged runner with optimizer, checkpoint,
-metrics, report, and summary plumbing.
+metrics, report, and summary plumbing. P142 adds an input-conditioned tiny
+rehearsal that verifies distinct `input_ids` change logits and optimizer steps
+move real student parameters.
 
-The remaining work should move from this integrated training door to
-input-conditioned rehearsal behavior and teacher-pure capture.
+The remaining work should move from this trusted consumer-side rehearsal to
+teacher-pure capture.
 
 ## Gap A - Real Student / Main Runner Integration
 
@@ -17,11 +19,12 @@ Current:
 - real `CurrentQRWKVStudentBackend` via the student backend registry
 - input-id conditioned logits from fingerprint batches
 - optimizer and checkpoint plumbing active for corridor-only fingerprint loss
+- P142 rehearsal diagnostics for input conditioning and parameter movement
 - no exemplar reservoir or mixed objective in the main runner yet
 
 Needed:
 
-- input-conditioned tiny student rehearsal over this mode
+- teacher-side fingerprint capture skeleton
 - later mixed/exemplar extension if justified
 - report fields that distinguish rehearsal, real runs, and science results
 
@@ -69,6 +72,7 @@ Needed:
 
 ## Boundary
 
-P141 should not be treated as a quality result. It proves the main runner can
-optimize corridor loss with a real student backend, not that the objective is
-useful, teacher capture exists, or the research hypothesis is proven.
+P142 should not be treated as a quality result. It proves that the main
+fingerprint corridor receiver is attached to input-conditioned real student
+behavior and moves parameters, not that the objective is useful, teacher
+capture exists, or the research hypothesis is proven.

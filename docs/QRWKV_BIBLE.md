@@ -2897,3 +2897,32 @@ P141 does not add exemplar reservoir training, mixed objectives, teacher-side
 fingerprint capture, TOME generation, real teacher artifacts, quality
 comparisons, TPU/GPU burns, Pallas promotion, or production-readiness claims.
 The next target is P142 input-conditioned tiny student rehearsal.
+
+## Phase 142 - Input-Conditioned Tiny Student Rehearsal
+
+P142 keeps the P141 `fingerprint_corridor` mode and adds rehearsal evidence
+rather than another training path. A new
+`fingerprint.input_conditioned_rehearsal` flag marks runs that should report as
+`phase: P142`.
+
+The runner now measures whether the registered student backend produces
+different logits for two distinct fingerprint `input_ids` rows before training.
+It also compares initial and final student parameter trees and reports
+`params_changed` plus `param_delta_norm`. These diagnostics are emitted under
+`fingerprint/rehearsal/...` and are included in the P142 report and Markdown
+summary.
+
+P142 pass status for fingerprint mode requires completed optimizer steps,
+nonzero batch consumption, finite/non-negative loss, finite metrics, detected
+input conditioning, and changed parameters. Loss non-increase is still only
+diagnostic and is reported with `loss_non_increasing_required: false`.
+
+The existing P137/P140 tiny fixture is sufficient for this rehearsal because
+`current_qrwkv` emits distinct logits for distinct synthetic input sequences at
+initialization. P142 writes the same normal runner checkpoint artifacts as
+P141, and checkpoints remain loadable through the existing checkpoint helper.
+
+P142 does not add teacher-side fingerprint capture, exemplar reservoir training,
+mixed objectives, TOME generation, real teacher artifacts, baseline comparison,
+quality claims, TPU/GPU burns, Pallas promotion, or production-readiness claims.
+The next target is P143 teacher-side fingerprint capture skeleton.

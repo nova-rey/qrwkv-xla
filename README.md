@@ -7,10 +7,11 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P141, Main Runner Fingerprint Mode. The Pallas runway is closed
-after a recorded real TPU v5 lite smoke pass for the tiny opt-in Pallas WKV
-path, the cascaded target pipeline has been merged into main, and behavioral
-fingerprint corridor training is now wired into the main staged runner.
+Current phase: P142, Input-Conditioned Tiny Student Rehearsal. The Pallas
+runway is closed after a recorded real TPU v5 lite smoke pass for the tiny
+opt-in Pallas WKV path, the cascaded target pipeline has been merged into main,
+and behavioral fingerprint corridor training is wired into the main staged
+runner with input-conditioning and parameter-movement diagnostics.
 
 Current emphasis is behavioral fingerprint integration, teacher-pure capture
 planning, teacher backend modularity, vocab contracts, target stores, the
@@ -45,8 +46,10 @@ arc. P140 adds a forward-only smoke that instantiates the real registered
 adds `fingerprint_corridor` mode to `run_distill_stage`, performs optimizer
 updates over the real registered student backend, emits canonical fingerprint
 metrics, and writes normal checkpoint artifacts without requiring a teacher
-backend. Baseline tests remain CPU-safe and do not require Hugging Face
-downloads, internet, Qwen, GPU, or TPU.
+backend. P142 adds an input-conditioned tiny rehearsal over that same mode,
+verifying distinct input IDs produce distinct logits and optimizer steps move
+student parameters. Baseline tests remain CPU-safe and do not require Hugging
+Face downloads, internet, Qwen, GPU, or TPU.
 
 P117 is the first serious burn using a validated TeacherTextbook input and a
 validated HF-shaped Level 0/1 StudentArtifact output.
