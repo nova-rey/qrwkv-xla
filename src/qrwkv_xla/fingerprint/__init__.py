@@ -16,6 +16,12 @@ from qrwkv_xla.fingerprint.capture import (
     build_synthetic_capture_examples,
     capture_fingerprint_artifact,
 )
+from qrwkv_xla.fingerprint.quality_per_byte import (
+    FingerprintQualityPerByteExperimentConfig,
+    FingerprintQualityPerByteExperimentResult,
+    evaluate_student_corridor_adherence,
+    run_fingerprint_quality_per_byte_experiment,
+)
 from qrwkv_xla.fingerprint.real_teacher import (
     DEFAULT_TINY_REAL_TEACHER,
     TinyRealTeacherFingerprintCaptureConfig,
@@ -41,6 +47,8 @@ __all__ = [
     "FingerprintCorridorBoundsConfig",
     "FingerprintExemplarReservoirCaptureConfig",
     "FingerprintModeDiscoveryConfig",
+    "FingerprintQualityPerByteExperimentConfig",
+    "FingerprintQualityPerByteExperimentResult",
     "DEFAULT_TINY_TEXTS",
     "RealTeacherFingerprintTrainingRehearsalConfig",
     "RealTeacherFingerprintTrainingRehearsalResult",
@@ -48,8 +56,10 @@ __all__ = [
     "TinyRealTeacherFingerprintCaptureResult",
     "build_synthetic_capture_examples",
     "capture_fingerprint_artifact",
+    "evaluate_student_corridor_adherence",
     "load_text_fixture",
     "run_fingerprint_baseline_comparison",
+    "run_fingerprint_quality_per_byte_experiment",
     "run_real_teacher_fingerprint_training_rehearsal",
     "run_tiny_real_teacher_fingerprint_capture",
 ]

@@ -3054,3 +3054,21 @@ that keeps quality, winner, and quality-per-byte claims false.
 P147 is scoreboard infrastructure only. It does not claim that fingerprint
 training improves the student or that any quality-per-byte result has been
 shown.
+
+## Phase 148 — First Quality-Per-Byte Experiment
+
+P148 puts the first tiny number on the P147 scoreboard. It reuses the baseline
+comparison harness, loads the init-only reference checkpoint and trained
+fingerprint corridor checkpoint, evaluates both against the fingerprint
+corridor artifact with the existing P133/P134/P135 path, and records
+corridor-adherence deltas per fingerprint artifact byte.
+
+The experiment writes `p148_quality_per_byte_report.json` and
+`p148_quality_per_byte_summary.md`. It records the artifact byte denominator,
+target/exemplar/mode counts, per-arm corridor adherence metrics, and
+`reference_delta_vs_init_only` quality-per-byte proxy values.
+
+The baseline remains init-only, so P148 labels the comparison as
+`reference_only` with `trained_baseline_available: false`. It does not declare
+a winner, a general quality result, RADLADS parity, scale readiness, or a broad
+quality-per-byte advantage.

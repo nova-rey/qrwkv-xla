@@ -1,5 +1,25 @@
 # QRWKV-XLA Roadmap
 
+## Phase 148 - First Quality-Per-Byte Experiment
+
+Goal: compute the first tiny corridor-adherence-per-artifact-byte measurements
+without overclaiming method quality.
+
+Current checkpoint: `first_quality_per_byte_experiment`. P148 reuses the P147
+comparison harness, evaluates the init-only reference and trained fingerprint
+corridor checkpoints against the fingerprint artifact, records artifact byte
+budgets, computes reference deltas and delta-per-MB diagnostics, and writes
+`p148_quality_per_byte_report.json` plus
+`p148_quality_per_byte_summary.md`.
+
+P148 labels the baseline as an init-only reference, records
+`comparison_fairness: reference_only`, and makes no winner, general quality,
+RADLADS parity, scale, or broad quality-per-byte claim.
+
+Recommended next:
+
+- P149 - arc report / go-no-go.
+
 ## Phase 147 - Baseline Comparison Harness
 
 Goal: add the first tiny scoreboard harness that can run comparable baseline

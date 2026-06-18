@@ -13,9 +13,11 @@ tiny real-teacher logits through the calibrated capture path. P146 links that
 artifact producer to the real registered student training path through the main
 `fingerprint_corridor` runner. P147 adds the first tiny baseline comparison
 harness so baseline and fingerprint arms can be recorded under shared controls.
+P148 computes the first tiny corridor-adherence-per-artifact-byte reference
+deltas from that scoreboard.
 
-The remaining work should move from scoreboard wiring to the first
-quality-per-byte experiment.
+The remaining work should move from tiny measurement to the P149 arc report and
+go/no-go recommendation.
 
 ## Gap A - Real Student / Main Runner Integration
 
@@ -32,11 +34,12 @@ Current:
 - P145 tiny real-teacher capture wrapper and local-files-only CLI
 - P146 real student training rehearsal from P145 artifacts
 - P147 init-only baseline vs fingerprint corridor comparison harness
+- P148 tiny corridor-adherence-per-artifact-byte smoke
 - no exemplar reservoir or mixed objective in the main runner yet
 
 Needed:
 
-- first quality-per-byte experiment
+- P149 arc report / go-no-go
 - later mixed/exemplar extension if justified
 - report fields that distinguish rehearsal, real runs, and science results
 
@@ -54,6 +57,7 @@ Current:
 - tiny HF causal LM logits through the capture path
 - P146 capture/training linkage report
 - P147 artifact budget metadata in comparison reports
+- P148 artifact byte denominator and delta-per-MB metrics
 
 Needed:
 
@@ -68,6 +72,7 @@ Current:
 - plumbing smoke only
 - no model quality claim
 - P147 comparable tiny baseline/fingerprint scoreboard with no winner declared
+- P148 corridor-adherence reference deltas per artifact byte
 
 Needed:
 
@@ -92,7 +97,7 @@ Needed:
 
 ## Boundary
 
-P147 should not be treated as a quality result. It proves that tiny
-baseline/fingerprint arms can be run and recorded under shared controls, not
-that fingerprint training is better, that quality-per-byte is favorable, or
-that large-scale capture is ready.
+P148 should not be treated as a general quality result. It computes tiny
+corridor-adherence-per-artifact-byte reference deltas against an init-only
+baseline, not a fair trained-baseline win, RADLADS parity result, or scale
+readiness result.

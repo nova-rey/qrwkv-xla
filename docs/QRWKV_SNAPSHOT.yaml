@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 147
-current_phase: P147
-checkpoint: baseline_comparison_harness
+phase: 148
+current_phase: P148
+checkpoint: first_quality_per_byte_experiment
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,16 +56,16 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Run comparable tiny baseline and fingerprint arms under shared controls,
-  record artifact budget and arm diagnostics, and make no quality, winner, or
-  quality-per-byte claim.
+  Compute the first tiny corridor-adherence-per-artifact-byte reference deltas
+  from P147 arms while labeling init-only baseline fairness and avoiding
+  general quality, winner, RADLADS parity, or scale claims.
 
 current_arc: real_student_integration_and_teacher_pure_capture
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P148 first quality-per-byte experiment
+  - P149 arc report / go-no-go
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -94,6 +94,7 @@ arc_status:
   tiny_real_teacher_fingerprint_capture: complete
   real_student_fingerprint_training_rehearsal: complete
   baseline_comparison_harness: complete
+  first_quality_per_byte_experiment: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -230,6 +231,17 @@ main_contains:
   p147_quality_claims: false
   p147_baseline_winner_declared: false
   p147_quality_per_byte_claims: false
+  p148_quality_per_byte_experiment: true
+  p148_corridor_adherence_eval: true
+  p148_reference_delta_vs_init_only: true
+  p148_artifact_byte_denominator: true
+  p148_eval_split_train_artifact_reuse: true
+  p148_trained_baseline_available: false
+  p148_comparison_fairness: reference_only
+  p148_winner_declared: false
+  p148_general_quality_claims: false
+  p148_radlads_parity_claims: false
+  p148_scale_claims: false
 
 teacher_target_types:
   - dense_logits
