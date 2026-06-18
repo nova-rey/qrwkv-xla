@@ -52,6 +52,7 @@ class RealTeacherFingerprintTrainingRehearsalConfig:
     training_steps: int = 3
     batch_size: int = 2
     learning_rate: float = 0.01
+    seed: int = 0
     student_backend: str = "current_qrwkv"
     overwrite: bool = False
 
@@ -124,6 +125,7 @@ def run_real_teacher_fingerprint_training_rehearsal(
         training=replace(
             DistillStageConfig().training,
             max_steps=config.training_steps,
+            seed=config.seed,
         ),
         optimizer=replace(
             DistillStageConfig().optimizer,

@@ -1,5 +1,10 @@
 """Teacher-side behavioral fingerprint capture utilities."""
 
+from qrwkv_xla.fingerprint.baseline_comparison import (
+    FingerprintBaselineComparisonConfig,
+    FingerprintBaselineComparisonResult,
+    run_fingerprint_baseline_comparison,
+)
 from qrwkv_xla.fingerprint.capture import (
     FingerprintCaptureBudgetConfig,
     FingerprintCaptureConfig,
@@ -31,6 +36,8 @@ __all__ = [
     "FingerprintCaptureConfig",
     "FingerprintCaptureExample",
     "FingerprintCaptureResult",
+    "FingerprintBaselineComparisonConfig",
+    "FingerprintBaselineComparisonResult",
     "FingerprintCorridorBoundsConfig",
     "FingerprintExemplarReservoirCaptureConfig",
     "FingerprintModeDiscoveryConfig",
@@ -42,6 +49,7 @@ __all__ = [
     "build_synthetic_capture_examples",
     "capture_fingerprint_artifact",
     "load_text_fixture",
+    "run_fingerprint_baseline_comparison",
     "run_real_teacher_fingerprint_training_rehearsal",
     "run_tiny_real_teacher_fingerprint_capture",
 ]

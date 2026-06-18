@@ -1,5 +1,26 @@
 # QRWKV-XLA Roadmap
 
+## Phase 147 - Baseline Comparison Harness
+
+Goal: add the first tiny scoreboard harness that can run comparable baseline
+and fingerprint arms without declaring a winner.
+
+Current checkpoint: `baseline_comparison_harness`. P147 adds a harness and CLI
+that consume or build a tiny behavioral fingerprint artifact, record an
+init-only no-fingerprint baseline arm, run the fingerprint arm through the
+P141/P146 `fingerprint_corridor` path, write comparable arm metadata, artifact
+budget metrics, `p147_comparison_report.json`, and
+`p147_comparison_summary.md`, and include a claims block that explicitly keeps
+quality, winner, and quality-per-byte claims false.
+
+P147 does not add real benchmark claims, quality-per-byte conclusions,
+RADLADS/RADLADS2 comparison, large corpus runs, TPU/GPU burns, or mixed/exemplar
+main-runner training.
+
+Recommended next:
+
+- P148 - first quality-per-byte experiment.
+
 ## Phase 146 - Real Student Fingerprint Training Rehearsal
 
 Goal: prove that a tiny real-teacher fingerprint artifact can drive the real

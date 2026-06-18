@@ -11,10 +11,11 @@ synthetic/logit-provider teacher-side capture skeleton. P144 calibrates that
 skeleton against controlled known-probability fixtures. P145 sends the first
 tiny real-teacher logits through the calibrated capture path. P146 links that
 artifact producer to the real registered student training path through the main
-`fingerprint_corridor` runner.
+`fingerprint_corridor` runner. P147 adds the first tiny baseline comparison
+harness so baseline and fingerprint arms can be recorded under shared controls.
 
-The remaining work should move from producer/consumer integration rehearsal to
-baseline comparison and quality-per-byte questions.
+The remaining work should move from scoreboard wiring to the first
+quality-per-byte experiment.
 
 ## Gap A - Real Student / Main Runner Integration
 
@@ -30,11 +31,12 @@ Current:
   consumption
 - P145 tiny real-teacher capture wrapper and local-files-only CLI
 - P146 real student training rehearsal from P145 artifacts
+- P147 init-only baseline vs fingerprint corridor comparison harness
 - no exemplar reservoir or mixed objective in the main runner yet
 
 Needed:
 
-- baseline comparison harness
+- first quality-per-byte experiment
 - later mixed/exemplar extension if justified
 - report fields that distinguish rehearsal, real runs, and science results
 
@@ -51,6 +53,7 @@ Current:
 - optional stratified exemplar selection
 - tiny HF causal LM logits through the capture path
 - P146 capture/training linkage report
+- P147 artifact budget metadata in comparison reports
 
 Needed:
 
@@ -64,6 +67,7 @@ Current:
 
 - plumbing smoke only
 - no model quality claim
+- P147 comparable tiny baseline/fingerprint scoreboard with no winner declared
 
 Needed:
 
@@ -88,8 +92,7 @@ Needed:
 
 ## Boundary
 
-P146 should not be treated as a quality result. It proves that a tiny
-real-teacher artifact can drive teacher-free `fingerprint_corridor` training
-for a real registered student backend and produce finite diagnostics plus a
-loadable checkpoint, not that the artifact improves the student or that
-large-scale capture is ready.
+P147 should not be treated as a quality result. It proves that tiny
+baseline/fingerprint arms can be run and recorded under shared controls, not
+that fingerprint training is better, that quality-per-byte is favorable, or
+that large-scale capture is ready.

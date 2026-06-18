@@ -7,7 +7,7 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P146, Real Student Fingerprint Training Rehearsal. The Pallas
+Current phase: P147, Baseline Comparison Harness. The Pallas
 runway is closed after a recorded real TPU v5 lite smoke pass for the tiny
 opt-in Pallas WKV path, the cascaded target pipeline has been merged into main,
 and behavioral fingerprint corridor training is wired into the main staged
@@ -19,7 +19,10 @@ P141 consumption. P145 adds the first tiny local-files-only real-teacher
 fingerprint capture path. P146 links that artifact producer to the real
 registered student training path through `fingerprint_corridor`, verifies
 optimizer steps move parameters, records finite diagnostics, and writes
-checkpoint/report artifacts while keeping the teacher out of training.
+checkpoint/report artifacts while keeping the teacher out of training. P147
+adds a tiny comparison harness that records an init-only no-fingerprint
+baseline arm beside the fingerprint corridor arm under shared controls, with no
+winner or quality-per-byte claim.
 
 Current emphasis is behavioral fingerprint integration, teacher-pure capture
 planning, teacher backend modularity, vocab contracts, target stores, the
@@ -66,7 +69,9 @@ capture refinements, with min/max bounds and global top-interestingness
 selection still supported. P145 sends tiny HF causal-LM logits through that
 calibrated path and records real teacher metadata and consumer sanity. P146
 consumes P145 artifacts with the main runner, records capture/training linkage,
-and still makes no quality or benchmark claim.
+and still makes no quality or benchmark claim. P147 adds scoreboard
+infrastructure for baseline/fingerprint arms and still makes no quality,
+winner, or quality-per-byte claim.
 
 P117 is the first serious burn using a validated TeacherTextbook input and a
 validated HF-shaped Level 0/1 StudentArtifact output.
@@ -143,6 +148,7 @@ The behavioral fingerprint miniature arc is documented in:
 - `docs/P139_FINGERPRINT_DIAGNOSTICS_REPORTS_READINESS.md`
 - `docs/FINGERPRINT_NEXT_ARC_READINESS.md`
 - `docs/P146_REAL_STUDENT_TRAINING_REHEARSAL.md`
+- `docs/P147_BASELINE_COMPARISON_HARNESS.md`
 
 This arc proves CPU-safe standalone plumbing and reporting over tiny synthetic
 fixtures. It does not claim real student-backend integration, main runner

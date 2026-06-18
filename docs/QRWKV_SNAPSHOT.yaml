@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 146
-current_phase: P146
-checkpoint: real_student_fingerprint_training_rehearsal
+phase: 147
+current_phase: P147
+checkpoint: baseline_comparison_harness
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,16 +56,16 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Run a tiny real-teacher fingerprint artifact through the main
-  fingerprint_corridor training path, verify real student optimizer updates and
-  checkpoint/report artifacts, and keep teacher use outside student training.
+  Run comparable tiny baseline and fingerprint arms under shared controls,
+  record artifact budget and arm diagnostics, and make no quality, winner, or
+  quality-per-byte claim.
 
 current_arc: real_student_integration_and_teacher_pure_capture
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P147 baseline comparison harness
+  - P148 first quality-per-byte experiment
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -93,6 +93,7 @@ arc_status:
   teacher_capture_synthetic_fixture_parity: complete
   tiny_real_teacher_fingerprint_capture: complete
   real_student_fingerprint_training_rehearsal: complete
+  baseline_comparison_harness: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -220,6 +221,15 @@ main_contains:
   p146_teacher_required_during_training: false
   p146_local_cache_real_hf_integration_smoke: true
   p146_quality_claims: false
+  p147_baseline_comparison_harness: true
+  p147_baseline_init_only_arm: true
+  p147_fingerprint_corridor_arm: true
+  p147_shared_controls_recorded: true
+  p147_artifact_budget_metrics: true
+  p147_claims_block: true
+  p147_quality_claims: false
+  p147_baseline_winner_declared: false
+  p147_quality_per_byte_claims: false
 
 teacher_target_types:
   - dense_logits

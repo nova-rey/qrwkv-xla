@@ -3036,3 +3036,21 @@ artifacts, and writes `p146_rehearsal_report.json` plus
 This remains an integration rehearsal. It does not claim quality improvement,
 baseline parity, quality-per-byte efficiency, large-scale capture readiness, or
 accelerator burn readiness.
+
+## Phase 147 — Baseline Comparison Harness
+
+P147 adds the first tiny scoreboard harness for the behavioral fingerprint arc.
+It can reuse an existing P145/P146 behavioral fingerprint artifact or build one
+from a locally cached tiny HF teacher, then record two comparable arms:
+`baseline_init_only` and `fingerprint_corridor`.
+
+The baseline arm initializes the same registered student backend/config and
+writes a zero-step checkpoint. The fingerprint arm runs through the existing
+P141/P146 `fingerprint_corridor` path. The harness writes
+`p147_comparison_report.json` and `p147_comparison_summary.md` with shared
+controls, artifact budget metrics, arm diagnostics, and an explicit claims block
+that keeps quality, winner, and quality-per-byte claims false.
+
+P147 is scoreboard infrastructure only. It does not claim that fingerprint
+training improves the student or that any quality-per-byte result has been
+shown.
