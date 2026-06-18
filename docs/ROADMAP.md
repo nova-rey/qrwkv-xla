@@ -1,5 +1,24 @@
 # QRWKV-XLA Roadmap
 
+## Phase 149 - Arc 2 Report / Go-No-Go
+
+Goal: close Arc 2 with an evidence-based report and constrained go/no-go
+recommendation.
+
+Current checkpoint: `arc2_report_go_no_go`. P149 adds a deterministic report
+builder and CLI that read `docs/QRWKV_SNAPSHOT.yaml`, verify required P140-P148
+evidence flags, write `p149_arc2_report.json` and `p149_arc2_summary.md`, and
+emit `go_with_constraints` when the tiny arc evidence is present.
+
+P149 allows larger controlled fingerprint experiments under strict constraints.
+It does not claim general quality improvement, trained-baseline wins, RADLADS
+parity, scale readiness, production readiness, or Pallas default readiness.
+
+Recommended next:
+
+- Larger controlled fingerprint experiments with trained baseline and held-out
+  eval gates.
+
 ## Phase 148 - First Quality-Per-Byte Experiment
 
 Goal: compute the first tiny corridor-adherence-per-artifact-byte measurements

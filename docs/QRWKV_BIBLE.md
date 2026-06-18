@@ -3072,3 +3072,20 @@ The baseline remains init-only, so P148 labels the comparison as
 `reference_only` with `trained_baseline_available: false`. It does not declare
 a winner, a general quality result, RADLADS parity, scale readiness, or a broad
 quality-per-byte advantage.
+
+## Phase 149 — Arc 2 Report / Go-No-Go
+
+P149 closes the real student integration and teacher-pure capture arc with a
+deterministic report generator. It reads `docs/QRWKV_SNAPSHOT.yaml`, verifies
+the required P140-P148 evidence flags, and writes `p149_arc2_report.json` plus
+`p149_arc2_summary.md`.
+
+When the required evidence is present, the recommendation is
+`go_with_constraints`: proceed to larger controlled fingerprint experiments,
+but only with a trained non-fingerprint baseline, held-out evaluation, fixed
+teacher/corpus/student budgets, and explicit artifact byte accounting.
+
+P149 does not claim general quality improvement, a trained-baseline win,
+RADLADS parity, scale readiness, production readiness, or Pallas default
+readiness. It records those as blocked claims and keeps the open gaps visible
+for the next arc.

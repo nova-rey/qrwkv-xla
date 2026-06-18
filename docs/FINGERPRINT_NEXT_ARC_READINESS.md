@@ -14,10 +14,11 @@ artifact producer to the real registered student training path through the main
 `fingerprint_corridor` runner. P147 adds the first tiny baseline comparison
 harness so baseline and fingerprint arms can be recorded under shared controls.
 P148 computes the first tiny corridor-adherence-per-artifact-byte reference
-deltas from that scoreboard.
+deltas from that scoreboard. P149 closes the arc with a constrained go/no-go
+report.
 
-The remaining work should move from tiny measurement to the P149 arc report and
-go/no-go recommendation.
+The remaining work should move from Arc 2 smoke evidence to larger controlled
+fingerprint experiments with trained baseline and held-out evaluation gates.
 
 ## Gap A - Real Student / Main Runner Integration
 
@@ -35,11 +36,13 @@ Current:
 - P146 real student training rehearsal from P145 artifacts
 - P147 init-only baseline vs fingerprint corridor comparison harness
 - P148 tiny corridor-adherence-per-artifact-byte smoke
+- P149 arc report / go-with-constraints recommendation
 - no exemplar reservoir or mixed objective in the main runner yet
 
 Needed:
 
-- P149 arc report / go-no-go
+- trained non-fingerprint baseline before method-vs-method claims
+- held-out tiny eval artifact before stronger quality-per-byte language
 - later mixed/exemplar extension if justified
 - report fields that distinguish rehearsal, real runs, and science results
 
@@ -58,6 +61,7 @@ Current:
 - P146 capture/training linkage report
 - P147 artifact budget metadata in comparison reports
 - P148 artifact byte denominator and delta-per-MB metrics
+- P149 constraints for larger controlled experiments
 
 Needed:
 
@@ -73,6 +77,7 @@ Current:
 - no model quality claim
 - P147 comparable tiny baseline/fingerprint scoreboard with no winner declared
 - P148 corridor-adherence reference deltas per artifact byte
+- P149 claims and constraints block
 
 Needed:
 
@@ -97,7 +102,6 @@ Needed:
 
 ## Boundary
 
-P148 should not be treated as a general quality result. It computes tiny
-corridor-adherence-per-artifact-byte reference deltas against an init-only
-baseline, not a fair trained-baseline win, RADLADS parity result, or scale
-readiness result.
+P149 should not be treated as a general quality result. It recommends
+`go_with_constraints` for larger controlled experiments, not production
+readiness, scale readiness, RADLADS parity, or a trained-baseline win.

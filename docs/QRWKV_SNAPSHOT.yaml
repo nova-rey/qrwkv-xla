@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 148
-current_phase: P148
-checkpoint: first_quality_per_byte_experiment
+phase: 149
+current_phase: P149
+checkpoint: arc2_report_go_no_go
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,16 +56,16 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Compute the first tiny corridor-adherence-per-artifact-byte reference deltas
-  from P147 arms while labeling init-only baseline fairness and avoiding
-  general quality, winner, RADLADS parity, or scale claims.
+  Close Arc 2 with an evidence-based go/no-go report that permits larger
+  controlled fingerprint experiments only under trained-baseline, held-out eval,
+  fixed-budget, and no-overclaim constraints.
 
 current_arc: real_student_integration_and_teacher_pure_capture
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P149 arc report / go-no-go
+  - Larger controlled fingerprint experiments with trained baseline and held-out eval gates
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -95,6 +95,7 @@ arc_status:
   real_student_fingerprint_training_rehearsal: complete
   baseline_comparison_harness: complete
   first_quality_per_byte_experiment: complete
+  arc2_report_go_no_go: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -242,6 +243,15 @@ main_contains:
   p148_general_quality_claims: false
   p148_radlads_parity_claims: false
   p148_scale_claims: false
+  p149_arc2_report_go_no_go: true
+  p149_recommendation: go_with_constraints
+  p149_required_evidence_flags: true
+  p149_open_gaps_recorded: true
+  p149_general_quality_claims: false
+  p149_trained_baseline_win_claims: false
+  p149_radlads_parity_claims: false
+  p149_scale_readiness_claims: false
+  p149_production_readiness_claims: false
 
 teacher_target_types:
   - dense_logits

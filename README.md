@@ -7,7 +7,7 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P148, First Quality-Per-Byte Experiment. The Pallas
+Current phase: P149, Arc 2 Report / Go-No-Go. The Pallas
 runway is closed after a recorded real TPU v5 lite smoke pass for the tiny
 opt-in Pallas WKV path, the cascaded target pipeline has been merged into main,
 and behavioral fingerprint corridor training is wired into the main staged
@@ -24,7 +24,10 @@ adds a tiny comparison harness that records an init-only no-fingerprint
 baseline arm beside the fingerprint corridor arm under shared controls, with no
 winner or quality-per-byte claim. P148 reuses that harness to compute the first
 tiny corridor-adherence-per-artifact-byte metrics, while labeling the baseline
-as init-only reference and avoiding any general quality claim.
+as init-only reference and avoiding any general quality claim. P149 closes the
+arc with a report generator that verifies P140-P148 evidence and emits a
+`go_with_constraints` recommendation for larger controlled fingerprint
+experiments.
 
 Current emphasis is behavioral fingerprint integration, teacher-pure capture
 planning, teacher backend modularity, vocab contracts, target stores, the
@@ -75,7 +78,8 @@ and still makes no quality or benchmark claim. P147 adds scoreboard
 infrastructure for baseline/fingerprint arms and still makes no quality,
 winner, or quality-per-byte claim. P148 evaluates both arms against the
 fingerprint corridor artifact and records reference deltas per artifact byte;
-it is still a tiny smoke, not a method-vs-method proof.
+it is still a tiny smoke, not a method-vs-method proof. P149 records the arc
+findings, open gaps, blocked claims, and constrained next steps.
 
 P117 is the first serious burn using a validated TeacherTextbook input and a
 validated HF-shaped Level 0/1 StudentArtifact output.
@@ -154,6 +158,7 @@ The behavioral fingerprint miniature arc is documented in:
 - `docs/P146_REAL_STUDENT_TRAINING_REHEARSAL.md`
 - `docs/P147_BASELINE_COMPARISON_HARNESS.md`
 - `docs/P148_FIRST_QUALITY_PER_BYTE_EXPERIMENT.md`
+- `docs/P149_ARC2_REPORT_GO_NO_GO.md`
 
 This arc proves CPU-safe standalone plumbing and reporting over tiny synthetic
 fixtures. It does not claim real student-backend integration, main runner

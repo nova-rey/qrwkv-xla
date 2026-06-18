@@ -1,5 +1,11 @@
 """Teacher-side behavioral fingerprint capture utilities."""
 
+from qrwkv_xla.fingerprint.arc_report import (
+    FingerprintArc2ReportConfig,
+    FingerprintArc2ReportResult,
+    build_fingerprint_arc2_report,
+    run_fingerprint_arc2_report,
+)
 from qrwkv_xla.fingerprint.baseline_comparison import (
     FingerprintBaselineComparisonConfig,
     FingerprintBaselineComparisonResult,
@@ -44,6 +50,8 @@ __all__ = [
     "FingerprintCaptureResult",
     "FingerprintBaselineComparisonConfig",
     "FingerprintBaselineComparisonResult",
+    "FingerprintArc2ReportConfig",
+    "FingerprintArc2ReportResult",
     "FingerprintCorridorBoundsConfig",
     "FingerprintExemplarReservoirCaptureConfig",
     "FingerprintModeDiscoveryConfig",
@@ -55,10 +63,12 @@ __all__ = [
     "TinyRealTeacherFingerprintCaptureConfig",
     "TinyRealTeacherFingerprintCaptureResult",
     "build_synthetic_capture_examples",
+    "build_fingerprint_arc2_report",
     "capture_fingerprint_artifact",
     "evaluate_student_corridor_adherence",
     "load_text_fixture",
     "run_fingerprint_baseline_comparison",
+    "run_fingerprint_arc2_report",
     "run_fingerprint_quality_per_byte_experiment",
     "run_real_teacher_fingerprint_training_rehearsal",
     "run_tiny_real_teacher_fingerprint_capture",
