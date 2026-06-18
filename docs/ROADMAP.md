@@ -1,5 +1,24 @@
 # QRWKV-XLA Roadmap
 
+## Phase 145 - Tiny Real Teacher Fingerprint Capture
+
+Goal: run the first tiny real-teacher fingerprint capture through the calibrated
+P143/P144 capture path.
+
+Current checkpoint: `tiny_real_teacher_fingerprint_capture`. P145 adds a
+local-files-only HF causal LM capture wrapper, tiny text fixture, dedicated CLI,
+real teacher metadata in manifest/summary, P145 summary fields, loader and
+artifact validation checks, and consumer sanity recording with P141/P140
+attempts or explicit loader-only fallback.
+
+P145 does not run real-scale TOME/textbook generation, large corpus capture,
+student quality evaluation, baseline comparison, accelerator burns, or
+quality-per-byte experiments.
+
+Recommended next:
+
+- P146 - real student fingerprint training rehearsal.
+
 ## Phase 144 - Teacher Capture Synthetic Fixture Parity
 
 Goal: calibrate the teacher-side capture skeleton with controlled synthetic

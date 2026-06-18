@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 144
-current_phase: P144
-checkpoint: teacher_capture_synthetic_fixture_parity
+phase: 145
+current_phase: P145
+checkpoint: tiny_real_teacher_fingerprint_capture
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,16 +56,16 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Calibrate teacher-side fingerprint capture with controlled synthetic
-  fixtures so known logits produce expected stats, modes, bounds, exemplars,
-  summaries, and consumable artifacts.
+  Run the first tiny real-teacher fingerprint capture through the calibrated
+  capture path, emit a valid behavioral_fingerprint artifact, and record
+  loader/consumer sanity without quality claims.
 
 current_arc: real_student_integration_and_teacher_pure_capture
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P145 tiny real teacher fingerprint capture
+  - P146 real student fingerprint training rehearsal
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -91,6 +91,7 @@ arc_status:
   input_conditioned_tiny_student_rehearsal: complete
   teacher_side_fingerprint_capture_skeleton: complete
   teacher_capture_synthetic_fixture_parity: complete
+  tiny_real_teacher_fingerprint_capture: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -201,6 +202,15 @@ main_contains:
   p144_capture_summary_accuracy: true
   p144_consumable_by_p141: true
   p144_real_hf_teacher_invocation: false
+  p145_tiny_real_teacher_capture_path: true
+  p145_local_files_only_default: true
+  p145_tiny_text_fixture: true
+  p145_real_teacher_metadata: true
+  p145_capture_engine_phase_split: true
+  p145_artifact_validates_with_p132: true
+  p145_loads_with_p133_p137: true
+  p145_consumer_sanity_recorded: true
+  p145_quality_claims: false
 
 teacher_target_types:
   - dense_logits

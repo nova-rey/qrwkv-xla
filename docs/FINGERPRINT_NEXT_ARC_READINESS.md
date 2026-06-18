@@ -8,10 +8,11 @@ metrics, report, and summary plumbing. P142 adds an input-conditioned tiny
 rehearsal that verifies distinct `input_ids` change logits and optimizer steps
 move real student parameters. P143 starts the producer side with a
 synthetic/logit-provider teacher-side capture skeleton. P144 calibrates that
-skeleton against controlled known-probability fixtures.
+skeleton against controlled known-probability fixtures. P145 sends the first
+tiny real-teacher logits through the calibrated capture path.
 
-The remaining work should move from synthetic parity to tiny real-teacher
-capture.
+The remaining work should move from tiny real-teacher capture to real-student
+training rehearsal.
 
 ## Gap A - Real Student / Main Runner Integration
 
@@ -25,11 +26,12 @@ Current:
 - P143 producer-side synthetic/logit-provider artifact emission
 - P144 controlled parity for stats, modes, bounds, exemplars, summary, and P141
   consumption
+- P145 tiny real-teacher capture wrapper and local-files-only CLI
 - no exemplar reservoir or mixed objective in the main runner yet
 
 Needed:
 
-- tiny real teacher fingerprint capture
+- real student training from a tiny real-teacher fingerprint artifact
 - later mixed/exemplar extension if justified
 - report fields that distinguish rehearsal, real runs, and science results
 
@@ -44,10 +46,11 @@ Current:
 - dynamic observed `stat_bands_v0` modes
 - optional quantile bounds
 - optional stratified exemplar selection
+- tiny HF causal LM logits through the capture path
 
 Needed:
 
-- real teacher pass that emits behavioral modes and corridor bounds
+- real student training rehearsal from captured real-teacher artifact
 - teacher-pure exemplar reservoir selection
 - artifact convergence diagnostics
 - reproducible capture metadata
@@ -82,7 +85,7 @@ Needed:
 
 ## Boundary
 
-P144 should not be treated as a quality result. It proves that producer-side
-capture math and artifact structure match controlled synthetic fixtures, not
-that real teacher capture works, mode discovery is optimal, or the research
-hypothesis is proven.
+P145 should not be treated as a quality result. It proves that a tiny real
+teacher can produce a valid behavioral fingerprint artifact through the
+calibrated capture path, not that the artifact improves a student or that
+large-scale capture is ready.

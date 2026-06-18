@@ -7,7 +7,7 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P144, Teacher Capture Synthetic Fixture Parity. The Pallas
+Current phase: P145, Tiny Real Teacher Fingerprint Capture. The Pallas
 runway is closed after a recorded real TPU v5 lite smoke pass for the tiny
 opt-in Pallas WKV path, the cascaded target pipeline has been merged into main,
 and behavioral fingerprint corridor training is wired into the main staged
@@ -15,7 +15,8 @@ runner with input-conditioning and parameter-movement diagnostics. The
 producer-side capture skeleton can now emit valid behavioral fingerprint
 artifacts from synthetic/logit-provider inputs, and controlled parity tests now
 verify known stats, mode assignment, bounds, exemplar selection, summaries, and
-P141 consumption.
+P141 consumption. P145 adds the first tiny local-files-only real-teacher
+fingerprint capture path.
 
 Current emphasis is behavioral fingerprint integration, teacher-pure capture
 planning, teacher backend modularity, vocab contracts, target stores, the
@@ -59,7 +60,9 @@ capture CLI without invoking real teacher backends. Baseline tests remain
 CPU-safe and do not require Hugging Face downloads, internet, Qwen, GPU, or
 TPU. P144 adds quantile bounds and stratified exemplar selection as optional
 capture refinements, with min/max bounds and global top-interestingness
-selection still supported.
+selection still supported. P145 sends tiny HF causal-LM logits through that
+calibrated path, records real teacher metadata and consumer sanity, and still
+makes no quality or benchmark claim.
 
 P117 is the first serious burn using a validated TeacherTextbook input and a
 validated HF-shaped Level 0/1 StudentArtifact output.

@@ -2986,3 +2986,34 @@ P144 does not call real HF teachers, integrate TOME/textbook generation, add
 streaming quantile sketches, perform student quality experiments, run
 accelerator burns, or claim quality-per-byte gains. The next target is P145
 tiny real teacher fingerprint capture.
+
+## Phase 145 - Tiny Real Teacher Fingerprint Capture
+
+P145 adds the first tiny real-teacher fingerprint capture path. The new
+`qrwkv_xla.fingerprint.real_teacher` wrapper uses `HFTeacherBackend` to tokenize
+local text prompts, emit `[batch, sequence, vocab]` causal-LM logits, convert
+them into `FingerprintCaptureExample` records, and run the P143/P144 capture
+pipeline.
+
+The dedicated script is `scripts/build_real_teacher_fingerprint_artifact.py`.
+It defaults to local-files-only operation and fails clearly when the tiny HF
+teacher is not cached. Tests use deterministic fake-HF backends for CI and an
+optional local-cache CLI smoke for `sshleifer/tiny-gpt2`.
+
+P145 summaries identify `phase: P145`, `run_kind:
+tiny_real_teacher_capture`, and `capture_engine:
+teacher_side_capture_skeleton_v0`. They record real teacher metadata, examples
+processed, tokens processed, fixed-position target count, dynamic modes,
+records per mode, bounds method, exemplar policy, max exemplars, retained
+exemplars, artifact validation, loader status, and consumer sanity.
+
+Consumer sanity follows a best-effort hierarchy: P141 one-step
+`fingerprint_corridor`, P140 forward smoke, or loader-only fallback with an
+explicit reason when the teacher vocabulary is too large for cheap CPU student
+instantiation. The artifact vocabulary is never silently remapped or shrunk.
+
+P145 does not prove real-scale teacher capture, TOME/textbook integration,
+artifact convergence, student quality improvement, baseline comparison,
+quality-per-byte gain, or production capture performance. The next target is
+P146 real student training rehearsal from a tiny real-teacher fingerprint
+artifact.
