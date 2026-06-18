@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 145
-current_phase: P145
-checkpoint: tiny_real_teacher_fingerprint_capture
+phase: 146
+current_phase: P146
+checkpoint: real_student_fingerprint_training_rehearsal
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,16 +56,16 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Run the first tiny real-teacher fingerprint capture through the calibrated
-  capture path, emit a valid behavioral_fingerprint artifact, and record
-  loader/consumer sanity without quality claims.
+  Run a tiny real-teacher fingerprint artifact through the main
+  fingerprint_corridor training path, verify real student optimizer updates and
+  checkpoint/report artifacts, and keep teacher use outside student training.
 
 current_arc: real_student_integration_and_teacher_pure_capture
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P146 real student fingerprint training rehearsal
+  - P147 baseline comparison harness
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -92,6 +92,7 @@ arc_status:
   teacher_side_fingerprint_capture_skeleton: complete
   teacher_capture_synthetic_fixture_parity: complete
   tiny_real_teacher_fingerprint_capture: complete
+  real_student_fingerprint_training_rehearsal: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -211,6 +212,14 @@ main_contains:
   p145_loads_with_p133_p137: true
   p145_consumer_sanity_recorded: true
   p145_quality_claims: false
+  p146_real_teacher_artifact_training_rehearsal: true
+  p146_main_runner_fingerprint_corridor_training: true
+  p146_real_student_backend_integrated: true
+  p146_params_changed: true
+  p146_checkpoint_loadable: true
+  p146_teacher_required_during_training: false
+  p146_local_cache_real_hf_integration_smoke: true
+  p146_quality_claims: false
 
 teacher_target_types:
   - dense_logits

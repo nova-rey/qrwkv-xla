@@ -1,5 +1,27 @@
 # QRWKV-XLA Roadmap
 
+## Phase 146 - Real Student Fingerprint Training Rehearsal
+
+Goal: prove that a tiny real-teacher fingerprint artifact can drive the real
+registered student training path through the main `fingerprint_corridor`
+runner.
+
+Current checkpoint: `real_student_fingerprint_training_rehearsal`. P146 adds a
+wrapper and CLI that can reuse an existing P145 artifact or build one from a
+local-files-only tiny HF teacher, validates the artifact, runs
+`run_distill_stage` in `fingerprint_corridor` mode, verifies optimizer steps,
+parameter movement, finite diagnostics, and loadable checkpoint/report
+artifacts, and records capture/training linkage with
+`teacher_required_during_training: false`.
+
+P146 does not add baseline comparisons, model-quality claims, quality-per-byte
+experiments, exemplar/mixed objective training, large capture, or accelerator
+burn readiness.
+
+Recommended next:
+
+- P147 - baseline comparison harness.
+
 ## Phase 145 - Tiny Real Teacher Fingerprint Capture
 
 Goal: run the first tiny real-teacher fingerprint capture through the calibrated

@@ -3017,3 +3017,22 @@ artifact convergence, student quality improvement, baseline comparison,
 quality-per-byte gain, or production capture performance. The next target is
 P146 real student training rehearsal from a tiny real-teacher fingerprint
 artifact.
+
+## Phase 146 — Real Student Fingerprint Training Rehearsal
+
+P146 connects the tiny real-teacher fingerprint producer to the real registered
+student training consumer. It adds a P146 wrapper and CLI that either reuse an
+existing P145 behavioral fingerprint artifact or build one from a locally cached
+tiny HF teacher, then run the main `fingerprint_corridor` path through
+`run_distill_stage`.
+
+The rehearsal validates the artifact, trains `current_qrwkv`, verifies optimizer
+steps, parameter movement, finite loss diagnostics, and loadable checkpoint
+artifacts, and writes `p146_rehearsal_report.json` plus
+`p146_rehearsal_summary.md`. The report records the central contract:
+`teacher_real: true` for artifact construction and
+`teacher_required_during_training: false` for student training.
+
+This remains an integration rehearsal. It does not claim quality improvement,
+baseline parity, quality-per-byte efficiency, large-scale capture readiness, or
+accelerator burn readiness.
