@@ -18,6 +18,15 @@ from qrwkv_xla.schedules import (
 )
 from qrwkv_xla.students.factory import STUDENT_ARCHITECTURES
 
+DISTILL_MODE_TEACHER_TARGETS = "teacher_targets"
+DISTILL_MODE_FINGERPRINT_CORRIDOR = "fingerprint_corridor"
+DISTILL_MODES = frozenset(
+    {
+        DISTILL_MODE_TEACHER_TARGETS,
+        DISTILL_MODE_FINGERPRINT_CORRIDOR,
+    }
+)
+
 
 @dataclass(frozen=True)
 class DistillStudentConfig:
@@ -85,6 +94,31 @@ class DistillTrackingConfig:
 
 
 @dataclass(frozen=True)
+class DistillFingerprintConfig:
+    artifact_dir: Path | None = None
+    batch_size: int = 2
+    shuffle: bool = False
+    seed: int = 0
+    max_records: int | None = None
+    drop_remainder: bool = False
+    student_backend: str = "current_qrwkv"
+    student_vocab_size: int | None = None
+    student_max_seq_len: int | None = None
+    output_dir: Path | None = None
+
+
+@dataclass(frozen=True)
+class DistillFingerprintLossConfig:
+    entropy_weight: float = 1.0
+    top1_margin_weight: float = 1.0
+    top8_mass_weight: float = 1.0
+    top32_mass_weight: float = 1.0
+    tail_mass_weight: float = 1.0
+    use_record_weights: bool = True
+    eps: float = 1e-8
+
+
+@dataclass(frozen=True)
 class LossWeightConfig:
     enabled: bool = True
     weight: float = 1.0
@@ -106,6 +140,7 @@ class DistillLossConfig:
 @dataclass(frozen=True)
 class DistillStageConfig:
     stage: int = 0
+    mode: str = DISTILL_MODE_TEACHER_TARGETS
     targets_dir: Path = Path("artifacts/teacher_targets/fake_export")
     student: DistillStudentConfig = field(default_factory=DistillStudentConfig)
     optimizer: DistillOptimizerConfig = field(default_factory=DistillOptimizerConfig)
@@ -118,6 +153,12 @@ class DistillStageConfig:
     distributed: DistributedConfig = field(default_factory=DistributedConfig)
     checkpoint: DistillCheckpointConfig = field(default_factory=DistillCheckpointConfig)
     tracking: DistillTrackingConfig = field(default_factory=DistillTrackingConfig)
+    fingerprint: DistillFingerprintConfig = field(
+        default_factory=DistillFingerprintConfig
+    )
+    fingerprint_loss: DistillFingerprintLossConfig = field(
+        default_factory=DistillFingerprintLossConfig
+    )
 
 
 def load_distill_stage_config(path: str | Path) -> DistillStageConfig:
@@ -136,6 +177,7 @@ def load_distill_stage_config(path: str | Path) -> DistillStageConfig:
 
     config = DistillStageConfig(
         stage=int(raw_stage.get("stage", 0)),
+        mode=str(raw_stage.get("mode", DISTILL_MODE_TEACHER_TARGETS)),
         targets_dir=Path(
             str(raw_stage.get("targets_dir", "artifacts/teacher_targets/fake_export"))
         ),
@@ -151,6 +193,8 @@ def load_distill_stage_config(path: str | Path) -> DistillStageConfig:
         ),
         checkpoint=_load_checkpoint(raw_stage.get("checkpoint", {})),
         tracking=_load_tracking(raw_stage.get("tracking", {})),
+        fingerprint=_load_fingerprint(raw_stage.get("fingerprint", raw_stage)),
+        fingerprint_loss=_load_fingerprint_loss(raw_stage.get("fingerprint_loss", {})),
     )
     validate_distill_stage_config(config)
     return config
@@ -159,6 +203,8 @@ def load_distill_stage_config(path: str | Path) -> DistillStageConfig:
 def validate_distill_stage_config(config: DistillStageConfig) -> None:
     if config.stage < 0:
         raise ValueError(f"stage must be >= 0, got {config.stage}")
+    if config.mode not in DISTILL_MODES:
+        raise ValueError(f"distillation.mode must be one of {sorted(DISTILL_MODES)}")
     if not str(config.targets_dir):
         raise ValueError("targets_dir must be non-empty")
     if config.student.architecture not in STUDENT_ARCHITECTURES:
@@ -243,15 +289,18 @@ def validate_distill_stage_config(config: DistillStageConfig) -> None:
     if not all(isinstance(note, str) for note in config.tracking.notes):
         raise ValueError("tracking.notes must be a list of strings")
 
-    enabled_positive = False
-    for name in ("hidden_mse", "logits_kl", "attention_or_mixer"):
-        weight_config = getattr(config.losses, name)
-        if weight_config.weight < 0:
-            raise ValueError(f"loss weight for {name} must be >= 0")
-        if weight_config.enabled and weight_config.weight > 0:
-            enabled_positive = True
-    if not enabled_positive:
-        raise ValueError("at least one enabled loss must have weight > 0")
+    _validate_distill_losses(config.losses)
+    if config.mode == DISTILL_MODE_FINGERPRINT_CORRIDOR:
+        _validate_fingerprint_config(config.fingerprint)
+        _validate_fingerprint_loss_config(config.fingerprint_loss)
+    else:
+        enabled_positive = False
+        for name in ("hidden_mse", "logits_kl", "attention_or_mixer"):
+            weight_config = getattr(config.losses, name)
+            if weight_config.enabled and weight_config.weight > 0:
+                enabled_positive = True
+        if not enabled_positive:
+            raise ValueError("at least one enabled loss must have weight > 0")
     if config.losses.bucket_shape_loss_weight < 0:
         raise ValueError("bucket_shape_loss_weight must be >= 0")
     if config.losses.bucket_shape_loss_type not in {"kl", "log_mse"}:
@@ -340,6 +389,47 @@ def _load_tracking(data: Any) -> DistillTrackingConfig:
     )
 
 
+def _load_fingerprint(data: Any) -> DistillFingerprintConfig:
+    if not isinstance(data, dict):
+        raise ValueError("distillation.fingerprint must be a mapping")
+    raw_artifact = data.get("artifact_dir", data.get("fingerprint_artifact_dir"))
+    raw_output = data.get("output_dir", data.get("fingerprint_output_dir"))
+    return DistillFingerprintConfig(
+        artifact_dir=_optional_path(raw_artifact),
+        batch_size=int(data.get("batch_size", data.get("fingerprint_batch_size", 2))),
+        shuffle=bool(data.get("shuffle", data.get("fingerprint_shuffle", False))),
+        seed=int(data.get("seed", data.get("fingerprint_seed", 0))),
+        max_records=_optional_int(
+            data.get("max_records", data.get("fingerprint_max_records"))
+        ),
+        drop_remainder=bool(
+            data.get("drop_remainder", data.get("fingerprint_drop_remainder", False))
+        ),
+        student_backend=str(data.get("student_backend", "current_qrwkv")),
+        student_vocab_size=_optional_int(
+            data.get("student_vocab_size", data.get("fingerprint_student_vocab_size"))
+        ),
+        student_max_seq_len=_optional_int(
+            data.get("student_max_seq_len", data.get("fingerprint_student_max_seq_len"))
+        ),
+        output_dir=_optional_path(raw_output),
+    )
+
+
+def _load_fingerprint_loss(data: Any) -> DistillFingerprintLossConfig:
+    if not isinstance(data, dict):
+        raise ValueError("distillation.fingerprint_loss must be a mapping")
+    return DistillFingerprintLossConfig(
+        entropy_weight=float(data.get("entropy_weight", 1.0)),
+        top1_margin_weight=float(data.get("top1_margin_weight", 1.0)),
+        top8_mass_weight=float(data.get("top8_mass_weight", 1.0)),
+        top32_mass_weight=float(data.get("top32_mass_weight", 1.0)),
+        tail_mass_weight=float(data.get("tail_mass_weight", 1.0)),
+        use_record_weights=bool(data.get("use_record_weights", True)),
+        eps=float(data.get("eps", 1e-8)),
+    )
+
+
 def _load_losses(data: Any) -> DistillLossConfig:
     if not isinstance(data, dict):
         raise ValueError("distillation.losses must be a mapping")
@@ -404,8 +494,50 @@ def _string_list(value: Any, name: str) -> list[str]:
     return list(value)
 
 
+def _validate_distill_losses(losses: DistillLossConfig) -> None:
+    for name in ("hidden_mse", "logits_kl", "attention_or_mixer"):
+        weight_config = getattr(losses, name)
+        if weight_config.weight < 0:
+            raise ValueError(f"loss weight for {name} must be >= 0")
+
+
+def _validate_fingerprint_config(config: DistillFingerprintConfig) -> None:
+    if config.artifact_dir is None:
+        raise ValueError("fingerprint_corridor mode requires fingerprint.artifact_dir")
+    if config.batch_size <= 0:
+        raise ValueError("fingerprint.batch_size must be > 0")
+    if config.seed < 0:
+        raise ValueError("fingerprint.seed must be >= 0")
+    if config.max_records is not None and config.max_records < 0:
+        raise ValueError("fingerprint.max_records must be >= 0")
+    if not config.student_backend.strip():
+        raise ValueError("fingerprint.student_backend must be non-empty")
+    if config.student_vocab_size is not None and config.student_vocab_size <= 0:
+        raise ValueError("fingerprint.student_vocab_size must be > 0")
+    if config.student_max_seq_len is not None and config.student_max_seq_len <= 0:
+        raise ValueError("fingerprint.student_max_seq_len must be > 0")
+
+
+def _validate_fingerprint_loss_config(config: DistillFingerprintLossConfig) -> None:
+    weights = (
+        config.entropy_weight,
+        config.top1_margin_weight,
+        config.top8_mass_weight,
+        config.top32_mass_weight,
+        config.tail_mass_weight,
+    )
+    if any(weight < 0 for weight in weights):
+        raise ValueError("fingerprint_loss weights must be non-negative")
+    if not any(weight > 0 for weight in weights):
+        raise ValueError("at least one fingerprint_loss weight must be > 0")
+    if config.eps <= 0:
+        raise ValueError("fingerprint_loss.eps must be > 0")
+
+
 DistillationCheckpointConfig = DistillCheckpointConfig
 DistillationTrackingConfig = DistillTrackingConfig
+DistillationFingerprintConfig = DistillFingerprintConfig
+DistillationFingerprintLossConfig = DistillFingerprintLossConfig
 DistillationStudentConfig = DistillStudentConfig
 DistillationOptimizerConfig = DistillOptimizerConfig
 DistillationLRScheduleConfig = DistillLRScheduleConfig

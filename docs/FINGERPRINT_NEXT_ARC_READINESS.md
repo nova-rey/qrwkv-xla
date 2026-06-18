@@ -1,24 +1,29 @@
 # Fingerprint Next Arc Readiness
 
-P139 closed the tiny standalone behavioral fingerprint arc. P140 opens the next
-serious arc by proving a forward-only real student backend path over validated
-fingerprint corridor batches. The remaining work should move from that
-standalone forward smoke to main-runner integration and teacher-pure capture.
+P139 closed the tiny standalone behavioral fingerprint arc. P140 opened the
+next serious arc by proving a forward-only real student backend path over
+validated fingerprint corridor batches. P141 then wired corridor-only
+fingerprint training into the main staged runner with optimizer, checkpoint,
+metrics, report, and summary plumbing.
+
+The remaining work should move from this integrated training door to
+input-conditioned rehearsal behavior and teacher-pure capture.
 
 ## Gap A - Real Student / Main Runner Integration
 
 Current:
 
-- P140 standalone real `CurrentQRWKVStudentBackend` forward smoke
-- input-id conditioned logits from the registered student backend
-- no main staged distillation runner integration
-- no optimizer or checkpoint training semantics in the fingerprint path
+- P141 main-runner `fingerprint_corridor` mode
+- real `CurrentQRWKVStudentBackend` via the student backend registry
+- input-id conditioned logits from fingerprint batches
+- optimizer and checkpoint plumbing active for corridor-only fingerprint loss
+- no exemplar reservoir or mixed objective in the main runner yet
 
 Needed:
 
-- main `run_distill_stage` integration or equivalent
-- real optimizer/checkpoint loop
-- report fields that distinguish smoke, rehearsal, and real runs
+- input-conditioned tiny student rehearsal over this mode
+- later mixed/exemplar extension if justified
+- report fields that distinguish rehearsal, real runs, and science results
 
 ## Gap B - Teacher-Side Fingerprint Capture
 
@@ -64,6 +69,6 @@ Needed:
 
 ## Boundary
 
-P140 should not be treated as a quality result. It proves real-student forward
-compatibility for fingerprint diagnostics, not training, teacher capture,
-main-runner integration, or the research hypothesis.
+P141 should not be treated as a quality result. It proves the main runner can
+optimize corridor loss with a real student backend, not that the objective is
+useful, teacher capture exists, or the research hypothesis is proven.

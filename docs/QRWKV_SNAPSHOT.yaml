@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 140
-current_phase: P140
-checkpoint: real_student_fingerprint_forward_smoke
+phase: 141
+current_phase: P141
+checkpoint: main_runner_fingerprint_mode
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,16 +56,16 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Prove a forward-only behavioral fingerprint path over the real registered
-  QRWKV student backend while keeping teacher capture, optimizer steps, and
-  main-runner wiring out of scope.
+  Make corridor-only behavioral fingerprint training a first-class main
+  staged-runner mode over the real registered QRWKV student backend while
+  keeping teacher capture and exemplar/mixed objectives out of scope.
 
 current_arc: real_student_integration_and_teacher_pure_capture
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P141 main runner fingerprint mode
+  - P142 input-conditioned tiny student rehearsal
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -87,6 +87,7 @@ arc_status:
   behavioral_fingerprint_mixed_smoke: complete
   behavioral_fingerprint_diagnostics_reports_readiness: complete
   real_student_fingerprint_forward_smoke: complete
+  main_runner_fingerprint_mode: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -163,6 +164,12 @@ main_contains:
   p140_main_runner_integrated: false
   p140_teacher_required: false
   p140_optimizer_steps_completed: 0
+  p141_main_runner_fingerprint_mode: true
+  p141_fingerprint_corridor_mode: true
+  p141_real_student_backend_integrated: true
+  p141_teacher_required: false
+  p141_exemplar_reservoir_enabled: false
+  p141_optimizer_checkpoint_plumbing: true
 
 teacher_target_types:
   - dense_logits

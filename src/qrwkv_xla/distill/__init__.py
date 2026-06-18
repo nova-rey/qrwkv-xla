@@ -1,7 +1,12 @@
 """Distillation stage runtime for QRWKV-XLA."""
 
 from qrwkv_xla.distill.config import (
+    DISTILL_MODE_FINGERPRINT_CORRIDOR,
+    DISTILL_MODE_TEACHER_TARGETS,
+    DISTILL_MODES,
     DistillationCheckpointConfig,
+    DistillationFingerprintConfig,
+    DistillationFingerprintLossConfig,
     DistillationGradientConfig,
     DistillationLossConfig,
     DistillationLRScheduleConfig,
@@ -11,6 +16,8 @@ from qrwkv_xla.distill.config import (
     DistillationTrackingConfig,
     DistillationTrainingConfig,
     DistillCheckpointConfig,
+    DistillFingerprintConfig,
+    DistillFingerprintLossConfig,
     DistillGradientConfig,
     DistillLossConfig,
     DistillLRScheduleConfig,
@@ -67,10 +74,15 @@ def __getattr__(name: str):
 
 
 __all__ = [
+    "DISTILL_MODE_FINGERPRINT_CORRIDOR",
+    "DISTILL_MODE_TEACHER_TARGETS",
+    "DISTILL_MODES",
     "DistillLossConfig",
     "DistillLRScheduleConfig",
     "DistillGradientConfig",
     "DistillCheckpointConfig",
+    "DistillFingerprintConfig",
+    "DistillFingerprintLossConfig",
     "DistillOptimizerConfig",
     "DistillStageConfig",
     "DistillStageResult",
@@ -81,6 +93,8 @@ __all__ = [
     "DistillationLRScheduleConfig",
     "DistillationGradientConfig",
     "DistillationCheckpointConfig",
+    "DistillationFingerprintConfig",
+    "DistillationFingerprintLossConfig",
     "DistillationOptimizerConfig",
     "DistillationStageConfig",
     "DistillationStageResult",

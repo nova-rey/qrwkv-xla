@@ -2862,3 +2862,38 @@ P140 does not add optimizer steps, checkpoint training semantics, main staged
 runner integration, teacher-side fingerprint capture, Hugging Face teacher
 calls, TPU/GPU requirements, Pallas promotion, or quality claims. The next
 target is P141 main-runner fingerprint mode.
+
+## Phase 141 - Main Runner Fingerprint Mode
+
+P141 adds `fingerprint_corridor` as a main `run_distill_stage` mode. The
+teacher-target path remains unchanged; fingerprint mode branches before
+`TargetBundleDataset` is opened, so it does not require a teacher target bundle
+or teacher backend.
+
+The P141 path validates a behavioral fingerprint artifact, loads P133 corridor
+batches, builds a `VocabContract`, instantiates `current_qrwkv` through the
+student backend registry, forwards `batch.input_ids` through
+`backend.forward_full`, computes P134 distribution stats at target positions,
+computes P135 corridor loss, and applies the existing optimizer update and
+gradient clipping machinery through `TrainState`.
+
+P141 writes normal checkpoint artifacts with the existing checkpoint writer.
+When `fingerprint.output_dir` or CLI `--output-dir` is provided, it also writes
+`metrics.json`, `fingerprint_corridor_report.json`, and
+`fingerprint_run_summary.md`. The report identifies `phase: P141`,
+`distill_mode: fingerprint_corridor`, `training_path_kind:
+main_runner_fingerprint_corridor`, `real_student_backend_integrated: true`,
+`main_runner_integrated: true`, `teacher_required: false`, and
+`exemplar_reservoir_enabled: false`.
+
+The mode emits normal runner loss/learning-rate/optimizer/gradient metrics plus
+canonical `fingerprint/corridor/...` metrics and
+`fingerprint/runner/optimizer_steps_completed`,
+`fingerprint/runner/batches_consumed`, and
+`fingerprint/runner/artifact_num_records`. For this mode, `train/loss` equals
+`fingerprint/corridor/loss_total`.
+
+P141 does not add exemplar reservoir training, mixed objectives, teacher-side
+fingerprint capture, TOME generation, real teacher artifacts, quality
+comparisons, TPU/GPU burns, Pallas promotion, or production-readiness claims.
+The next target is P142 input-conditioned tiny student rehearsal.

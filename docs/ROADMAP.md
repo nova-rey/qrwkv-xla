@@ -1,5 +1,32 @@
 # QRWKV-XLA Roadmap
 
+## Phase 141 - Main Runner Fingerprint Mode
+
+Goal: make corridor-only behavioral fingerprint training a first-class staged
+runner mode.
+
+Current checkpoint: `main_runner_fingerprint_mode`. P141 adds
+`distillation.mode: fingerprint_corridor`, fingerprint artifact/batch/loss
+config fields, CLI flags on `scripts/run_distill_stage.py`, a main-runner
+training branch that instantiates `current_qrwkv` through the student backend
+registry, optimizer updates over P134/P135 corridor loss, normal checkpoint
+writing, and P141 metrics/report/summary artifacts.
+
+The mode is teacher-free: it does not load a teacher target bundle, construct a
+teacher backend, call Hugging Face, require Qwen, or require GPU/TPU. It emits
+canonical `fingerprint/corridor/...` metrics plus
+`fingerprint/runner/optimizer_steps_completed`,
+`fingerprint/runner/batches_consumed`, and
+`fingerprint/runner/artifact_num_records`.
+
+P141 does not add exemplar reservoir training, mixed objectives, teacher-side
+fingerprint capture, real teacher artifacts, quality claims, TPU/GPU burns, or
+Pallas promotion.
+
+Recommended next:
+
+- P142 - input-conditioned tiny student rehearsal.
+
 ## Phase 140 - Real Student Fingerprint Forward Smoke
 
 Goal: open the real student integration and teacher-pure capture arc with a

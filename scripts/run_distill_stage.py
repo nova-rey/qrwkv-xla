@@ -11,11 +11,22 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Run a QRWKV-XLA distillation stage")
     parser.add_argument("--config", default="configs/distill_stage0_stub.yaml")
+    parser.add_argument(
+        "--distill-mode",
+        choices=("teacher_targets", "fingerprint_corridor"),
+    )
     parser.add_argument("--targets")
+    parser.add_argument("--fingerprint-artifact")
+    parser.add_argument("--student-backend", default=None)
+    parser.add_argument("--batch-size", type=int)
+    parser.add_argument("--fingerprint-max-records", type=int)
+    parser.add_argument("--fingerprint-drop-remainder", action="store_true")
+    parser.add_argument("--output-dir")
     parser.add_argument(
         "--student-architecture",
         choices=tuple(sorted(STUDENT_ARCHITECTURES)),
     )
+    parser.add_argument("--steps", type=int, dest="max_steps")
     parser.add_argument("--max-steps", type=int)
     parser.add_argument("--optimizer", choices=("sgd", "adam", "adamw"))
     parser.add_argument("--learning-rate", type=float)
@@ -61,6 +72,7 @@ def main() -> None:
     args = parser.parse_args()
 
     from qrwkv_xla.distill import (
+        DistillFingerprintConfig,
         DistillGradientConfig,
         LossWeightConfig,
         load_distill_stage_config,
@@ -71,8 +83,55 @@ def main() -> None:
         parser.error("--max-grad-norm conflicts with --disable-grad-clipping")
 
     config = load_distill_stage_config(args.config)
+    if args.distill_mode is not None:
+        config = replace(config, mode=args.distill_mode)
     if args.targets:
         config = replace(config, targets_dir=Path(args.targets))
+    if (
+        args.fingerprint_artifact is not None
+        or args.student_backend is not None
+        or args.batch_size is not None
+        or args.fingerprint_max_records is not None
+        or args.fingerprint_drop_remainder
+        or args.output_dir is not None
+    ):
+        config = replace(
+            config,
+            fingerprint=DistillFingerprintConfig(
+                artifact_dir=(
+                    Path(args.fingerprint_artifact)
+                    if args.fingerprint_artifact is not None
+                    else config.fingerprint.artifact_dir
+                ),
+                batch_size=(
+                    args.batch_size
+                    if args.batch_size is not None
+                    else config.fingerprint.batch_size
+                ),
+                shuffle=config.fingerprint.shuffle,
+                seed=config.fingerprint.seed,
+                max_records=(
+                    args.fingerprint_max_records
+                    if args.fingerprint_max_records is not None
+                    else config.fingerprint.max_records
+                ),
+                drop_remainder=(
+                    args.fingerprint_drop_remainder or config.fingerprint.drop_remainder
+                ),
+                student_backend=(
+                    args.student_backend
+                    if args.student_backend is not None
+                    else config.fingerprint.student_backend
+                ),
+                student_vocab_size=config.fingerprint.student_vocab_size,
+                student_max_seq_len=config.fingerprint.student_max_seq_len,
+                output_dir=(
+                    Path(args.output_dir)
+                    if args.output_dir is not None
+                    else config.fingerprint.output_dir
+                ),
+            ),
+        )
     if args.student_architecture:
         config = replace(
             config,
@@ -304,7 +363,10 @@ def main() -> None:
 
     result = run_distill_stage(config)
     print(f"stage: {result.stage}")
+    print(f"distill_mode: {result.distill_mode}")
     print(f"student_architecture: {result.student_architecture}")
+    if result.student_backend is not None:
+        print(f"student_backend: {result.student_backend}")
     print(f"emit_logits: {config.student.emit_logits}")
     print(f"emit_mixer_outputs: {config.student.emit_mixer_outputs}")
     print(f"tie_embeddings: {config.student.tie_embeddings}")
@@ -326,9 +388,13 @@ def main() -> None:
     )
     print(f"attention_or_mixer_enabled: {attention_mixer_enabled}")
     print(f"targets: {result.target_bundle}")
+    if result.fingerprint_artifact is not None:
+        print(f"fingerprint_artifact: {result.fingerprint_artifact}")
     print(f"steps: {result.steps}")
     print(f"start_step: {result.start_step}")
     print(f"end_step: {result.end_step}")
+    print(f"optimizer_steps_completed: {result.optimizer_steps_completed}")
+    print(f"batches_consumed: {result.batches_consumed}")
     if result.resume_from is not None:
         print(f"resume_from: {result.resume_from}")
     if result.checkpoint_out is not None:
@@ -337,6 +403,8 @@ def main() -> None:
         print(f"run_dir: {result.run_dir}")
     if result.metrics_path is not None:
         print(f"metrics_path: {result.metrics_path}")
+    if result.report_path is not None:
+        print(f"report_path: {result.report_path}")
     if result.summary_path is not None:
         print(f"summary_path: {result.summary_path}")
     print(f"initial_loss: {result.initial_loss:.8f}")
