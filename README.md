@@ -7,11 +7,13 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P142, Input-Conditioned Tiny Student Rehearsal. The Pallas
+Current phase: P143, Teacher-Side Fingerprint Capture Skeleton. The Pallas
 runway is closed after a recorded real TPU v5 lite smoke pass for the tiny
 opt-in Pallas WKV path, the cascaded target pipeline has been merged into main,
 and behavioral fingerprint corridor training is wired into the main staged
-runner with input-conditioning and parameter-movement diagnostics.
+runner with input-conditioning and parameter-movement diagnostics. The
+producer-side capture skeleton can now emit valid behavioral fingerprint
+artifacts from synthetic/logit-provider inputs.
 
 Current emphasis is behavioral fingerprint integration, teacher-pure capture
 planning, teacher backend modularity, vocab contracts, target stores, the
@@ -48,8 +50,12 @@ updates over the real registered student backend, emits canonical fingerprint
 metrics, and writes normal checkpoint artifacts without requiring a teacher
 backend. P142 adds an input-conditioned tiny rehearsal over that same mode,
 verifying distinct input IDs produce distinct logits and optimizer steps move
-student parameters. Baseline tests remain CPU-safe and do not require Hugging
-Face downloads, internet, Qwen, GPU, or TPU.
+student parameters. P143 adds teacher-side capture config, dynamic
+`stat_bands_v0` mode discovery, configurable exemplar reservoir selection,
+P132/P137-compatible artifact writing, `capture_summary.json`, and a synthetic
+capture CLI without invoking real teacher backends. Baseline tests remain
+CPU-safe and do not require Hugging Face downloads, internet, Qwen, GPU, or
+TPU.
 
 P117 is the first serious burn using a validated TeacherTextbook input and a
 validated HF-shaped Level 0/1 StudentArtifact output.

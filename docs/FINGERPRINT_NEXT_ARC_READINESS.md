@@ -6,10 +6,11 @@ validated fingerprint corridor batches. P141 then wired corridor-only
 fingerprint training into the main staged runner with optimizer, checkpoint,
 metrics, report, and summary plumbing. P142 adds an input-conditioned tiny
 rehearsal that verifies distinct `input_ids` change logits and optimizer steps
-move real student parameters.
+move real student parameters. P143 starts the producer side with a
+synthetic/logit-provider teacher-side capture skeleton.
 
-The remaining work should move from this trusted consumer-side rehearsal to
-teacher-pure capture.
+The remaining work should move from this capture skeleton to controlled
+synthetic parity and then tiny real-teacher capture.
 
 ## Gap A - Real Student / Main Runner Integration
 
@@ -20,11 +21,13 @@ Current:
 - input-id conditioned logits from fingerprint batches
 - optimizer and checkpoint plumbing active for corridor-only fingerprint loss
 - P142 rehearsal diagnostics for input conditioning and parameter movement
+- P143 producer-side synthetic/logit-provider artifact emission
 - no exemplar reservoir or mixed objective in the main runner yet
 
 Needed:
 
-- teacher-side fingerprint capture skeleton
+- controlled synthetic capture parity
+- tiny real teacher fingerprint capture
 - later mixed/exemplar extension if justified
 - report fields that distinguish rehearsal, real runs, and science results
 
@@ -34,10 +37,14 @@ Current:
 
 - synthetic fixtures
 - hand-authored corridor bounds and dense exemplar probabilities
+- P143 synthetic/logit-provider capture skeleton
+- configurable `max_exemplars`
+- dynamic observed `stat_bands_v0` modes
 
 Needed:
 
-- teacher pass that emits behavioral modes and corridor bounds
+- controlled synthetic parity for known logits
+- real teacher pass that emits behavioral modes and corridor bounds
 - teacher-pure exemplar reservoir selection
 - artifact convergence diagnostics
 - reproducible capture metadata
@@ -72,7 +79,7 @@ Needed:
 
 ## Boundary
 
-P142 should not be treated as a quality result. It proves that the main
-fingerprint corridor receiver is attached to input-conditioned real student
-behavior and moves parameters, not that the objective is useful, teacher
-capture exists, or the research hypothesis is proven.
+P143 should not be treated as a quality result. It proves that producer-side
+capture plumbing can emit valid, consumable behavioral fingerprint artifacts
+from synthetic/logit-provider inputs, not that real teacher capture works, mode
+discovery is optimal, or the research hypothesis is proven.

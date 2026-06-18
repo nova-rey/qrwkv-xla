@@ -2926,3 +2926,34 @@ P142 does not add teacher-side fingerprint capture, exemplar reservoir training,
 mixed objectives, TOME generation, real teacher artifacts, baseline comparison,
 quality claims, TPU/GPU burns, Pallas promotion, or production-readiness claims.
 The next target is P143 teacher-side fingerprint capture skeleton.
+
+## Phase 143 - Teacher-Side Fingerprint Capture Skeleton
+
+P143 starts the producer side of the Real Student Integration + Teacher-Pure
+Dynamic Capture arc. It adds `qrwkv_xla.fingerprint.capture`, a synthetic
+logit-provider capture API, and `scripts/build_fingerprint_artifact.py`.
+
+The capture skeleton consumes `FingerprintCaptureExample` records containing
+fixed-length `input_ids` and `[seq, vocab]` teacher-like logits. It reuses the
+P134 distribution-stat math, assigns dynamic `stat_bands_v0` modes from
+observed `(entropy_bin, top1_margin_bin, top32_mass_bin)` combinations, and
+turns per-mode min/max aggregates into corridor bounds. If observed modes
+exceed `max_modes`, capture raises a clear error.
+
+Exemplar reservoir size is configurable through `max_exemplars`; P143 does not
+hardcode 1,000 exemplars. The implemented P143 policy is deterministic global
+top-k by `entropy + tail_mass - top1_margin`, with reason codes such as
+`high_entropy`, `high_tail_mass`, `low_margin`, and `mode_representative`.
+
+The writer emits `manifest.json`, `modes.json`,
+`targets/targets-00000.jsonl`, optional
+`exemplars/exemplars-00000.jsonl`, and required `capture_summary.json`. The
+artifact validates through the existing P132 validator, loads through the P133
+corridor target loader and P137 exemplar loader, and is consumable by the P140
+real-student forward smoke.
+
+P143 does not invoke a real HF teacher, wire TOME/textbook generation, train a
+student, add advanced clustering, claim semantic mode quality, prove artifact
+convergence, compare baselines, or make quality-per-byte claims. The next
+targets are P144 controlled synthetic/fixture parity and P145 tiny real teacher
+fingerprint capture.

@@ -1,5 +1,31 @@
 # QRWKV-XLA Roadmap
 
+## Phase 143 - Teacher-Side Fingerprint Capture Skeleton
+
+Goal: start the producer side of Arc 2 with a teacher-pure capture skeleton
+that emits valid behavioral fingerprint artifacts from synthetic/logit-provider
+inputs.
+
+Current checkpoint: `teacher_side_fingerprint_capture_skeleton`. P143 adds
+capture config dataclasses, synthetic capture examples, P134 distribution-stat
+reuse, dynamic `stat_bands_v0` mode assignment, min/max corridor bounds,
+configurable dense-probability exemplar reservoir selection, artifact writing,
+`capture_summary.json`, and a synthetic CLI smoke.
+
+P143 proves emitted artifacts validate with the P132 validator, load through the
+P133 corridor loader and P137 exemplar loader, and are consumable by the P140
+real-student forward path. Mode count is data-driven under observed stat-band
+combinations, and `max_exemplars` is a configurable budget.
+
+P143 does not call real HF teachers, integrate TOME/textbook generation, train
+students, add advanced clustering, make quality claims, or run accelerator
+burns.
+
+Recommended next:
+
+- P144 - teacher capture synthetic/fixture parity.
+- P145 - tiny real teacher fingerprint capture.
+
 ## Phase 142 - Input-Conditioned Tiny Student Rehearsal
 
 Goal: prove the main `fingerprint_corridor` runner mode is attached to

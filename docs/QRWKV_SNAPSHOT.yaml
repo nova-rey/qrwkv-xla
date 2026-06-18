@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 142
-current_phase: P142
-checkpoint: input_conditioned_tiny_student_rehearsal
+phase: 143
+current_phase: P143
+checkpoint: teacher_side_fingerprint_capture_skeleton
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,16 +56,17 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Prove the main fingerprint_corridor runner path is attached to
-  input-conditioned real student behavior, moves real parameters, and remains
-  teacher-free and corridor-only.
+  Start the teacher-pure producer side by emitting valid behavioral fingerprint
+  artifacts from synthetic/logit-provider teacher-like logits with dynamic
+  stat-band modes and configurable exemplar reservoir size.
 
 current_arc: real_student_integration_and_teacher_pure_capture
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P143 teacher-side fingerprint capture skeleton
+  - P144 teacher capture synthetic/fixture parity
+  - P145 tiny real teacher fingerprint capture
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -89,6 +90,7 @@ arc_status:
   real_student_fingerprint_forward_smoke: complete
   main_runner_fingerprint_mode: complete
   input_conditioned_tiny_student_rehearsal: complete
+  teacher_side_fingerprint_capture_skeleton: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -177,6 +179,17 @@ main_contains:
   p142_param_delta_norm_metric: true
   p142_loss_non_increasing_required: false
   p142_teacher_required: false
+  p143_teacher_side_capture_skeleton: true
+  p143_synthetic_logit_provider_capture: true
+  p143_stat_bands_v0_dynamic_modes: true
+  p143_max_modes_guard: true
+  p143_configurable_max_exemplars: true
+  p143_dense_probs_exemplar_writer: true
+  p143_capture_summary: true
+  p143_artifact_validates_with_p132: true
+  p143_loads_with_p133_p137: true
+  p143_consumable_by_p140: true
+  p143_real_hf_teacher_invocation: false
 
 teacher_target_types:
   - dense_logits
