@@ -1,5 +1,24 @@
 # QRWKV-XLA Roadmap
 
+## Phase 139 - Fingerprint Diagnostics, Reports, and Readiness
+
+Goal: make the completed tiny behavioral fingerprint miniature inspectable and
+harder to overstate.
+
+Current checkpoint: `fingerprint_diagnostics_reports_readiness`. P139 adds a
+validated artifact summary helper and CLI, P139-shaped corridor-only and mixed
+smoke reports, human-readable Markdown run summaries, canonical metric aliases,
+report validation helpers, and a next-arc readiness note.
+
+P139 closes the P132-P138 tiny standalone arc. It proves reportable CPU-safe
+plumbing over synthetic fixtures, not real QRWKV student training, main runner
+integration, teacher-side fingerprint capture, quality improvement, artifact
+scaling, TPU/GPU behavior, or production readiness.
+
+Recommended next:
+
+- Real Student Integration and Teacher-Pure Capture.
+
 ## Phase 138 - Mixed Corridor + Exemplar Smoke
 
 Goal: prove the tiny standalone behavioral fingerprint loop can consume both

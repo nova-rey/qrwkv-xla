@@ -102,6 +102,22 @@ The P117.1 result analysis is documented in
 The P123 cascade/main integration gate is documented in
 `docs/P123_CASCADE_MAIN_INTEGRATION_GATE.md`.
 
+The behavioral fingerprint miniature arc is documented in:
+
+- `docs/P132_BEHAVIORAL_FINGERPRINT_ARTIFACT_SCHEMA.md`
+- `docs/P133_BEHAVIORAL_FINGERPRINT_TARGET_LOADER.md`
+- `docs/P134_STUDENT_DISTRIBUTION_STATS.md`
+- `docs/P135_CORRIDOR_LOSS.md`
+- `docs/P136_TINY_FINGERPRINT_TRAINING_SMOKE.md`
+- `docs/P137_EXEMPLAR_RESERVOIR_INTEGRATION.md`
+- `docs/P138_MIXED_CORRIDOR_EXEMPLAR_SMOKE.md`
+- `docs/P139_FINGERPRINT_DIAGNOSTICS_REPORTS_READINESS.md`
+- `docs/FINGERPRINT_NEXT_ARC_READINESS.md`
+
+This arc proves CPU-safe standalone plumbing and reporting over tiny synthetic
+fixtures. It does not claim real student-backend integration, main runner
+integration, teacher-side fingerprint capture, or model-quality improvement.
+
 The post-P112 research intake is documented in
 `docs/RADLADS2_FLA_KVM_RESEARCH_INTAKE.md`.
 

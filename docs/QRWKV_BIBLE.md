@@ -2803,3 +2803,33 @@ P138 does not add real student-backend training, main runner integration,
 teacher generation, live teacher queries, CSL/cascaded exemplar payloads,
 dynamic top-k, learned critics, TPU/GPU burns, quality claims, production
 readiness, Pallas promotion, or WKV/runtime math changes.
+
+## Phase 139 - Fingerprint Diagnostics, Reports, and Readiness
+
+P139 closes the first behavioral fingerprint implementation arc without adding
+new training behavior. It adds `summarize_fingerprint_artifact`, a simple
+`scripts/inspect_fingerprint_artifact.py` CLI, P139-shaped smoke reports,
+Markdown run summaries, report validation helpers, and canonical metric aliases.
+
+Corridor-only and mixed smoke reports now carry `report_schema_phase: P139`,
+explicit report types, artifact summaries, corridor target summaries, seed and
+learning-rate metadata, no-teacher/no-accelerator flags, limitation flags, and
+nested loss/metric sections. Mixed reports additionally include exemplar
+reservoir summary, loss weights, mixed loss diagnostics, and exemplar metrics.
+
+Both smoke modes write `fingerprint_run_summary.md` beside the JSON report. The
+summary is generated from the report and calls out the training path, tiny
+position-logit smoke model, optimizer steps, batch consumption, loss deltas,
+corridor inside rates, exemplar KL when present, and limitations.
+
+P139 adds canonical metric aliases such as `fingerprint/corridor/loss_total`,
+`fingerprint/corridor/inside_all_rate`, `fingerprint/exemplar/kl_loss`, and
+`fingerprint/mixed/loss_total` while preserving existing internal smoke keys.
+
+P139 proves that the tiny standalone fingerprint miniature is inspectable and
+reportable. It does not prove real QRWKV backend integration, main distillation
+runner integration, input-conditioned student learning, teacher-side
+fingerprint generation, quality improvement, artifact convergence,
+storage/compute wins, TPU/GPU behavior, Pallas readiness, or production
+training readiness. The next documented gap is real student integration and
+teacher-pure capture in `docs/FINGERPRINT_NEXT_ARC_READINESS.md`.

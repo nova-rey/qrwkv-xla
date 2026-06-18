@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 138
-current_phase: P138
-checkpoint: mixed_corridor_exemplar_smoke
+phase: 139
+current_phase: P139
+checkpoint: fingerprint_diagnostics_reports_readiness
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,15 +56,16 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Prove the tiny standalone behavioral fingerprint smoke can consume both
-  corridor targets and dense exemplar reservoirs in one weighted objective.
+  Make the tiny standalone behavioral fingerprint system inspectable with
+  artifact summaries, P139-shaped reports, Markdown run summaries, canonical
+  metric aliases, and next-arc readiness notes.
 
-current_arc: behavioral_fingerprint_mixed_smoke
+current_arc: behavioral_fingerprint_diagnostics_reports_readiness
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P139 diagnostics, reports, and next-arc readiness notes
+  - Real Student Integration and Teacher-Pure Capture
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -84,6 +85,7 @@ arc_status:
   behavioral_fingerprint_smoke_hygiene: complete
   behavioral_fingerprint_exemplar_reservoir: complete
   behavioral_fingerprint_mixed_smoke: complete
+  behavioral_fingerprint_diagnostics_reports_readiness: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -146,6 +148,13 @@ main_contains:
   p138_mixed_checkpoint_artifact_written: true
   p138_mixed_report_artifact_written: true
   p138_weighted_corridor_exemplar_objective: true
+  p139_artifact_summary_helper: true
+  p139_artifact_summary_cli: true
+  p139_p139_report_schema_phase: true
+  p139_markdown_run_summaries: true
+  p139_canonical_metric_aliases: true
+  p139_report_validation_helper: true
+  p139_next_arc_readiness_note: true
 
 teacher_target_types:
   - dense_logits
@@ -154,6 +163,7 @@ teacher_target_types:
   - behavioral_fingerprint
   - behavioral_fingerprint_exemplars_dense_probs
   - behavioral_fingerprint_mixed_smoke
+  - behavioral_fingerprint_p139_report
 
 p117_1_invariants_preserved:
   real_mode_zero_step_pass_allowed: false
@@ -525,6 +535,53 @@ p138:
   docs:
     - docs/P138_MIXED_CORRIDOR_EXEMPLAR_SMOKE.md
   recommended_next: P139 diagnostics, reports, and next-arc readiness notes
+
+p139:
+  goal: fingerprint_diagnostics_reports_readiness
+  status: complete
+  depends_on:
+    - P132 behavioral fingerprint artifact schema validator
+    - P133 fingerprint target loader
+    - P134 student distribution stats
+    - P135 corridor loss
+    - P136 tiny fingerprint training smoke
+    - P136.1 fingerprint smoke robustness cleanup
+    - P137 exemplar reservoir integration
+    - P138 mixed corridor plus exemplar smoke
+  artifact_summary_api: qrwkv_xla.artifacts.summarize_fingerprint_artifact
+  artifact_summary_cli: scripts/inspect_fingerprint_artifact.py
+  report_schema_phase: P139
+  report_types:
+    - corridor_only_smoke_report
+    - mixed_fingerprint_smoke_report
+  markdown_summary_file: fingerprint_run_summary.md
+  canonical_metric_aliases_added: true
+  report_validation_api: qrwkv_xla.training.validate_fingerprint_smoke_report
+  summary_render_api: qrwkv_xla.training.render_fingerprint_smoke_summary
+  corridor_smoke_training_behavior_changed: false
+  mixed_smoke_training_behavior_changed: false
+  real_student_backend_training_added: false
+  main_runner_integration_added: false
+  teacher_generation_added: false
+  teacher_side_fingerprint_capture_added: false
+  model_quality_claimed: false
+  production_readiness_claimed: false
+  gpu_or_tpu_burn_run: false
+  pallas_promoted: false
+  wkv_math_changed: false
+  proves: CPU-safe standalone reporting over tiny synthetic fingerprint fixtures
+  does_not_prove:
+    - real QRWKV backend integration
+    - main distillation runner integration
+    - input-conditioned student learning
+    - teacher-side fingerprint generation
+    - model quality improvement
+    - artifact convergence
+    - storage or compute wins
+  docs:
+    - docs/P139_FINGERPRINT_DIAGNOSTICS_REPORTS_READINESS.md
+    - docs/FINGERPRINT_NEXT_ARC_READINESS.md
+  recommended_next: Real Student Integration and Teacher-Pure Capture
 
 p129:
   goal: gradient_optimizer_sync_audit

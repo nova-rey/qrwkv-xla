@@ -13,6 +13,13 @@ from qrwkv_xla.training.fingerprint_loss import (
     inside_bounds,
     squared_hinge_bound_penalty,
 )
+from qrwkv_xla.training.fingerprint_reports import (
+    render_corridor_fingerprint_smoke_summary,
+    render_fingerprint_smoke_summary,
+    render_mixed_fingerprint_smoke_summary,
+    validate_fingerprint_smoke_report,
+    write_fingerprint_smoke_summary,
+)
 from qrwkv_xla.training.fingerprint_smoke import (
     FINGERPRINT_MIXED_SMOKE_METRIC_KEYS,
     FINGERPRINT_SMOKE_METRIC_KEYS,
@@ -72,10 +79,15 @@ __all__ = [
     "compute_fingerprint_exemplar_loss_at_positions",
     "global_gradient_norm",
     "inside_bounds",
+    "render_corridor_fingerprint_smoke_summary",
+    "render_fingerprint_smoke_summary",
+    "render_mixed_fingerprint_smoke_summary",
     "run_mixed_fingerprint_training_smoke",
     "run_tiny_fingerprint_training_smoke",
     "run_tiny_real_teacher_overfit_rehearsal",
     "run_tiny_overfit_rehearsal",
     "select_position_logits",
     "squared_hinge_bound_penalty",
+    "validate_fingerprint_smoke_report",
+    "write_fingerprint_smoke_summary",
 ]

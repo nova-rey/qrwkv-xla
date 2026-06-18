@@ -13,6 +13,7 @@ from qrwkv_xla.artifacts import (
     FingerprintExemplarBatch,
     load_fingerprint_exemplars,
     load_fingerprint_targets,
+    summarize_fingerprint_artifact,
 )
 from qrwkv_xla.training.fingerprint_exemplar_loss import (
     FingerprintExemplarLossConfig,
@@ -23,6 +24,10 @@ from qrwkv_xla.training.fingerprint_loss import (
     FingerprintCorridorLossConfig,
     FingerprintCorridorLossOutput,
     compute_fingerprint_corridor_loss,
+)
+from qrwkv_xla.training.fingerprint_reports import (
+    validate_fingerprint_smoke_report,
+    write_fingerprint_smoke_summary,
 )
 from qrwkv_xla.training.fingerprint_stats import (
     compute_fingerprint_distribution_stats_at_positions,
@@ -41,6 +46,18 @@ FINGERPRINT_SMOKE_METRIC_KEYS: tuple[str, ...] = (
     "fingerprint/inside_top32_mass_rate",
     "fingerprint/inside_tail_mass_rate",
     "fingerprint/inside_all_rate",
+    "fingerprint/corridor/loss_total",
+    "fingerprint/corridor/loss_entropy",
+    "fingerprint/corridor/loss_top1_margin",
+    "fingerprint/corridor/loss_top8_mass",
+    "fingerprint/corridor/loss_top32_mass",
+    "fingerprint/corridor/loss_tail_mass",
+    "fingerprint/corridor/inside_entropy_rate",
+    "fingerprint/corridor/inside_top1_margin_rate",
+    "fingerprint/corridor/inside_top8_mass_rate",
+    "fingerprint/corridor/inside_top32_mass_rate",
+    "fingerprint/corridor/inside_tail_mass_rate",
+    "fingerprint/corridor/inside_all_rate",
 )
 
 FINGERPRINT_MIXED_SMOKE_METRIC_KEYS: tuple[str, ...] = (
@@ -66,6 +83,28 @@ FINGERPRINT_MIXED_SMOKE_METRIC_KEYS: tuple[str, ...] = (
     "fingerprint/corridor_batches_consumed",
     "fingerprint/exemplar_batches_consumed",
     "fingerprint/optimizer_steps_completed",
+    "fingerprint/mixed/loss_total",
+    "fingerprint/mixed/corridor_loss_weight",
+    "fingerprint/mixed/exemplar_loss_weight",
+    "fingerprint/mixed/optimizer_steps_completed",
+    "fingerprint/mixed/corridor_batches_consumed",
+    "fingerprint/mixed/exemplar_batches_consumed",
+    "fingerprint/corridor/loss_total",
+    "fingerprint/corridor/loss_entropy",
+    "fingerprint/corridor/loss_top1_margin",
+    "fingerprint/corridor/loss_top8_mass",
+    "fingerprint/corridor/loss_top32_mass",
+    "fingerprint/corridor/loss_tail_mass",
+    "fingerprint/corridor/inside_entropy_rate",
+    "fingerprint/corridor/inside_top1_margin_rate",
+    "fingerprint/corridor/inside_top8_mass_rate",
+    "fingerprint/corridor/inside_top32_mass_rate",
+    "fingerprint/corridor/inside_tail_mass_rate",
+    "fingerprint/corridor/inside_all_rate",
+    "fingerprint/exemplar/loss_total",
+    "fingerprint/exemplar/kl_loss",
+    "fingerprint/exemplar/cross_entropy",
+    "fingerprint/exemplar/teacher_entropy",
 )
 
 FINGERPRINT_SMOKE_CLAIMS_NOT_MADE: tuple[str, ...] = (
@@ -111,9 +150,22 @@ class FingerprintTrainingSmokeResult:
     metrics_path: str
     checkpoint_path: str
     report_path: str
+    summary_path: str
+    artifact_dir: str = ""
+    artifact_version: str = ""
+    requested_steps: int = 0
+    optimizer_steps_completed: int = 0
+    seed: int = 0
+    learning_rate: float = 0.0
+    batch_size: int = 0
+    num_corridor_records: int = 0
+    max_seq_len: int = 0
+    vocab_size: int = 0
+    tracked_stats: tuple[str, ...] = ()
     smoke_student_kind: str = "tiny_position_logit_head"
     smoke_student_uses_input_ids: bool = False
     main_runner_integrated: bool = False
+    real_student_backend_integrated: bool = False
     teacher_required: bool = False
     exemplar_reservoir_enabled: bool = False
     artifact_kind: str = "behavioral_fingerprint"
@@ -121,14 +173,20 @@ class FingerprintTrainingSmokeResult:
     claims_not_made: tuple[str, ...] = FINGERPRINT_SMOKE_CLAIMS_NOT_MADE
 
     def to_report(self) -> dict[str, Any]:
-        return {
+        report = {
             **asdict(self),
             "phase": "P136.1",
+            "report_schema_phase": "P139",
+            "report_type": "corridor_only_smoke_report",
             "scope": "tiny_fingerprint_training_smoke",
             "fingerprint_only": True,
+            "hf_required": False,
             "hf_download_required": False,
+            "accelerator_required": False,
             "gpu_or_tpu_required": False,
         }
+        report.update(_corridor_report_sections(self))
+        return report
 
 
 @dataclass(frozen=True)
@@ -184,6 +242,19 @@ class FingerprintMixedSmokeResult:
     metrics_path: str
     checkpoint_path: str
     report_path: str
+    summary_path: str
+    artifact_dir: str = ""
+    artifact_version: str = ""
+    seed: int = 0
+    learning_rate: float = 0.0
+    corridor_batch_size: int = 0
+    exemplar_batch_size: int = 0
+    num_corridor_records: int = 0
+    num_exemplar_records: int = 0
+    max_seq_len: int = 0
+    vocab_size: int = 0
+    tracked_stats: tuple[str, ...] = ()
+    exemplar_payload_type: str | None = None
     corridor_loss_weight: float = 1.0
     exemplar_loss_weight: float = 1.0
     smoke_student_kind: str = "tiny_position_logit_head"
@@ -206,14 +277,20 @@ class FingerprintMixedSmokeResult:
     )
 
     def to_report(self) -> dict[str, Any]:
-        return {
+        report = {
             **asdict(self),
             "phase": "P138",
+            "report_schema_phase": "P139",
+            "report_type": "mixed_fingerprint_smoke_report",
             "scope": "tiny_mixed_fingerprint_smoke",
             "fingerprint_only": True,
+            "hf_required": False,
             "hf_download_required": False,
+            "accelerator_required": False,
             "gpu_or_tpu_required": False,
         }
+        report.update(_mixed_report_sections(self))
+        return report
 
 
 def classify_fingerprint_smoke_status(
@@ -287,6 +364,7 @@ def run_tiny_fingerprint_training_smoke(
     train_batches = tuple(dataset.iter_batches())
     if not train_batches:
         raise ValueError("Fingerprint smoke consumed zero optimizer batches.")
+    artifact_summary = summarize_fingerprint_artifact(config.artifact_dir)
 
     params = _init_tiny_fingerprint_student(
         max_seq_len=dataset.max_seq_len,
@@ -345,6 +423,7 @@ def run_tiny_fingerprint_training_smoke(
     metrics_path = output_dir / "metrics.json"
     checkpoint_path = output_dir / "checkpoint.json"
     report_path = output_dir / "fingerprint_smoke_report.json"
+    summary_path = output_dir / "fingerprint_run_summary.md"
 
     metrics_payload = {
         "initial_loss": initial_loss_float,
@@ -394,11 +473,26 @@ def run_tiny_fingerprint_training_smoke(
         metrics_path=str(metrics_path),
         checkpoint_path=str(checkpoint_path),
         report_path=str(report_path),
+        summary_path=str(summary_path),
+        artifact_dir=str(config.artifact_dir),
+        artifact_version=artifact_summary.artifact_version,
+        requested_steps=config.steps,
+        optimizer_steps_completed=train_batches_consumed,
+        seed=config.seed,
+        learning_rate=config.learning_rate,
+        batch_size=config.batch_size,
+        num_corridor_records=dataset.num_records,
+        max_seq_len=dataset.max_seq_len,
+        vocab_size=dataset.vocab_size,
+        tracked_stats=dataset.tracked_stats,
     )
+    report = result.to_report()
+    _raise_if_invalid_report(report)
     report_path.write_text(
-        json.dumps(result.to_report(), indent=2, sort_keys=True) + "\n",
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    write_fingerprint_smoke_summary(report, summary_path)
     return result
 
 
@@ -445,6 +539,7 @@ def run_mixed_fingerprint_training_smoke(
         raise ValueError("Mixed fingerprint smoke consumed zero corridor batches.")
     if not exemplar_batches:
         raise ValueError("Mixed fingerprint smoke consumed zero exemplar batches.")
+    artifact_summary = summarize_fingerprint_artifact(config.artifact_dir)
 
     params = _init_tiny_fingerprint_student(
         max_seq_len=corridor_dataset.max_seq_len,
@@ -544,6 +639,7 @@ def run_mixed_fingerprint_training_smoke(
     metrics_path = output_dir / "metrics.json"
     checkpoint_path = output_dir / "checkpoint.json"
     report_path = output_dir / "fingerprint_mixed_smoke_report.json"
+    summary_path = output_dir / "fingerprint_run_summary.md"
 
     metrics_payload = {
         "initial_mixed_loss": initial_mixed_loss,
@@ -601,13 +697,29 @@ def run_mixed_fingerprint_training_smoke(
         metrics_path=str(metrics_path),
         checkpoint_path=str(checkpoint_path),
         report_path=str(report_path),
+        summary_path=str(summary_path),
+        artifact_dir=str(config.artifact_dir),
+        artifact_version=artifact_summary.artifact_version,
+        seed=config.seed,
+        learning_rate=config.learning_rate,
+        corridor_batch_size=config.corridor_batch_size,
+        exemplar_batch_size=config.exemplar_batch_size,
+        num_corridor_records=corridor_dataset.num_records,
+        num_exemplar_records=exemplar_dataset.num_records,
+        max_seq_len=corridor_dataset.max_seq_len,
+        vocab_size=corridor_dataset.vocab_size,
+        tracked_stats=corridor_dataset.tracked_stats,
+        exemplar_payload_type=artifact_summary.exemplar_payload_type,
         corridor_loss_weight=config.corridor_loss_weight,
         exemplar_loss_weight=config.exemplar_loss_weight,
     )
+    report = result.to_report()
+    _raise_if_invalid_report(report)
     report_path.write_text(
-        json.dumps(result.to_report(), indent=2, sort_keys=True) + "\n",
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    write_fingerprint_smoke_summary(report, summary_path)
     return result
 
 
@@ -714,6 +826,26 @@ def _metrics_from_output(output: FingerprintCorridorLossOutput) -> dict[str, flo
         "fingerprint/inside_top32_mass_rate": float(output.top32_mass_inside_rate),
         "fingerprint/inside_tail_mass_rate": float(output.tail_mass_inside_rate),
         "fingerprint/inside_all_rate": float(output.all_inside_rate),
+        "fingerprint/corridor/loss_total": float(output.loss),
+        "fingerprint/corridor/loss_entropy": float(output.entropy_loss),
+        "fingerprint/corridor/loss_top1_margin": float(output.top1_margin_loss),
+        "fingerprint/corridor/loss_top8_mass": float(output.top8_mass_loss),
+        "fingerprint/corridor/loss_top32_mass": float(output.top32_mass_loss),
+        "fingerprint/corridor/loss_tail_mass": float(output.tail_mass_loss),
+        "fingerprint/corridor/inside_entropy_rate": float(output.entropy_inside_rate),
+        "fingerprint/corridor/inside_top1_margin_rate": float(
+            output.top1_margin_inside_rate
+        ),
+        "fingerprint/corridor/inside_top8_mass_rate": float(
+            output.top8_mass_inside_rate
+        ),
+        "fingerprint/corridor/inside_top32_mass_rate": float(
+            output.top32_mass_inside_rate
+        ),
+        "fingerprint/corridor/inside_tail_mass_rate": float(
+            output.tail_mass_inside_rate
+        ),
+        "fingerprint/corridor/inside_all_rate": float(output.all_inside_rate),
     }
 
 
@@ -761,7 +893,167 @@ def _mixed_metrics_from_output(
         "fingerprint/corridor_batches_consumed": float(corridor_batches_consumed),
         "fingerprint/exemplar_batches_consumed": float(exemplar_batches_consumed),
         "fingerprint/optimizer_steps_completed": float(optimizer_steps_completed),
+        "fingerprint/mixed/loss_total": float(output.loss),
+        "fingerprint/mixed/corridor_loss_weight": float(corridor_loss_weight),
+        "fingerprint/mixed/exemplar_loss_weight": float(exemplar_loss_weight),
+        "fingerprint/mixed/optimizer_steps_completed": float(optimizer_steps_completed),
+        "fingerprint/mixed/corridor_batches_consumed": float(corridor_batches_consumed),
+        "fingerprint/mixed/exemplar_batches_consumed": float(exemplar_batches_consumed),
+        "fingerprint/corridor/loss_total": float(output.corridor.loss),
+        "fingerprint/corridor/loss_entropy": float(output.corridor.entropy_loss),
+        "fingerprint/corridor/loss_top1_margin": float(
+            output.corridor.top1_margin_loss
+        ),
+        "fingerprint/corridor/loss_top8_mass": float(output.corridor.top8_mass_loss),
+        "fingerprint/corridor/loss_top32_mass": float(output.corridor.top32_mass_loss),
+        "fingerprint/corridor/loss_tail_mass": float(output.corridor.tail_mass_loss),
+        "fingerprint/corridor/inside_entropy_rate": float(
+            output.corridor.entropy_inside_rate
+        ),
+        "fingerprint/corridor/inside_top1_margin_rate": float(
+            output.corridor.top1_margin_inside_rate
+        ),
+        "fingerprint/corridor/inside_top8_mass_rate": float(
+            output.corridor.top8_mass_inside_rate
+        ),
+        "fingerprint/corridor/inside_top32_mass_rate": float(
+            output.corridor.top32_mass_inside_rate
+        ),
+        "fingerprint/corridor/inside_tail_mass_rate": float(
+            output.corridor.tail_mass_inside_rate
+        ),
+        "fingerprint/corridor/inside_all_rate": float(output.corridor.all_inside_rate),
+        "fingerprint/exemplar/loss_total": float(output.exemplar.loss),
+        "fingerprint/exemplar/kl_loss": float(output.exemplar.kl_loss),
+        "fingerprint/exemplar/cross_entropy": float(output.exemplar.cross_entropy),
+        "fingerprint/exemplar/teacher_entropy": float(output.exemplar.entropy),
     }
+
+
+def _corridor_report_sections(result: FingerprintTrainingSmokeResult) -> dict[str, Any]:
+    return {
+        "artifact": {
+            "artifact_type": result.artifact_kind,
+            "artifact_version": result.artifact_version,
+            "artifact_dir": result.artifact_dir,
+            "vocab_size": result.vocab_size,
+            "max_seq_len": result.max_seq_len,
+        },
+        "requested_steps": result.requested_steps or result.steps,
+        "optimizer_steps_completed": (
+            result.optimizer_steps_completed or result.completed_steps
+        ),
+        "seed": result.seed,
+        "learning_rate": result.learning_rate,
+        "corridor_targets": {
+            "num_records": result.num_corridor_records,
+            "batch_size": result.batch_size,
+            "batches_consumed": result.train_batches_consumed,
+            "max_seq_len": result.max_seq_len,
+            "vocab_size": result.vocab_size,
+            "tracked_stats": result.tracked_stats,
+        },
+        "loss": {
+            "initial_total": result.initial_loss,
+            "final_total": result.final_loss,
+            "delta_total": result.loss_delta,
+            "finite": result.loss_finite,
+            "non_negative": result.loss_non_negative,
+            "non_increasing": result.loss_non_increasing,
+        },
+        "corridor_metrics": _corridor_metric_section(result.metrics),
+        "limitations": _common_limitations(),
+    }
+
+
+def _mixed_report_sections(result: FingerprintMixedSmokeResult) -> dict[str, Any]:
+    return {
+        "artifact": {
+            "artifact_type": result.artifact_kind,
+            "artifact_version": result.artifact_version,
+            "artifact_dir": result.artifact_dir,
+            "vocab_size": result.vocab_size,
+            "max_seq_len": result.max_seq_len,
+        },
+        "corridor_targets": {
+            "num_records": result.num_corridor_records,
+            "batch_size": result.corridor_batch_size,
+            "batches_consumed": result.corridor_batches_consumed,
+            "max_seq_len": result.max_seq_len,
+            "vocab_size": result.vocab_size,
+            "tracked_stats": result.tracked_stats,
+        },
+        "exemplar_reservoir": {
+            "enabled": result.exemplar_reservoir_enabled,
+            "payload_type": result.exemplar_payload_type,
+            "num_records": result.num_exemplar_records,
+            "batch_size": result.exemplar_batch_size,
+            "batches_consumed": result.exemplar_batches_consumed,
+            "max_seq_len": result.max_seq_len,
+            "vocab_size": result.vocab_size,
+        },
+        "loss_weights": {
+            "corridor": result.corridor_loss_weight,
+            "exemplar": result.exemplar_loss_weight,
+        },
+        "mixed_loss": {
+            "initial_total": result.initial_mixed_loss,
+            "final_total": result.final_mixed_loss,
+            "delta_total": result.mixed_loss_delta,
+            "finite": result.mixed_loss_finite,
+            "non_negative": result.mixed_loss_non_negative,
+            "non_increasing": result.mixed_loss_non_increasing,
+        },
+        "corridor_metrics": _corridor_metric_section(result.metrics),
+        "exemplar_metrics": _exemplar_metric_section(result.metrics),
+        "limitations": _common_limitations(),
+    }
+
+
+def _corridor_metric_section(metrics: dict[str, float]) -> dict[str, float]:
+    return {
+        "loss_total": metrics["fingerprint/corridor/loss_total"],
+        "loss_entropy": metrics["fingerprint/corridor/loss_entropy"],
+        "loss_top1_margin": metrics["fingerprint/corridor/loss_top1_margin"],
+        "loss_top8_mass": metrics["fingerprint/corridor/loss_top8_mass"],
+        "loss_top32_mass": metrics["fingerprint/corridor/loss_top32_mass"],
+        "loss_tail_mass": metrics["fingerprint/corridor/loss_tail_mass"],
+        "inside_entropy_rate": metrics["fingerprint/corridor/inside_entropy_rate"],
+        "inside_top1_margin_rate": metrics[
+            "fingerprint/corridor/inside_top1_margin_rate"
+        ],
+        "inside_top8_mass_rate": metrics["fingerprint/corridor/inside_top8_mass_rate"],
+        "inside_top32_mass_rate": metrics[
+            "fingerprint/corridor/inside_top32_mass_rate"
+        ],
+        "inside_tail_mass_rate": metrics["fingerprint/corridor/inside_tail_mass_rate"],
+        "inside_all_rate": metrics["fingerprint/corridor/inside_all_rate"],
+    }
+
+
+def _exemplar_metric_section(metrics: dict[str, float]) -> dict[str, float]:
+    return {
+        "loss_total": metrics["fingerprint/exemplar/loss_total"],
+        "kl_loss": metrics["fingerprint/exemplar/kl_loss"],
+        "cross_entropy": metrics["fingerprint/exemplar/cross_entropy"],
+        "teacher_entropy": metrics["fingerprint/exemplar/teacher_entropy"],
+    }
+
+
+def _common_limitations() -> tuple[str, ...]:
+    return (
+        "Standalone smoke only.",
+        "Tiny position-logit head does not condition on input IDs.",
+        "Main distillation runner is not integrated.",
+        "Real QRWKV student backend is not exercised.",
+        "No quality claims are made.",
+    )
+
+
+def _raise_if_invalid_report(report: dict[str, Any]) -> None:
+    blockers = validate_fingerprint_smoke_report(report)
+    if blockers:
+        raise ValueError("fingerprint smoke report invalid: " + "; ".join(blockers))
 
 
 def _validate_mixed_config(config: FingerprintMixedSmokeConfig) -> None:
