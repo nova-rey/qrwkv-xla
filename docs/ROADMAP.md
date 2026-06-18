@@ -1,5 +1,26 @@
 # QRWKV-XLA Roadmap
 
+## Phase 144 - Teacher Capture Synthetic Fixture Parity
+
+Goal: calibrate the teacher-side capture skeleton with controlled synthetic
+fixtures so known logits produce expected stats, modes, bounds, exemplars, and
+summaries.
+
+Current checkpoint: `teacher_capture_synthetic_fixture_parity`. P144 adds
+known-probability parity tests, expected `stat_bands_v0` mode checks, dynamic
+mode-count checks, min/max and `min_width` bounds checks, quantile bounds,
+configurable top-k and stratified exemplar-selection parity, capture summary
+accuracy checks, loader/validator compatibility checks, and a P141 consumer
+compatibility test.
+
+P144 keeps capture synthetic/logit-provider only. It does not call real HF
+teachers, integrate TOME/textbook generation, run large-scale quantiles, train
+student quality experiments, or make quality claims.
+
+Recommended next:
+
+- P145 - tiny real teacher fingerprint capture.
+
 ## Phase 143 - Teacher-Side Fingerprint Capture Skeleton
 
 Goal: start the producer side of Arc 2 with a teacher-pure capture skeleton

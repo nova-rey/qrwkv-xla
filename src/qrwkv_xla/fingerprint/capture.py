@@ -51,6 +51,8 @@ class FingerprintModeDiscoveryConfig:
 class FingerprintCorridorBoundsConfig:
     method: str = "minmax"
     min_width: float = 1.0e-6
+    lower_quantile: float = 0.05
+    upper_quantile: float = 0.95
 
 
 @dataclass(frozen=True)
@@ -109,12 +111,14 @@ class _StatAggregate:
     minimum: float = math.inf
     maximum: float = -math.inf
     total: float = 0.0
+    values: list[float] = field(default_factory=list)
 
     def update(self, value: float) -> None:
         self.count += 1
         self.minimum = min(self.minimum, value)
         self.maximum = max(self.maximum, value)
         self.total += value
+        self.values.append(value)
 
     @property
     def mean(self) -> float:
@@ -335,16 +339,28 @@ def _validate_config(config: FingerprintCaptureConfig) -> None:
     _validate_bins(config.mode_discovery.entropy_bins, "entropy_bins")
     _validate_bins(config.mode_discovery.top1_margin_bins, "top1_margin_bins")
     _validate_bins(config.mode_discovery.top32_mass_bins, "top32_mass_bins")
-    if config.corridor_bounds.method != "minmax":
-        raise ValueError("P143 supports only corridor_bounds.method='minmax'")
+    if config.corridor_bounds.method not in {"minmax", "quantile"}:
+        raise ValueError("corridor_bounds.method must be 'minmax' or 'quantile'")
     if config.corridor_bounds.min_width <= 0.0:
         raise ValueError("corridor_bounds.min_width must be > 0")
+    if not 0.0 <= config.corridor_bounds.lower_quantile < 1.0:
+        raise ValueError("corridor_bounds.lower_quantile must be in [0.0, 1.0)")
+    if not 0.0 < config.corridor_bounds.upper_quantile <= 1.0:
+        raise ValueError("corridor_bounds.upper_quantile must be in (0.0, 1.0]")
+    if config.corridor_bounds.lower_quantile >= config.corridor_bounds.upper_quantile:
+        raise ValueError("corridor_bounds.lower_quantile must be < upper_quantile")
     if config.exemplar_reservoir.max_exemplars < 0:
         raise ValueError("exemplar_reservoir.max_exemplars must be >= 0")
     if config.exemplar_reservoir.payload_type != "dense_probs":
         raise ValueError("P143 supports only dense_probs exemplars")
-    if config.exemplar_reservoir.selection_policy != "top_interestingness_v0":
-        raise ValueError("P143 supports only selection_policy='top_interestingness_v0'")
+    if config.exemplar_reservoir.selection_policy not in {
+        "top_interestingness_v0",
+        "stratified_interestingness_v0",
+    }:
+        raise ValueError(
+            "exemplar_reservoir.selection_policy must be "
+            "'top_interestingness_v0' or 'stratified_interestingness_v0'"
+        )
     if config.exemplar_reservoir.per_mode_min < 0:
         raise ValueError("exemplar_reservoir.per_mode_min must be >= 0")
 
@@ -455,7 +471,7 @@ def _finalize_mode_bounds(
 ) -> dict[int, dict[str, dict[str, float]]]:
     return {
         mode_id: {
-            stat: _bound_from_aggregate(stat, aggregate, config.min_width)
+            stat: _bound_from_aggregate(stat, aggregate, config)
             for stat, aggregate in stat_aggregates.items()
         }
         for mode_id, stat_aggregates in aggregates.items()
@@ -465,14 +481,18 @@ def _finalize_mode_bounds(
 def _bound_from_aggregate(
     stat: str,
     aggregate: _StatAggregate,
-    min_width: float,
+    config: FingerprintCorridorBoundsConfig,
 ) -> dict[str, float]:
-    lower = aggregate.minimum
-    upper = aggregate.maximum
-    if upper - lower < min_width:
+    if config.method == "quantile":
+        lower = float(np.quantile(aggregate.values, config.lower_quantile))
+        upper = float(np.quantile(aggregate.values, config.upper_quantile))
+    else:
+        lower = aggregate.minimum
+        upper = aggregate.maximum
+    if upper - lower < config.min_width:
         center = (lower + upper) / 2.0
-        lower = center - min_width / 2.0
-        upper = center + min_width / 2.0
+        lower = center - config.min_width / 2.0
+        upper = center + config.min_width / 2.0
     if stat == "entropy":
         lower = max(0.0, lower)
         upper = max(lower, upper)
@@ -536,10 +556,11 @@ def _select_exemplar_rows(
         return []
     if config.max_exemplars == 0:
         return []
-    selected = sorted(
-        captured,
-        key=lambda row: (-row.interestingness_score, row.example_id, row.position),
-    )[: config.max_exemplars]
+    selected = (
+        _select_stratified(captured, config)
+        if config.selection_policy == "stratified_interestingness_v0"
+        else _top_interestingness(captured, config.max_exemplars)
+    )
     return [
         {
             "example_id": f"{row.example_id}:pos-{row.position}",
@@ -553,6 +574,52 @@ def _select_exemplar_rows(
         }
         for row in selected
     ]
+
+
+def _top_interestingness(
+    captured: list[_CapturedPosition],
+    max_exemplars: int,
+) -> list[_CapturedPosition]:
+    return sorted(
+        captured,
+        key=lambda row: (-row.interestingness_score, row.example_id, row.position),
+    )[:max_exemplars]
+
+
+def _select_stratified(
+    captured: list[_CapturedPosition],
+    config: FingerprintExemplarReservoirCaptureConfig,
+) -> list[_CapturedPosition]:
+    by_mode: dict[int, list[_CapturedPosition]] = {}
+    for row in captured:
+        by_mode.setdefault(row.mode_id, []).append(row)
+    for rows in by_mode.values():
+        rows.sort(
+            key=lambda row: (-row.interestingness_score, row.example_id, row.position)
+        )
+
+    selected: list[_CapturedPosition] = []
+    selected_keys: set[tuple[str, int]] = set()
+    budget = config.max_exemplars
+    if config.per_mode_min > 0:
+        for mode_id in sorted(by_mode):
+            for row in by_mode[mode_id][: config.per_mode_min]:
+                if len(selected) >= budget:
+                    break
+                key = (row.example_id, row.position)
+                selected.append(row)
+                selected_keys.add(key)
+            if len(selected) >= budget:
+                break
+
+    if len(selected) < budget:
+        remaining = [
+            row
+            for row in _top_interestingness(captured, len(captured))
+            if (row.example_id, row.position) not in selected_keys
+        ]
+        selected.extend(remaining[: budget - len(selected)])
+    return selected
 
 
 def _manifest_payload(
@@ -587,6 +654,8 @@ def _manifest_payload(
             "method": "teacher_side_capture_skeleton_v0",
             "mode_discovery_method": config.mode_discovery.method,
             "corridor_bounds_method": config.corridor_bounds.method,
+            "lower_quantile": config.corridor_bounds.lower_quantile,
+            "upper_quantile": config.corridor_bounds.upper_quantile,
             "exemplar_selection_policy": config.exemplar_reservoir.selection_policy,
         },
     }
@@ -634,6 +703,8 @@ def _summary_payload(
         "max_exemplars": config.exemplar_reservoir.max_exemplars,
         "exemplars_retained": exemplars_retained,
         "exemplar_reason_code_distribution": exemplar_reason_code_distribution,
+        "exemplar_selection_policy": config.exemplar_reservoir.selection_policy,
+        "per_mode_min": config.exemplar_reservoir.per_mode_min,
         "artifact_size_bytes": artifact_size_bytes,
         "artifact_validated": artifact_validated,
         "validation_blockers": list(validation_blockers),

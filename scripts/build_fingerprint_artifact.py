@@ -7,6 +7,7 @@ from pathlib import Path
 
 from qrwkv_xla.fingerprint import (
     FingerprintCaptureConfig,
+    FingerprintCorridorBoundsConfig,
     FingerprintExemplarReservoirCaptureConfig,
     FingerprintModeDiscoveryConfig,
     build_synthetic_capture_examples,
@@ -25,6 +26,17 @@ def main() -> None:
     parser.add_argument("--num-examples", type=int, default=4)
     parser.add_argument("--max-exemplars", type=int, default=6)
     parser.add_argument("--max-modes", type=int, default=256)
+    parser.add_argument(
+        "--bounds-method", choices=("minmax", "quantile"), default="minmax"
+    )
+    parser.add_argument("--lower-quantile", type=float, default=0.05)
+    parser.add_argument("--upper-quantile", type=float, default=0.95)
+    parser.add_argument(
+        "--exemplar-selection-policy",
+        choices=("top_interestingness_v0", "stratified_interestingness_v0"),
+        default="top_interestingness_v0",
+    )
+    parser.add_argument("--per-mode-min", type=int, default=0)
     parser.add_argument("--disable-exemplars", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
@@ -41,9 +53,16 @@ def main() -> None:
             FingerprintModeDiscoveryConfig(),
             max_modes=args.max_modes,
         ),
+        corridor_bounds=FingerprintCorridorBoundsConfig(
+            method=args.bounds_method,
+            lower_quantile=args.lower_quantile,
+            upper_quantile=args.upper_quantile,
+        ),
         exemplar_reservoir=FingerprintExemplarReservoirCaptureConfig(
             enabled=not args.disable_exemplars,
             max_exemplars=args.max_exemplars,
+            selection_policy=args.exemplar_selection_policy,
+            per_mode_min=args.per_mode_min,
         ),
     )
     result = capture_fingerprint_artifact(config, examples)

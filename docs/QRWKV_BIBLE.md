@@ -2957,3 +2957,32 @@ student, add advanced clustering, claim semantic mode quality, prove artifact
 convergence, compare baselines, or make quality-per-byte claims. The next
 targets are P144 controlled synthetic/fixture parity and P145 tiny real teacher
 fingerprint capture.
+
+## Phase 144 - Teacher Capture Synthetic Fixture Parity
+
+P144 calibrates the P143 capture skeleton with known synthetic probability
+fixtures. Tests convert hand-authored distributions to logits with
+`log(probs)` and verify expected P134 stats, `stat_bands_v0` mode keys, dynamic
+mode counts, per-mode record counts, corridor bounds, exemplar selection, and
+capture summary fields.
+
+P144 adds optional quantile corridor bounds through
+`FingerprintCorridorBoundsConfig(method="quantile", lower_quantile=...,
+upper_quantile=...)`. Min/max remains the default, and quantile bounds use
+NumPy quantiles over the small in-memory capture records.
+
+P144 also adds optional deterministic `stratified_interestingness_v0` exemplar
+selection. It attempts to retain `per_mode_min` high-interest records from each
+observed mode when the `max_exemplars` budget allows, then fills remaining slots
+by global interestingness. The existing `top_interestingness_v0` policy remains
+supported.
+
+The P144 compatibility tests verify emitted artifacts validate through P132,
+load through P133 and P137, summarize through the P139 artifact summary helper,
+and can run one tiny P141 `fingerprint_corridor` step with the real registered
+student backend.
+
+P144 does not call real HF teachers, integrate TOME/textbook generation, add
+streaming quantile sketches, perform student quality experiments, run
+accelerator burns, or claim quality-per-byte gains. The next target is P145
+tiny real teacher fingerprint capture.
