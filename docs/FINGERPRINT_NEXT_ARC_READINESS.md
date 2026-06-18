@@ -1,23 +1,22 @@
 # Fingerprint Next Arc Readiness
 
-P139 closes the tiny standalone behavioral fingerprint arc. The next serious
-arc should move from synthetic standalone smoke to real student and teacher
-capture paths.
+P139 closed the tiny standalone behavioral fingerprint arc. P140 opens the next
+serious arc by proving a forward-only real student backend path over validated
+fingerprint corridor batches. The remaining work should move from that
+standalone forward smoke to main-runner integration and teacher-pure capture.
 
 ## Gap A - Real Student / Main Runner Integration
 
 Current:
 
-- standalone tiny position-logit smoke
-- no input-id conditioning
+- P140 standalone real `CurrentQRWKVStudentBackend` forward smoke
+- input-id conditioned logits from the registered student backend
 - no main staged distillation runner integration
-- no real QRWKV/Radjax backend training
+- no optimizer or checkpoint training semantics in the fingerprint path
 
 Needed:
 
-- real QRWKV/Radjax student backend path
 - main `run_distill_stage` integration or equivalent
-- input-conditioned logits
 - real optimizer/checkpoint loop
 - report fields that distinguish smoke, rehearsal, and real runs
 
@@ -65,5 +64,6 @@ Needed:
 
 ## Boundary
 
-The next arc should not treat P139 as a quality result. P139 makes the tiny
-system legible. It does not prove the research hypothesis.
+P140 should not be treated as a quality result. It proves real-student forward
+compatibility for fingerprint diagnostics, not training, teacher capture,
+main-runner integration, or the research hypothesis.

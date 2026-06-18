@@ -1,5 +1,31 @@
 # QRWKV-XLA Roadmap
 
+## Phase 140 - Real Student Fingerprint Forward Smoke
+
+Goal: open the real student integration and teacher-pure capture arc with a
+CPU-safe forward-only smoke over the actual registered QRWKV student backend.
+
+Current checkpoint: `real_student_fingerprint_forward_smoke`. P140 adds
+`run_real_student_fingerprint_forward_smoke`, a dedicated CLI, P140 report and
+Markdown summary support, and tests that verify real backend forwarding,
+artifact/student vocab compatibility, explicit target-position range failures,
+and P136/P138 non-regression.
+
+P140 consumes validated fingerprint corridor batches, builds a `VocabContract`,
+instantiates `CurrentQRWKVStudentBackend` via the student backend registry,
+forwards `batch.input_ids`, requires `[batch, seq, vocab]` finite logits, then
+computes P134 distribution stats and P135 corridor loss. It runs zero optimizer
+steps and keeps `main_runner_integrated`, `teacher_required`, `hf_required`,
+and `accelerator_required` false.
+
+P140 does not add main staged-runner integration, optimizer/checkpoint training
+semantics, teacher-side fingerprint capture, Hugging Face dependencies,
+accelerator requirements, Pallas promotion, or quality claims.
+
+Recommended next:
+
+- P141 - main runner fingerprint mode.
+
 ## Phase 139 - Fingerprint Diagnostics, Reports, and Readiness
 
 Goal: make the completed tiny behavioral fingerprint miniature inspectable and

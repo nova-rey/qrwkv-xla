@@ -2833,3 +2833,32 @@ fingerprint generation, quality improvement, artifact convergence,
 storage/compute wins, TPU/GPU behavior, Pallas readiness, or production
 training readiness. The next documented gap is real student integration and
 teacher-pure capture in `docs/FINGERPRINT_NEXT_ARC_READINESS.md`.
+
+## Phase 140 - Real Student Fingerprint Forward Smoke
+
+P140 opens the next behavioral fingerprint arc by replacing the tiny
+position-logit smoke head with the actual registered QRWKV student backend for
+a forward-only check. `run_real_student_fingerprint_forward_smoke` loads a
+validated fingerprint corridor artifact, derives a `VocabContract`, instantiates
+`CurrentQRWKVStudentBackend` through `create_student_backend(current_qrwkv)`,
+and forwards the artifact `input_ids` through `backend.forward_full`.
+
+The smoke requires finite rank-3 logits shaped `[batch, seq, vocab]`, validates
+student/artifact vocab compatibility, rejects out-of-range target positions
+before JAX selection, computes P134 distribution stats at target positions, and
+feeds those stats to the P135 corridor loss. It emits
+`fingerprint/real_student_forward/logits_*` metrics alongside the canonical
+`fingerprint/corridor/...` metric aliases.
+
+P140 reports `training_path_kind:
+real_student_fingerprint_forward_smoke`, `smoke_student_kind:
+real_student_backend`, `smoke_student_uses_input_ids: true`,
+`real_student_backend_integrated: true`, `main_runner_integrated: false`,
+`teacher_required: false`, `hf_required: false`, `accelerator_required: false`,
+and `optimizer_steps_completed: 0`. The dedicated CLI is
+`scripts/run_real_student_fingerprint_forward_smoke.py`.
+
+P140 does not add optimizer steps, checkpoint training semantics, main staged
+runner integration, teacher-side fingerprint capture, Hugging Face teacher
+calls, TPU/GPU requirements, Pallas promotion, or quality claims. The next
+target is P141 main-runner fingerprint mode.

@@ -11,6 +11,7 @@ def validate_fingerprint_smoke_report(report: Mapping[str, Any]) -> list[str]:
     if report_type not in {
         "corridor_only_smoke_report",
         "mixed_fingerprint_smoke_report",
+        "real_student_fingerprint_forward_smoke_report",
     }:
         blockers.append("report_type must identify a fingerprint smoke report")
 
@@ -50,6 +51,10 @@ def validate_fingerprint_smoke_report(report: Mapping[str, Any]) -> list[str]:
         ):
             if key not in report:
                 blockers.append(f"missing mixed report section: {key}")
+    if report_type == "real_student_fingerprint_forward_smoke_report":
+        for key in ("student", "forward", "corridor", "corridor_metrics"):
+            if key not in report:
+                blockers.append(f"missing real student report section: {key}")
     return blockers
 
 
@@ -57,6 +62,8 @@ def render_fingerprint_smoke_summary(report: Mapping[str, Any]) -> str:
     report_type = report.get("report_type")
     if report_type == "mixed_fingerprint_smoke_report":
         return render_mixed_fingerprint_smoke_summary(report)
+    if report_type == "real_student_fingerprint_forward_smoke_report":
+        return render_real_student_fingerprint_forward_summary(report)
     return render_corridor_fingerprint_smoke_summary(report)
 
 
@@ -162,6 +169,57 @@ def render_mixed_fingerprint_smoke_summary(report: Mapping[str, Any]) -> str:
             f"- KL: {exemplar_metrics.get('kl_loss')}",
             f"- Cross entropy: {exemplar_metrics.get('cross_entropy')}",
             f"- Teacher entropy: {exemplar_metrics.get('teacher_entropy')}",
+            "",
+            "## Limitations",
+            *_limitation_lines(report),
+            "",
+        )
+    )
+
+
+def render_real_student_fingerprint_forward_summary(
+    report: Mapping[str, Any],
+) -> str:
+    artifact = _mapping(report.get("artifact"))
+    student = _mapping(report.get("student"))
+    corridor = _mapping(report.get("corridor_targets"))
+    forward = _mapping(report.get("forward"))
+    metrics = _mapping(report.get("corridor_metrics"))
+    return "\n".join(
+        (
+            "# Real Student Fingerprint Forward Smoke Summary",
+            "",
+            f"Status: {report.get('status')}",
+            f"Training path: {report.get('training_path_kind')}",
+            f"Student: {report.get('smoke_student_kind')}",
+            f"Uses input IDs: {_bool_text(report.get('smoke_student_uses_input_ids'))}",
+            "Main runner integrated: "
+            f"{_bool_text(report.get('main_runner_integrated'))}",
+            "Real student backend integrated: "
+            f"{_bool_text(report.get('real_student_backend_integrated'))}",
+            f"Teacher required: {_bool_text(report.get('teacher_required'))}",
+            f"Accelerator required: {_bool_text(report.get('accelerator_required'))}",
+            "",
+            "## Student",
+            f"- Architecture: {student.get('architecture_id')}",
+            f"- Backend: {student.get('backend_name')}",
+            f"- Vocab size: {student.get('vocab_size')}",
+            "",
+            "## Artifact",
+            "- Type: "
+            f"{artifact.get('artifact_type')} v{artifact.get('artifact_version')}",
+            f"- Corridor records: {corridor.get('num_records')}",
+            f"- Max sequence length: {artifact.get('max_seq_len')}",
+            "",
+            "## Forward",
+            f"- Logits shape: {forward.get('logits_shape')}",
+            f"- Logits finite: {forward.get('logits_finite')}",
+            f"- Optimizer steps completed: {report.get('optimizer_steps_completed')}",
+            "",
+            "## Corridor Metrics",
+            f"- Loss total: {metrics.get('loss_total')}",
+            f"- Inside all rate: {metrics.get('inside_all_rate')}",
+            f"- Entropy inside rate: {metrics.get('inside_entropy_rate')}",
             "",
             "## Limitations",
             *_limitation_lines(report),

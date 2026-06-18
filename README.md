@@ -7,13 +7,15 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P123, Cascade/Main Integration Gate. The Pallas runway is
-closed after a recorded real TPU v5 lite smoke pass for the tiny opt-in Pallas
-WKV path, and the project is now the validated core of a Radjax-shaped modular
-recurrent distillation platform.
+Current phase: P140, Real Student Fingerprint Forward Smoke. The Pallas runway
+is closed after a recorded real TPU v5 lite smoke pass for the tiny opt-in
+Pallas WKV path, the cascaded target pipeline has been merged into main, and
+the behavioral fingerprint arc has moved from tiny standalone diagnostics into
+real registered student-backend forwarding.
 
-Current emphasis is teacher backend modularity, vocab contracts, target stores,
-the student backend registry, runtime separation, and the burn-readiness arc.
+Current emphasis is behavioral fingerprint integration, teacher-pure capture
+planning, teacher backend modularity, vocab contracts, target stores, the
+student backend registry, runtime separation, and the burn-readiness arc.
 The project can turn tiny text examples into deterministic batches, emit
 fake-HF-style sharded teacher target artifacts, validate and iterate multi-shard
 target stores, consume shards through the offline target path, checkpoint and
@@ -33,11 +35,16 @@ released mini textbook handoff. P117.1 made confirmed real mode execute actual
 configurable train steps against a dense TeacherTextbook and fail if zero steps
 complete. P118 records the resulting 8-step TPU-backed train-step smoke as
 execution evidence, not model-quality or distributed-training evidence.
-P123 merges the P119-P122 compressed/cascaded target pipeline into main:
+P123 merged the P119-P122 compressed/cascaded target pipeline into main:
 `topk_with_tail_v0`, sparse target loss consumption,
-`cascaded_soft_labels_v1`, and optional Bucket Shape Loss. Baseline tests
-remain CPU-safe and do not require Hugging Face downloads, internet, Qwen, GPU,
-or TPU.
+`cascaded_soft_labels_v1`, and optional Bucket Shape Loss. P132-P139 added a
+complete tiny behavioral fingerprint contract, loader, student distribution
+stats, corridor loss, exemplar reservoir, mixed smoke, and diagnostics/reporting
+arc. P140 adds a forward-only smoke that instantiates the real registered
+`CurrentQRWKVStudentBackend`, consumes fingerprint `input_ids`, emits finite
+`[batch, seq, vocab]` logits, and computes P134/P135 corridor diagnostics.
+Baseline tests remain CPU-safe and do not require Hugging Face downloads,
+internet, Qwen, GPU, or TPU.
 
 P117 is the first serious burn using a validated TeacherTextbook input and a
 validated HF-shaped Level 0/1 StudentArtifact output.

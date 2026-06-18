@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 139
-current_phase: P139
-checkpoint: fingerprint_diagnostics_reports_readiness
+phase: 140
+current_phase: P140
+checkpoint: real_student_fingerprint_forward_smoke
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,16 +56,16 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Make the tiny standalone behavioral fingerprint system inspectable with
-  artifact summaries, P139-shaped reports, Markdown run summaries, canonical
-  metric aliases, and next-arc readiness notes.
+  Prove a forward-only behavioral fingerprint path over the real registered
+  QRWKV student backend while keeping teacher capture, optimizer steps, and
+  main-runner wiring out of scope.
 
-current_arc: behavioral_fingerprint_diagnostics_reports_readiness
+current_arc: real_student_integration_and_teacher_pure_capture
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - Real Student Integration and Teacher-Pure Capture
+  - P141 main runner fingerprint mode
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -86,6 +86,7 @@ arc_status:
   behavioral_fingerprint_exemplar_reservoir: complete
   behavioral_fingerprint_mixed_smoke: complete
   behavioral_fingerprint_diagnostics_reports_readiness: complete
+  real_student_fingerprint_forward_smoke: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -155,6 +156,13 @@ main_contains:
   p139_canonical_metric_aliases: true
   p139_report_validation_helper: true
   p139_next_arc_readiness_note: true
+  p140_real_student_forward_smoke: true
+  p140_current_qrwkv_backend_integrated: true
+  p140_fingerprint_input_ids_forwarded: true
+  p140_p134_p135_metrics_from_real_logits: true
+  p140_main_runner_integrated: false
+  p140_teacher_required: false
+  p140_optimizer_steps_completed: 0
 
 teacher_target_types:
   - dense_logits

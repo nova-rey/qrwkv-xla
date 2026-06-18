@@ -11,8 +11,10 @@ from qrwkv_xla.artifacts import summarize_fingerprint_artifact
 from qrwkv_xla.training import (
     FingerprintMixedSmokeConfig,
     FingerprintTrainingSmokeConfig,
+    RealStudentFingerprintForwardConfig,
     render_fingerprint_smoke_summary,
     run_mixed_fingerprint_training_smoke,
+    run_real_student_fingerprint_forward_smoke,
     run_tiny_fingerprint_training_smoke,
     validate_fingerprint_smoke_report,
 )
@@ -180,3 +182,18 @@ def test_summary_renderer_accepts_report_dict(tmp_path: Path) -> None:
 
     assert "Mixed Fingerprint Smoke Summary" in rendered
     assert "Standalone smoke only." in rendered
+
+
+def test_summary_renderer_accepts_real_student_forward_report(tmp_path: Path) -> None:
+    report = run_real_student_fingerprint_forward_smoke(
+        RealStudentFingerprintForwardConfig(
+            artifact_dir=MIXED_FIXTURE,
+            output_dir=tmp_path / "real_student",
+        )
+    ).to_report()
+
+    rendered = render_fingerprint_smoke_summary(report)
+
+    assert validate_fingerprint_smoke_report(report) == []
+    assert "Real Student Fingerprint Forward Smoke Summary" in rendered
+    assert "Real student backend integrated: true" in rendered
