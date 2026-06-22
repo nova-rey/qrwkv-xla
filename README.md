@@ -7,7 +7,7 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P153.1.2, Statistical Tie and Entry-Cost Selection Integrity.
+Current phase: P154, Standalone Exemplar-Pass Runner.
 The Pallas runway is closed after a recorded real TPU v5 lite smoke pass for the tiny
 opt-in Pallas WKV path, the cascaded target pipeline has been merged into main,
 and behavioral fingerprint corridor training is wired into the main staged
@@ -54,6 +54,11 @@ minimum-sufficient-force selection with lower-rank tie breaking. One-seed runs
 are smoke evidence only; publication-grade calibration requires at least three
 complete aligned seeds per profile. This phase does not run the exemplar cycle
 or claim model quality.
+P154 implements Cycle 2 as a separate exemplar-only command. It requires a
+completed corridor checkpoint, validates parent and artifact lineage, starts a
+fresh optimizer, trains only against dense exemplar distributions, and writes
+distinct best and final checkpoints. Optional held-out corridor measurements
+are diagnostics only and never enter the exemplar objective.
 
 Current emphasis is behavioral fingerprint integration, teacher-pure capture
 planning, teacher backend modularity, vocab contracts, target stores, the
@@ -190,6 +195,7 @@ The behavioral fingerprint miniature arc is documented in:
 - `docs/P152_1_CHECKPOINT_LINEAGE_BINDING.md`
 - `docs/P153_CORRIDOR_PASS_MEASUREMENT.md`
 - `docs/P153_1_CORRIDOR_AGGRESSIVENESS_CALIBRATION.md`
+- `docs/P154_STANDALONE_EXEMPLAR_PASS.md`
 
 The fingerprint work now covers real registered-student integration, main
 runner corridor training, tiny real-teacher artifact capture, and a matched

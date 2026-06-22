@@ -43,6 +43,11 @@ from qrwkv_xla.fingerprint.corridor_measurement import (
     detect_corridor_entries,
     run_corridor_measurement,
 )
+from qrwkv_xla.fingerprint.exemplar_pass import (
+    ExemplarPassConfig,
+    ExemplarPassResult,
+    run_exemplar_pass,
+)
 from qrwkv_xla.fingerprint.held_out_evaluation import (
     HeldOutFingerprintEvaluationConfig,
     HeldOutFingerprintEvaluationResult,
@@ -101,6 +106,8 @@ __all__ = [
     "FingerprintCorridorBoundsConfig",
     "CorridorMeasurementConfig",
     "CorridorMeasurementResult",
+    "ExemplarPassConfig",
+    "ExemplarPassResult",
     "FingerprintExemplarReservoirCaptureConfig",
     "FingerprintModeDiscoveryConfig",
     "FingerprintQualityPerByteExperimentConfig",
@@ -138,6 +145,7 @@ __all__ = [
     "run_fingerprint_quality_per_byte_experiment",
     "run_fingerprint_trained_baseline_comparison",
     "run_corridor_measurement",
+    "run_exemplar_pass",
     "run_held_out_fingerprint_evaluation",
     "run_real_teacher_fingerprint_training_rehearsal",
     "run_tiny_real_teacher_fingerprint_capture",
