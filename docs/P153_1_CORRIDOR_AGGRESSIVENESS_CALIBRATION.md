@@ -1,9 +1,9 @@
-# P153.1 Corridor Aggressiveness Calibration
+# P153.1.1 Aggressiveness Selection Safety Cleanup
 
-P153.1 selects the smallest explicit corridor-only force profile that reaches
-stable held-out corridor entry reliably. It invokes the P153 fixed-step runner
-for every profile and seed; it does not mix objectives or start the exemplar
-pass.
+P153.1 establishes the four explicit corridor-force presets. P153.1.1 keeps
+that fixed-step calibration matrix intact and closes the remaining selection
+safety gap: fast destructive, incomplete, invalid, or too-weak profiles are
+reported but cannot win.
 
 The ordered presets are `rock_hammer`, `ball_peen`, `sledgehammer`, and
 `gallagher`. Every preset resolves loss weight, learning rate, clipping,
@@ -21,12 +21,14 @@ python scripts/run_corridor_aggressiveness_calibration.py \
 ```
 
 The top-level report, fairness contract, resolved configurations, ranking,
-seed metrics, profile summaries, paired deltas, and selected reusable config
-are written beside the unchanged per-seed P153 output trees. Four profiles by
-one seed is a local/CI smoke. At least three complete aligned seeds per profile
-are required for publication-grade calibration.
+seed metrics, profile summaries, paired deltas, aggregate validation receipt,
+profile selection receipt, publication-grade receipt, and selected reusable
+config are written beside the unchanged per-seed P153 output trees. Four
+profiles by one seed is a local/CI smoke. At least three complete aligned
+seeds per profile are required for publication-grade calibration.
 
-Selection gates validity and reliability before efficiency, then prefers the
-less aggressive profile on equivalent evidence. An inconclusive experiment
-does not force a winner. Reports make no general-quality, quality-per-byte,
-scale, or RADLADS parity claim.
+Selection order is explicit: validity, completeness, reliability, efficiency,
+then minimum sufficient force. Paired bootstrap tie handling is deterministic;
+if the primary efficiency delta is inconclusive, the lower aggressiveness rank
+wins. An inconclusive experiment does not force a winner. Reports make no
+general-quality, quality-per-byte, scale, or RADLADS parity claim.
