@@ -2,6 +2,13 @@
 
 P152 evaluates the two matched-budget P151 checkpoints against the same
 disjoint behavioral fingerprint records without performing optimizer updates.
+P152.1 additionally requires exact checkpoint lineage binding before metrics.
+
+Source JSONL rows use the explicit contract:
+
+```json
+{"example_id": "stable-id", "text": "source text"}
+```
 
 Capture training and held-out artifacts with different example-ID prefixes,
 then write deterministic provenance sidecars:
@@ -35,6 +42,9 @@ python scripts/run_fingerprint_held_out_evaluation.py \
 Evaluation fails closed for missing or invalid provenance, overlapping IDs,
 source texts or token sequences, incompatible artifact contracts, invalid P151
 fairness, incompatible checkpoints, non-finite metrics, or record-order drift.
+It also writes `checkpoint_lineage_validation.json` before held-out scoring and
+rejects checkpoint metadata, parameter bytes, arm role, fingerprint, step,
+student contract, training artifact, source set, or shared-initialization drift.
 
 The predeclared primary metric is mean held-out corridor loss, where lower is
 better. A winner is declared only when the paired bootstrap interval excludes

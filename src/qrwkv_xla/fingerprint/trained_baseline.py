@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import math
 import time
 from dataclasses import asdict, dataclass
@@ -16,12 +14,19 @@ from qrwkv_xla.artifacts import load_fingerprint_targets, summarize_fingerprint_
 from qrwkv_xla.artifacts._json import read_json_object, write_json
 from qrwkv_xla.checkpointing import load_checkpoint, save_checkpoint
 from qrwkv_xla.contracts import VocabContract
+from qrwkv_xla.fingerprint.provenance import (
+    build_artifact_source_lineage,
+    hash_checkpoint_bundle,
+    parameter_fingerprint,
+    stable_hash,
+)
 from qrwkv_xla.fingerprint.training_rehearsal import (
     RealTeacherFingerprintTrainingRehearsalConfig,
     run_real_teacher_fingerprint_training_rehearsal,
 )
 from qrwkv_xla.optimizers import OptimizerConfig, init_optimizer_state, optimizer_update
 from qrwkv_xla.students import create_student_backend
+from qrwkv_xla.tracking import get_git_metadata
 
 
 @dataclass(frozen=True)
@@ -35,6 +40,7 @@ class FingerprintTrainedBaselineConfig:
     learning_rate: float = 1e-4
     seed: int = 0
     student_backend: str = "current_qrwkv"
+    allow_legacy_positional_source_join: bool = False
     overwrite: bool = False
 
 
@@ -69,18 +75,6 @@ def masked_causal_lm_loss(
     return jnp.sum(token_loss * target_mask) / denominator
 
 
-def parameter_fingerprint(params: Any) -> str:
-    digest = hashlib.sha256()
-    leaves, tree = jax.tree_util.tree_flatten(params)
-    digest.update(str(tree).encode("utf-8"))
-    for leaf in leaves:
-        array = np.ascontiguousarray(np.asarray(leaf))
-        digest.update(str(array.shape).encode("ascii"))
-        digest.update(str(array.dtype).encode("ascii"))
-        digest.update(array.tobytes())
-    return f"sha256:{digest.hexdigest()}"
-
-
 def run_fingerprint_trained_baseline_comparison(
     config: FingerprintTrainedBaselineConfig,
 ) -> FingerprintTrainedBaselineResult:
@@ -89,7 +83,14 @@ def run_fingerprint_trained_baseline_comparison(
     artifact = summarize_fingerprint_artifact(config.fingerprint_artifact)
     dataset = load_fingerprint_targets(config.fingerprint_artifact, batch_size=1)
     examples = _unique_examples(tuple(dataset.iter_records()))
-    source_ids = _validate_source_alignment(config.source_texts, examples)
+    artifact_lineage = build_artifact_source_lineage(
+        config.fingerprint_artifact,
+        config.source_texts,
+        allow_legacy_positional_source_join=(
+            config.allow_legacy_positional_source_join
+        ),
+    )
+    source_ids = tuple(artifact_lineage["ordered_example_ids"])
     backend, student_config = _create_backend(config, artifact)
     shared_params = backend.init_params(jax.random.PRNGKey(config.seed))
     initial_fingerprint = parameter_fingerprint(shared_params)
@@ -138,6 +139,18 @@ def run_fingerprint_trained_baseline_comparison(
         source_ids=source_ids,
         artifact=artifact,
     )
+    software_commit = get_git_metadata(Path(__file__).resolve().parents[3]).get(
+        "commit"
+    )
+    lineage = _build_p151_lineage(
+        config,
+        shared_checkpoint=shared_checkpoint,
+        initial_fingerprint=initial_fingerprint,
+        artifact_lineage=artifact_lineage,
+        baseline=baseline,
+        fingerprint=fingerprint,
+        software_commit=software_commit,
+    )
     claims = {
         "trained_baseline_available": baseline["status"] == "pass",
         "comparison_valid": fairness["comparison_valid"],
@@ -155,6 +168,8 @@ def run_fingerprint_trained_baseline_comparison(
         "run_kind": "trained_baseline_vs_fingerprint_corridor",
         "status": status,
         "comparison_kind": "trained_baseline_vs_fingerprint_corridor",
+        "source_phase": "P151",
+        "software_commit": software_commit,
         "artifact_dir": str(config.fingerprint_artifact),
         "source_texts": str(config.source_texts),
         "initial_parameter_fingerprint": initial_fingerprint,
@@ -164,6 +179,22 @@ def run_fingerprint_trained_baseline_comparison(
         ],
         "baseline_param_delta_norm": baseline["param_delta_norm"],
         "fingerprint_param_delta_norm": fingerprint["param_delta_norm"],
+        "shared_initialization_seed": config.seed,
+        "shared_initial_parameter_fingerprint": initial_fingerprint,
+        "shared_initial_checkpoint_path": str(shared_checkpoint),
+        "shared_initial_checkpoint_sha256": lineage["shared_initialization"][
+            "checkpoint_sha256"
+        ],
+        "training_artifact_manifest_sha256": artifact_lineage[
+            "artifact_manifest_sha256"
+        ],
+        "training_source_file_sha256": artifact_lineage["source_file_sha256"],
+        "training_ordered_example_ids_sha256": artifact_lineage[
+            "ordered_example_ids_sha256"
+        ],
+        "training_tokenized_inputs_sha256": artifact_lineage["tokenized_inputs_sha256"],
+        "training_capture_config_sha256": artifact_lineage["capture_config_sha256"],
+        "lineage": lineage,
         "fairness": fairness,
         "baseline": baseline,
         "fingerprint": fingerprint,
@@ -230,29 +261,6 @@ def _unique_examples(records: tuple[Any, ...]) -> tuple[_SourceExample, ...]:
         attention_mask[:valid_length] = 1.0
         output.append(_SourceExample(example_id, input_ids, attention_mask))
     return tuple(output)
-
-
-def _validate_source_alignment(
-    source_texts: Path,
-    examples: tuple[_SourceExample, ...],
-) -> tuple[str, ...]:
-    rows = [
-        json.loads(line)
-        for line in source_texts.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
-    if not rows:
-        raise ValueError("source_texts contains zero records")
-    ids = tuple(
-        str(row.get("example_id", f"p145-real-teacher-{index:06d}"))
-        for index, row in enumerate(rows)
-    )
-    artifact_ids = tuple(example.example_id for example in examples)
-    if ids[: len(artifact_ids)] != artifact_ids or len(ids) < len(artifact_ids):
-        raise ValueError(
-            f"source example IDs do not align: source={ids} artifact={artifact_ids}"
-        )
-    return artifact_ids
 
 
 def _create_backend(
@@ -558,6 +566,99 @@ def _records_consumed(artifact: Path, *, batch_size: int, steps: int) -> int:
         load_fingerprint_targets(artifact, batch_size=batch_size).iter_batches()
     )
     return sum(len(batches[step % len(batches)].input_ids) for step in range(steps))
+
+
+def _build_p151_lineage(
+    config: FingerprintTrainedBaselineConfig,
+    *,
+    shared_checkpoint: Path,
+    initial_fingerprint: str,
+    artifact_lineage: dict[str, Any],
+    baseline: dict[str, Any],
+    fingerprint: dict[str, Any],
+    software_commit: str | None,
+) -> dict[str, Any]:
+    shared_hashes = hash_checkpoint_bundle(shared_checkpoint)
+    arms = {
+        "baseline": _arm_lineage(
+            config,
+            arm=baseline,
+            training_arm="conventional_causal_lm",
+            artifact_lineage=artifact_lineage,
+            software_commit=software_commit,
+        ),
+        "fingerprint": _arm_lineage(
+            config,
+            arm=fingerprint,
+            training_arm="fingerprint_corridor",
+            artifact_lineage=artifact_lineage,
+            software_commit=software_commit,
+        ),
+    }
+    return {
+        "source_phase": "P151",
+        "software_commit": software_commit,
+        "source_join_kind": artifact_lineage["source_join_kind"],
+        "source_join_complete": artifact_lineage["source_join_complete"],
+        "lineage_confidence": artifact_lineage["lineage_confidence"],
+        "publication_grade_lineage": artifact_lineage["publication_grade_lineage"],
+        "warnings": artifact_lineage["warnings"],
+        "shared_initialization": {
+            "seed": config.seed,
+            "parameter_fingerprint": initial_fingerprint,
+            "checkpoint_path": str(shared_checkpoint),
+            "checkpoint_sha256": shared_hashes["checkpoint_bundle_sha256"],
+            **shared_hashes,
+        },
+        "training_artifact": {
+            "manifest_sha256": artifact_lineage["artifact_manifest_sha256"],
+            "source_file_sha256": artifact_lineage["source_file_sha256"],
+            "ordered_example_ids_sha256": artifact_lineage[
+                "ordered_example_ids_sha256"
+            ],
+            "source_example_set_sha256": artifact_lineage["source_example_set_sha256"],
+            "ordered_source_text_sha256": artifact_lineage[
+                "ordered_source_text_sha256"
+            ],
+            "tokenized_inputs_sha256": artifact_lineage["tokenized_inputs_sha256"],
+            "capture_config_sha256": artifact_lineage["capture_config_sha256"],
+        },
+        "arms": arms,
+    }
+
+
+def _arm_lineage(
+    config: FingerprintTrainedBaselineConfig,
+    *,
+    arm: dict[str, Any],
+    training_arm: str,
+    artifact_lineage: dict[str, Any],
+    software_commit: str | None,
+) -> dict[str, Any]:
+    checkpoint_dir = Path(str(arm["checkpoint_dir"]))
+    checkpoint = load_checkpoint(checkpoint_dir)
+    hashes = hash_checkpoint_bundle(checkpoint_dir)
+    return {
+        "training_arm": training_arm,
+        "canonical_checkpoint_dir": str(checkpoint_dir),
+        **hashes,
+        "final_parameter_fingerprint": parameter_fingerprint(checkpoint.params),
+        "shared_initial_parameter_fingerprint": arm["initial_parameter_fingerprint"],
+        "optimizer_steps_completed": arm["optimizer_steps_completed"],
+        "batches_consumed": arm["batches_consumed"],
+        "requested_steps": arm["requested_steps"],
+        "student_architecture": checkpoint.manifest.student_architecture,
+        "student_backend": arm["student_backend"],
+        "student_config_sha256": stable_hash(checkpoint.manifest.student_config),
+        "training_artifact_manifest_sha256": artifact_lineage[
+            "artifact_manifest_sha256"
+        ],
+        "training_source_example_set_sha256": artifact_lineage[
+            "source_example_set_sha256"
+        ],
+        "software_commit": software_commit,
+        "batch_size": config.batch_size,
+    }
 
 
 def _tree_norm(tree: Any) -> float:

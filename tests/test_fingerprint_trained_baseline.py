@@ -48,6 +48,9 @@ def test_parameter_fingerprint_is_stable_and_sensitive() -> None:
 
     assert parameter_fingerprint(params) == parameter_fingerprint(clone)
     assert parameter_fingerprint(params) != parameter_fingerprint(changed)
+    assert parameter_fingerprint(params) == parameter_fingerprint(
+        {"b": params["b"], "a": params["a"]}
+    )
 
 
 def test_trained_baseline_and_corridor_complete_matched_steps(tmp_path: Path) -> None:
@@ -68,6 +71,15 @@ def test_trained_baseline_and_corridor_complete_matched_steps(tmp_path: Path) ->
     assert report["fingerprint"]["checkpoint_written"] is True
     assert report["claims"]["winner_declared"] is False
     assert report["claims"]["held_out_claim_made"] is False
+    assert report["lineage"]["source_phase"] == "P151"
+    assert report["lineage"]["lineage_confidence"] == "reduced"
+    assert report["lineage"]["publication_grade_lineage"] is False
+    for arm in ("baseline", "fingerprint"):
+        lineage = report["lineage"]["arms"][arm]
+        assert lineage["checkpoint_metadata_sha256"].startswith("sha256:")
+        assert lineage["params_sha256"].startswith("sha256:")
+        assert lineage["checkpoint_bundle_sha256"].startswith("sha256:")
+        assert lineage["final_parameter_fingerprint"].startswith("sha256:")
     assert result.metrics_path.is_file()
     assert result.summary_path.is_file()
     assert (result.output_dir / "baseline/checkpoints/final/checkpoint.json").is_file()
@@ -97,7 +109,24 @@ def test_mismatched_source_ids_fail_before_training(tmp_path: Path) -> None:
         overwrite=True,
     )
 
-    with pytest.raises(ValueError, match="source example IDs do not align"):
+    with pytest.raises(ValueError, match="missing artifact example IDs"):
+        run_fingerprint_trained_baseline_comparison(config)
+
+
+def test_legacy_source_join_is_disabled_by_default(tmp_path: Path) -> None:
+    artifact = _artifact(tmp_path)
+    config = FingerprintTrainedBaselineConfig(
+        fingerprint_artifact=artifact,
+        source_texts=TEXTS,
+        output_dir=tmp_path / "out",
+        steps=1,
+        batch_size=1,
+        optimizer="sgd",
+        learning_rate=0.01,
+        overwrite=True,
+    )
+
+    with pytest.raises(ValueError, match="require explicit example_id"):
         run_fingerprint_trained_baseline_comparison(config)
 
 
@@ -135,6 +164,7 @@ def test_cli_smoke(tmp_path: Path) -> None:
             "sgd",
             "--learning-rate",
             "0.01",
+            "--allow-legacy-positional-source-join",
             "--overwrite",
         ],
         cwd=ROOT,
@@ -157,6 +187,7 @@ def _config(tmp_path: Path, artifact: Path) -> FingerprintTrainedBaselineConfig:
         batch_size=2,
         optimizer="sgd",
         learning_rate=0.01,
+        allow_legacy_positional_source_join=True,
         overwrite=True,
     )
 

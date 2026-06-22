@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import time
@@ -21,7 +20,13 @@ from qrwkv_xla.artifacts import (
 from qrwkv_xla.artifacts._json import read_json_object, write_json
 from qrwkv_xla.checkpointing import load_checkpoint
 from qrwkv_xla.contracts import VocabContract
-from qrwkv_xla.fingerprint.trained_baseline import parameter_fingerprint
+from qrwkv_xla.fingerprint.provenance import (
+    build_artifact_source_lineage,
+    file_sha256,
+    hash_checkpoint_bundle,
+    parameter_fingerprint,
+    stable_hash,
+)
 from qrwkv_xla.students import create_student_backend
 from qrwkv_xla.training.fingerprint_stats import (
     compute_fingerprint_distribution_stats_at_positions,
@@ -49,7 +54,6 @@ class HeldOutFingerprintEvaluationConfig:
     train_fingerprint_artifact: Path
     output_dir: Path
     p151_report: Path | None = None
-    batch_size: int = 1
     bootstrap_samples: int = 1000
     bootstrap_seed: int = 0
     tie_tolerance: float = 1e-12
@@ -66,45 +70,27 @@ class HeldOutFingerprintEvaluationResult:
     summary_path: Path
 
 
-def stable_hash(payload: Any) -> str:
-    encoded = json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-    ).encode("utf-8")
-    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
-
-
-def file_sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return f"sha256:{digest.hexdigest()}"
-
-
 def write_fingerprint_provenance(
     artifact_dir: Path,
     *,
     source_file: Path,
     artifact_role: str,
+    allow_legacy_positional_source_join: bool = False,
 ) -> Path:
     if artifact_role not in {"training", "held_out_evaluation"}:
         raise ValueError("artifact_role must be training or held_out_evaluation")
-    records = _target_records(artifact_dir)
-    examples = _ordered_examples(records)
-    source_texts = _source_texts(source_file)
-    if len(source_texts) < len(examples):
-        raise ValueError("source file has fewer rows than artifact examples")
+    lineage = build_artifact_source_lineage(
+        artifact_dir,
+        source_file,
+        allow_legacy_positional_source_join=(allow_legacy_positional_source_join),
+    )
     manifest = read_json_object(artifact_dir / "manifest.json")
     capture_summary = _optional_json(artifact_dir / "capture_summary.json")
-    source_text_hashes = [stable_hash(text) for text in source_texts[: len(examples)]]
     split_payload = {
         "artifact_role": artifact_role,
-        "ordered_example_ids": [item[0] for item in examples],
-        "source_text_hashes": source_text_hashes,
-        "token_sequence_hashes": [stable_hash(item[1]) for item in examples],
+        "ordered_example_ids": lineage["ordered_example_ids"],
+        "source_text_hashes": lineage["source_text_hashes"],
+        "token_sequence_hashes": lineage["token_sequence_hashes"],
     }
     payload = {
         "schema_version": "qrwkv_xla.fingerprint_provenance.v1",
@@ -112,19 +98,23 @@ def write_fingerprint_provenance(
         "artifact_role": artifact_role,
         "artifact_version": str(manifest.get("artifact_version", "")),
         "source_file": str(source_file),
-        "source_file_sha256": file_sha256(source_file),
+        "source_file_sha256": lineage["source_file_sha256"],
         "ordered_example_ids": split_payload["ordered_example_ids"],
         "ordered_example_ids_sha256": stable_hash(split_payload["ordered_example_ids"]),
-        "source_text_hashes": source_text_hashes,
-        "ordered_source_text_sha256": stable_hash(source_text_hashes),
+        "source_text_hashes": lineage["source_text_hashes"],
+        "ordered_source_text_sha256": lineage["ordered_source_text_sha256"],
         "token_sequence_hashes": split_payload["token_sequence_hashes"],
-        "tokenized_inputs_sha256": stable_hash(split_payload["token_sequence_hashes"]),
-        "capture_config_sha256": stable_hash(
-            _capture_contract(manifest, capture_summary)
-        ),
-        "teacher_identity_sha256": stable_hash(manifest.get("teacher", {})),
+        "tokenized_inputs_sha256": lineage["tokenized_inputs_sha256"],
+        "capture_config_sha256": lineage["capture_config_sha256"],
+        "teacher_identity_sha256": lineage["teacher_identity_sha256"],
         "split_manifest_sha256": stable_hash(split_payload),
-        "artifact_manifest_sha256": file_sha256(artifact_dir / "manifest.json"),
+        "artifact_manifest_sha256": lineage["artifact_manifest_sha256"],
+        "source_example_set_sha256": lineage["source_example_set_sha256"],
+        "source_join_kind": lineage["source_join_kind"],
+        "source_join_complete": lineage["source_join_complete"],
+        "lineage_confidence": lineage["lineage_confidence"],
+        "publication_grade_lineage": lineage["publication_grade_lineage"],
+        "warnings": lineage["warnings"],
         "tokenizer_identity": manifest.get("teacher", {}).get("tokenizer_name"),
         "teacher_model_id": manifest.get("teacher", {}).get("model_name"),
         "teacher_revision": manifest.get("teacher", {}).get("revision"),
@@ -145,21 +135,22 @@ def validate_fingerprint_provenance(
 ) -> dict[str, Any]:
     path = artifact_dir / PROVENANCE_NAME
     payload = read_json_object(path)
-    records = _target_records(artifact_dir)
-    examples = _ordered_examples(records)
-    manifest = read_json_object(artifact_dir / "manifest.json")
-    capture_summary = _optional_json(artifact_dir / "capture_summary.json")
+    lineage = build_artifact_source_lineage(
+        artifact_dir,
+        Path(str(payload.get("source_file", ""))),
+        allow_legacy_positional_source_join=(
+            payload.get("source_join_kind") == "legacy_positional"
+        ),
+    )
     expected = {
-        "ordered_example_ids_sha256": stable_hash([item[0] for item in examples]),
-        "tokenized_inputs_sha256": stable_hash(
-            [stable_hash(item[1]) for item in examples]
-        ),
-        "capture_config_sha256": stable_hash(
-            _capture_contract(manifest, capture_summary)
-        ),
-        "teacher_identity_sha256": stable_hash(manifest.get("teacher", {})),
-        "artifact_manifest_sha256": file_sha256(artifact_dir / "manifest.json"),
-        "ordered_source_text_sha256": stable_hash(payload.get("source_text_hashes")),
+        "source_file_sha256": lineage["source_file_sha256"],
+        "ordered_example_ids_sha256": lineage["ordered_example_ids_sha256"],
+        "source_example_set_sha256": lineage["source_example_set_sha256"],
+        "tokenized_inputs_sha256": lineage["tokenized_inputs_sha256"],
+        "capture_config_sha256": lineage["capture_config_sha256"],
+        "teacher_identity_sha256": lineage["teacher_identity_sha256"],
+        "artifact_manifest_sha256": lineage["artifact_manifest_sha256"],
+        "ordered_source_text_sha256": lineage["ordered_source_text_sha256"],
         "split_manifest_sha256": stable_hash(
             {
                 "artifact_role": payload.get("artifact_role"),
@@ -195,17 +186,8 @@ def validate_fingerprint_provenance(
         for key, value in expected.items()
         if payload.get(key) != value
     )
-    source_path = Path(str(payload.get("source_file", "")))
-    if not source_path.is_file():
-        blockers.append("provenance source_file is unavailable for hash validation")
-    else:
-        if payload.get("source_file_sha256") != file_sha256(source_path):
-            blockers.append("provenance hash mismatch: source_file_sha256")
-        source_hashes = [
-            stable_hash(text) for text in _source_texts(source_path)[: len(examples)]
-        ]
-        if payload.get("source_text_hashes") != source_hashes:
-            blockers.append("provenance hash mismatch: source_text_hashes")
+    if payload.get("source_text_hashes") != lineage["source_text_hashes"]:
+        blockers.append("provenance hash mismatch: source_text_hashes")
     return {
         "status": "pass" if not blockers else "fail",
         "valid": not blockers,
@@ -278,7 +260,16 @@ def run_held_out_fingerprint_evaluation(
         config.train_fingerprint_artifact.resolve()
     ):
         raise ValueError("P151 report training artifact does not match P152 input")
-    checkpoint_validation = _validate_checkpoints(config, p151_report)
+    checkpoint_validation = _validate_checkpoints(
+        config,
+        p151_report,
+        p151_report_path=p151_report_path,
+        train_provenance=train_provenance,
+    )
+    write_json(
+        config.output_dir / "checkpoint_lineage_validation.json",
+        checkpoint_validation,
+    )
     if not checkpoint_validation["valid"]:
         raise ValueError(
             "checkpoint validation failed: "
@@ -333,7 +324,7 @@ def run_held_out_fingerprint_evaluation(
     paired = _paired_statistics(delta_values, delta_ci)
     comparison = _comparison(baseline_eval, fingerprint_eval, paired, winner)
     report = {
-        "phase": "P152",
+        "phase": "P152.1",
         "status": "pass",
         "comparison_kind": "held_out_fingerprint_evaluation",
         "primary_metric_name": PRIMARY_METRIC,
@@ -341,6 +332,14 @@ def run_held_out_fingerprint_evaluation(
         "secondary_metric_names": list(SECONDARY_METRICS),
         "metric_selection_predeclared": True,
         "comparison_valid": True,
+        "comparison_lineage_valid": True,
+        "held_out_evaluation_allowed": True,
+        "source_join_kind": train_provenance["provenance"]["source_join_kind"],
+        "source_join_complete": train_provenance["provenance"]["source_join_complete"],
+        "lineage_confidence": train_provenance["provenance"]["lineage_confidence"],
+        "publication_grade_lineage": train_provenance["provenance"][
+            "publication_grade_lineage"
+        ],
         "winner": winner,
         "winner_declared": winner != "inconclusive",
         "winner_scope": "held_out_fingerprint_primary_metric_only",
@@ -386,8 +385,6 @@ def run_held_out_fingerprint_evaluation(
 
 
 def _validate_config(config: HeldOutFingerprintEvaluationConfig) -> None:
-    if config.batch_size <= 0:
-        raise ValueError("batch_size must be > 0")
     if config.bootstrap_samples <= 0:
         raise ValueError("bootstrap_samples must be > 0")
     if config.tie_tolerance < 0:
@@ -410,6 +407,12 @@ def _validate_split(
     ]
     train = train_provenance["provenance"]
     held_out = held_out_provenance["provenance"]
+    publication_grade = bool(
+        train.get("publication_grade_lineage", False)
+        and held_out.get("publication_grade_lineage", False)
+    )
+    if not publication_grade:
+        blockers.append("publication_grade_lineage_required")
     train_ids = set(train.get("ordered_example_ids", ()))
     held_out_ids = set(held_out.get("ordered_example_ids", ()))
     train_tokens = set(train.get("token_sequence_hashes", ()))
@@ -456,6 +459,10 @@ def _validate_split(
         "id_overlap_count": len(id_overlap),
         "token_sequence_overlap_count": len(token_overlap),
         "source_text_overlap_count": len(text_overlap),
+        "source_join_kind": held_out.get("source_join_kind"),
+        "source_join_complete": held_out.get("source_join_complete", False),
+        "lineage_confidence": ("full" if publication_grade else "reduced"),
+        "publication_grade_lineage": publication_grade,
         **contracts,
     }
 
@@ -463,62 +470,176 @@ def _validate_split(
 def _validate_checkpoints(
     config: HeldOutFingerprintEvaluationConfig,
     p151_report: dict[str, Any],
+    *,
+    p151_report_path: Path,
+    train_provenance: dict[str, Any],
 ) -> dict[str, Any]:
-    blockers = []
-    rows = {}
-    loaded = {}
+    lineage = p151_report.get("lineage")
+    if not isinstance(lineage, dict):
+        return {
+            "status": "fail",
+            "comparison_lineage_valid": False,
+            "held_out_evaluation_allowed": False,
+            "blockers": ["missing_required_p151_lineage_fields"],
+            "p151_report_sha256": file_sha256(p151_report_path),
+        }
+    declared_arms = lineage.get("arms")
+    shared = lineage.get("shared_initialization")
+    training_artifact = lineage.get("training_artifact")
+    if not all(
+        isinstance(value, dict) for value in (declared_arms, shared, training_artifact)
+    ):
+        return {
+            "status": "fail",
+            "comparison_lineage_valid": False,
+            "held_out_evaluation_allowed": False,
+            "blockers": ["missing_required_p151_lineage_fields"],
+            "p151_report_sha256": file_sha256(p151_report_path),
+        }
+    if not all(name in declared_arms for name in ("baseline", "fingerprint")):
+        return {
+            "status": "fail",
+            "comparison_lineage_valid": False,
+            "held_out_evaluation_allowed": False,
+            "blockers": ["missing_required_p151_lineage_fields"],
+            "p151_report_sha256": file_sha256(p151_report_path),
+        }
+
+    blockers: list[str] = []
+    rows: dict[str, Any] = {}
+    loaded: dict[str, Any] = {}
     held_out = summarize_fingerprint_artifact(config.held_out_fingerprint_artifact)
-    for arm, path in (
+    expected_roles = {
+        "baseline": "conventional_causal_lm",
+        "fingerprint": "fingerprint_corridor",
+    }
+    for arm_name, path in (
         ("baseline", config.baseline_checkpoint),
         ("fingerprint", config.fingerprint_checkpoint),
     ):
         started = time.perf_counter()
         checkpoint = load_checkpoint(path)
-        loaded[arm] = checkpoint
-        rows[arm] = {
+        loaded[arm_name] = checkpoint
+        actual_hashes = hash_checkpoint_bundle(path)
+        declared = declared_arms.get(arm_name, {})
+        actual_fingerprint = parameter_fingerprint(checkpoint.params)
+        checks = {
+            "metadata_sha256_match": actual_hashes["checkpoint_metadata_sha256"]
+            == declared.get("checkpoint_metadata_sha256"),
+            "params_sha256_match": actual_hashes["params_sha256"]
+            == declared.get("params_sha256"),
+            "bundle_sha256_match": actual_hashes["checkpoint_bundle_sha256"]
+            == declared.get("checkpoint_bundle_sha256"),
+            "parameter_fingerprint_match": actual_fingerprint
+            == declared.get("final_parameter_fingerprint"),
+            "optimizer_steps_match": checkpoint.manifest.step
+            == declared.get("optimizer_steps_completed"),
+            "requested_steps_match": declared.get("requested_steps")
+            == p151_report.get(arm_name, {}).get("requested_steps"),
+            "arm_role_match": declared.get("training_arm") == expected_roles[arm_name],
+            "student_architecture_match": checkpoint.manifest.student_architecture
+            == declared.get("student_architecture"),
+            "student_backend_match": checkpoint.manifest.student_architecture
+            == declared.get("student_backend"),
+            "student_config_match": stable_hash(checkpoint.manifest.student_config)
+            == declared.get("student_config_sha256"),
+            "training_artifact_match": declared.get("training_artifact_manifest_sha256")
+            == training_artifact.get("manifest_sha256")
+            == train_provenance["provenance"].get("artifact_manifest_sha256"),
+            "source_example_set_match": declared.get(
+                "training_source_example_set_sha256"
+            )
+            == training_artifact.get("source_example_set_sha256")
+            == train_provenance["provenance"].get("source_example_set_sha256"),
+            "shared_initialization_match": declared.get(
+                "shared_initial_parameter_fingerprint"
+            )
+            == shared.get("parameter_fingerprint"),
+            "software_commit_match": declared.get("software_commit")
+            == lineage.get("software_commit"),
+        }
+        if not all(checks.values()):
+            blockers.append(f"{arm_name}_checkpoint_lineage_mismatch")
+        rows[arm_name] = {
             "checkpoint_dir": str(path),
-            "checkpoint_sha256": stable_hash(
-                {
-                    "manifest": file_sha256(path / "checkpoint.json"),
-                    "params": file_sha256(path / "params.npz"),
-                }
-            ),
-            "parameter_fingerprint": parameter_fingerprint(checkpoint.params),
+            **actual_hashes,
+            "parameter_fingerprint": actual_fingerprint,
             "source_phase": "P151",
-            "training_arm": arm,
+            "training_arm": expected_roles[arm_name],
             "optimizer_steps_completed": checkpoint.manifest.step,
-            "training_artifact_hash": file_sha256(
-                config.train_fingerprint_artifact / "manifest.json"
-            ),
-            "software_commit": p151_report.get("software_commit"),
             "checkpoint_load_seconds": time.perf_counter() - started,
             "student_architecture": checkpoint.manifest.student_architecture,
             "student_config": checkpoint.manifest.student_config,
+            **checks,
         }
-    if (
-        rows["baseline"]["student_architecture"]
-        != rows["fingerprint"]["student_architecture"]
-    ):
-        blockers.append("checkpoint student architecture mismatch")
-    if rows["baseline"]["student_config"] != rows["fingerprint"]["student_config"]:
-        blockers.append("checkpoint student config mismatch")
+
     if (
         int(rows["baseline"]["student_config"].get("vocab_size", -1))
         != held_out.vocab_size
     ):
-        blockers.append("checkpoint vocab does not match held-out artifact")
+        blockers.append("student_config_lineage_mismatch")
     if jax.tree_util.tree_structure(
         loaded["baseline"].params
     ) != jax.tree_util.tree_structure(loaded["fingerprint"].params):
-        blockers.append("checkpoint parameter tree structure mismatch")
+        blockers.append("student_config_lineage_mismatch")
+    cross_arm = {
+        "shared_initialization_match": declared_arms["baseline"].get(
+            "shared_initial_parameter_fingerprint"
+        )
+        == declared_arms["fingerprint"].get("shared_initial_parameter_fingerprint")
+        == shared.get("parameter_fingerprint"),
+        "step_budget_match": declared_arms["baseline"].get("requested_steps")
+        == declared_arms["fingerprint"].get("requested_steps")
+        and declared_arms["baseline"].get("optimizer_steps_completed")
+        == declared_arms["fingerprint"].get("optimizer_steps_completed"),
+        "training_artifact_match": declared_arms["baseline"].get(
+            "training_artifact_manifest_sha256"
+        )
+        == declared_arms["fingerprint"].get("training_artifact_manifest_sha256"),
+        "source_example_set_match": declared_arms["baseline"].get(
+            "training_source_example_set_sha256"
+        )
+        == declared_arms["fingerprint"].get("training_source_example_set_sha256"),
+    }
+    provenance = train_provenance["provenance"]
+    training_provenance_match = all(
+        (
+            training_artifact.get("manifest_sha256")
+            == provenance.get("artifact_manifest_sha256"),
+            training_artifact.get("source_file_sha256")
+            == provenance.get("source_file_sha256"),
+            training_artifact.get("ordered_example_ids_sha256")
+            == provenance.get("ordered_example_ids_sha256"),
+            training_artifact.get("source_example_set_sha256")
+            == provenance.get("source_example_set_sha256"),
+            training_artifact.get("tokenized_inputs_sha256")
+            == provenance.get("tokenized_inputs_sha256"),
+            training_artifact.get("capture_config_sha256")
+            == provenance.get("capture_config_sha256"),
+        )
+    )
+    if not cross_arm["shared_initialization_match"]:
+        blockers.append("shared_initialization_lineage_mismatch")
+    if not cross_arm["step_budget_match"]:
+        blockers.append("checkpoint_step_budget_mismatch")
+    if not cross_arm["training_artifact_match"]:
+        blockers.append("training_artifact_lineage_mismatch")
+    if not cross_arm["source_example_set_match"]:
+        blockers.append("source_example_lineage_mismatch")
+    if not training_provenance_match:
+        blockers.append("training_artifact_lineage_mismatch")
+    valid = not blockers
     return {
-        "status": "pass" if not blockers else "fail",
-        "valid": not blockers,
+        "status": "pass" if valid else "fail",
+        "valid": valid,
+        "comparison_lineage_valid": valid,
+        "held_out_evaluation_allowed": valid,
         "blockers": blockers,
-        "warnings": ["software_commit unavailable in older P151 checkpoint metadata"]
-        if rows["baseline"]["software_commit"] is None
-        else [],
-        "checkpoints": rows,
+        "p151_report_sha256": file_sha256(p151_report_path),
+        "baseline_checkpoint": rows["baseline"],
+        "fingerprint_checkpoint": rows["fingerprint"],
+        "cross_arm": cross_arm,
+        "training_provenance_match": training_provenance_match,
     }
 
 
@@ -816,7 +937,7 @@ def _write_outputs(
     write_json(
         config.output_dir / "evaluation_receipt.json",
         {
-            "phase": "P152",
+            "phase": "P152.1",
             "training_performed": False,
             "record_order_sha256": stable_hash(
                 [row["record_key"] for row in per_records]
@@ -871,40 +992,6 @@ def _target_records(path: Path) -> tuple[FingerprintTargetRecord, ...]:
     if not records:
         raise ValueError("held-out fingerprint artifact contains zero target records")
     return records
-
-
-def _ordered_examples(
-    records: tuple[FingerprintTargetRecord, ...],
-) -> tuple[tuple[str, tuple[int, ...]], ...]:
-    output: dict[str, tuple[int, ...]] = {}
-    for record in records:
-        prior = output.setdefault(record.example_id, record.input_ids)
-        if prior != record.input_ids:
-            raise ValueError(f"inconsistent tokenized inputs for {record.example_id}")
-    return tuple(output.items())
-
-
-def _source_texts(path: Path) -> tuple[str, ...]:
-    rows = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            payload = json.loads(line)
-            rows.append(str(payload["text"]).strip())
-    if not rows:
-        raise ValueError("source file contains zero text records")
-    return tuple(rows)
-
-
-def _capture_contract(
-    manifest: dict[str, Any], summary: dict[str, Any]
-) -> dict[str, Any]:
-    return {
-        "sequence": manifest.get("sequence"),
-        "stats": manifest.get("stats"),
-        "bounds_method": summary.get("corridor_bounds_method"),
-        "exemplar_selection_policy": summary.get("exemplar_selection_policy"),
-        "max_exemplars": summary.get("max_exemplars"),
-    }
 
 
 def _exemplar_map(path: Path) -> dict[tuple[str, int], Any]:

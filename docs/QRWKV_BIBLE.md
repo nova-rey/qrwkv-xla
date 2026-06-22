@@ -3129,3 +3129,24 @@ preferred. A confidence interval spanning zero forces `inconclusive`. Any
 winner is scoped only to this held-out fingerprint set and metric. P152 makes
 no general-quality, quality-per-byte, scale, downstream benchmark, or RADLADS
 parity claim. P153 measures corridor-pass process efficiency.
+
+## Phase 152.1 — Checkpoint Lineage Binding
+
+P152.1 binds the P151 report, shared initialization, baseline checkpoint,
+fingerprint checkpoint, training artifact, source-example set, student
+contract, and matched step budget into one deterministic lineage chain.
+
+Checkpoint identity uses separate SHA-256 hashes for `checkpoint.json` and
+`params.npz` plus a canonical bundle hash. Parameter fingerprints use sorted
+tree paths, shapes, dtypes, and raw values. P152 recomputes these fields and
+writes `checkpoint_lineage_validation.json` before any held-out score or winner
+logic. A mismatch fails closed.
+
+Source provenance now joins JSONL rows to artifact examples by explicit
+`example_id`, preserving artifact order after the join. Missing or duplicate
+IDs fail. Positional legacy mode is disabled by default; explicit opt-in lowers
+lineage confidence and prevents publication-grade lineage claims.
+
+Hash binding proves artifact identity and attribution, not semantic correctness
+or model quality. P152.1 changes no training objective, evaluation metric,
+bootstrap rule, corridor definition, model architecture, or broad claim scope.

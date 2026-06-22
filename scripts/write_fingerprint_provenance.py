@@ -18,11 +18,13 @@ def main() -> int:
         choices=("training", "held_out_evaluation"),
         required=True,
     )
+    parser.add_argument("--allow-legacy-positional-source-join", action="store_true")
     args = parser.parse_args()
     path = write_fingerprint_provenance(
         args.artifact,
         source_file=args.source_file,
         artifact_role=args.artifact_role,
+        allow_legacy_positional_source_join=(args.allow_legacy_positional_source_join),
     )
     print("status=pass")
     print(f"provenance_path={path}")

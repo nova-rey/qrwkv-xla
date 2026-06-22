@@ -25,6 +25,7 @@ def main() -> int:
     parser.add_argument("--learning-rate", type=float, default=1e-4)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--student-backend", default="current_qrwkv")
+    parser.add_argument("--allow-legacy-positional-source-join", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
     result = run_fingerprint_trained_baseline_comparison(
@@ -38,6 +39,9 @@ def main() -> int:
             learning_rate=args.learning_rate,
             seed=args.seed,
             student_backend=args.student_backend,
+            allow_legacy_positional_source_join=(
+                args.allow_legacy_positional_source_join
+            ),
             overwrite=args.overwrite,
         )
     )

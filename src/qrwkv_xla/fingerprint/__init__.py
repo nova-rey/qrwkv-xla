@@ -32,6 +32,11 @@ from qrwkv_xla.fingerprint.held_out_evaluation import (
     validate_fingerprint_provenance,
     write_fingerprint_provenance,
 )
+from qrwkv_xla.fingerprint.provenance import (
+    build_artifact_source_lineage,
+    hash_checkpoint_bundle,
+    join_sources_by_example_id,
+)
 from qrwkv_xla.fingerprint.quality_per_byte import (
     FingerprintQualityPerByteExperimentConfig,
     FingerprintQualityPerByteExperimentResult,
@@ -85,9 +90,12 @@ __all__ = [
     "TinyRealTeacherFingerprintCaptureResult",
     "build_synthetic_capture_examples",
     "build_fingerprint_arc2_report",
+    "build_artifact_source_lineage",
     "capture_fingerprint_artifact",
     "evaluate_student_corridor_adherence",
     "load_text_fixture",
+    "hash_checkpoint_bundle",
+    "join_sources_by_example_id",
     "masked_causal_lm_loss",
     "parameter_fingerprint",
     "paired_bootstrap_interval",

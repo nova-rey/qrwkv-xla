@@ -12,6 +12,8 @@ from qrwkv_xla.fingerprint import (
     FingerprintTrainedBaselineConfig,
     HeldOutFingerprintEvaluationConfig,
     TinyRealTeacherFingerprintCaptureConfig,
+    hash_checkpoint_bundle,
+    join_sources_by_example_id,
     paired_bootstrap_interval,
     run_fingerprint_trained_baseline_comparison,
     run_held_out_fingerprint_evaluation,
@@ -49,6 +51,41 @@ def test_winner_logic_respects_direction_and_ties() -> None:
     assert select_held_out_winner(0.0, (0.0, 0.0), tolerance=1e-12) == "inconclusive"
 
 
+def test_id_join_preserves_artifact_order_and_rejects_duplicates(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.jsonl"
+    source.write_text(
+        '{"example_id":"b","text":"second"}\n{"example_id":"a","text":"first"}\n',
+        encoding="utf-8",
+    )
+    joined = join_sources_by_example_id(source, ("a", "b"))
+    assert joined["ordered_source_texts"] == ["first", "second"]
+    assert joined["source_join_kind"] == "example_id"
+    assert joined["publication_grade_lineage"] is True
+
+    source.write_text(
+        '{"example_id":"a","text":"one"}\n{"example_id":"a","text":"two"}\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="duplicate source example_id"):
+        join_sources_by_example_id(source, ("a",))
+
+
+def test_checkpoint_bundle_hash_survives_relocation(tmp_path: Path) -> None:
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    for root in (first, second):
+        (root / "checkpoint.json").write_bytes(b'{"step":1}\n')
+        (root / "params.npz").write_bytes(b"stable-params")
+    assert (
+        hash_checkpoint_bundle(first)["checkpoint_bundle_sha256"]
+        == (hash_checkpoint_bundle(second)["checkpoint_bundle_sha256"])
+    )
+
+
 def test_missing_provenance_fails_closed(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="missing JSON file"):
         validate_fingerprint_provenance(
@@ -58,15 +95,23 @@ def test_missing_provenance_fails_closed(tmp_path: Path) -> None:
 
 
 def test_held_out_evaluation_integration(tmp_path: Path) -> None:
+    train_texts = _id_source(
+        tmp_path / "train.jsonl",
+        TRAIN_TEXTS,
+        "p145-real-teacher",
+    )
     held_out_texts = tmp_path / "held_out.jsonl"
     held_out_texts.write_text(
         "".join(
-            json.dumps({"text": text}) + "\n"
-            for text in (
-                "Quartz signals drift beneath a silent observatory.",
-                "Copper circuits remember a winter theorem.",
-                "Seven lanterns encode an unfamiliar sequence.",
-                "Violet matrices rotate beyond the harbor wall.",
+            json.dumps({"example_id": f"p152-held-out-{index:06d}", "text": text})
+            + "\n"
+            for index, text in enumerate(
+                (
+                    "Quartz signals drift beneath a silent observatory.",
+                    "Copper circuits remember a winter theorem.",
+                    "Seven lanterns encode an unfamiliar sequence.",
+                    "Violet matrices rotate beyond the harbor wall.",
+                )
             )
         ),
         encoding="utf-8",
@@ -74,7 +119,7 @@ def test_held_out_evaluation_integration(tmp_path: Path) -> None:
     backend = _fake_backend(16)
     train_artifact = _capture(
         tmp_path / "train_artifact",
-        TRAIN_TEXTS,
+        train_texts,
         "p145-real-teacher",
         backend,
     )
@@ -86,7 +131,7 @@ def test_held_out_evaluation_integration(tmp_path: Path) -> None:
     )
     write_fingerprint_provenance(
         train_artifact,
-        source_file=TRAIN_TEXTS,
+        source_file=train_texts,
         artifact_role="training",
     )
     write_fingerprint_provenance(
@@ -97,7 +142,7 @@ def test_held_out_evaluation_integration(tmp_path: Path) -> None:
     p151 = run_fingerprint_trained_baseline_comparison(
         FingerprintTrainedBaselineConfig(
             fingerprint_artifact=train_artifact,
-            source_texts=TRAIN_TEXTS,
+            source_texts=train_texts,
             output_dir=tmp_path / "p151",
             steps=2,
             batch_size=2,
@@ -124,6 +169,13 @@ def test_held_out_evaluation_integration(tmp_path: Path) -> None:
     assert result.status == "pass"
     assert result.winner in {"baseline", "fingerprint", "inconclusive"}
     assert report["comparison_valid"] is True
+    assert report["comparison_lineage_valid"] is True
+    assert report["publication_grade_lineage"] is True
+    assert report["source_join_kind"] == "example_id"
+    receipt = _json(result.output_dir / "checkpoint_lineage_validation.json")
+    assert receipt["comparison_lineage_valid"] is True
+    assert receipt["baseline_checkpoint"]["params_sha256_match"] is True
+    assert receipt["fingerprint_checkpoint"]["params_sha256_match"] is True
     assert report["split_validation"]["id_overlap_count"] == 0
     assert report["split_validation"]["token_sequence_overlap_count"] == 0
     assert report["arms"]["baseline"]["parameters_unchanged"] is True
@@ -143,32 +195,79 @@ def test_held_out_evaluation_integration(tmp_path: Path) -> None:
         "paired_deltas.jsonl",
         "provenance_manifest.json",
         "evaluation_receipt.json",
+        "checkpoint_lineage_validation.json",
     ):
         assert (result.output_dir / name).is_file()
+
+    fingerprint_metadata = (
+        p151.output_dir / "fingerprint/checkpoints/final/checkpoint.json"
+    )
+    original_metadata = fingerprint_metadata.read_bytes()
+    fingerprint_metadata.write_text(
+        json.dumps(json.loads(original_metadata), separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="fingerprint_checkpoint_lineage_mismatch"):
+        run_held_out_fingerprint_evaluation(
+            HeldOutFingerprintEvaluationConfig(
+                baseline_checkpoint=p151.output_dir / "baseline/checkpoints/final",
+                fingerprint_checkpoint=p151.output_dir
+                / "fingerprint/checkpoints/final",
+                held_out_fingerprint_artifact=held_out_artifact,
+                train_fingerprint_artifact=train_artifact,
+                p151_report=p151.report_path,
+                output_dir=tmp_path / "p152_metadata_tampered",
+                bootstrap_samples=10,
+                overwrite=True,
+            )
+        )
+    fingerprint_metadata.write_bytes(original_metadata)
+
+    baseline_params = p151.output_dir / "baseline/checkpoints/final/params.npz"
+    baseline_params.write_bytes(baseline_params.read_bytes() + b"tampered")
+    with pytest.raises(ValueError, match="baseline_checkpoint_lineage_mismatch"):
+        run_held_out_fingerprint_evaluation(
+            HeldOutFingerprintEvaluationConfig(
+                baseline_checkpoint=p151.output_dir / "baseline/checkpoints/final",
+                fingerprint_checkpoint=p151.output_dir
+                / "fingerprint/checkpoints/final",
+                held_out_fingerprint_artifact=held_out_artifact,
+                train_fingerprint_artifact=train_artifact,
+                p151_report=p151.report_path,
+                output_dir=tmp_path / "p152_tampered",
+                bootstrap_samples=10,
+                overwrite=True,
+            )
+        )
 
 
 def test_overlapping_split_is_rejected(tmp_path: Path) -> None:
     backend = _fake_backend(16)
+    source = _id_source(
+        tmp_path / "source.jsonl",
+        TRAIN_TEXTS,
+        "p145-real-teacher",
+    )
     train = _capture(
         tmp_path / "train",
-        TRAIN_TEXTS,
+        source,
         "p145-real-teacher",
         backend,
     )
     held_out = _capture(
         tmp_path / "held_out",
-        TRAIN_TEXTS,
+        source,
         "p145-real-teacher",
         backend,
     )
     write_fingerprint_provenance(
         train,
-        source_file=TRAIN_TEXTS,
+        source_file=source,
         artifact_role="training",
     )
     write_fingerprint_provenance(
         held_out,
-        source_file=TRAIN_TEXTS,
+        source_file=source,
         artifact_role="held_out_evaluation",
     )
     config = HeldOutFingerprintEvaluationConfig(
@@ -209,6 +308,22 @@ def _capture(
 
 def _json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _id_source(output: Path, source: Path, prefix: str) -> Path:
+    texts = [
+        json.loads(line)["text"]
+        for line in source.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    output.write_text(
+        "".join(
+            json.dumps({"example_id": f"{prefix}-{index:06d}", "text": text}) + "\n"
+            for index, text in enumerate(texts)
+        ),
+        encoding="utf-8",
+    )
+    return output
 
 
 def _fake_backend(vocab_size: int) -> HFTeacherBackend:

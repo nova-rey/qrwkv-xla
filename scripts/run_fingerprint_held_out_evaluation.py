@@ -25,7 +25,6 @@ def main() -> int:
         choices=("held_out_corridor_loss_total",),
         default="held_out_corridor_loss_total",
     )
-    parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--bootstrap-samples", type=int, default=1000)
     parser.add_argument("--bootstrap-seed", type=int, default=0)
     parser.add_argument("--tie-tolerance", type=float, default=1e-12)
@@ -39,7 +38,6 @@ def main() -> int:
             train_fingerprint_artifact=args.train_fingerprint_artifact,
             p151_report=args.p151_report,
             output_dir=args.output_dir,
-            batch_size=args.batch_size,
             bootstrap_samples=args.bootstrap_samples,
             bootstrap_seed=args.bootstrap_seed,
             tie_tolerance=args.tie_tolerance,

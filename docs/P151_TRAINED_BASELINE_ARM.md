@@ -20,6 +20,10 @@ sequence. Both arms resume from one shared step-zero checkpoint, and the report
 is invalid unless their initial parameter fingerprints and all required budget
 predicates match.
 
+Source JSONL rows must normally contain both `example_id` and `text`. Legacy
+text-only fixtures require `--allow-legacy-positional-source-join`; that mode
+records reduced lineage confidence and is not publication-grade.
+
 Outputs include the combined report, metrics, and summary plus canonical
 `baseline/` and `fingerprint/` checkpoint/report trees. This phase covers only
 Cycle 1. It does not enable exemplar training, held-out evaluation, winner

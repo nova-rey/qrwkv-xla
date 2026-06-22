@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 152
-current_phase: P152
-checkpoint: held_out_fingerprint_evaluation
+phase: 152.1
+current_phase: P152.1
+checkpoint: checkpoint_lineage_binding
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,8 +56,8 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Evaluate the matched P151 checkpoints on a provenance-hardened, disjoint
-  held-out behavioral fingerprint artifact without additional training.
+  Bind held-out evaluation to the exact P151 checkpoint bytes, initialization,
+  training artifact, source-example set, student contract, and step budget.
 
 current_arc: controlled_fingerprint_scaling_and_stronger_baselines
 
@@ -97,6 +97,7 @@ arc_status:
   arc2_report_go_no_go: complete
   trained_baseline_arm: complete
   held_out_fingerprint_evaluation: complete
+  checkpoint_lineage_binding: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -277,6 +278,18 @@ main_contains:
   p152_quality_per_byte_claims: false
   p152_scale_claims: false
   p152_radlads_parity_claims: false
+  p152_1_shared_provenance_helpers: true
+  p152_1_path_aware_parameter_fingerprint: true
+  p152_1_checkpoint_bundle_hashes: true
+  p152_1_p151_lineage_report: true
+  p152_1_exact_checkpoint_binding: true
+  p152_1_id_based_source_join: true
+  p152_1_legacy_join_default: disabled
+  p152_1_legacy_lineage_confidence: reduced
+  p152_1_checkpoint_lineage_receipt: true
+  p152_1_unused_eval_batch_flag_removed: true
+  p152_1_training_behavior_changed: false
+  p152_1_evaluation_math_changed: false
 
 teacher_target_types:
   - dense_logits

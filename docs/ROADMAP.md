@@ -2262,3 +2262,19 @@ exist, and descriptive runtime measurements.
 P152 may declare only a held-out-fingerprint-metric winner; bootstrap intervals
 that include zero produce `inconclusive`. P153 measures corridor-pass entry and
 efficiency trajectories.
+
+## Phase 152.1 — Checkpoint Lineage Binding
+
+P152.1 makes the P151-to-P152 evidence chain machine-verifiable. Shared helpers
+hash checkpoint metadata and parameter bytes independently of directory paths,
+fingerprint parameter trees by canonical path/shape/dtype/value, and join source
+text by explicit example ID.
+
+P151 records shared initialization, training artifact, source set, student and
+step contracts, and exact per-arm checkpoint hashes. P152 recomputes every
+binding and writes a lineage receipt before scoring. Any mismatch blocks
+held-out evaluation. Legacy positional source joins are opt-in, reduced
+confidence, and not publication-grade.
+
+Training and evaluation mathematics remain unchanged. P153 remains the next
+corridor-pass process measurement phase.

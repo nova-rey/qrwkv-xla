@@ -20,6 +20,8 @@ P151 opens the controlled-scaling arc with a matched trained causal-LM
 baseline and shared initialization contract.
 P152 adds a disjoint held-out artifact contract and shared read-only evaluation
 harness with paired bootstrap statistics.
+P152.1 binds those measurements to the exact P151 checkpoint bytes and replaces
+positional source association with explicit ID joins.
 
 The remaining work should move from Arc 2 smoke evidence to larger controlled
 fingerprint experiments with trained baseline and held-out evaluation gates.
@@ -43,6 +45,7 @@ Current:
 - P149 arc report / go-with-constraints recommendation
 - P151 matched trained baseline vs corridor comparison
 - P152 held-out split proof and paired checkpoint evaluation
+- P152.1 checkpoint lineage receipt and ID-based source provenance
 - no exemplar reservoir or mixed objective in the main runner yet
 
 Needed:
