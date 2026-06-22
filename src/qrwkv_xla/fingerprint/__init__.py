@@ -89,6 +89,11 @@ from qrwkv_xla.fingerprint.training_rehearsal import (
     RealTeacherFingerprintTrainingRehearsalResult,
     run_real_teacher_fingerprint_training_rehearsal,
 )
+from qrwkv_xla.fingerprint.two_cycle_experiment import (
+    TwoCycleExperimentConfig,
+    TwoCycleExperimentResult,
+    run_two_cycle_experiment,
+)
 
 __all__ = [
     "AggressivenessCalibrationConfig",
@@ -122,6 +127,8 @@ __all__ = [
     "RealTeacherFingerprintTrainingRehearsalResult",
     "TinyRealTeacherFingerprintCaptureConfig",
     "TinyRealTeacherFingerprintCaptureResult",
+    "TwoCycleExperimentConfig",
+    "TwoCycleExperimentResult",
     "build_synthetic_capture_examples",
     "aggressiveness_profiles",
     "bootstrap_ci95",
@@ -149,6 +156,7 @@ __all__ = [
     "run_held_out_fingerprint_evaluation",
     "run_real_teacher_fingerprint_training_rehearsal",
     "run_tiny_real_teacher_fingerprint_capture",
+    "run_two_cycle_experiment",
     "select_held_out_winner",
     "select_profile",
     "stable_hash",

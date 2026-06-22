@@ -7,7 +7,7 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P154.1.1, Exemplar-Pass Integrity Cleanup.
+Current phase: P155, Sequential Two-Cycle Experiment.
 The Pallas runway is closed after a recorded real TPU v5 lite smoke pass for the tiny
 opt-in Pallas WKV path, the cascaded target pipeline has been merged into main,
 and behavioral fingerprint corridor training is wired into the main staged
@@ -63,6 +63,12 @@ P154.1.1 makes held-out evaluation fail closed, binds resume configuration and
 record order into every exemplar checkpoint, ties optional calibration and
 P153 receipts to the exact parent corridor checkpoint, and distinguishes
 corridor degradation from an actual threshold exit.
+P155 composes the trained baseline, corridor-only, exemplar-only, and strictly
+sequential corridor-to-exemplar arms from one materialized initialization. It
+predeclares held-out teacher-student KL, preserves the optimizer/checkpoint
+boundary between cycles, emits aligned per-record bootstrap comparisons, and
+reports stage-matched and total resource budgets without making a
+quality-per-byte claim.
 
 Current emphasis is behavioral fingerprint integration, teacher-pure capture
 planning, teacher backend modularity, vocab contracts, target stores, the
@@ -200,6 +206,7 @@ The behavioral fingerprint miniature arc is documented in:
 - `docs/P153_CORRIDOR_PASS_MEASUREMENT.md`
 - `docs/P153_1_CORRIDOR_AGGRESSIVENESS_CALIBRATION.md`
 - `docs/P154_STANDALONE_EXEMPLAR_PASS.md`
+- `docs/P155_SEQUENTIAL_TWO_CYCLE_EXPERIMENT.md`
 
 The fingerprint work now covers real registered-student integration, main
 runner corridor training, tiny real-teacher artifact capture, and a matched

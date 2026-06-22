@@ -674,12 +674,22 @@ def _evaluate_checkpoint(
     )
     rows = []
     teacher_rows = []
+    teacher_record_rows = []
     for record in records:
         rows.append(_evaluate_record(backend, checkpoint.params, record))
         exemplar = exemplars.get((record.example_id, record.position))
         if exemplar is not None:
-            teacher_rows.append(
-                _teacher_metrics(backend, checkpoint.params, record, exemplar)
+            teacher_metrics = _teacher_metrics(
+                backend, checkpoint.params, record, exemplar
+            )
+            teacher_rows.append(teacher_metrics)
+            teacher_record_rows.append(
+                {
+                    "record_key": f"{record.example_id}:{record.position}",
+                    "example_id": record.example_id,
+                    "position": record.position,
+                    **teacher_metrics,
+                }
             )
     jax.block_until_ready(checkpoint.params)
     params_after = parameter_fingerprint(checkpoint.params)
@@ -709,6 +719,7 @@ def _evaluate_checkpoint(
         "record_keys": [row["record_key"] for row in rows],
         "aggregate": aggregate,
         "teacher_metrics": _mean_metrics(teacher_rows),
+        "teacher_records": teacher_record_rows,
         "teacher_metric_availability": {
             "available": bool(teacher_rows),
             "records_with_dense_teacher_probs": len(teacher_rows),

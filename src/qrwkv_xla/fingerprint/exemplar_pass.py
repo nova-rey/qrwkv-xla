@@ -62,6 +62,7 @@ class ExemplarPassConfig:
     resume_checkpoint: Path | None = None
     corridor_entry_threshold: float = 0.95
     corridor_retention_tolerance: float = 0.0
+    allow_shared_initialization_parent_for_control: bool = False
     overwrite: bool = False
 
 
@@ -139,14 +140,25 @@ def validate_corridor_checkpoint_lineage(
             ),
             "calibration_parent_binding_valid": selected_profile_valid,
         }
+    control_parent = config.allow_shared_initialization_parent_for_control
     checks = {
         "checkpoint_bundle_hash_valid": bool(hashes["checkpoint_bundle_sha256"]),
         "parameter_fingerprint_valid": bool(parameter_fingerprint(loaded.params)),
-        "training_cycle_is_corridor": manifest.loss_config.get("cycle") == 1,
+        "training_cycle_is_corridor": (
+            manifest.loss_config.get("kind") == "shared_initialization"
+            if control_parent
+            else manifest.loss_config.get("cycle") == 1
+        ),
         "distill_mode_is_fingerprint_corridor": manifest.loss_config.get("kind")
-        == "fingerprint_corridor",
-        "optimizer_steps_completed": manifest.step > 0,
-        "completed_corridor_checkpoint": config.corridor_checkpoint.name == "final",
+        == ("shared_initialization" if control_parent else "fingerprint_corridor"),
+        "optimizer_steps_completed": (
+            manifest.step == 0 if control_parent else manifest.step > 0
+        ),
+        "completed_corridor_checkpoint": (
+            config.corridor_checkpoint.name == "initial"
+            if control_parent
+            else config.corridor_checkpoint.name == "final"
+        ),
         "student_backend_match": manifest.student_architecture
         == config.student_backend,
         "student_architecture_match": config.student_architecture is None
@@ -154,9 +166,13 @@ def validate_corridor_checkpoint_lineage(
         "vocab_size_match": manifest.student_config.get("vocab_size")
         == artifact_vocab_size,
         "artifact_manifest_hash_match": manifest.target_manifest.get(
-            "artifact_manifest_sha256"
+            "artifact_dir" if control_parent else "artifact_manifest_sha256"
         )
-        == expected_manifest_hash,
+        == (
+            str(config.fingerprint_artifact)
+            if control_parent
+            else expected_manifest_hash
+        ),
         "p153_parent_binding_valid": p153_report_valid,
         "calibration_parent_binding_valid": selected_profile_valid,
     }
@@ -167,8 +183,12 @@ def validate_corridor_checkpoint_lineage(
         "lineage_valid": not blockers,
         "blockers": blockers,
         "checks": checks,
-        "training_cycle": "corridor",
-        "distill_mode": "fingerprint_corridor",
+        "training_cycle": "shared_initialization_control"
+        if control_parent
+        else "corridor",
+        "distill_mode": "fingerprint_exemplar_control"
+        if control_parent
+        else "fingerprint_corridor",
         "optimizer_steps_completed": manifest.step,
         "parameter_fingerprint": parameter_fingerprint(loaded.params),
         **calibration_binding,
@@ -383,7 +403,11 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
         "phase": "P154.1.1",
         "status": status,
         "training_cycle": "exemplar",
-        "parent_training_cycle": "corridor",
+        "parent_training_cycle": (
+            "shared_initialization_control"
+            if config.allow_shared_initialization_parent_for_control
+            else "corridor"
+        ),
         "exemplar_loss_type": "dense_probability_kl",
         "exemplar_loss_weight": 1.0,
         "corridor_loss_enabled": False,
@@ -396,6 +420,12 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
         "parent_corridor_optimizer_steps": parent.manifest.step,
         "requested_steps": config.steps,
         "completed_steps": int(state.step),
+        "batch_size": config.batch_size,
+        "optimizer": config.optimizer,
+        "learning_rate": config.learning_rate,
+        "max_grad_norm": config.max_grad_norm,
+        "evaluation_interval_steps": evaluation_interval,
+        "checkpoint_interval_steps": config.checkpoint_every,
         "stop_reason": stop_reason,
         "initial_exemplar_loss": initial["exemplar_loss"],
         "final_exemplar_loss": final["exemplar_loss"],
@@ -661,7 +691,11 @@ def _save_exemplar_checkpoint(
             "kind": "fingerprint_exemplar",
             "cycle": 2,
             "training_cycle": "exemplar",
-            "parent_training_cycle": "corridor",
+            "parent_training_cycle": (
+                "shared_initialization_control"
+                if config.allow_shared_initialization_parent_for_control
+                else "corridor"
+            ),
             "sampling_policy": config.exemplar_sampling_policy,
             "sampling_seed": sampling_contract["sampling_seed"],
             "record_order_sha256": sampling_contract["record_order_sha256"],
