@@ -16,6 +16,8 @@ harness so baseline and fingerprint arms can be recorded under shared controls.
 P148 computes the first tiny corridor-adherence-per-artifact-byte reference
 deltas from that scoreboard. P149 closes the arc with a constrained go/no-go
 report.
+P151 opens the controlled-scaling arc with a matched trained causal-LM
+baseline and shared initialization contract.
 
 The remaining work should move from Arc 2 smoke evidence to larger controlled
 fingerprint experiments with trained baseline and held-out evaluation gates.
@@ -37,11 +39,12 @@ Current:
 - P147 init-only baseline vs fingerprint corridor comparison harness
 - P148 tiny corridor-adherence-per-artifact-byte smoke
 - P149 arc report / go-with-constraints recommendation
+- P151 matched trained baseline vs corridor comparison
 - no exemplar reservoir or mixed objective in the main runner yet
 
 Needed:
 
-- trained non-fingerprint baseline before method-vs-method claims
+- shared held-out evaluation before method-vs-method claims
 - held-out tiny eval artifact before stronger quality-per-byte language
 - later mixed/exemplar extension if justified
 - report fields that distinguish rehearsal, real runs, and science results
@@ -105,3 +108,7 @@ Needed:
 P149 should not be treated as a general quality result. It recommends
 `go_with_constraints` for larger controlled experiments, not production
 readiness, scale readiness, RADLADS parity, or a trained-baseline win.
+
+P151 closes the trained-baseline gap but still does not permit a winner or
+quality claim. The next gate is a distinct held-out fingerprint artifact and
+shared evaluation harness.

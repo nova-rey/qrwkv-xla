@@ -35,6 +35,13 @@ from qrwkv_xla.fingerprint.real_teacher import (
     load_text_fixture,
     run_tiny_real_teacher_fingerprint_capture,
 )
+from qrwkv_xla.fingerprint.trained_baseline import (
+    FingerprintTrainedBaselineConfig,
+    FingerprintTrainedBaselineResult,
+    masked_causal_lm_loss,
+    parameter_fingerprint,
+    run_fingerprint_trained_baseline_comparison,
+)
 from qrwkv_xla.fingerprint.training_rehearsal import (
     DEFAULT_TINY_TEXTS,
     RealTeacherFingerprintTrainingRehearsalConfig,
@@ -57,6 +64,8 @@ __all__ = [
     "FingerprintModeDiscoveryConfig",
     "FingerprintQualityPerByteExperimentConfig",
     "FingerprintQualityPerByteExperimentResult",
+    "FingerprintTrainedBaselineConfig",
+    "FingerprintTrainedBaselineResult",
     "DEFAULT_TINY_TEXTS",
     "RealTeacherFingerprintTrainingRehearsalConfig",
     "RealTeacherFingerprintTrainingRehearsalResult",
@@ -67,9 +76,12 @@ __all__ = [
     "capture_fingerprint_artifact",
     "evaluate_student_corridor_adherence",
     "load_text_fixture",
+    "masked_causal_lm_loss",
+    "parameter_fingerprint",
     "run_fingerprint_baseline_comparison",
     "run_fingerprint_arc2_report",
     "run_fingerprint_quality_per_byte_experiment",
+    "run_fingerprint_trained_baseline_comparison",
     "run_real_teacher_fingerprint_training_rehearsal",
     "run_tiny_real_teacher_fingerprint_capture",
 ]

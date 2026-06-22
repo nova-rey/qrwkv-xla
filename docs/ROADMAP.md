@@ -2226,3 +2226,21 @@ P88 does not promote Pallas as default, prove production readiness, prove
 training readiness, prove throughput, prove full-model quality, change
 recurrence math, loosen tolerances, edit fixture tensors, or start Radjax
 extraction.
+
+## Phase 151 — Trained Baseline Arm
+
+P151 adds a conventional student-only causal-LM training arm beside the
+existing corridor arm. A shared step-zero checkpoint guarantees byte-identical
+initial parameters, and both arms use the same registered backend, source
+example IDs, optimizer, learning rate, batch size, sequence length, and step
+budget.
+
+The runner writes a machine-readable fairness contract, per-arm metrics and
+checkpoints, and a combined report. Padding-aware next-token cross entropy is
+used only by the baseline; corridor math and runtime semantics are unchanged.
+The comparison is valid only when every required fairness predicate and both
+training arms pass.
+
+P151 does not compare raw LM and corridor losses as equivalent metrics and does
+not declare a winner or quality-per-byte result. P152 is the held-out
+fingerprint evaluation artifact and shared evaluation gate.

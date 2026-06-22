@@ -46,8 +46,10 @@ def main() -> int:
     parser.add_argument("--training-steps", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--learning-rate", type=float, default=0.01)
+    parser.add_argument("--optimizer", choices=("sgd", "adam", "adamw"), default="sgd")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--student-backend", default="current_qrwkv")
+    parser.add_argument("--resume-from", type=Path)
     parser.add_argument("--local-files-only", action="store_true", default=True)
     parser.add_argument("--allow-downloads", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
@@ -76,8 +78,10 @@ def main() -> int:
                 training_steps=args.training_steps,
                 batch_size=args.batch_size,
                 learning_rate=args.learning_rate,
+                optimizer=args.optimizer,
                 seed=args.seed,
                 student_backend=args.student_backend,
+                resume_from=args.resume_from,
                 overwrite=args.overwrite,
             )
         )

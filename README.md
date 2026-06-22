@@ -7,7 +7,7 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P149, Arc 2 Report / Go-No-Go. The Pallas
+Current phase: P151, Trained Baseline Arm. The Pallas
 runway is closed after a recorded real TPU v5 lite smoke pass for the tiny
 opt-in Pallas WKV path, the cascaded target pipeline has been merged into main,
 and behavioral fingerprint corridor training is wired into the main staged
@@ -28,6 +28,11 @@ as init-only reference and avoiding any general quality claim. P149 closes the
 arc with a report generator that verifies P140-P148 evidence and emits a
 `go_with_constraints` recommendation for larger controlled fingerprint
 experiments.
+P151 replaces the init-only reference with a trained causal-LM comparator.
+Both trained arms use the same registered student, byte-identical shared
+initialization, source-example identities, optimizer, learning rate, batch
+size, sequence length, and step budget. The comparison remains winner-free
+until P152 adds shared held-out evaluation.
 
 Current emphasis is behavioral fingerprint integration, teacher-pure capture
 planning, teacher backend modularity, vocab contracts, target stores, the
@@ -159,10 +164,12 @@ The behavioral fingerprint miniature arc is documented in:
 - `docs/P147_BASELINE_COMPARISON_HARNESS.md`
 - `docs/P148_FIRST_QUALITY_PER_BYTE_EXPERIMENT.md`
 - `docs/P149_ARC2_REPORT_GO_NO_GO.md`
+- `docs/P151_TRAINED_BASELINE_ARM.md`
 
-This arc proves CPU-safe standalone plumbing and reporting over tiny synthetic
-fixtures. It does not claim real student-backend integration, main runner
-integration, teacher-side fingerprint capture, or model-quality improvement.
+The fingerprint work now covers real registered-student integration, main
+runner corridor training, tiny real-teacher artifact capture, and a matched
+trained baseline. It does not claim model-quality improvement; shared held-out
+evaluation remains the next gate.
 
 The post-P112 research intake is documented in
 `docs/RADLADS2_FLA_KVM_RESEARCH_INTAKE.md`.

@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 149
-current_phase: P149
-checkpoint: arc2_report_go_no_go
+phase: 151
+current_phase: P151
+checkpoint: trained_baseline_arm
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,16 +56,15 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Close Arc 2 with an evidence-based go/no-go report that permits larger
-  controlled fingerprint experiments only under trained-baseline, held-out eval,
-  fixed-budget, and no-overclaim constraints.
+  Establish a fair trained causal-LM comparator for fingerprint corridor
+  training under shared initialization and matched training budgets.
 
-current_arc: real_student_integration_and_teacher_pure_capture
+current_arc: controlled_fingerprint_scaling_and_stronger_baselines
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - Larger controlled fingerprint experiments with trained baseline and held-out eval gates
+  - P152 held-out fingerprint evaluation artifact and shared evaluation harness
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -96,6 +95,7 @@ arc_status:
   baseline_comparison_harness: complete
   first_quality_per_byte_experiment: complete
   arc2_report_go_no_go: complete
+  trained_baseline_arm: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -252,6 +252,18 @@ main_contains:
   p149_radlads_parity_claims: false
   p149_scale_readiness_claims: false
   p149_production_readiness_claims: false
+  p151_trained_causal_lm_baseline: true
+  p151_shared_initial_parameter_tree: true
+  p151_parameter_fingerprint_verified: true
+  p151_source_example_ids_matched: true
+  p151_optimizer_step_budget_matched: true
+  p151_batch_and_sequence_budget_matched: true
+  p151_fingerprint_corridor_main_runner: true
+  p151_teacher_required_during_training: false
+  p151_exemplar_training_enabled: false
+  p151_comparison_fairness: matched_training_budget
+  p151_winner_declared: false
+  p151_held_out_evaluation_available: false
 
 teacher_target_types:
   - dense_logits

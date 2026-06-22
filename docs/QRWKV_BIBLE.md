@@ -3089,3 +3089,21 @@ P149 does not claim general quality improvement, a trained-baseline win,
 RADLADS parity, scale readiness, production readiness, or Pallas default
 readiness. It records those as blocked claims and keeps the open gaps visible
 for the next arc.
+
+## Phase 151 — Trained Baseline Arm
+
+P151 creates the first fair trained comparator for Cycle 1 fingerprint
+corridor training. The conventional arm predicts next source tokens with
+padding-aware causal-LM cross entropy. The corridor arm remains teacher-free
+during training and uses no exemplars.
+
+Both arms start from one serialized shared parameter tree and must report the
+same initial SHA-256 parameter fingerprint. Student backend/config, source IDs,
+optimizer, schedule, requested steps, completed steps, batch size, and sequence
+length are fairness gates rather than descriptive metadata.
+
+P151 writes canonical per-arm checkpoints and metrics plus
+`trained_baseline_comparison_report.json`, `trained_baseline_metrics.json`, and
+`trained_baseline_summary.md`. Raw LM and corridor losses are not comparable
+quality metrics. No winner, held-out, general-quality, quality-per-byte, scale,
+or RADLADS parity claim is made. P152 supplies the held-out evaluation gate.

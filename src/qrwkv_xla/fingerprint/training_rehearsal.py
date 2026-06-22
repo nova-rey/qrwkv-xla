@@ -52,8 +52,10 @@ class RealTeacherFingerprintTrainingRehearsalConfig:
     training_steps: int = 3
     batch_size: int = 2
     learning_rate: float = 0.01
+    optimizer: str = "sgd"
     seed: int = 0
     student_backend: str = "current_qrwkv"
+    resume_from: Path | None = None
     overwrite: bool = False
 
 
@@ -129,10 +131,12 @@ def run_real_teacher_fingerprint_training_rehearsal(
         ),
         optimizer=replace(
             DistillStageConfig().optimizer,
+            type=config.optimizer,
             learning_rate=config.learning_rate,
         ),
         checkpoint=DistillCheckpointConfig(
             checkpoint_out=training_output_dir / "checkpoints" / "final",
+            resume_from=config.resume_from,
             overwrite=True,
         ),
         fingerprint=DistillFingerprintConfig(
@@ -239,6 +243,8 @@ def _validate_config(config: RealTeacherFingerprintTrainingRehearsalConfig) -> N
         raise ValueError("batch_size must be > 0")
     if config.learning_rate <= 0.0:
         raise ValueError("learning_rate must be > 0")
+    if config.optimizer not in {"sgd", "adam", "adamw"}:
+        raise ValueError("optimizer must be one of {'sgd', 'adam', 'adamw'}")
 
 
 def _resolve_artifact(
