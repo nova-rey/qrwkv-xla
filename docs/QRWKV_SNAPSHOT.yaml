@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 153
-current_phase: P153
-checkpoint: corridor_pass_measurement_harness
+phase: 153.1
+current_phase: P153.1
+checkpoint: corridor_aggressiveness_profile_calibration
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,8 +56,8 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Measure Cycle 1 as a held-out trajectory with predeclared entry thresholds,
-  stable-entry detection, checkpoints, and explicit resource accounting.
+  Calibrate the smallest reliable corridor-only force profile across matched
+  seeds using the P153 trajectory harness and explicit instability guards.
 
 current_arc: controlled_fingerprint_scaling_and_stronger_baselines
 
@@ -99,6 +99,7 @@ arc_status:
   held_out_fingerprint_evaluation: complete
   checkpoint_lineage_binding: complete
   corridor_pass_measurement_harness: complete
+  corridor_aggressiveness_profile_calibration: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true

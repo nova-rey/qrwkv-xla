@@ -2294,3 +2294,17 @@ cycle boundary.
 P153 measures progress per step, second, record, and byte but does not make a
 quality-per-byte or final-quality claim. P154 implements Cycle 2 as a standalone
 exemplar-only runner.
+
+## Phase 153.1 — Corridor Aggressiveness Profile Calibration
+
+P153.1 compares four explicit, ordered corridor-force presets under the same
+P153 fixed-step measurement harness. Only declared loss force, learning-rate,
+clipping, weighting, normalization, and safety fields may differ. Seed-level
+reports quantify stable entry, exits, rebound, clipping, gradient spikes,
+parameter movement, resource use, and aborts.
+
+Aggregation uses deterministic bootstrap intervals and aligned paired-seed
+deltas. Selection gates validity and reliability before efficiency and chooses
+the smallest sufficient profile on equivalent evidence. A one-seed matrix is
+smoke-only; publication-grade calibration requires at least three complete
+seeds per profile. P154 remains separate and no model-quality claim is made.

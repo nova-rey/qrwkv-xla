@@ -1,5 +1,19 @@
 """Teacher-side behavioral fingerprint capture utilities."""
 
+from qrwkv_xla.fingerprint.aggressiveness_calibration import (
+    AggressivenessCalibrationConfig,
+    AggressivenessCalibrationResult,
+    bootstrap_ci95,
+    entry_exit_metrics,
+    run_aggressiveness_calibration,
+    select_profile,
+)
+from qrwkv_xla.fingerprint.aggressiveness_profiles import (
+    PROFILE_NAMES,
+    CorridorAggressivenessProfile,
+    aggressiveness_profiles,
+    resolve_aggressiveness_profile,
+)
 from qrwkv_xla.fingerprint.arc_report import (
     FingerprintArc2ReportConfig,
     FingerprintArc2ReportResult,
@@ -72,6 +86,9 @@ from qrwkv_xla.fingerprint.training_rehearsal import (
 )
 
 __all__ = [
+    "AggressivenessCalibrationConfig",
+    "AggressivenessCalibrationResult",
+    "CorridorAggressivenessProfile",
     "DEFAULT_TINY_REAL_TEACHER",
     "FingerprintCaptureBudgetConfig",
     "FingerprintCaptureConfig",
@@ -93,16 +110,20 @@ __all__ = [
     "HeldOutFingerprintEvaluationConfig",
     "HeldOutFingerprintEvaluationResult",
     "DEFAULT_TINY_TEXTS",
+    "PROFILE_NAMES",
     "RealTeacherFingerprintTrainingRehearsalConfig",
     "RealTeacherFingerprintTrainingRehearsalResult",
     "TinyRealTeacherFingerprintCaptureConfig",
     "TinyRealTeacherFingerprintCaptureResult",
     "build_synthetic_capture_examples",
+    "aggressiveness_profiles",
+    "bootstrap_ci95",
     "build_fingerprint_arc2_report",
     "build_artifact_source_lineage",
     "capture_fingerprint_artifact",
     "corridor_distance",
     "detect_corridor_entries",
+    "entry_exit_metrics",
     "evaluate_student_corridor_adherence",
     "load_text_fixture",
     "hash_checkpoint_bundle",
@@ -111,6 +132,8 @@ __all__ = [
     "parameter_fingerprint",
     "paired_bootstrap_interval",
     "run_fingerprint_baseline_comparison",
+    "resolve_aggressiveness_profile",
+    "run_aggressiveness_calibration",
     "run_fingerprint_arc2_report",
     "run_fingerprint_quality_per_byte_experiment",
     "run_fingerprint_trained_baseline_comparison",
@@ -119,6 +142,7 @@ __all__ = [
     "run_real_teacher_fingerprint_training_rehearsal",
     "run_tiny_real_teacher_fingerprint_capture",
     "select_held_out_winner",
+    "select_profile",
     "stable_hash",
     "validate_fingerprint_provenance",
     "write_fingerprint_provenance",

@@ -125,3 +125,7 @@ shared evaluation harness.
 P152 permits only a narrow winner on the predeclared held-out corridor metric.
 It does not establish downstream language quality, quality per byte, scale, or
 RADLADS parity. P153 measures the corridor pass as a process.
+P153.1 calibrates four explicit corridor-force profiles using those P153
+trajectories. Selection is validity- and reliability-gated, prefers the
+smallest sufficient profile, and requires three complete seeds per profile for
+publication-grade evidence. It does not enter the exemplar cycle.

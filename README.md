@@ -7,7 +7,7 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P153, Corridor-Pass Measurement Harness. The Pallas
+Current phase: P153.1, Corridor Aggressiveness Profile Calibration. The Pallas
 runway is closed after a recorded real TPU v5 lite smoke pass for the tiny
 opt-in Pallas WKV path, the cascaded target pipeline has been merged into main,
 and behavioral fingerprint corridor training is wired into the main staged
@@ -45,6 +45,12 @@ P153 turns Cycle 1 into a measured trajectory with step-0 and cadence-based
 held-out evaluation, distance-to-corridor metrics, entry/stability detection,
 periodic checkpoints, stopping receipts, and explicit record/token/byte/time
 accounting.
+P153.1 runs that same fixed-step harness across `rock_hammer`, `ball_peen`,
+`sledgehammer`, and `gallagher`. It records resolved force settings, fairness,
+seed-level instability diagnostics, bootstrap summaries, and a conservative
+minimum-sufficient-force selection. One-seed runs are smoke evidence only;
+publication-grade calibration requires at least three complete seeds per
+profile. This phase does not run the exemplar cycle or claim model quality.
 
 Current emphasis is behavioral fingerprint integration, teacher-pure capture
 planning, teacher backend modularity, vocab contracts, target stores, the
@@ -180,6 +186,7 @@ The behavioral fingerprint miniature arc is documented in:
 - `docs/P152_HELD_OUT_FINGERPRINT_EVALUATION.md`
 - `docs/P152_1_CHECKPOINT_LINEAGE_BINDING.md`
 - `docs/P153_CORRIDOR_PASS_MEASUREMENT.md`
+- `docs/P153_1_CORRIDOR_AGGRESSIVENESS_CALIBRATION.md`
 
 The fingerprint work now covers real registered-student integration, main
 runner corridor training, tiny real-teacher artifact capture, and a matched

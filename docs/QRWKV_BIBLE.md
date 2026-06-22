@@ -3170,3 +3170,19 @@ threshold for consecutive evaluations and never starts exemplar training.
 P153 measures corridor process efficiency only; it makes no final-quality,
 quality-per-byte, scale, or RADLADS claim. P154 owns the standalone exemplar
 pass.
+
+## Phase 153.1 — Corridor Aggressiveness Profile Calibration
+
+P153.1 preserves the corridor-only Cycle 1 boundary and executes the P153
+fixed-step harness for four explicit presets and aligned seeds. Resolved
+configuration and override provenance are artifacts, not hidden runner state.
+The comparison holds architecture, backend, initialization procedure, data,
+batching, budget, cadence, optimizer family, and seed set fixed.
+
+Profile evidence includes stable entry, exit after entry, rebound, trajectory
+variance, clipping, gradient spikes, parameter movement, resources, timing,
+and safety aborts. Deterministic bootstrap summaries and paired-seed deltas
+support a validity-first, reliability-first, minimum-sufficient-force choice.
+One seed is smoke evidence; three complete seeds per profile are the minimum
+publication-grade matrix. P153.1 does not run exemplars or establish final
+quality, quality-per-byte, scale, or RADLADS parity.

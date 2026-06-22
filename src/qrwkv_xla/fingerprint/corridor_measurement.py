@@ -32,10 +32,6 @@ from qrwkv_xla.fingerprint.provenance import (
 from qrwkv_xla.optimizers import OptimizerConfig, init_optimizer_state, optimizer_update
 from qrwkv_xla.students import create_student_backend
 from qrwkv_xla.trainers.state import TrainState
-from qrwkv_xla.training.fingerprint_loss import (
-    FingerprintCorridorLossConfig,
-    compute_fingerprint_corridor_loss,
-)
 from qrwkv_xla.training.fingerprint_stats import (
     compute_fingerprint_distribution_stats_at_positions,
 )
@@ -49,6 +45,7 @@ STOP_REASONS = {
     "non_finite_gradient",
     "checkpoint_failure",
     "evaluation_failure",
+    "stability_abort",
     "user_abort",
 }
 
@@ -66,6 +63,20 @@ class CorridorMeasurementConfig:
     optimizer: str = "adamw"
     learning_rate: float = 1e-4
     max_grad_norm: float | None = 1.0
+    corridor_loss_weight: float = 1.0
+    penalty_kind: str = "powered_hinge"
+    penalty_power: float = 2.0
+    entropy_weight: float = 1.0
+    top1_margin_weight: float = 1.0
+    top8_mass_weight: float = 1.0
+    top32_mass_weight: float = 1.0
+    tail_mass_weight: float = 1.0
+    worst_stat_boost: float = 1.0
+    distance_normalization: str = "none"
+    stability_abort_enabled: bool = True
+    parameter_norm_limit: float = 1e6
+    gradient_norm_hard_limit: float = 1e6
+    held_out_loss_abort_multiple: float = 100.0
     seed: int = 0
     initial_checkpoint: Path | None = None
     student_backend: str = "current_qrwkv"
@@ -229,6 +240,7 @@ def run_corridor_measurement(
         backend,
         optimizer_config=optimizer_config,
         max_grad_norm=config.max_grad_norm,
+        config=config,
     )
     jax_batches = tuple(_batch_to_jax(batch) for batch in train_batches)
     record_sizes = _target_record_sizes(config.fingerprint_artifact)
@@ -248,6 +260,7 @@ def run_corridor_measurement(
         backend,
         state.params,
         train_batches[0],
+        config=config,
     )
 
     checkpoint_started = time.perf_counter()
@@ -335,12 +348,6 @@ def run_corridor_measurement(
         jax.block_until_ready(state.params)
         training_seconds += time.perf_counter() - train_started
         grad_metrics = {key: float(value) for key, value in raw_metrics.items()}
-        if not math.isfinite(grad_metrics["loss"]):
-            stop_reason = "non_finite_loss"
-            break
-        if not math.isfinite(grad_metrics["grad_global_norm"]):
-            stop_reason = "non_finite_gradient"
-            break
         completed_steps = local_step
         batch = train_batches[batch_index]
         size = int(batch.input_ids.shape[0])
@@ -351,6 +358,18 @@ def run_corridor_measurement(
         artifact_bytes_logically_consumed += sum(
             record_sizes[index] for index in indices
         )
+        if not math.isfinite(grad_metrics["loss"]):
+            stop_reason = "non_finite_loss"
+            break
+        if not math.isfinite(grad_metrics["grad_global_norm"]):
+            stop_reason = "non_finite_gradient"
+            break
+        if config.stability_abort_enabled and (
+            grad_metrics["grad_global_norm"] > config.gradient_norm_hard_limit
+            or _tree_norm(state.params) > config.parameter_norm_limit
+        ):
+            stop_reason = "stability_abort"
+            break
         last_training_metrics = {
             "corridor_loss": grad_metrics["loss"],
             "inside_all_rate": grad_metrics["inside_all_rate"],
@@ -378,18 +397,33 @@ def run_corridor_measurement(
                 )
             )
             held_out_evaluation_seconds += time.perf_counter() - eval_started
+            if (
+                config.stability_abort_enabled
+                and held_out["corridor_loss"]
+                > max(
+                    trajectory[0]["held_out_corridor_loss"],
+                    1e-12,
+                )
+                * config.held_out_loss_abort_multiple
+            ):
+                stop_reason = "stability_abort"
             entries = detect_corridor_entries(
                 trajectory,
                 threshold=config.corridor_entry_threshold,
                 stable_entry_evals=config.stable_entry_evals,
             )
-            if config.stop_on_stable_entry and entries["stable_entry_achieved"]:
+            if (
+                stop_reason != "stability_abort"
+                and config.stop_on_stable_entry
+                and entries["stable_entry_achieved"]
+            ):
                 stop_reason = "stable_corridor_entry"
 
         should_checkpoint = (
             local_step % config.checkpoint_every == 0
             or local_step == config.steps
             or stop_reason == "stable_corridor_entry"
+            or stop_reason == "stability_abort"
         )
         if should_checkpoint:
             checkpoint_started = time.perf_counter()
@@ -401,7 +435,7 @@ def run_corridor_measurement(
                 artifact_lineage=artifact_lineage,
             )
             checkpoint_write_seconds += time.perf_counter() - checkpoint_started
-        if stop_reason == "stable_corridor_entry":
+        if stop_reason in {"stable_corridor_entry", "stability_abort"}:
             break
 
     training_finished_at = _utc_now()
@@ -518,11 +552,42 @@ def run_corridor_measurement(
         "resource_accounting": resource,
         "wall_clock": timing,
         "corridor_aggressiveness": {
-            "corridor_loss_weight": 1.0,
-            "per_stat_weights": {name: 1.0 for name in STAT_NAMES},
+            "corridor_loss_weight": config.corridor_loss_weight,
+            "penalty_kind": config.penalty_kind,
+            "penalty_power": config.penalty_power,
+            "per_stat_weights": {
+                "entropy": config.entropy_weight,
+                "top1_margin": config.top1_margin_weight,
+                "top8_mass": config.top8_mass_weight,
+                "top32_mass": config.top32_mass_weight,
+                "tail_mass": config.tail_mass_weight,
+            },
+            "worst_stat_boost": config.worst_stat_boost,
+            "adaptive_weighting_enabled": False,
+            "distance_normalization": config.distance_normalization,
             "learning_rate": config.learning_rate,
             "max_grad_norm": config.max_grad_norm,
+            "stability_abort_enabled": config.stability_abort_enabled,
         },
+        "abort_guard_config": {
+            "parameter_norm_limit": config.parameter_norm_limit,
+            "gradient_norm_hard_limit": config.gradient_norm_hard_limit,
+            "held_out_loss_abort_multiple": config.held_out_loss_abort_multiple,
+        },
+        "abort_triggered": stop_reason
+        in {"stability_abort", "non_finite_loss", "non_finite_gradient"},
+        "abort_reason": (
+            stop_reason
+            if stop_reason
+            in {"stability_abort", "non_finite_loss", "non_finite_gradient"}
+            else None
+        ),
+        "abort_step": (
+            completed_steps
+            if stop_reason
+            in {"stability_abort", "non_finite_loss", "non_finite_gradient"}
+            else None
+        ),
         "lineage": lineage_receipt,
         "checkpoint": {
             "final_dir": str(final_checkpoint),
@@ -577,6 +642,33 @@ def _validate_config(config: CorridorMeasurementConfig) -> None:
         raise ValueError("learning_rate must be > 0")
     if config.max_grad_norm is not None and config.max_grad_norm <= 0:
         raise ValueError("max_grad_norm must be > 0 when set")
+    if config.corridor_loss_weight <= 0:
+        raise ValueError("corridor_loss_weight must be > 0")
+    if config.penalty_kind != "powered_hinge":
+        raise ValueError("penalty_kind must be 'powered_hinge'")
+    if config.penalty_power < 1.0:
+        raise ValueError("penalty_power must be >= 1")
+    if any(
+        weight < 0
+        for weight in (
+            config.entropy_weight,
+            config.top1_margin_weight,
+            config.top8_mass_weight,
+            config.top32_mass_weight,
+            config.tail_mass_weight,
+        )
+    ):
+        raise ValueError("per-stat weights must be >= 0")
+    if config.worst_stat_boost < 1.0:
+        raise ValueError("worst_stat_boost must be >= 1")
+    if config.distance_normalization not in {"none", "corridor_width"}:
+        raise ValueError("distance_normalization must be 'none' or 'corridor_width'")
+    if config.parameter_norm_limit <= 0:
+        raise ValueError("parameter_norm_limit must be > 0")
+    if config.gradient_norm_hard_limit <= 0:
+        raise ValueError("gradient_norm_hard_limit must be > 0")
+    if config.held_out_loss_abort_multiple <= 1.0:
+        raise ValueError("held_out_loss_abort_multiple must be > 1")
     if not 0.0 <= config.corridor_entry_threshold <= 1.0:
         raise ValueError("corridor_entry_threshold must be within [0, 1]")
     if config.stable_entry_evals < 1:
@@ -698,6 +790,7 @@ def _make_train_step(
     *,
     optimizer_config: OptimizerConfig,
     max_grad_norm: float | None,
+    config: CorridorMeasurementConfig,
 ):
     def train_step(
         state: TrainState,
@@ -709,12 +802,12 @@ def _make_train_step(
                 backend.logits(output),
                 batch["position"],
             )
-            corridor = compute_fingerprint_corridor_loss(
+            loss, inside_all_rate = _aggressive_corridor_loss(
                 stats,
                 _jax_fingerprint_batch(batch),
-                FingerprintCorridorLossConfig(),
+                config,
             )
-            return corridor.loss, corridor.all_inside_rate
+            return loss, inside_all_rate
 
         (loss, inside_all_rate), grads = jax.value_and_grad(
             loss_fn,
@@ -738,6 +831,26 @@ def _make_train_step(
             state.optimizer_state,
             update_config,
         )
+        candidate_norm = jnp.sqrt(
+            sum(jnp.sum(jnp.square(leaf)) for leaf in jax.tree_util.tree_leaves(params))
+        )
+        update_is_safe = (
+            jnp.isfinite(loss)
+            & jnp.isfinite(clipped.global_norm)
+            & (clipped.global_norm <= config.gradient_norm_hard_limit)
+            & jnp.isfinite(candidate_norm)
+            & (candidate_norm <= config.parameter_norm_limit)
+        )
+        params = jax.tree_util.tree_map(
+            lambda candidate, previous: jnp.where(update_is_safe, candidate, previous),
+            params,
+            state.params,
+        )
+        optimizer_state = jax.tree_util.tree_map(
+            lambda candidate, previous: jnp.where(update_is_safe, candidate, previous),
+            optimizer_state,
+            state.optimizer_state,
+        )
         return (
             TrainState(
                 params=params,
@@ -760,6 +873,8 @@ def _evaluate_training_batch(
     backend: Any,
     params: Any,
     batch: FingerprintBatch,
+    *,
+    config: CorridorMeasurementConfig,
 ) -> dict[str, float]:
     output, _ = backend.forward_full(
         params,
@@ -769,14 +884,54 @@ def _evaluate_training_batch(
         backend.logits(output),
         jnp.asarray(batch.position, dtype=jnp.int32),
     )
-    corridor = compute_fingerprint_corridor_loss(
+    loss, inside_all_rate = _aggressive_corridor_loss(
         stats,
         _jax_fingerprint_batch(_batch_to_jax(batch)),
+        config,
     )
     return {
-        "corridor_loss": float(corridor.loss),
-        "inside_all_rate": float(corridor.all_inside_rate),
+        "corridor_loss": float(loss),
+        "inside_all_rate": float(inside_all_rate),
     }
+
+
+def _aggressive_corridor_loss(
+    stats: Any,
+    batch: FingerprintBatch,
+    config: CorridorMeasurementConfig,
+) -> tuple[jax.Array, jax.Array]:
+    weights = {
+        "entropy": config.entropy_weight,
+        "top1_margin": config.top1_margin_weight,
+        "top8_mass": config.top8_mass_weight,
+        "top32_mass": config.top32_mass_weight,
+        "tail_mass": config.tail_mass_weight,
+    }
+    penalties = []
+    inside = []
+    for name in STAT_NAMES:
+        values = jnp.asarray(getattr(stats, name))
+        lower = jnp.asarray(getattr(batch, f"{name}_min"))
+        upper = jnp.asarray(getattr(batch, f"{name}_max"))
+        distance = jnp.maximum(lower - values, 0.0) + jnp.maximum(
+            values - upper,
+            0.0,
+        )
+        if config.distance_normalization == "corridor_width":
+            distance = distance / jnp.maximum(upper - lower, 1e-8)
+        penalties.append(jnp.power(distance, config.penalty_power) * weights[name])
+        inside.append(distance == 0.0)
+    stacked = jnp.stack(penalties, axis=-1)
+    per_record = jnp.sum(stacked, axis=-1) + (config.worst_stat_boost - 1.0) * jnp.max(
+        stacked, axis=-1
+    )
+    record_weights = jnp.asarray(batch.weight, dtype=jnp.float32)
+    loss = config.corridor_loss_weight * (
+        jnp.sum(per_record * record_weights)
+        / jnp.maximum(jnp.sum(record_weights), 1e-8)
+    )
+    all_inside = jnp.all(jnp.stack(inside, axis=-1), axis=-1)
+    return loss, jnp.mean(all_inside.astype(jnp.float32))
 
 
 def _evaluate_held_out(
@@ -868,19 +1023,25 @@ def _trajectory_point(
         "tokens_consumed": tokens_consumed,
         "artifact_bytes_read": artifact_bytes_read,
         "training_corridor_loss": training_metrics["corridor_loss"],
-        "held_out_corridor_loss": held_out.pop("corridor_loss"),
+        "held_out_corridor_loss": held_out["corridor_loss"],
         "grad_global_norm": (
-            None if grad_metrics is None else grad_metrics["grad_global_norm"]
+            None
+            if grad_metrics is None
+            or not math.isfinite(grad_metrics["grad_global_norm"])
+            else grad_metrics["grad_global_norm"]
         ),
         "grad_clip_scale": (
-            None if grad_metrics is None else grad_metrics["grad_clip_scale"]
+            None
+            if grad_metrics is None
+            or not math.isfinite(grad_metrics["grad_clip_scale"])
+            else grad_metrics["grad_clip_scale"]
         ),
         "parameter_delta_from_initial": _tree_delta_norm(
             initial_params,
             params,
         ),
         "learning_rate": learning_rate,
-        **held_out,
+        **{key: value for key, value in held_out.items() if key != "corridor_loss"},
     }
     return point
 
@@ -1126,6 +1287,17 @@ def _tree_delta_norm(before: Any, after: Any) -> float:
             sum(
                 float(np.sum(np.square(np.asarray(b) - np.asarray(a))))
                 for a, b in zip(left, right, strict=True)
+            )
+        )
+    )
+
+
+def _tree_norm(tree: Any) -> float:
+    return float(
+        np.sqrt(
+            sum(
+                float(np.sum(np.square(np.asarray(leaf))))
+                for leaf in jax.tree_util.tree_leaves(tree)
             )
         )
     )

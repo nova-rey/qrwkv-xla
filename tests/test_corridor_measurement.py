@@ -10,10 +10,12 @@ import numpy as np
 import pytest
 
 from qrwkv_xla.fingerprint import (
+    AggressivenessCalibrationConfig,
     CorridorMeasurementConfig,
     TinyRealTeacherFingerprintCaptureConfig,
     corridor_distance,
     detect_corridor_entries,
+    run_aggressiveness_calibration,
     run_corridor_measurement,
     run_tiny_real_teacher_fingerprint_capture,
     write_fingerprint_provenance,
@@ -183,6 +185,68 @@ def test_corridor_measurement_integration(tmp_path: Path) -> None:
         "checkpoint_lineage_validation.json",
     ):
         assert (result.output_dir / name).is_file()
+
+
+def test_aggressiveness_calibration_four_profile_smoke(tmp_path: Path) -> None:
+    train_source = _source_file(
+        tmp_path / "train.jsonl", "p1531-train", ("Alpha signal.", "Beta state.")
+    )
+    held_source = _source_file(
+        tmp_path / "held.jsonl", "p1531-held", ("Gamma path.", "Delta pulse.")
+    )
+    backend = _fake_backend(16)
+    train_artifact = _capture(
+        tmp_path / "train_artifact", train_source, "p1531-train", backend
+    )
+    held_artifact = _capture(
+        tmp_path / "held_artifact", held_source, "p1531-held", backend
+    )
+    write_fingerprint_provenance(
+        train_artifact, source_file=train_source, artifact_role="training"
+    )
+    write_fingerprint_provenance(
+        held_artifact,
+        source_file=held_source,
+        artifact_role="held_out_evaluation",
+    )
+    output = tmp_path / "p1531"
+    result = run_aggressiveness_calibration(
+        AggressivenessCalibrationConfig(
+            fingerprint_artifact=train_artifact,
+            held_out_fingerprint_artifact=held_artifact,
+            source_texts=train_source,
+            output_dir=output,
+            seeds=(0,),
+            steps=1,
+            eval_every=1,
+            checkpoint_every=1,
+            batch_size=1,
+            optimizer="sgd",
+            bootstrap_samples=20,
+            overwrite=True,
+        )
+    )
+    report = _json(result.report_path)
+    assert result.status == "pass"
+    assert report["seed_count"] == 1
+    assert report["publication_grade"] is False
+    for profile in ("rock_hammer", "ball_peen", "sledgehammer", "gallagher"):
+        assert (
+            output
+            / "profiles"
+            / profile
+            / "seed_0"
+            / "corridor_measurement_report.json"
+        ).is_file()
+    for name in (
+        "profile_fairness_contract.json",
+        "resolved_profile_configs.json",
+        "profile_seed_metrics.jsonl",
+        "profile_summary_metrics.json",
+        "paired_profile_deltas.jsonl",
+        "profile_ranking.json",
+    ):
+        assert (output / name).is_file()
 
 
 def _source_file(path: Path, prefix: str, texts: tuple[str, ...]) -> Path:
