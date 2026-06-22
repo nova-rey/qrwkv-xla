@@ -3107,3 +3107,25 @@ P151 writes canonical per-arm checkpoints and metrics plus
 `trained_baseline_summary.md`. Raw LM and corridor losses are not comparable
 quality metrics. No winner, held-out, general-quality, quality-per-byte, scale,
 or RADLADS parity claim is made. P152 supplies the held-out evaluation gate.
+
+## Phase 152 — Held-Out Fingerprint Evaluation
+
+P152 makes training/evaluation separation machine-verifiable. Each artifact
+receives a deterministic provenance sidecar covering source-file bytes,
+ordered IDs, ordered source-text hashes, tokenized inputs, capture config,
+teacher identity, split identity, and the artifact manifest. Training and
+held-out IDs, source texts, and exact token sequences must be disjoint.
+
+The evaluator loads the two P151 checkpoints as immutable inputs, verifies the
+P151 fairness report and student/checkpoint contracts, evaluates records in one
+fixed order, and confirms parameter and checkpoint hashes are unchanged. It
+writes aggregate and per-record corridor metrics, paired deltas, deterministic
+bootstrap confidence intervals, optional dense-teacher distribution metrics,
+runtime measurements, provenance, validation reports, and an evaluation
+receipt.
+
+The primary metric is predeclared as held-out corridor loss with lower values
+preferred. A confidence interval spanning zero forces `inconclusive`. Any
+winner is scoped only to this held-out fingerprint set and metric. P152 makes
+no general-quality, quality-per-byte, scale, downstream benchmark, or RADLADS
+parity claim. P153 measures corridor-pass process efficiency.

@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 151
-current_phase: P151
-checkpoint: trained_baseline_arm
+phase: 152
+current_phase: P152
+checkpoint: held_out_fingerprint_evaluation
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,15 +56,15 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Establish a fair trained causal-LM comparator for fingerprint corridor
-  training under shared initialization and matched training budgets.
+  Evaluate the matched P151 checkpoints on a provenance-hardened, disjoint
+  held-out behavioral fingerprint artifact without additional training.
 
 current_arc: controlled_fingerprint_scaling_and_stronger_baselines
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P152 held-out fingerprint evaluation artifact and shared evaluation harness
+  - P153 corridor-pass measurement harness
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -96,6 +96,7 @@ arc_status:
   first_quality_per_byte_experiment: complete
   arc2_report_go_no_go: complete
   trained_baseline_arm: complete
+  held_out_fingerprint_evaluation: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -264,6 +265,18 @@ main_contains:
   p151_comparison_fairness: matched_training_budget
   p151_winner_declared: false
   p151_held_out_evaluation_available: false
+  p152_provenance_sidecar_contract: true
+  p152_id_and_token_split_proof: true
+  p152_checkpoint_contract_validation: true
+  p152_read_only_evaluation: true
+  p152_per_record_paired_metrics: true
+  p152_deterministic_bootstrap_ci: true
+  p152_predeclared_primary_metric: held_out_corridor_loss_total
+  p152_narrow_winner_scope: held_out_fingerprint_primary_metric_only
+  p152_general_quality_claims: false
+  p152_quality_per_byte_claims: false
+  p152_scale_claims: false
+  p152_radlads_parity_claims: false
 
 teacher_target_types:
   - dense_logits

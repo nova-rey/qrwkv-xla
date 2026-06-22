@@ -7,7 +7,7 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P151, Trained Baseline Arm. The Pallas
+Current phase: P152, Held-Out Fingerprint Evaluation. The Pallas
 runway is closed after a recorded real TPU v5 lite smoke pass for the tiny
 opt-in Pallas WKV path, the cascaded target pipeline has been merged into main,
 and behavioral fingerprint corridor training is wired into the main staged
@@ -33,6 +33,10 @@ Both trained arms use the same registered student, byte-identical shared
 initialization, source-example identities, optimizer, learning rate, batch
 size, sequence length, and step budget. The comparison remains winner-free
 until P152 adds shared held-out evaluation.
+P152 adds that gate with deterministic artifact provenance, fail-closed split
+proof, immutable checkpoint evaluation, paired per-record statistics, and a
+predeclared held-out corridor metric. Any winner is scoped only to that held-out
+fingerprint metric.
 
 Current emphasis is behavioral fingerprint integration, teacher-pure capture
 planning, teacher backend modularity, vocab contracts, target stores, the
@@ -165,6 +169,7 @@ The behavioral fingerprint miniature arc is documented in:
 - `docs/P148_FIRST_QUALITY_PER_BYTE_EXPERIMENT.md`
 - `docs/P149_ARC2_REPORT_GO_NO_GO.md`
 - `docs/P151_TRAINED_BASELINE_ARM.md`
+- `docs/P152_HELD_OUT_FINGERPRINT_EVALUATION.md`
 
 The fingerprint work now covers real registered-student integration, main
 runner corridor training, tiny real-teacher artifact capture, and a matched

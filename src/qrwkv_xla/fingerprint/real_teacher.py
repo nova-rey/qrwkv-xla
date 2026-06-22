@@ -58,6 +58,7 @@ class TinyRealTeacherFingerprintCaptureConfig:
     exemplar_selection_policy: str = "stratified_interestingness_v0"
     per_mode_min: int = 1
     consumer_vocab_limit: int = DEFAULT_CONSUMER_VOCAB_LIMIT
+    example_id_prefix: str = "p145-real-teacher"
 
 
 @dataclass(frozen=True)
@@ -123,7 +124,7 @@ def run_tiny_real_teacher_fingerprint_capture(
     vocab_size = int(logits.shape[-1])
     examples = tuple(
         FingerprintCaptureExample(
-            example_id=f"p145-real-teacher-{index:06d}",
+            example_id=f"{config.example_id_prefix}-{index:06d}",
             input_ids=tuple(int(token) for token in input_ids[index]),
             logits=logits[index],
         )
@@ -236,6 +237,8 @@ def load_text_fixture(path: str | Path) -> tuple[str, ...]:
 
 
 def _validate_config(config: TinyRealTeacherFingerprintCaptureConfig) -> None:
+    if not config.example_id_prefix.strip():
+        raise ValueError("example_id_prefix must be non-empty")
     if config.sequence_length <= 0:
         raise ValueError("sequence_length must be > 0")
     if config.max_examples <= 0:

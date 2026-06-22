@@ -22,6 +22,16 @@ from qrwkv_xla.fingerprint.capture import (
     build_synthetic_capture_examples,
     capture_fingerprint_artifact,
 )
+from qrwkv_xla.fingerprint.held_out_evaluation import (
+    HeldOutFingerprintEvaluationConfig,
+    HeldOutFingerprintEvaluationResult,
+    paired_bootstrap_interval,
+    run_held_out_fingerprint_evaluation,
+    select_held_out_winner,
+    stable_hash,
+    validate_fingerprint_provenance,
+    write_fingerprint_provenance,
+)
 from qrwkv_xla.fingerprint.quality_per_byte import (
     FingerprintQualityPerByteExperimentConfig,
     FingerprintQualityPerByteExperimentResult,
@@ -66,6 +76,8 @@ __all__ = [
     "FingerprintQualityPerByteExperimentResult",
     "FingerprintTrainedBaselineConfig",
     "FingerprintTrainedBaselineResult",
+    "HeldOutFingerprintEvaluationConfig",
+    "HeldOutFingerprintEvaluationResult",
     "DEFAULT_TINY_TEXTS",
     "RealTeacherFingerprintTrainingRehearsalConfig",
     "RealTeacherFingerprintTrainingRehearsalResult",
@@ -78,10 +90,16 @@ __all__ = [
     "load_text_fixture",
     "masked_causal_lm_loss",
     "parameter_fingerprint",
+    "paired_bootstrap_interval",
     "run_fingerprint_baseline_comparison",
     "run_fingerprint_arc2_report",
     "run_fingerprint_quality_per_byte_experiment",
     "run_fingerprint_trained_baseline_comparison",
+    "run_held_out_fingerprint_evaluation",
     "run_real_teacher_fingerprint_training_rehearsal",
     "run_tiny_real_teacher_fingerprint_capture",
+    "select_held_out_winner",
+    "stable_hash",
+    "validate_fingerprint_provenance",
+    "write_fingerprint_provenance",
 ]

@@ -2244,3 +2244,21 @@ training arms pass.
 P151 does not compare raw LM and corridor losses as equivalent metrics and does
 not declare a winner or quality-per-byte result. P152 is the held-out
 fingerprint evaluation artifact and shared evaluation gate.
+
+## Phase 152 — Held-Out Fingerprint Evaluation
+
+P152 defines deterministic provenance sidecars for training and held-out
+fingerprint artifacts, including source, ordered ID, ordered text, tokenized
+input, capture configuration, teacher identity, split, and artifact hashes.
+Evaluation fails closed on split overlap, hash drift, artifact incompatibility,
+invalid P151 fairness, or checkpoint-contract mismatch.
+
+Both immutable P151 checkpoints are evaluated in the same record order under a
+predeclared held-out corridor-loss metric. Reports include per-record values,
+paired deltas, deterministic bootstrap intervals, inside-rate and
+distance-to-corridor metrics, teacher-distribution metrics where dense targets
+exist, and descriptive runtime measurements.
+
+P152 may declare only a held-out-fingerprint-metric winner; bootstrap intervals
+that include zero produce `inconclusive`. P153 measures corridor-pass entry and
+efficiency trajectories.

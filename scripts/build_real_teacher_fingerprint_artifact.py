@@ -37,6 +37,7 @@ def main() -> int:
     )
     parser.add_argument("--per-mode-min", type=int, default=1)
     parser.add_argument("--consumer-vocab-limit", type=int, default=4096)
+    parser.add_argument("--example-id-prefix", default="p145-real-teacher")
     parser.add_argument("--local-files-only", action="store_true", default=True)
     parser.add_argument("--allow-downloads", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
@@ -62,6 +63,7 @@ def main() -> int:
                 exemplar_selection_policy=args.exemplar_selection_policy,
                 per_mode_min=args.per_mode_min,
                 consumer_vocab_limit=args.consumer_vocab_limit,
+                example_id_prefix=args.example_id_prefix,
             )
         )
     except HFTeacherUnavailable as exc:

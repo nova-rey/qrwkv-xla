@@ -18,6 +18,8 @@ deltas from that scoreboard. P149 closes the arc with a constrained go/no-go
 report.
 P151 opens the controlled-scaling arc with a matched trained causal-LM
 baseline and shared initialization contract.
+P152 adds a disjoint held-out artifact contract and shared read-only evaluation
+harness with paired bootstrap statistics.
 
 The remaining work should move from Arc 2 smoke evidence to larger controlled
 fingerprint experiments with trained baseline and held-out evaluation gates.
@@ -40,11 +42,12 @@ Current:
 - P148 tiny corridor-adherence-per-artifact-byte smoke
 - P149 arc report / go-with-constraints recommendation
 - P151 matched trained baseline vs corridor comparison
+- P152 held-out split proof and paired checkpoint evaluation
 - no exemplar reservoir or mixed objective in the main runner yet
 
 Needed:
 
-- shared held-out evaluation before method-vs-method claims
+- broader held-out measurement before general method claims
 - held-out tiny eval artifact before stronger quality-per-byte language
 - later mixed/exemplar extension if justified
 - report fields that distinguish rehearsal, real runs, and science results
@@ -112,3 +115,7 @@ readiness, scale readiness, RADLADS parity, or a trained-baseline win.
 P151 closes the trained-baseline gap but still does not permit a winner or
 quality claim. The next gate is a distinct held-out fingerprint artifact and
 shared evaluation harness.
+
+P152 permits only a narrow winner on the predeclared held-out corridor metric.
+It does not establish downstream language quality, quality per byte, scale, or
+RADLADS parity. P153 measures the corridor pass as a process.
