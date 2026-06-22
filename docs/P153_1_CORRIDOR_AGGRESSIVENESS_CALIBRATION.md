@@ -1,6 +1,6 @@
-# P153.1.1 Aggressiveness Selection Safety Cleanup
+# P153.1.2 Statistical Tie and Entry-Cost Selection Integrity
 
-P153.1 establishes the four explicit corridor-force presets. P153.1.1 keeps
+P153.1 establishes the four explicit corridor-force presets. P153.1.2 keeps
 that fixed-step calibration matrix intact and closes the remaining selection
 safety gap: fast destructive, incomplete, invalid, or too-weak profiles are
 reported but cannot win.
@@ -27,8 +27,10 @@ config are written beside the unchanged per-seed P153 output trees. Four
 profiles by one seed is a local/CI smoke. At least three complete aligned
 seeds per profile are required for publication-grade calibration.
 
-Selection order is explicit: validity, completeness, reliability, efficiency,
-then minimum sufficient force. Paired bootstrap tie handling is deterministic;
-if the primary efficiency delta is inconclusive, the lower aggressiveness rank
-wins. An inconclusive experiment does not force a winner. Reports make no
+Selection order is explicit: validity, completeness, reliability, aggregate
+validation, statistical efficiency, then minimum sufficient force. Entry costs
+come from the exact stable-entry trajectory row. A paired bootstrap interval
+that includes zero is a tie and the lower aggressiveness rank wins; raw medians
+cannot override it. Failed aggregate validation blocks selection and forces the
+top-level status to fail. Reports make no
 general-quality, quality-per-byte, scale, or RADLADS parity claim.

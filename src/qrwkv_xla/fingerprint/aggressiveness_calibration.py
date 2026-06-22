@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
-from functools import cmp_to_key
 from itertools import combinations
 from pathlib import Path
 from typing import Any
@@ -141,8 +140,78 @@ def select_profile(
         "bootstrap_samples": bootstrap_samples,
         "bootstrap_seed": bootstrap_seed,
     }
-    selected, ranked, _ = _select_profile_with_receipt(summaries, policy)
+    selected, ranked, _, _ = _select_profile_with_receipt(summaries, policy)
     return selected, ranked
+
+
+def extract_exact_stable_entry_costs(
+    report: dict[str, Any], trajectory: list[dict[str, Any]]
+) -> dict[str, Any]:
+    stable_step = report["first_stable_entry_step"]
+    empty = {
+        "steps_to_stable_entry": None,
+        "seconds_to_stable_entry": None,
+        "records_to_stable_entry": None,
+        "tokens_to_stable_entry": None,
+        "bytes_to_stable_entry": None,
+        "entry_cost_source": None,
+        "entry_cost_trajectory_step": None,
+        "entry_cost_lookup_valid": True,
+        "entry_cost_lookup_error": None,
+    }
+    if stable_step is None:
+        return empty
+    matches = [row for row in trajectory if row.get("optimizer_step") == stable_step]
+    if len(matches) != 1:
+        return {
+            **empty,
+            "steps_to_stable_entry": stable_step,
+            "entry_cost_lookup_valid": False,
+            "entry_cost_lookup_error": "exact_entry_row_count_not_one",
+        }
+    row = matches[0]
+    canonical_fields = {
+        "seconds_to_stable_entry": "wall_clock_seconds",
+        "records_to_stable_entry": "records_consumed",
+        "tokens_to_stable_entry": "tokens_consumed",
+        "bytes_to_stable_entry": "artifact_bytes_read",
+    }
+    values: dict[str, float | int] = {}
+    for output_name, trajectory_name in canonical_fields.items():
+        value = row.get(trajectory_name)
+        if value is None or not math.isfinite(float(value)) or float(value) < 0.0:
+            return {
+                **empty,
+                "steps_to_stable_entry": stable_step,
+                "entry_cost_trajectory_step": stable_step,
+                "entry_cost_lookup_valid": False,
+                "entry_cost_lookup_error": f"invalid_{trajectory_name}",
+            }
+        values[output_name] = value
+    final_values = {
+        "seconds_to_stable_entry": report["wall_clock"]["total_wall_clock_seconds"],
+        "records_to_stable_entry": report["resource_accounting"]["total_record_visits"],
+        "tokens_to_stable_entry": report["resource_accounting"]["tokens_consumed"],
+        "bytes_to_stable_entry": report["resource_accounting"][
+            "artifact_bytes_logically_consumed"
+        ],
+    }
+    if any(float(values[key]) > float(final_values[key]) for key in values):
+        return {
+            **empty,
+            "steps_to_stable_entry": stable_step,
+            "entry_cost_trajectory_step": stable_step,
+            "entry_cost_lookup_valid": False,
+            "entry_cost_lookup_error": "entry_cost_exceeds_final_total",
+        }
+    return {
+        "steps_to_stable_entry": stable_step,
+        **values,
+        "entry_cost_source": "trajectory_exact_step",
+        "entry_cost_trajectory_step": stable_step,
+        "entry_cost_lookup_valid": True,
+        "entry_cost_lookup_error": None,
+    }
 
 
 def run_aggressiveness_calibration(
@@ -202,22 +271,22 @@ def run_aggressiveness_calibration(
             )
             report = read_json_object(run_dir / "corridor_measurement_report.json")
             trajectory = _read_jsonl(run_dir / "corridor_trajectory.jsonl")
-            rows.append(
-                _seed_metrics(
-                    profile.to_dict(),
-                    seed,
-                    report,
-                    trajectory,
-                    config,
-                    run_dir=run_dir,
-                )
+            seed_metrics = _seed_metrics(
+                profile.to_dict(),
+                seed,
+                report,
+                trajectory,
+                config,
+                run_dir=run_dir,
             )
+            rows.append(seed_metrics)
             aggregate_checks.append(
                 _validate_seed_aggregate(
                     profile_name=profile.profile_name,
                     seed=seed,
                     trajectory=trajectory,
                     report=report,
+                    seed_metrics=seed_metrics,
                 )
             )
     summaries = [
@@ -232,9 +301,19 @@ def run_aggressiveness_calibration(
         fairness=fairness,
         seed_checks=aggregate_checks,
     )
-    selected, ranking, selection_receipt = _select_profile_with_receipt(
-        summaries,
-        _selection_policy(config, fairness["comparison_valid"]),
+    selection_allowed, selection_block_reason = derive_selection_allowed(
+        fairness=fairness,
+        aggregate_validation=aggregate_validation,
+        classification_complete=True,
+        candidate_gating_complete=True,
+    )
+    selected, ranking, selection_receipt, pairwise_comparisons = (
+        _select_profile_with_receipt(
+            summaries,
+            _selection_policy(config, fairness["comparison_valid"]),
+            selection_allowed=selection_allowed,
+            selection_block_reason=selection_block_reason,
+        )
     )
     publication_receipt = _publication_grade_receipt(
         config=config,
@@ -244,9 +323,14 @@ def run_aggressiveness_calibration(
         aggregate_validation=aggregate_validation,
         selection_receipt=selection_receipt,
     )
-    status = "pass" if fairness["comparison_valid"] else "fail"
+    status = derive_top_level_status(
+        fairness_valid=fairness["comparison_valid"],
+        aggregate_validation_status=aggregate_validation["status"],
+        selection_logic_completed=selection_receipt["selection_status"]
+        in {"selected", "no_eligible_profiles"},
+    )
     report = {
-        "phase": "P153.1.1",
+        "phase": "P153.1.2",
         "status": status,
         "cleanup_kind": "aggressiveness_selection_safety",
         "profiles": list(config.profiles),
@@ -256,6 +340,8 @@ def run_aggressiveness_calibration(
         "candidate_count": len(selection_receipt["candidate_profiles"]),
         "selected_profile": selected,
         "selection_status": selection_receipt["selection_status"],
+        "selection_allowed": selection_receipt["selection_allowed"],
+        "winner_declared": selection_receipt["winner_declared"],
         "selection_rule": selection_receipt["selection_rule"],
         "general_quality_claim_made": False,
         "quality_per_byte_claim_made": False,
@@ -275,6 +361,10 @@ def run_aggressiveness_calibration(
     write_json(config.output_dir / "profile_ranking.json", ranking)
     write_json(config.output_dir / "aggregate_validation.json", aggregate_validation)
     write_json(config.output_dir / "profile_selection_receipt.json", selection_receipt)
+    _write_jsonl(
+        config.output_dir / "pairwise_selection_comparisons.jsonl",
+        pairwise_comparisons,
+    )
     write_json(
         config.output_dir / "publication_grade_receipt.json",
         publication_receipt,
@@ -292,10 +382,17 @@ def run_aggressiveness_calibration(
     report_path = config.output_dir / "aggressiveness_calibration_report.json"
     write_json(report_path, report)
     (config.output_dir / "aggressiveness_calibration_summary.md").write_text(
-        "# P153.1.1 Aggressiveness Selection Safety Cleanup\n\n"
+        "# P153.1.2 Selection Integrity\n\n"
         f"- Status: {status}\n"
         f"- Selected profile: {selected or 'none'}\n"
         f"- Selection status: {selection_receipt['selection_status']}\n"
+        f"- Selection reason: {selection_receipt.get('selection_reason', 'none')}\n"
+        f"- Primary comparison statistically distinguishable: "
+        f"{str(selection_receipt['primary_comparison_statistically_distinguishable']).lower()}\n"
+        f"- Minimum-force tie-break used: "
+        f"{str(selection_receipt['minimum_force_tie_break_used']).lower()}\n"
+        f"- Aggregate validation passed: "
+        f"{str(aggregate_validation['status'] == 'pass').lower()}\n"
         f"- Candidate count: {len(selection_receipt['candidate_profiles'])}\n"
         f"- Publication grade: "
         f"{str(publication_receipt['publication_grade']).lower()}\n"
@@ -333,6 +430,7 @@ def _seed_metrics(
         if x["grad_clip_scale"] is not None
     ]
     resource, timing = report["resource_accounting"], report["wall_clock"]
+    entry_costs = extract_exact_stable_entry_costs(report, trajectory)
     non_finite_run = bool(
         report["stop_reason"] in {"non_finite_loss", "non_finite_gradient"}
     )
@@ -349,6 +447,7 @@ def _seed_metrics(
         "stable_entry_achieved": report["stable_entry_achieved"],
         "first_threshold_entry_step": report["first_threshold_entry_step"],
         "first_stable_entry_step": report["first_stable_entry_step"],
+        **entry_costs,
         "initial_held_out_corridor_loss": losses[0],
         "final_held_out_corridor_loss": losses[-1],
         "best_held_out_corridor_loss": min(losses),
@@ -366,6 +465,11 @@ def _seed_metrics(
         "training_seconds": timing["training_seconds"],
         "evaluation_seconds": timing["held_out_evaluation_seconds"],
         "total_wall_clock_seconds": timing["total_wall_clock_seconds"],
+        "final_steps_completed": report["completed_steps"],
+        "final_total_seconds": timing["total_wall_clock_seconds"],
+        "final_records_consumed": resource["total_record_visits"],
+        "final_tokens_consumed": resource["tokens_consumed"],
+        "final_bytes_consumed": resource["artifact_bytes_logically_consumed"],
         "parameter_delta_norm": trajectory[-1]["parameter_delta_from_initial"],
         "gradient_norms": grads,
         "gradient_spike_count": sum(
@@ -400,22 +504,22 @@ def _summarize_profile(
 ) -> dict[str, Any]:
     selected = [r for r in rows if r["profile_name"] == name]
     stable_steps = [
-        float(r["first_stable_entry_step"])
+        float(r["steps_to_stable_entry"])
         for r in selected
         if r["first_stable_entry_step"] is not None
     ]
     stable_seconds = [
-        float(r["total_wall_clock_seconds"])
+        float(r["seconds_to_stable_entry"])
         for r in selected
         if r["first_stable_entry_step"] is not None
     ]
     stable_records = [
-        float(r["records_consumed"])
+        float(r["records_to_stable_entry"])
         for r in selected
         if r["first_stable_entry_step"] is not None
     ]
     stable_bytes = [
-        float(r["artifact_bytes_logically_consumed"])
+        float(r["bytes_to_stable_entry"])
         for r in selected
         if r["first_stable_entry_step"] is not None
     ]
@@ -483,16 +587,11 @@ def _summarize_profile(
         "seed_metrics": [
             {
                 "seed": int(r["seed"]),
-                "steps_to_stable_entry": r["first_stable_entry_step"],
-                "seconds_to_stable_entry": r["total_wall_clock_seconds"]
-                if r["first_stable_entry_step"] is not None
-                else None,
-                "records_to_stable_entry": r["records_consumed"]
-                if r["first_stable_entry_step"] is not None
-                else None,
-                "bytes_to_stable_entry": r["artifact_bytes_logically_consumed"]
-                if r["first_stable_entry_step"] is not None
-                else None,
+                "steps_to_stable_entry": r["steps_to_stable_entry"],
+                "seconds_to_stable_entry": r["seconds_to_stable_entry"],
+                "records_to_stable_entry": r["records_to_stable_entry"],
+                "tokens_to_stable_entry": r["tokens_to_stable_entry"],
+                "bytes_to_stable_entry": r["bytes_to_stable_entry"],
             }
             for r in sorted(selected, key=lambda row: row["seed"])
         ],
@@ -522,28 +621,28 @@ def _selection_policy(
 
 
 def _select_profile_with_receipt(
-    summaries: list[dict[str, Any]], policy: dict[str, Any]
-) -> tuple[str | None, list[dict[str, Any]], dict[str, Any]]:
+    summaries: list[dict[str, Any]],
+    policy: dict[str, Any],
+    *,
+    selection_allowed: bool = True,
+    selection_block_reason: str | None = None,
+) -> tuple[str | None, list[dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
     ranked = [_classify_profile(summary, policy) for summary in summaries]
     candidates = [row for row in ranked if row["selection_eligible"]]
-    candidates.sort(
-        key=cmp_to_key(lambda left, right: _compare_profiles(left, right, policy))
-    )
-    selected = candidates[0]["profile_name"] if candidates else None
+    selected, comparisons = compare_eligible_profiles(candidates, policy)
+    if not selection_allowed:
+        selected = None
     candidate_names = [row["profile_name"] for row in candidates]
     excluded = {
         row["profile_name"]: row["selection_exclusion_reasons"]
         for row in ranked
         if not row["selection_eligible"]
     }
-    candidate_positions = {
-        row["profile_name"]: index for index, row in enumerate(candidates)
-    }
     ranking = sorted(
         ranked,
         key=lambda row: (
             not row["selection_eligible"],
-            candidate_positions.get(row["profile_name"], math.inf),
+            row["profile_name"] != selected,
             row["aggressiveness_rank"],
             row["profile_name"],
         ),
@@ -560,40 +659,51 @@ def _select_profile_with_receipt(
                 if not row["selection_eligible"]
                 else "deterministic_efficiency_order"
             )
+    selection_status = (
+        "selection_blocked"
+        if not selection_allowed
+        else "selected"
+        if selected
+        else "no_eligible_profiles"
+    )
+    tie_used = any(
+        row["comparison_result"] == "tie" and row["preferred_profile"] == selected
+        for row in comparisons
+    )
     receipt = {
-        "status": "pass",
+        "status": "pass" if selection_allowed else "fail",
+        "selection_allowed": selection_allowed,
         "selection_rule": "minimum_sufficient_force",
         "candidate_profiles": candidate_names,
         "excluded_profiles": excluded,
         "selected_profile": selected,
-        "selection_status": "selected" if selected else "inconclusive",
+        "selection_status": selection_status,
+        "selection_block_reason": selection_block_reason,
+        "winner_declared": selected is not None,
+        "selection_reason": "minimum_sufficient_force" if selected else None,
+        "primary_metric": "steps_to_stable_entry",
+        "primary_metric_direction": "lower_is_better",
         "primary_selection_metric": "steps_to_stable_entry",
         "primary_selection_metric_direction": "lower_is_better",
+        "statistical_method": "paired_bootstrap_ci",
         "paired_comparison_used": True,
+        "primary_comparison_statistically_distinguishable": bool(comparisons)
+        and all(row["statistically_distinguishable"] for row in comparisons),
+        "minimum_force_tie_break_used": tie_used,
         "bootstrap_samples": policy["bootstrap_samples"],
         "bootstrap_seed": policy["bootstrap_seed"],
         "tie_break_rule": (
             "if paired bootstrap interval includes zero, choose lower "
             "aggressiveness rank"
         ),
-        "selection_order": [
-            "median_steps_to_stable_entry",
-            "median_seconds_to_stable_entry",
-            "median_records_to_stable_entry",
-            "median_bytes_to_stable_entry",
-            "entry_then_exit_rate",
-            "mean_distance_rebound",
-            "mean_held_out_loss_rebound",
-            "mean_trajectory_variance",
-            "aggressiveness_rank",
-        ],
+        "selection_order": ["paired_steps_to_stable_entry", "aggressiveness_rank"],
         "thresholds": {
             key: value
             for key, value in policy.items()
             if key.startswith("required_") or key.startswith("maximum_")
         },
     }
-    return selected, ranking, receipt
+    return selected, ranking, receipt, comparisons
 
 
 def _classify_profile(
@@ -638,43 +748,79 @@ def _classify_profile(
     return row
 
 
-def _compare_profiles(
+def paired_bootstrap_compare(
     left: dict[str, Any], right: dict[str, Any], policy: dict[str, Any]
-) -> int:
-    left_steps = _metric_array(left, "steps_to_stable_entry")
-    right_steps = _metric_array(right, "steps_to_stable_entry")
-    interval = _paired_bootstrap_delta_ci(
-        left_steps,
-        right_steps,
+) -> dict[str, Any]:
+    left_map = {
+        int(row["seed"]): row["steps_to_stable_entry"] for row in left["seed_metrics"]
+    }
+    right_map = {
+        int(row["seed"]): row["steps_to_stable_entry"] for row in right["seed_metrics"]
+    }
+    if set(left_map) != set(right_map) or not left_map:
+        raise ValueError("paired comparison requires identical aligned seed sets")
+    seeds = sorted(left_map)
+    if any(left_map[s] is None or right_map[s] is None for s in seeds):
+        raise ValueError("paired comparison requires non-null aligned observations")
+    deltas = [float(left_map[s]) - float(right_map[s]) for s in seeds]
+    interval = bootstrap_ci95(
+        deltas,
         samples=policy["bootstrap_samples"],
         seed=policy["bootstrap_seed"]
         + left["aggressiveness_rank"] * 31
         + right["aggressiveness_rank"],
     )
-    if interval is not None and not (interval[0] <= 0.0 <= interval[1]):
-        if interval[1] < 0.0:
-            return 1
-        if interval[0] > 0.0:
-            return -1
-    for key in (
-        "median_steps_to_stable_entry",
-        "median_seconds_to_stable_entry",
-        "median_records_to_stable_entry",
-        "median_bytes_to_stable_entry",
-        "entry_then_exit_rate",
-        "mean_distance_rebound",
-        "mean_held_out_loss_rebound",
-        "mean_trajectory_variance",
-        "aggressiveness_rank",
-    ):
-        result = _compare_optional_numeric(left[key], right[key])
-        if result != 0:
-            return result
-    if left["profile_name"] < right["profile_name"]:
-        return -1
-    if left["profile_name"] > right["profile_name"]:
-        return 1
-    return 0
+    assert interval is not None
+    result = (
+        "left_better"
+        if interval[1] < 0
+        else "right_better"
+        if interval[0] > 0
+        else "tie"
+    )
+    preferred = (
+        left
+        if result == "left_better"
+        else right
+        if result == "right_better"
+        else min((left, right), key=lambda row: row["aggressiveness_rank"])
+    )
+    return {
+        "left_profile": left["profile_name"],
+        "right_profile": right["profile_name"],
+        "metric": "steps_to_stable_entry",
+        "direction": "lower_is_better",
+        "aligned_seeds": seeds,
+        "paired_deltas": deltas,
+        "bootstrap_samples": policy["bootstrap_samples"],
+        "bootstrap_seed": policy["bootstrap_seed"]
+        + left["aggressiveness_rank"] * 31
+        + right["aggressiveness_rank"],
+        "ci95": interval,
+        "statistically_distinguishable": result != "tie",
+        "comparison_result": result,
+        "tie_break_rule": "lower_aggressiveness_rank",
+        "preferred_profile": preferred["profile_name"],
+    }
+
+
+def compare_eligible_profiles(
+    candidates: list[dict[str, Any]], policy: dict[str, Any]
+) -> tuple[str | None, list[dict[str, Any]]]:
+    if not candidates:
+        return None, []
+    ordered = sorted(candidates, key=lambda row: row["aggressiveness_rank"])
+    winner = ordered[0]
+    comparisons: list[dict[str, Any]] = []
+    for challenger in ordered[1:]:
+        comparison = paired_bootstrap_compare(winner, challenger, policy)
+        comparisons.append(comparison)
+        winner = next(
+            row
+            for row in (winner, challenger)
+            if row["profile_name"] == comparison["preferred_profile"]
+        )
+    return winner["profile_name"], comparisons
 
 
 def _compare_optional_numeric(left: Any, right: Any) -> int:
@@ -772,6 +918,7 @@ def _validate_seed_aggregate(
     seed: int,
     trajectory: list[dict[str, Any]],
     report: dict[str, Any],
+    seed_metrics: dict[str, Any],
 ) -> dict[str, Any]:
     all_metrics_finite = True
     all_resource_metrics_non_negative = True
@@ -786,7 +933,7 @@ def _validate_seed_aggregate(
     last_step = -1
     for point in trajectory:
         step = int(point["optimizer_step"])
-        if step < last_step:
+        if step <= last_step:
             all_trajectories_ordered = False
         last_step = step
         for key in (
@@ -801,12 +948,14 @@ def _validate_seed_aggregate(
         for key in (
             "records_consumed",
             "tokens_consumed",
-            "artifact_bytes_logically_consumed",
-            "elapsed_wall_clock_seconds",
+            "artifact_bytes_read",
+            "wall_clock_seconds",
         ):
             value = point.get(key)
             if value is None or float(value) < 0.0:
                 all_resource_metrics_non_negative = False
+    all_entry_cost_lookups_valid = bool(seed_metrics["entry_cost_lookup_valid"])
+    all_entry_costs_within_final_totals = all_entry_cost_lookups_valid
     status = (
         "pass"
         if all(
@@ -816,6 +965,8 @@ def _validate_seed_aggregate(
                 all_trajectories_ordered,
                 all_step_zero_points_present,
                 all_final_points_present,
+                all_entry_cost_lookups_valid,
+                all_entry_costs_within_final_totals,
             )
         )
         else "fail"
@@ -829,6 +980,12 @@ def _validate_seed_aggregate(
         "all_step_zero_points_present": all_step_zero_points_present,
         "all_final_points_present": all_final_points_present,
         "all_resource_metrics_non_negative": all_resource_metrics_non_negative,
+        "all_entry_cost_lookups_valid": all_entry_cost_lookups_valid,
+        "all_entry_costs_within_final_totals": all_entry_costs_within_final_totals,
+        "no_duplicate_trajectory_steps": len(
+            {row["optimizer_step"] for row in trajectory}
+        )
+        == len(trajectory),
     }
 
 
@@ -855,32 +1012,111 @@ def _aggregate_validation(
     all_resource_metrics_non_negative = all(
         check["all_resource_metrics_non_negative"] for check in seed_checks
     )
+    all_entry_cost_lookups_valid = all(
+        check.get("all_entry_cost_lookups_valid", True) for check in seed_checks
+    )
+    all_entry_costs_within_final_totals = all(
+        check.get("all_entry_costs_within_final_totals", True) for check in seed_checks
+    )
+    no_duplicate_trajectory_steps = all(
+        check.get("no_duplicate_trajectory_steps", True) for check in seed_checks
+    )
     expected_run_count = len(config.profiles) * len(config.seeds)
     observed_run_count = len(rows)
     missing_run_count = max(0, expected_run_count - observed_run_count)
-    return {
-        "status": "pass"
-        if all(
-            (
-                all_metrics_finite,
-                all_trajectories_ordered,
-                all_step_zero_points_present,
-                all_final_points_present,
-                all_resource_metrics_non_negative,
-            )
+    expected_pairs = {
+        (profile, seed) for profile in config.profiles for seed in config.seeds
+    }
+    observed_pairs = [(row["profile_name"], row["seed"]) for row in rows]
+    all_required_profiles_present = {row["profile_name"] for row in summaries} == set(
+        config.profiles
+    )
+    all_required_seed_rows_present = set(observed_pairs) == expected_pairs
+    no_duplicate_seed_rows = len(observed_pairs) == len(set(observed_pairs))
+    aligned_seed_sets_valid = all(
+        {row["seed"] for row in rows if row["profile_name"] == profile}
+        == set(config.seeds)
+        for profile in config.profiles
+    )
+    bootstrap_inputs_valid = aligned_seed_sets_valid and all(
+        row.get("steps_to_stable_entry") is not None
+        for row in rows
+        if any(
+            summary["profile_name"] == row["profile_name"]
+            and summary["stable_entry_success_rate"] == 1.0
+            for summary in summaries
         )
-        else "fail",
+    )
+    required = (
+        all_required_profiles_present,
+        all_required_seed_rows_present,
+        all_metrics_finite,
+        all_trajectories_ordered,
+        all_step_zero_points_present,
+        all_final_points_present,
+        all_entry_cost_lookups_valid,
+        all_resource_metrics_non_negative,
+        all_entry_costs_within_final_totals,
+        no_duplicate_seed_rows,
+        no_duplicate_trajectory_steps,
+        aligned_seed_sets_valid,
+        bootstrap_inputs_valid,
+    )
+    return {
+        "status": "pass" if all(required) else "fail",
+        "all_required_profiles_present": all_required_profiles_present,
+        "all_required_seed_rows_present": all_required_seed_rows_present,
+        "all_required_metrics_valid": all_metrics_finite,
         "all_metrics_finite": all_metrics_finite,
         "all_trajectories_ordered": all_trajectories_ordered,
         "all_step_zero_points_present": all_step_zero_points_present,
         "all_final_points_present": all_final_points_present,
         "all_resource_metrics_non_negative": all_resource_metrics_non_negative,
+        "all_entry_cost_lookups_valid": all_entry_cost_lookups_valid,
+        "all_entry_costs_within_final_totals": all_entry_costs_within_final_totals,
+        "no_duplicate_seed_rows": no_duplicate_seed_rows,
+        "no_duplicate_trajectory_steps": no_duplicate_trajectory_steps,
+        "aligned_seed_sets_valid": aligned_seed_sets_valid,
+        "bootstrap_inputs_valid": bootstrap_inputs_valid,
         "expected_run_count": expected_run_count,
         "observed_run_count": observed_run_count,
         "missing_run_count": missing_run_count,
         "comparison_valid": fairness["comparison_valid"],
         "seed_checks": seed_checks,
     }
+
+
+def derive_selection_allowed(
+    *,
+    fairness: dict[str, Any],
+    aggregate_validation: dict[str, Any],
+    classification_complete: bool,
+    candidate_gating_complete: bool,
+) -> tuple[bool, str | None]:
+    if not fairness["comparison_valid"]:
+        return False, "fairness_validation_failed"
+    if aggregate_validation["status"] != "pass":
+        return False, "aggregate_validation_failed"
+    if not classification_complete:
+        return False, "classification_incomplete"
+    if not candidate_gating_complete:
+        return False, "candidate_gating_incomplete"
+    return True, None
+
+
+def derive_top_level_status(
+    *,
+    fairness_valid: bool,
+    aggregate_validation_status: str,
+    selection_logic_completed: bool,
+) -> str:
+    return (
+        "pass"
+        if fairness_valid
+        and aggregate_validation_status == "pass"
+        and selection_logic_completed
+        else "fail"
+    )
 
 
 def _all_summary_metrics_finite(summary: dict[str, Any]) -> bool:

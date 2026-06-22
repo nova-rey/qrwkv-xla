@@ -6,8 +6,11 @@ from qrwkv_xla.fingerprint.aggressiveness_calibration import (
     AggressivenessCalibrationConfig,
     _aggregate_validation,
     _publication_grade_receipt,
+    _select_profile_with_receipt,
     bootstrap_ci95,
     entry_exit_metrics,
+    extract_exact_stable_entry_costs,
+    paired_bootstrap_compare,
     select_profile,
 )
 from qrwkv_xla.fingerprint.aggressiveness_profiles import (
@@ -179,6 +182,108 @@ def test_tie_selects_lower_aggressiveness_rank() -> None:
     )
     assert selected == "rock_hammer"
     assert _row(ranking, "rock_hammer")["selection_status"] == "selected"
+
+
+def test_raw_median_cannot_override_statistical_tie() -> None:
+    selected, _ = select_profile(
+        [
+            _summary("rock_hammer", rank=0, steps=(30, 31, 29)),
+            _summary("ball_peen", rank=1, steps=(29, 34, 28)),
+        ],
+        bootstrap_samples=1000,
+        bootstrap_seed=0,
+    )
+    assert selected == "rock_hammer"
+
+
+def test_statistically_faster_profile_wins() -> None:
+    selected, _ = select_profile(
+        [
+            _summary("rock_hammer", rank=0, steps=(40, 42, 41)),
+            _summary("ball_peen", rank=1, steps=(20, 21, 19)),
+        ]
+    )
+    assert selected == "ball_peen"
+
+
+def test_paired_comparison_requires_aligned_seeds() -> None:
+    left = _summary("rock_hammer", rank=0, steps=(5, 5, 5))
+    right = _summary("ball_peen", rank=1, steps=(4, 4))
+    try:
+        paired_bootstrap_compare(
+            left, right, {"bootstrap_samples": 100, "bootstrap_seed": 0}
+        )
+    except ValueError as exc:
+        assert "aligned seed sets" in str(exc)
+    else:
+        raise AssertionError("unaligned seeds were accepted")
+
+
+def test_exact_entry_costs_come_from_stable_trajectory_row() -> None:
+    result = extract_exact_stable_entry_costs(
+        _entry_report(stable_step=20),
+        [
+            _trajectory_cost_row(0, 0, 0, 0, 0),
+            _trajectory_cost_row(20, 14, 160, 5120, 1_048_576),
+            _trajectory_cost_row(100, 70, 800, 25_600, 5_242_880),
+        ],
+    )
+    assert result["seconds_to_stable_entry"] == 14
+    assert result["records_to_stable_entry"] == 160
+    assert result["tokens_to_stable_entry"] == 5120
+    assert result["bytes_to_stable_entry"] == 1_048_576
+    assert result["entry_cost_lookup_valid"] is True
+
+
+def test_missing_or_duplicate_exact_entry_row_is_invalid() -> None:
+    report = _entry_report(stable_step=20)
+    missing = extract_exact_stable_entry_costs(
+        report, [_trajectory_cost_row(15, 10, 100, 100, 100)]
+    )
+    duplicate = extract_exact_stable_entry_costs(
+        report,
+        [_trajectory_cost_row(20, 14, 160, 5120, 100)] * 2,
+    )
+    assert missing["entry_cost_lookup_valid"] is False
+    assert duplicate["entry_cost_lookup_valid"] is False
+
+
+def test_no_entry_has_null_entry_costs() -> None:
+    result = extract_exact_stable_entry_costs(_entry_report(stable_step=None), [])
+    assert result["entry_cost_lookup_valid"] is True
+    assert all(
+        result[key] is None
+        for key in (
+            "steps_to_stable_entry",
+            "seconds_to_stable_entry",
+            "records_to_stable_entry",
+            "tokens_to_stable_entry",
+            "bytes_to_stable_entry",
+        )
+    )
+
+
+def test_aggregate_failure_blocks_selection() -> None:
+    selected, _, receipt, _ = _select_profile_with_receipt(
+        [_summary("rock_hammer", rank=0, steps=(5, 5, 5))],
+        {
+            "required_completed_run_rate": 1.0,
+            "required_stable_entry_success_rate": 1.0,
+            "maximum_abort_rate": 0.0,
+            "maximum_non_finite_run_rate": 0.0,
+            "maximum_entry_then_exit_rate": 1.0,
+            "maximum_severe_rebound_rate": 1.0,
+            "maximum_trajectory_variance": float("inf"),
+            "comparison_valid": True,
+            "bootstrap_samples": 100,
+            "bootstrap_seed": 0,
+        },
+        selection_allowed=False,
+        selection_block_reason="aggregate_validation_failed",
+    )
+    assert selected is None
+    assert receipt["selection_status"] == "selection_blocked"
+    assert receipt["winner_declared"] is False
 
 
 def test_no_candidates_is_inconclusive() -> None:
@@ -462,4 +567,31 @@ def _seed_check() -> dict[str, object]:
         "all_step_zero_points_present": True,
         "all_final_points_present": True,
         "all_resource_metrics_non_negative": True,
+        "all_entry_cost_lookups_valid": True,
+        "all_entry_costs_within_final_totals": True,
+        "no_duplicate_trajectory_steps": True,
+    }
+
+
+def _entry_report(*, stable_step: int | None) -> dict[str, object]:
+    return {
+        "first_stable_entry_step": stable_step,
+        "wall_clock": {"total_wall_clock_seconds": 70},
+        "resource_accounting": {
+            "total_record_visits": 800,
+            "tokens_consumed": 25_600,
+            "artifact_bytes_logically_consumed": 5_242_880,
+        },
+    }
+
+
+def _trajectory_cost_row(
+    step: int, seconds: float, records: int, tokens: int, byte_count: int
+) -> dict[str, object]:
+    return {
+        "optimizer_step": step,
+        "wall_clock_seconds": seconds,
+        "records_consumed": records,
+        "tokens_consumed": tokens,
+        "artifact_bytes_read": byte_count,
     }

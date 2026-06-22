@@ -229,7 +229,7 @@ def test_aggressiveness_calibration_four_profile_smoke(tmp_path: Path) -> None:
     report = _json(result.report_path)
     assert result.status == "pass"
     assert report["seed_count"] == 1
-    assert report["phase"] == "P153.1.1"
+    assert report["phase"] == "P153.1.2"
     assert report["publication_grade"] is False
     for profile in ("rock_hammer", "ball_peen", "sledgehammer", "gallagher"):
         assert (
@@ -249,6 +249,7 @@ def test_aggressiveness_calibration_four_profile_smoke(tmp_path: Path) -> None:
         "aggregate_validation.json",
         "profile_selection_receipt.json",
         "publication_grade_receipt.json",
+        "pairwise_selection_comparisons.jsonl",
     ):
         assert (output / name).is_file()
 

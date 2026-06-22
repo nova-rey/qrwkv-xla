@@ -7,8 +7,8 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P153.1.1, Aggressiveness Selection Safety Cleanup. The Pallas
-runway is closed after a recorded real TPU v5 lite smoke pass for the tiny
+Current phase: P153.1.2, Statistical Tie and Entry-Cost Selection Integrity.
+The Pallas runway is closed after a recorded real TPU v5 lite smoke pass for the tiny
 opt-in Pallas WKV path, the cascaded target pipeline has been merged into main,
 and behavioral fingerprint corridor training is wired into the main staged
 runner with input-conditioning and parameter-movement diagnostics. The
@@ -46,7 +46,7 @@ held-out evaluation, distance-to-corridor metrics, entry/stability detection,
 periodic checkpoints, stopping receipts, and explicit record/token/byte/time
 accounting.
 P153.1 runs that same fixed-step harness across `rock_hammer`, `ball_peen`,
-`sledgehammer`, and `gallagher`. P153.1.1 hardens that calibration so only
+`sledgehammer`, and `gallagher`. P153.1.2 hardens that calibration so only
 profiles that are fair, complete, finite, and non-destructive can enter the
 candidate pool. It records explicit thresholds, aggregate validation,
 publication-grade receipts, destructive negative evidence, and deterministic
