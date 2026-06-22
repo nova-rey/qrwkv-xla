@@ -84,6 +84,8 @@ class CorridorMeasurementConfig:
     stable_entry_evals: int = 3
     stop_on_stable_entry: bool = False
     p151_report: Path | None = None
+    selected_aggressiveness_profile: str | None = None
+    selected_profile_config_sha256: str | None = None
     overwrite: bool = False
 
 
@@ -751,6 +753,7 @@ def _lineage_receipt(
         "token_sequence_overlap_count": len(token_overlap),
         "source_join_kind": artifact_lineage["source_join_kind"],
         "source_join_complete": artifact_lineage["source_join_complete"],
+        "artifact_manifest_sha256": artifact_lineage["artifact_manifest_sha256"],
         "initialization": initial,
     }
 
@@ -1161,6 +1164,8 @@ def _save_measurement_checkpoint(
         target_manifest={
             "artifact_dir": str(config.fingerprint_artifact),
             "artifact_manifest_sha256": artifact_lineage["artifact_manifest_sha256"],
+            "selected_aggressiveness_profile": config.selected_aggressiveness_profile,
+            "selected_profile_config_sha256": config.selected_profile_config_sha256,
         },
         optimizer_config={
             "type": config.optimizer,

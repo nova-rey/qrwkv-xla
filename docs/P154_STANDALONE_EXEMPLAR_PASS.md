@@ -1,4 +1,4 @@
-# P154 Standalone Exemplar Pass
+# P154.1.1 Standalone Exemplar Pass Integrity
 
 P154 implements Cycle 2 of the behavioral fingerprint training design. The
 runner loads parameters from a completed Cycle 1 corridor checkpoint, rejects
@@ -27,7 +27,15 @@ The runner writes a step-zero evaluation, cadence and final trajectory rows,
 best and final exemplar checkpoints, sampling and resume receipts, resource
 accounting, lineage validation, and optional corridor-retention diagnostics.
 Resume checkpoints must belong to Cycle 2 and match the same corridor parent,
-artifact, sampling policy, and optimizer family.
+artifact, resolved record order, record limit, batch size, sampling seed,
+optimizer family, learning rate, and gradient clipping configuration. Supplying
+a held-out artifact requires a non-empty held-out exemplar reservoir; training
+exemplars are never used as an implicit fallback. Optional P153 and calibration
+receipts must identify the exact parent checkpoint and parameters.
+
+Corridor retention degradation and corridor exit are reported separately. An
+exit requires the initial inside rate to meet the configured threshold and a
+later evaluation to fall below it.
 
 These artifacts establish standalone exemplar-pass execution only. They do not
 claim full two-cycle superiority, general model quality, scaling behavior,

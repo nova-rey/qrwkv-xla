@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 
 from qrwkv_xla.artifacts._json import read_json_object, write_json
+from qrwkv_xla.checkpointing import load_checkpoint
 from qrwkv_xla.fingerprint.aggressiveness_profiles import (
     PROFILE_NAMES,
     CorridorAggressivenessProfile,
@@ -18,6 +19,11 @@ from qrwkv_xla.fingerprint.aggressiveness_profiles import (
 from qrwkv_xla.fingerprint.corridor_measurement import (
     CorridorMeasurementConfig,
     run_corridor_measurement,
+)
+from qrwkv_xla.fingerprint.provenance import (
+    hash_checkpoint_bundle,
+    parameter_fingerprint,
+    stable_hash,
 )
 
 ALLOWED_PROFILE_DIFFERENCE_FIELDS = frozenset(
@@ -266,6 +272,8 @@ def run_aggressiveness_calibration(
                     gradient_norm_hard_limit=profile.gradient_norm_hard_limit,
                     held_out_loss_abort_multiple=profile.held_out_loss_abort_multiple,
                     stop_on_stable_entry=False,
+                    selected_aggressiveness_profile=profile.profile_name,
+                    selected_profile_config_sha256=stable_hash(profile.to_dict()),
                     overwrite=config.overwrite,
                 )
             )
@@ -360,7 +368,6 @@ def run_aggressiveness_calibration(
     write_json(config.output_dir / "profile_summary_metrics.json", summaries)
     write_json(config.output_dir / "profile_ranking.json", ranking)
     write_json(config.output_dir / "aggregate_validation.json", aggregate_validation)
-    write_json(config.output_dir / "profile_selection_receipt.json", selection_receipt)
     _write_jsonl(
         config.output_dir / "pairwise_selection_comparisons.jsonl",
         pairwise_comparisons,
@@ -378,7 +385,29 @@ def run_aggressiveness_calibration(
         selected_config = next(
             p.to_dict() for p in resolved if p.profile_name == selected
         )
+        selected_seed = min(config.seeds)
+        selected_checkpoint = (
+            config.output_dir
+            / "profiles"
+            / selected
+            / f"seed_{selected_seed}"
+            / "checkpoints"
+            / "final"
+        )
+        selection_receipt.update(
+            {
+                "selected_profile_config_sha256": stable_hash(selected_config),
+                "selected_corridor_seed": selected_seed,
+                "selected_corridor_checkpoint_bundle_sha256": hash_checkpoint_bundle(
+                    selected_checkpoint
+                )["checkpoint_bundle_sha256"],
+                "selected_corridor_parameter_fingerprint": parameter_fingerprint(
+                    load_checkpoint(selected_checkpoint).params
+                ),
+            }
+        )
         write_json(config.output_dir / "selected_profile_config.json", selected_config)
+    write_json(config.output_dir / "profile_selection_receipt.json", selection_receipt)
     report_path = config.output_dir / "aggressiveness_calibration_report.json"
     write_json(report_path, report)
     (config.output_dir / "aggressiveness_calibration_summary.md").write_text(

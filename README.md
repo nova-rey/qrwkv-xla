@@ -7,7 +7,7 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P154, Standalone Exemplar-Pass Runner.
+Current phase: P154.1.1, Exemplar-Pass Integrity Cleanup.
 The Pallas runway is closed after a recorded real TPU v5 lite smoke pass for the tiny
 opt-in Pallas WKV path, the cascaded target pipeline has been merged into main,
 and behavioral fingerprint corridor training is wired into the main staged
@@ -59,6 +59,10 @@ completed corridor checkpoint, validates parent and artifact lineage, starts a
 fresh optimizer, trains only against dense exemplar distributions, and writes
 distinct best and final checkpoints. Optional held-out corridor measurements
 are diagnostics only and never enter the exemplar objective.
+P154.1.1 makes held-out evaluation fail closed, binds resume configuration and
+record order into every exemplar checkpoint, ties optional calibration and
+P153 receipts to the exact parent corridor checkpoint, and distinguishes
+corridor degradation from an actual threshold exit.
 
 Current emphasis is behavioral fingerprint integration, teacher-pure capture
 planning, teacher backend modularity, vocab contracts, target stores, the

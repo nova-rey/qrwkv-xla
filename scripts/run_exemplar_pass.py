@@ -36,6 +36,8 @@ def main() -> int:
         default="sequential",
     )
     parser.add_argument("--resume-checkpoint", type=Path)
+    parser.add_argument("--corridor-entry-threshold", type=float, default=0.95)
+    parser.add_argument("--corridor-retention-tolerance", type=float, default=0.0)
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
     result = run_exemplar_pass(
@@ -59,10 +61,13 @@ def main() -> int:
             exemplar_max_records=args.exemplar_max_records,
             exemplar_sampling_policy=args.exemplar_sampling_policy,
             resume_checkpoint=args.resume_checkpoint,
+            corridor_entry_threshold=args.corridor_entry_threshold,
+            corridor_retention_tolerance=args.corridor_retention_tolerance,
             overwrite=args.overwrite,
         )
     )
     print(f"status={result.status}")
+    print("phase=P154.1.1")
     print("training_cycle=exemplar")
     print("corridor_loss_enabled=false")
     print("mixed_objective_enabled=false")

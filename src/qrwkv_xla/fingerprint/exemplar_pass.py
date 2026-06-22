@@ -60,6 +60,8 @@ class ExemplarPassConfig:
     exemplar_max_records: int | None = None
     exemplar_sampling_policy: str = "sequential"
     resume_checkpoint: Path | None = None
+    corridor_entry_threshold: float = 0.95
+    corridor_retention_tolerance: float = 0.0
     overwrite: bool = False
 
 
@@ -90,11 +92,53 @@ def validate_corridor_checkpoint_lineage(
             p153.get("status") == "pass"
             and p153.get("training_cycle") == "corridor_only"
             and int(p153.get("completed_steps", -1)) == manifest.step
+            and p153.get("checkpoint", {}).get("checkpoint_bundle_sha256")
+            == hashes["checkpoint_bundle_sha256"]
+            and p153.get("checkpoint", {}).get("final_parameter_fingerprint")
+            == parameter_fingerprint(loaded.params)
+            and p153.get("lineage", {}).get("artifact_manifest_sha256")
+            == expected_manifest_hash
         )
     selected_profile_valid = True
+    calibration_binding: dict[str, Any] = {
+        "calibration_receipt_sha256": None,
+        "selected_profile_name": None,
+        "selected_profile_config_sha256": None,
+        "parent_corridor_checkpoint_bundle_sha256": hashes["checkpoint_bundle_sha256"],
+        "parent_corridor_parameter_fingerprint": parameter_fingerprint(loaded.params),
+        "calibration_parent_binding_valid": config.selected_profile is None,
+    }
     if config.selected_profile is not None:
         selected = read_json_object(config.selected_profile)
-        selected_profile_valid = bool(selected.get("profile_name"))
+        selected_name = selected.get("selected_profile") or selected.get("profile_name")
+        selected_profile_valid = bool(
+            selected.get("status") == "pass"
+            and selected.get("selection_allowed") is True
+            and selected.get("winner_declared") is True
+            and selected_name
+            and selected.get("selected_profile_config_sha256")
+            == manifest.target_manifest.get("selected_profile_config_sha256")
+            and selected.get("selected_corridor_checkpoint_bundle_sha256")
+            == hashes["checkpoint_bundle_sha256"]
+            and selected.get("selected_corridor_parameter_fingerprint")
+            == parameter_fingerprint(loaded.params)
+            and manifest.target_manifest.get("selected_aggressiveness_profile")
+            == selected_name
+        )
+        calibration_binding = {
+            "calibration_receipt_sha256": file_sha256(config.selected_profile),
+            "selected_profile_name": selected_name,
+            "selected_profile_config_sha256": selected.get(
+                "selected_profile_config_sha256"
+            ),
+            "parent_corridor_checkpoint_bundle_sha256": hashes[
+                "checkpoint_bundle_sha256"
+            ],
+            "parent_corridor_parameter_fingerprint": parameter_fingerprint(
+                loaded.params
+            ),
+            "calibration_parent_binding_valid": selected_profile_valid,
+        }
     checks = {
         "checkpoint_bundle_hash_valid": bool(hashes["checkpoint_bundle_sha256"]),
         "parameter_fingerprint_valid": bool(parameter_fingerprint(loaded.params)),
@@ -113,12 +157,12 @@ def validate_corridor_checkpoint_lineage(
             "artifact_manifest_sha256"
         )
         == expected_manifest_hash,
-        "p153_report_match": p153_report_valid,
-        "selected_profile_receipt_valid": selected_profile_valid,
+        "p153_parent_binding_valid": p153_report_valid,
+        "calibration_parent_binding_valid": selected_profile_valid,
     }
     blockers = [name for name, passed in checks.items() if not passed]
     receipt = {
-        "phase": "P154",
+        "phase": "P154.1.1",
         "status": "pass" if not blockers else "fail",
         "lineage_valid": not blockers,
         "blockers": blockers,
@@ -127,9 +171,12 @@ def validate_corridor_checkpoint_lineage(
         "distill_mode": "fingerprint_corridor",
         "optimizer_steps_completed": manifest.step,
         "parameter_fingerprint": parameter_fingerprint(loaded.params),
+        **calibration_binding,
         **hashes,
     }
     if blockers:
+        if not selected_profile_valid:
+            raise ValueError("calibration_parent_lineage_mismatch")
         raise ValueError(
             "P154 corridor checkpoint lineage failed: " + ", ".join(blockers)
         )
@@ -177,6 +224,7 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
         raise ValueError("exemplar reservoir contains zero records")
     _validate_exemplar_records(records, dataset.vocab_size)
     batches = _records_to_batches(records, config.batch_size, dataset.max_seq_len)
+    sampling_contract = _sampling_contract(config, records)
     parent, lineage = validate_corridor_checkpoint_lineage(
         config, artifact_vocab_size=dataset.vocab_size
     )
@@ -192,6 +240,7 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
         parent=parent,
         parent_hash=parent_hash,
         optimizer_config=optimizer_config,
+        sampling_contract=sampling_contract,
     )
     state = resume_receipt.pop("state")
     initial_params = parent.params
@@ -199,7 +248,8 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
     start_step = int(state.step)
     train_step = _make_train_step(backend, optimizer_config, config.max_grad_norm)
     evaluation_interval = config.eval_every or max(1, config.steps // 20)
-    held_out_exemplars = _held_out_exemplars(config)
+    evaluation_records, held_out_receipt = _resolve_evaluation_records(config, records)
+    write_json(config.output_dir / "held_out_evaluation_receipt.json", held_out_receipt)
     corridor_records = _corridor_records(config)
     trajectory: list[dict[str, Any]] = []
     training_seconds = evaluation_seconds = checkpoint_seconds = 0.0
@@ -212,9 +262,7 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
     def evaluate(grad_metrics: dict[str, float] | None) -> dict[str, Any]:
         nonlocal evaluation_seconds, best_loss, best_step, checkpoint_seconds
         eval_started = time.perf_counter()
-        exemplar = _evaluate_exemplars(
-            backend, state.params, held_out_exemplars or records
-        )
+        exemplar = _evaluate_exemplars(backend, state.params, evaluation_records)
         corridor = (
             _evaluate_held_out(backend, state.params, corridor_records)
             if corridor_records
@@ -253,6 +301,7 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
                 parent_hash,
                 parent_fingerprint,
                 records_consumed,
+                sampling_contract,
             )
             checkpoint_seconds += time.perf_counter() - checkpoint_started
         return point
@@ -285,6 +334,7 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
                 parent_hash,
                 parent_fingerprint,
                 records_consumed,
+                sampling_contract,
             )
             checkpoint_seconds += time.perf_counter() - checkpoint_started
     if trajectory[-1]["optimizer_step"] != int(state.step):
@@ -300,6 +350,7 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
         parent_hash,
         parent_fingerprint,
         records_consumed,
+        sampling_contract,
     )
     checkpoint_seconds += time.perf_counter() - checkpoint_started
     status = "pass" if stop_reason == "requested_steps_completed" else "fail"
@@ -324,10 +375,12 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
         "total_wall_clock_seconds": time.perf_counter() - started,
     }
     retention = _retention_report(
-        initial.get("corridor_metrics"), final.get("corridor_metrics")
+        trajectory,
+        threshold=config.corridor_entry_threshold,
+        tolerance=config.corridor_retention_tolerance,
     )
     report = {
-        "phase": "P154",
+        "phase": "P154.1.1",
         "status": status,
         "training_cycle": "exemplar",
         "parent_training_cycle": "corridor",
@@ -357,6 +410,10 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
         "params_changed": parameter_fingerprint(state.params) != initial_fingerprint,
         "final_vs_best_rebound": final["exemplar_loss"] - best_loss,
         "corridor_retention_evaluation_enabled": bool(corridor_records),
+        **held_out_receipt,
+        "resume_configuration_valid": resume_receipt["status"] == "pass",
+        "calibration_parent_binding_valid": lineage["calibration_parent_binding_valid"],
+        "p153_parent_binding_valid": lineage["checks"]["p153_parent_binding_valid"],
         **retention,
         "general_quality_claim_made": False,
         "quality_per_byte_claim_made": False,
@@ -381,20 +438,18 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
     write_json(config.output_dir / "exemplar_efficiency_metrics.json", efficiency)
     write_json(config.output_dir / "corridor_retention_report.json", retention)
     write_json(config.output_dir / "resource_accounting.json", resource)
+    write_json(config.output_dir / "resume_validation.json", resume_receipt)
     write_json(config.output_dir / "resume_receipt.json", resume_receipt)
     write_json(
         config.output_dir / "sampling_receipt.json",
         {
-            "sampling_policy": config.exemplar_sampling_policy,
-            "sampling_seed": config.seed,
+            **sampling_contract,
             "records_available": dataset.num_records,
-            "records_selected": len(records),
-            "record_order_sha256": record_order_sha256(records),
         },
     )
     _write_jsonl(config.output_dir / "exemplar_trajectory.jsonl", trajectory)
     (config.output_dir / "exemplar_pass_summary.md").write_text(
-        "# P154 Standalone Exemplar Pass\n\n"
+        "# P154.1.1 Standalone Exemplar Pass Integrity\n\n"
         f"- Status: {status}\n"
         f"- Completed steps: {int(state.step)}\n"
         f"- Initial exemplar loss: {initial['exemplar_loss']:.8f}\n"
@@ -416,11 +471,41 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
     )
 
 
-def _load_start_state(config, *, parent, parent_hash, optimizer_config):
+def _sampling_contract(config, records):
+    return {
+        "sampling_policy": config.exemplar_sampling_policy,
+        "sampling_seed": config.seed,
+        "record_order_sha256": record_order_sha256(records),
+        "records_selected": len(records),
+        "exemplar_max_records": config.exemplar_max_records,
+        "batch_size": config.batch_size,
+        "optimizer": config.optimizer,
+        "learning_rate": config.learning_rate,
+        "max_grad_norm": config.max_grad_norm,
+        "exemplar_artifact_sha256": file_sha256(
+            config.fingerprint_artifact / "manifest.json"
+        ),
+    }
+
+
+def _load_start_state(
+    config, *, parent, parent_hash, optimizer_config, sampling_contract
+):
     if config.resume_checkpoint is None:
         return {
+            "status": "pass",
             "resumed": False,
             "input_checkpoint_optimizer_state_loaded": False,
+            "sampling_policy_match": True,
+            "sampling_seed_match": True,
+            "record_order_match": True,
+            "record_limit_match": True,
+            "batch_size_match": True,
+            "optimizer_match": True,
+            "learning_rate_match": True,
+            "max_grad_norm_match": True,
+            "artifact_match": True,
+            "parent_corridor_match": True,
             "state": TrainState(
                 params=parent.params,
                 step=0,
@@ -429,31 +514,58 @@ def _load_start_state(config, *, parent, parent_hash, optimizer_config):
             ),
         }
     resumed = load_checkpoint(config.resume_checkpoint)
+    stored = {
+        **resumed.manifest.loss_config,
+        **resumed.manifest.target_manifest,
+        **resumed.manifest.optimizer_config,
+        **resumed.manifest.gradients,
+    }
     checks = {
-        "training_cycle_is_exemplar": resumed.manifest.loss_config.get("cycle") == 2,
-        "parent_lineage_matches": resumed.manifest.target_manifest.get(
+        "training_cycle_match": resumed.manifest.loss_config.get("cycle") == 2,
+        "parent_corridor_match": resumed.manifest.target_manifest.get(
             "parent_checkpoint_bundle_sha256"
         )
         == parent_hash,
-        "artifact_hash_matches": resumed.manifest.target_manifest.get(
-            "exemplar_artifact_hash"
-        )
-        == file_sha256(config.fingerprint_artifact / "manifest.json"),
-        "sampling_policy_matches": resumed.manifest.loss_config.get("sampling_policy")
-        == config.exemplar_sampling_policy,
-        "optimizer_matches": resumed.manifest.optimizer_config.get("type")
-        == config.optimizer,
+        "sampling_policy_match": stored.get("sampling_policy")
+        == sampling_contract["sampling_policy"],
+        "sampling_seed_match": stored.get("sampling_seed")
+        == sampling_contract["sampling_seed"],
+        "record_limit_match": stored.get("exemplar_max_records")
+        == sampling_contract["exemplar_max_records"],
+        "batch_size_match": stored.get("batch_size") == sampling_contract["batch_size"],
+        "record_order_match": stored.get("record_order_sha256")
+        == sampling_contract["record_order_sha256"],
+        "optimizer_match": stored.get("type") == sampling_contract["optimizer"],
+        "learning_rate_match": stored.get("learning_rate")
+        == sampling_contract["learning_rate"],
+        "max_grad_norm_match": stored.get("max_grad_norm")
+        == sampling_contract["max_grad_norm"],
+        "artifact_match": stored.get("exemplar_artifact_sha256")
+        == sampling_contract["exemplar_artifact_sha256"],
         "optimizer_state_present": resumed.optimizer_state is not None,
     }
     if not all(checks.values()):
-        raise ValueError(
-            "P154 resume validation failed: "
-            + ", ".join(name for name, passed in checks.items() if not passed)
-        )
+        errors = {
+            "training_cycle_match": "resume_training_cycle_mismatch",
+            "sampling_policy_match": "resume_sampling_policy_mismatch",
+            "sampling_seed_match": "resume_sampling_seed_mismatch",
+            "record_order_match": "resume_record_order_mismatch",
+            "record_limit_match": "resume_record_limit_mismatch",
+            "batch_size_match": "resume_batch_size_mismatch",
+            "optimizer_match": "resume_optimizer_mismatch",
+            "learning_rate_match": "resume_learning_rate_mismatch",
+            "max_grad_norm_match": "resume_max_grad_norm_mismatch",
+            "artifact_match": "resume_artifact_mismatch",
+            "parent_corridor_match": "resume_parent_corridor_mismatch",
+            "optimizer_state_present": "resume_optimizer_state_missing",
+        }
+        failed = next(name for name, passed in checks.items() if not passed)
+        raise ValueError(errors[failed])
     return {
+        "status": "pass",
         "resumed": True,
         "input_checkpoint_optimizer_state_loaded": True,
-        "checks": checks,
+        **checks,
         "state": TrainState(
             params=resumed.params,
             step=resumed.manifest.step,
@@ -536,6 +648,7 @@ def _save_exemplar_checkpoint(
     parent_hash,
     parent_fingerprint,
     records_consumed,
+    sampling_contract,
 ):
     save_checkpoint(
         path,
@@ -550,14 +663,18 @@ def _save_exemplar_checkpoint(
             "training_cycle": "exemplar",
             "parent_training_cycle": "corridor",
             "sampling_policy": config.exemplar_sampling_policy,
+            "sampling_seed": sampling_contract["sampling_seed"],
+            "record_order_sha256": sampling_contract["record_order_sha256"],
+            "records_selected": sampling_contract["records_selected"],
+            "exemplar_max_records": sampling_contract["exemplar_max_records"],
+            "batch_size": sampling_contract["batch_size"],
             "corridor_loss_enabled": False,
             "mixed_objective_enabled": False,
         },
         target_manifest={
             "artifact_dir": str(config.fingerprint_artifact),
-            "exemplar_artifact_hash": file_sha256(
-                config.fingerprint_artifact / "manifest.json"
-            ),
+            "exemplar_artifact_hash": sampling_contract["exemplar_artifact_sha256"],
+            "exemplar_artifact_sha256": sampling_contract["exemplar_artifact_sha256"],
             "parent_checkpoint_bundle_sha256": parent_hash,
             "parent_parameter_fingerprint": parent_fingerprint,
             "exemplar_records_consumed": records_consumed,
@@ -603,13 +720,33 @@ def _create_backend(config, summary):
     return backend, student_config
 
 
-def _held_out_exemplars(config):
+def _resolve_evaluation_records(config, training_records):
     if config.held_out_fingerprint_artifact is None:
-        return ()
-    dataset = load_fingerprint_exemplars(
-        config.held_out_fingerprint_artifact, batch_size=1, require_exemplars=False
-    )
-    return tuple(dataset.iter_records())
+        return training_records, {
+            "status": "pass",
+            "exemplar_evaluation_split": "training",
+            "held_out_artifact_supplied": False,
+            "held_out_exemplar_count": None,
+            "training_exemplar_fallback_used": False,
+        }
+    try:
+        dataset = load_fingerprint_exemplars(
+            config.held_out_fingerprint_artifact,
+            batch_size=1,
+            require_exemplars=True,
+        )
+        records = tuple(dataset.iter_records())
+    except (FileNotFoundError, ValueError) as exc:
+        raise ValueError("held_out_exemplar_reservoir_missing") from exc
+    if not records:
+        raise ValueError("held_out_exemplar_reservoir_missing")
+    return records, {
+        "status": "pass",
+        "exemplar_evaluation_split": "held_out",
+        "held_out_artifact_supplied": True,
+        "held_out_exemplar_count": len(records),
+        "training_exemplar_fallback_used": False,
+    }
 
 
 def _corridor_records(config) -> tuple[FingerprintTargetRecord, ...]:
@@ -622,24 +759,57 @@ def _corridor_records(config) -> tuple[FingerprintTargetRecord, ...]:
     )
 
 
-def _retention_report(initial, final):
-    if initial is None or final is None:
+def _retention_report(trajectory, *, threshold, tolerance=0.0):
+    corridor_points = [
+        point for point in trajectory if point.get("corridor_metrics") is not None
+    ]
+    if not corridor_points:
         return {
+            "corridor_entry_threshold": threshold,
+            "initial_inside_all_rate": None,
+            "final_inside_all_rate": None,
             "initial_corridor_metrics": None,
             "final_corridor_metrics": None,
             "corridor_retention_delta": None,
-            "corridor_exit_detected": None,
+            "corridor_retention_degraded": False,
+            "corridor_exit_detected": False,
+            "first_corridor_exit_step": None,
         }
+    initial = corridor_points[0]["corridor_metrics"]
+    final = corridor_points[-1]["corridor_metrics"]
+    initial_inside = float(initial["inside_all_rate"])
+    final_inside = float(final["inside_all_rate"])
+    degraded = bool(
+        final_inside < initial_inside - tolerance
+        or float(final["mean_distance_outside_corridor"])
+        > float(initial["mean_distance_outside_corridor"]) + tolerance
+        or float(final["corridor_loss"]) > float(initial["corridor_loss"]) + tolerance
+    )
+    first_exit_step = None
+    if initial_inside >= threshold:
+        first_exit_step = next(
+            (
+                int(point["optimizer_step"])
+                for point in corridor_points[1:]
+                if float(point["corridor_metrics"]["inside_all_rate"]) < threshold
+            ),
+            None,
+        )
     return {
+        "corridor_entry_threshold": threshold,
+        "initial_inside_all_rate": initial_inside,
+        "final_inside_all_rate": final_inside,
         "initial_corridor_metrics": initial,
         "final_corridor_metrics": final,
         "corridor_retention_delta": {
-            "inside_all_rate": final["inside_all_rate"] - initial["inside_all_rate"],
+            "inside_all_rate": final_inside - initial_inside,
             "mean_distance_outside_corridor": final["mean_distance_outside_corridor"]
             - initial["mean_distance_outside_corridor"],
             "held_out_corridor_loss": final["corridor_loss"] - initial["corridor_loss"],
         },
-        "corridor_exit_detected": final["inside_all_rate"] < initial["inside_all_rate"],
+        "corridor_retention_degraded": degraded,
+        "corridor_exit_detected": first_exit_step is not None,
+        "first_corridor_exit_step": first_exit_step,
     }
 
 
@@ -721,6 +891,10 @@ def _validate_config(config):
         raise ValueError("eval_every must be >= 1")
     if config.learning_rate <= 0:
         raise ValueError("learning_rate must be > 0")
+    if not 0.0 <= config.corridor_entry_threshold <= 1.0:
+        raise ValueError("corridor_entry_threshold must be within [0, 1]")
+    if config.corridor_retention_tolerance < 0.0:
+        raise ValueError("corridor_retention_tolerance must be >= 0")
 
 
 def _tree_delta_norm(before, after):
