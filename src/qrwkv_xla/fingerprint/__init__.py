@@ -22,6 +22,13 @@ from qrwkv_xla.fingerprint.capture import (
     build_synthetic_capture_examples,
     capture_fingerprint_artifact,
 )
+from qrwkv_xla.fingerprint.corridor_measurement import (
+    CorridorMeasurementConfig,
+    CorridorMeasurementResult,
+    corridor_distance,
+    detect_corridor_entries,
+    run_corridor_measurement,
+)
 from qrwkv_xla.fingerprint.held_out_evaluation import (
     HeldOutFingerprintEvaluationConfig,
     HeldOutFingerprintEvaluationResult,
@@ -75,6 +82,8 @@ __all__ = [
     "FingerprintArc2ReportConfig",
     "FingerprintArc2ReportResult",
     "FingerprintCorridorBoundsConfig",
+    "CorridorMeasurementConfig",
+    "CorridorMeasurementResult",
     "FingerprintExemplarReservoirCaptureConfig",
     "FingerprintModeDiscoveryConfig",
     "FingerprintQualityPerByteExperimentConfig",
@@ -92,6 +101,8 @@ __all__ = [
     "build_fingerprint_arc2_report",
     "build_artifact_source_lineage",
     "capture_fingerprint_artifact",
+    "corridor_distance",
+    "detect_corridor_entries",
     "evaluate_student_corridor_adherence",
     "load_text_fixture",
     "hash_checkpoint_bundle",
@@ -103,6 +114,7 @@ __all__ = [
     "run_fingerprint_arc2_report",
     "run_fingerprint_quality_per_byte_experiment",
     "run_fingerprint_trained_baseline_comparison",
+    "run_corridor_measurement",
     "run_held_out_fingerprint_evaluation",
     "run_real_teacher_fingerprint_training_rehearsal",
     "run_tiny_real_teacher_fingerprint_capture",

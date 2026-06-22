@@ -22,6 +22,8 @@ P152 adds a disjoint held-out artifact contract and shared read-only evaluation
 harness with paired bootstrap statistics.
 P152.1 binds those measurements to the exact P151 checkpoint bytes and replaces
 positional source association with explicit ID joins.
+P153 measures the corridor-only pass from step 0 through final or stable entry,
+including held-out trajectory and resource efficiency.
 
 The remaining work should move from Arc 2 smoke evidence to larger controlled
 fingerprint experiments with trained baseline and held-out evaluation gates.
@@ -46,6 +48,7 @@ Current:
 - P151 matched trained baseline vs corridor comparison
 - P152 held-out split proof and paired checkpoint evaluation
 - P152.1 checkpoint lineage receipt and ID-based source provenance
+- P153 corridor-pass trajectory, entry, stopping, and resource receipts
 - no exemplar reservoir or mixed objective in the main runner yet
 
 Needed:

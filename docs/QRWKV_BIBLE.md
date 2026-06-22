@@ -3150,3 +3150,23 @@ lineage confidence and prevents publication-grade lineage claims.
 Hash binding proves artifact identity and attribution, not semantic correctness
 or model quality. P152.1 changes no training objective, evaluation metric,
 bootstrap rule, corridor definition, model architecture, or broad claim scope.
+
+## Phase 153 — Corridor-Pass Measurement Harness
+
+P153 makes the intended fast Cycle 1 behavior measurable. A corridor-only
+runner evaluates the dedicated held-out artifact before training, at a fixed
+optimizer cadence, and at final or stable-entry stop. The same record order is
+used at every point.
+
+Trajectory points carry training and held-out loss, all inside rates, raw and
+normalized per-stat distances, aggregate distance quantiles, gradients,
+parameter delta, learning rate, records, tokens, logical artifact bytes, and
+elapsed time. Separate receipts record strict/threshold/stable entry, stopping,
+physical and logical artifact accounting, wall-clock categories, and
+publication-grade lineage.
+
+Fixed-step mode is the default. Stable-entry mode requires the predeclared
+threshold for consecutive evaluations and never starts exemplar training.
+P153 measures corridor process efficiency only; it makes no final-quality,
+quality-per-byte, scale, or RADLADS claim. P154 owns the standalone exemplar
+pass.

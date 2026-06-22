@@ -1,7 +1,7 @@
 project: QRWKV-XLA
-phase: 152.1
-current_phase: P152.1
-checkpoint: checkpoint_lineage_binding
+phase: 153
+current_phase: P153
+checkpoint: corridor_pass_measurement_harness
 run_tracking: local_opt_in_json_jsonl
 status: complete
 mission: >
@@ -56,15 +56,15 @@ workflow:
   bible_policy: append_only
 
 current_goal: >
-  Bind held-out evaluation to the exact P151 checkpoint bytes, initialization,
-  training artifact, source-example set, student contract, and step budget.
+  Measure Cycle 1 as a held-out trajectory with predeclared entry thresholds,
+  stable-entry detection, checkpoints, and explicit resource accounting.
 
 current_arc: controlled_fingerprint_scaling_and_stronger_baselines
 
 post_pallas_status: burn_readiness_rehearsal_begun
 
 recommended_next:
-  - P153 corridor-pass measurement harness
+  - P154 standalone exemplar-pass runner
 
 arc_status:
   real_teacher_rehearsal_and_burn_readiness: closed_pending_manual_burn
@@ -98,6 +98,7 @@ arc_status:
   trained_baseline_arm: complete
   held_out_fingerprint_evaluation: complete
   checkpoint_lineage_binding: complete
+  corridor_pass_measurement_harness: complete
 
 main_contains:
   p117_1_actual_train_step_burn: true
@@ -290,6 +291,19 @@ main_contains:
   p152_1_unused_eval_batch_flag_removed: true
   p152_1_training_behavior_changed: false
   p152_1_evaluation_math_changed: false
+  p153_corridor_only_runner: true
+  p153_step_zero_held_out_evaluation: true
+  p153_fixed_cadence_trajectory: true
+  p153_distance_to_corridor_metrics: true
+  p153_threshold_and_stable_entry: true
+  p153_fixed_and_stable_stopping: true
+  p153_periodic_checkpoints: true
+  p153_record_token_byte_accounting: true
+  p153_wall_clock_accounting: true
+  p153_publication_grade_lineage_gate: true
+  p153_exemplar_training_enabled: false
+  p153_general_quality_claims: false
+  p153_quality_per_byte_claims: false
 
 teacher_target_types:
   - dense_logits

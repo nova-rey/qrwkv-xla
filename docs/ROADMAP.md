@@ -2278,3 +2278,19 @@ confidence, and not publication-grade.
 
 Training and evaluation mathematics remain unchanged. P153 remains the next
 corridor-pass process measurement phase.
+
+## Phase 153 — Corridor-Pass Measurement Harness
+
+P153 runs Cycle 1 independently and records a held-out trajectory at step 0,
+fixed intervals, and final step. Every point includes corridor loss, per-stat
+inside rates, raw and normalized distance, gradients, parameter movement,
+record/token/byte consumption, and elapsed time.
+
+Strict, threshold, and consecutive stable entry are separate predeclared
+events. Fixed-step mode remains the controlled-comparison default; stable-entry
+stopping is explicit. Step-zero, periodic, and final checkpoints preserve the
+cycle boundary.
+
+P153 measures progress per step, second, record, and byte but does not make a
+quality-per-byte or final-quality claim. P154 implements Cycle 2 as a standalone
+exemplar-only runner.
