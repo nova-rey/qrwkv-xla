@@ -1,0 +1,192 @@
+{
+  "backend": "radjax",
+  "checkpoint_execution_mode": "continuous_trajectory",
+  "continuous_resume_valid": true,
+  "cycle_two_optimizer_reinitialized_per_checkpoint": false,
+  "full_distillation_run_started": false,
+  "mappings": [
+    {
+      "crossover_field": "cumulative_optimizer_steps",
+      "cumulative_or_interval": "cumulative",
+      "source_report_field": "checkpoint optimizer step",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "count_or_bytes"
+    },
+    {
+      "crossover_field": "cumulative_training_records",
+      "cumulative_or_interval": "cumulative",
+      "source_report_field": "runner records_consumed",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "count_or_bytes"
+    },
+    {
+      "crossover_field": "cumulative_training_tokens",
+      "cumulative_or_interval": "cumulative",
+      "source_report_field": "runner tokens_consumed",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "count_or_bytes"
+    },
+    {
+      "crossover_field": "cumulative_training_wall_seconds",
+      "cumulative_or_interval": "cumulative",
+      "source_report_field": "time.perf_counter accumulation",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "seconds"
+    },
+    {
+      "crossover_field": "cumulative_evaluation_wall_seconds",
+      "cumulative_or_interval": "cumulative",
+      "source_report_field": "runner cumulative_evaluation_seconds",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "seconds"
+    },
+    {
+      "crossover_field": "cumulative_checkpoint_wall_seconds",
+      "cumulative_or_interval": "cumulative",
+      "source_report_field": "time.perf_counter accumulation",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "seconds"
+    },
+    {
+      "crossover_field": "cumulative_total_wall_seconds",
+      "cumulative_or_interval": "cumulative",
+      "source_report_field": "time.perf_counter elapsed",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "seconds"
+    },
+    {
+      "crossover_field": "cumulative_teacher_artifact_bytes",
+      "cumulative_or_interval": "cumulative",
+      "source_report_field": "disjoint artifact file classifier",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "count_or_bytes"
+    },
+    {
+      "crossover_field": "cumulative_cpu_seconds",
+      "cumulative_or_interval": "cumulative",
+      "source_report_field": "unavailable",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "unavailable",
+      "unit": "seconds"
+    },
+    {
+      "crossover_field": "cumulative_tpu_seconds",
+      "cumulative_or_interval": "cumulative",
+      "source_report_field": "CPU execution contract",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "seconds"
+    },
+    {
+      "crossover_field": "cumulative_gpu_seconds",
+      "cumulative_or_interval": "cumulative",
+      "source_report_field": "CPU execution contract",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "seconds"
+    },
+    {
+      "crossover_field": "interval_optimizer_steps",
+      "cumulative_or_interval": "interval",
+      "source_report_field": "checkpoint optimizer step",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "count_or_bytes"
+    },
+    {
+      "crossover_field": "interval_training_records",
+      "cumulative_or_interval": "interval",
+      "source_report_field": "runner records_consumed",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "count_or_bytes"
+    },
+    {
+      "crossover_field": "interval_training_tokens",
+      "cumulative_or_interval": "interval",
+      "source_report_field": "runner tokens_consumed",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "count_or_bytes"
+    },
+    {
+      "crossover_field": "interval_training_wall_seconds",
+      "cumulative_or_interval": "interval",
+      "source_report_field": "time.perf_counter accumulation",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "seconds"
+    },
+    {
+      "crossover_field": "interval_evaluation_wall_seconds",
+      "cumulative_or_interval": "interval",
+      "source_report_field": "runner cumulative_evaluation_seconds",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "seconds"
+    },
+    {
+      "crossover_field": "interval_checkpoint_wall_seconds",
+      "cumulative_or_interval": "interval",
+      "source_report_field": "time.perf_counter accumulation",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "seconds"
+    },
+    {
+      "crossover_field": "interval_total_wall_seconds",
+      "cumulative_or_interval": "interval",
+      "source_report_field": "time.perf_counter elapsed",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "seconds"
+    },
+    {
+      "crossover_field": "interval_teacher_artifact_bytes",
+      "cumulative_or_interval": "interval",
+      "source_report_field": "disjoint artifact file classifier",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "count_or_bytes"
+    },
+    {
+      "crossover_field": "interval_cpu_seconds",
+      "cumulative_or_interval": "interval",
+      "source_report_field": "unavailable",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "unavailable",
+      "unit": "seconds"
+    },
+    {
+      "crossover_field": "interval_tpu_seconds",
+      "cumulative_or_interval": "interval",
+      "source_report_field": "CPU execution contract",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "seconds"
+    },
+    {
+      "crossover_field": "interval_gpu_seconds",
+      "cumulative_or_interval": "interval",
+      "source_report_field": "CPU execution contract",
+      "source_runner": "RadjaxCrossoverBackend continuous trajectory",
+      "status": "measured_or_derived",
+      "unit": "seconds"
+    }
+  ],
+  "phase": "P156.4.2",
+  "publication_grade": false,
+  "ready_for_P156_5": true,
+  "real_cpu_smoke_complete": true,
+  "silent_zero_defaults_present": false,
+  "status": "pass",
+  "strict_resource_accounting": true
+}

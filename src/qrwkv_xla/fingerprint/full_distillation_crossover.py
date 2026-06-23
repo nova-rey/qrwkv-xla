@@ -553,8 +553,12 @@ def run_full_distillation_crossover(
         "full_distillation_run_started": False,
         "publication_grade": False,
         "ready_for_P156_5": status == "pass",
-        "checkpoint_execution_mode": "independent_replay",
-        "matrix_wall_clock_must_not_be_interpreted_as_single_trajectory_cost": True,
+        "checkpoint_execution_mode": getattr(
+            backend, "checkpoint_execution_mode", "independent_replay"
+        ),
+        "strict_resource_accounting": getattr(
+            backend, "strict_resource_accounting", False
+        ),
         "config_sha256": config_hash,
         "plan": _jsonable(plan.to_dict()),
         "seeds_completed": len(state["completed_adaptive_discoveries"]),
@@ -639,6 +643,13 @@ def _validate_arm_checkpoints(
             and checkpoint.exemplar_steps != checkpoint.total_step
         ):
             raise ValueError("exemplar checkpoint step mismatch")
+    if all(
+        checkpoint.resource_accounting.get("continuous_trajectory_confirmed") is True
+        for checkpoint in checkpoints
+    ):
+        for previous, current in zip(checkpoints, checkpoints[1:], strict=False):
+            if current.parent_checkpoint_hash != previous.checkpoint_hash:
+                raise ValueError(f"{arm} checkpoint parent lineage is discontinuous")
 
 
 def _write_cycle_boundary_receipt(
@@ -785,7 +796,13 @@ def _target_costs(
         return {
             "steps_to_target": None,
             "bytes_to_target": None,
+            "records_to_target": None,
+            "tokens_to_target": None,
+            "teacher_bytes_to_target": None,
+            "training_wall_seconds_to_target": None,
+            "total_wall_seconds_to_target": None,
             "wall_clock_to_target": None,
+            "target_cost_provenance": "target_not_observed",
         }
     step = int(crossing["total_step"])
     match = next(
@@ -806,7 +823,15 @@ def _target_costs(
     return {
         "steps_to_target": step,
         "bytes_to_target": teacher_bytes,
+        "records_to_target": match.get("cumulative_training_records"),
+        "tokens_to_target": match.get("cumulative_training_tokens"),
+        "teacher_bytes_to_target": teacher_bytes,
+        "training_wall_seconds_to_target": match.get(
+            "cumulative_training_wall_seconds"
+        ),
+        "total_wall_seconds_to_target": match.get("cumulative_total_wall_seconds"),
         "wall_clock_to_target": float(match.get("total_seconds", 0.0)),
+        "target_cost_provenance": "first_observed_checkpoint_cumulative_resources",
     }
 
 

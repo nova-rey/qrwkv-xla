@@ -1,0 +1,14 @@
+{
+  "backend": "radjax",
+  "checkpoint_execution_mode": "continuous_trajectory",
+  "continuous_resume_valid": true,
+  "cycle_two_optimizer_reinitialized_per_checkpoint": false,
+  "full_distillation_run_started": false,
+  "phase": "P156.4.2",
+  "publication_grade": false,
+  "ready_for_P156_5": true,
+  "real_cpu_smoke_complete": true,
+  "silent_zero_defaults_present": false,
+  "status": "pass",
+  "strict_resource_accounting": true
+}

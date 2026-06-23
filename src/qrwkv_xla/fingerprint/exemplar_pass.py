@@ -318,6 +318,9 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
             "clip_scale": None if grad_metrics is None else grad_metrics["clip_scale"],
             "records_consumed": records_consumed,
             "tokens_consumed": tokens_consumed,
+            "cumulative_training_seconds": training_seconds,
+            "cumulative_evaluation_seconds": evaluation_seconds,
+            "cumulative_checkpoint_seconds": checkpoint_seconds,
             "corridor_metrics": corridor,
         }
         trajectory.append(point)

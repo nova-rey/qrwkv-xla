@@ -21,6 +21,8 @@ from qrwkv_xla.fingerprint.mode_plateau_controller import ModePlateauConfig
 from qrwkv_xla.fingerprint.radjax_crossover_backend import (
     RadjaxCrossoverBackend,
     RadjaxCrossoverBackendConfig,
+    _strict_resources,
+    _validate_trajectory_steps,
     classify_artifact_bytes,
     classify_artifact_file,
     teacher_bytes_to_target,
@@ -40,6 +42,41 @@ def test_radjax_backend_implements_protocol_without_synthetic_inheritance() -> N
 
 def test_incomplete_backend_does_not_implement_protocol() -> None:
     assert not isinstance(SimpleNamespace(), CrossoverExecutionBackend)
+
+
+def test_production_backend_requires_continuous_strict_execution() -> None:
+    assert RadjaxCrossoverBackend.checkpoint_execution_mode == "continuous_trajectory"
+    assert RadjaxCrossoverBackend.strict_resource_accounting is True
+
+
+@pytest.mark.parametrize("steps", [(1, 1, 2), (2, 1)])
+def test_invalid_continuous_checkpoint_steps_fail(steps: tuple[int, ...]) -> None:
+    with pytest.raises(ValueError, match="strictly increasing"):
+        _validate_trajectory_steps(steps)
+
+
+def test_missing_resource_is_null_with_reason_not_zero() -> None:
+    resource = _strict_resources(
+        {"cpu_seconds": None, "gpu_seconds": 0, "training_records": 3}, {}
+    )
+    assert resource["cumulative_cpu_seconds"] is None
+    assert resource["resource_provenance"]["cumulative_cpu_seconds"] == {
+        "value": None,
+        "status": "unavailable",
+        "reason": "underlying runner does not expose this measurement",
+    }
+    assert resource["cumulative_gpu_seconds"] == 0
+    assert resource["cumulative_training_records"] == 3
+    assert resource["silent_zero_defaults_present"] is False
+
+
+def test_interval_resources_reconcile_with_cumulative() -> None:
+    resource = _strict_resources(
+        {"training_records": 5, "training_wall_seconds": 1.5},
+        {"training_records": 2, "training_wall_seconds": 0.5},
+    )
+    assert resource["interval_training_records"] == 3
+    assert resource["interval_training_wall_seconds"] == 1.0
 
 
 def _accounting(arm: str, corridor: int, exemplar: int, shared: int) -> dict:
@@ -217,7 +254,7 @@ def test_real_radjax_three_arm_cpu_smoke(tmp_path: Path) -> None:
             selected_profile_receipt=profile,
             output_dir=output,
             seeds=(0,),
-            checkpoint_fractions=(0.0, 1.0),
+            checkpoint_fractions=(0.0, 1.0, 2.0),
             target_quality_thresholds={"teacher_student_kl": 100.0},
             bootstrap_samples=20,
             maximum_steps=8,
@@ -225,11 +262,8 @@ def test_real_radjax_three_arm_cpu_smoke(tmp_path: Path) -> None:
         backend=backend,
     )
     assert report["status"] == "pass"
-    assert report["checkpoint_execution_mode"] == "independent_replay"
-    assert (
-        report["matrix_wall_clock_must_not_be_interpreted_as_single_trajectory_cost"]
-        is True
-    )
+    assert report["checkpoint_execution_mode"] == "continuous_trajectory"
+    assert report["strict_resource_accounting"] is True
     binding = json.loads((output / "radjax_backend_binding_receipt.json").read_text())
     assert binding["status"] == "pass"
     assert binding["backend"] == "radjax"
@@ -245,6 +279,7 @@ def test_real_radjax_three_arm_cpu_smoke(tmp_path: Path) -> None:
     assert binding["ready_for_P156_5"] is True
     state = json.loads((output / "crossover_experiment_state.json").read_text())
     adaptive_rows = state["arm_checkpoint_results"]["0:adaptive_two_cycle"]
+    assert len(adaptive_rows) == 3
     boundary_resource = adaptive_rows[0]["resource_accounting"]
     assert boundary_resource["cycle_two_optimizer_instantiated"] is False
     assert boundary_resource["actual_initial_exemplar_optimizer_hash"] is None
@@ -258,6 +293,25 @@ def test_real_radjax_three_arm_cpu_smoke(tmp_path: Path) -> None:
         proof_resource["expected_fresh_exemplar_optimizer_hash"]
         == proof_resource["actual_initial_exemplar_optimizer_hash"]
     )
+    for arm in ("vanilla", "exemplar_only", "adaptive_two_cycle"):
+        rows = state["arm_checkpoint_results"][f"0:{arm}"]
+        assert [row["total_step"] for row in rows] == sorted(
+            row["total_step"] for row in rows
+        )
+        for previous, current in zip(rows, rows[1:], strict=False):
+            assert current["parent_checkpoint_hash"] == previous["checkpoint_hash"]
+        for row in rows:
+            resource = row["resource_accounting"]
+            if (
+                row["total_step"] > 0
+                and arm != "adaptive_two_cycle"
+                or row["exemplar_steps"] > 0
+            ):
+                assert resource["cumulative_training_records"] > 0
+                assert resource["cumulative_training_tokens"] > 0
+                assert resource["cumulative_training_wall_seconds"] > 0
+            assert resource.get("continuous_trajectory_confirmed") is True
+            assert resource.get("silent_zero_defaults_present") is False
     byte_receipt = json.loads(
         (output / "real_backend_byte_accounting_receipt.json").read_text()
     )
@@ -287,6 +341,28 @@ def test_real_radjax_three_arm_cpu_smoke(tmp_path: Path) -> None:
         boundary["actual_cycle_two_initial_optimizer_hash"]
         != boundary["corridor_optimizer_state_hash"]
     )
+    resume_shared = backend.create_shared_initialization(
+        seed=11, output_dir=tmp_path / "resume_shared"
+    )
+    interrupted_dir = tmp_path / "resume_interrupted"
+    first_segment = backend._train_vanilla_trajectory(
+        11, resume_shared, (1, 2), interrupted_dir
+    )
+    resumed_segment = backend._train_vanilla_trajectory(
+        11, resume_shared, (3,), interrupted_dir
+    )
+    uninterrupted = backend._train_vanilla_trajectory(
+        11, resume_shared, (1, 2, 3), tmp_path / "resume_uninterrupted"
+    )
+    assert first_segment[-1].total_step == 2
+    assert (
+        resumed_segment[0].parent_checkpoint_hash == first_segment[-1].checkpoint_hash
+    )
+    assert resumed_segment[-1].checkpoint_hash == uninterrupted[-1].checkpoint_hash
+    assert (
+        resumed_segment[-1].optimizer_final_state_hash
+        == uninterrupted[-1].optimizer_final_state_hash
+    )
     evidence_dir = os.environ.get("P156_4_1_1_SMOKE_RECEIPT_DIR")
     if evidence_dir:
         destination = Path(evidence_dir)
@@ -300,3 +376,25 @@ def test_real_radjax_three_arm_cpu_smoke(tmp_path: Path) -> None:
             output / "full_distillation_crossover_summary.md",
         ):
             shutil.copy2(source_path, destination / source_path.name)
+    p156_4_2_evidence = os.environ.get("P156_4_2_SMOKE_RECEIPT_DIR")
+    if p156_4_2_evidence:
+        destination = Path(p156_4_2_evidence)
+        destination.mkdir(parents=True, exist_ok=True)
+        for name in (
+            "continuous_trajectory_receipt.json",
+            "resource_field_mapping_receipt.json",
+            "strict_resource_accounting_receipt.json",
+            "continuous_resume_receipt.json",
+            "p156_4_2_real_cpu_smoke_report.json",
+        ):
+            shutil.copy2(output / name, destination / name)
+        (destination / "summary.md").write_text(
+            "# P156.4.2 Validation\n\n"
+            "- Status: pass\n"
+            "- Backend: radjax\n"
+            "- Checkpoint execution: continuous_trajectory\n"
+            "- Strict resource accounting: true\n"
+            "- Publication grade: false\n"
+            "- Full distillation run started: false\n",
+            encoding="utf-8",
+        )
