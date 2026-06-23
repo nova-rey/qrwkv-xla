@@ -65,6 +65,14 @@ from qrwkv_xla.fingerprint.held_out_evaluation import (
     validate_fingerprint_provenance,
     write_fingerprint_provenance,
 )
+from qrwkv_xla.fingerprint.mode_plateau_controller import (
+    ModeControllerState,
+    ModeObservation,
+    ModePlateauConfig,
+    ModeState,
+    ModeTransition,
+    MultiModePlateauController,
+)
 from qrwkv_xla.fingerprint.provenance import (
     build_artifact_source_lineage,
     hash_checkpoint_bundle,
@@ -139,6 +147,12 @@ __all__ = [
     "FingerprintTrainedBaselineResult",
     "HeldOutFingerprintEvaluationConfig",
     "HeldOutFingerprintEvaluationResult",
+    "ModeControllerState",
+    "ModeObservation",
+    "ModePlateauConfig",
+    "ModeState",
+    "ModeTransition",
+    "MultiModePlateauController",
     "DEFAULT_TINY_TEXTS",
     "PROFILE_NAMES",
     "QualityBudgetPoint",
