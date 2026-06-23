@@ -1,5 +1,18 @@
 """Teacher-side behavioral fingerprint capture utilities."""
 
+from qrwkv_xla.fingerprint.adaptive_corridor_pass import (
+    AdaptiveCorridorPassConfig,
+    AdaptiveCorridorPassResult,
+    run_adaptive_corridor_pass,
+    write_resume_equivalence_receipt,
+)
+from qrwkv_xla.fingerprint.adaptive_corridor_scheduler import (
+    AdaptiveCorridorScheduler,
+    AdaptiveCorridorSchedulerConfig,
+    AdaptiveModeAccounting,
+    adaptive_weighted_loss,
+    normalized_active_mode_weights,
+)
 from qrwkv_xla.fingerprint.aggressiveness_calibration import (
     AggressivenessCalibrationConfig,
     AggressivenessCalibrationResult,
@@ -118,6 +131,11 @@ from qrwkv_xla.fingerprint.two_cycle_experiment import (
 )
 
 __all__ = [
+    "AdaptiveCorridorPassConfig",
+    "AdaptiveCorridorPassResult",
+    "AdaptiveCorridorScheduler",
+    "AdaptiveCorridorSchedulerConfig",
+    "AdaptiveModeAccounting",
     "AggressivenessCalibrationConfig",
     "AggressivenessCalibrationResult",
     "CorridorAggressivenessProfile",
@@ -166,6 +184,7 @@ __all__ = [
     "TwoCycleExperimentResult",
     "build_synthetic_capture_examples",
     "aggressiveness_profiles",
+    "adaptive_weighted_loss",
     "bootstrap_ci95",
     "build_fingerprint_arc2_report",
     "budget_subset_cache_key",
@@ -180,11 +199,13 @@ __all__ = [
     "hash_checkpoint_bundle",
     "join_sources_by_example_id",
     "masked_causal_lm_loss",
+    "normalized_active_mode_weights",
     "parameter_fingerprint",
     "paired_bootstrap_interval",
     "run_fingerprint_baseline_comparison",
     "resolve_aggressiveness_profile",
     "run_aggressiveness_calibration",
+    "run_adaptive_corridor_pass",
     "run_fingerprint_arc2_report",
     "run_fingerprint_quality_per_byte_experiment",
     "run_fingerprint_trained_baseline_comparison",
@@ -202,4 +223,5 @@ __all__ = [
     "validate_fingerprint_provenance",
     "validate_budgeted_artifact",
     "write_fingerprint_provenance",
+    "write_resume_equivalence_receipt",
 ]
