@@ -7,6 +7,9 @@ from pathlib import Path
 
 import numpy as np
 
+from qrwkv_xla.fingerprint.adaptive_corridor_scheduler import (
+    AdaptiveCorridorSchedulerConfig,
+)
 from qrwkv_xla.fingerprint.full_distillation_crossover import (
     ARMS,
     AdaptiveDiscovery,
@@ -17,6 +20,12 @@ from qrwkv_xla.fingerprint.full_distillation_crossover import (
     build_crossover_plan,
     run_full_distillation_crossover,
 )
+from qrwkv_xla.fingerprint.mode_plateau_controller import ModePlateauConfig
+from qrwkv_xla.fingerprint.radjax_crossover_backend import (
+    RadjaxCrossoverBackend,
+    RadjaxCrossoverBackendConfig,
+)
+from qrwkv_xla.teachers import HFTeacherBackend
 
 
 class TinyCpuCrossoverBackend:
@@ -129,7 +138,9 @@ class TinyCpuCrossoverBackend:
                         "optimizer_steps": total_step,
                         "training_records_consumed": max(total_step, 0),
                         "training_tokens_consumed": max(total_step, 0) * 8,
-                        "teacher_artifact_bytes_consumed": max(total_step, 0) * 16,
+                        "teacher_artifact_bytes_consumed": (
+                            0 if arm == "vanilla" else max(total_step, 0) * 16
+                        ),
                         "corridor_artifact_bytes_consumed": start * 16,
                         "exemplar_artifact_bytes_consumed": (
                             max(total_step - start, 0) * 16
@@ -139,6 +150,9 @@ class TinyCpuCrossoverBackend:
                             else 0
                         ),
                         "active_mode_step_equivalents": start * 2,
+                        "source_text_bytes_consumed": (
+                            max(total_step, 0) * 8 if arm == "vanilla" else 0
+                        ),
                         "wall_clock_training_seconds": 0.0,
                         "checkpoint_seconds": 0.0,
                         "total_seconds": 0.0,
@@ -275,6 +289,11 @@ def main() -> None:
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--plan-only", action="store_true")
     parser.add_argument("--implementation-smoke", action="store_true")
+    parser.add_argument(
+        "--backend", choices=("tiny_cpu_smoke", "radjax"), default="radjax"
+    )
+    parser.add_argument("--teacher-model", default="sshleifer/tiny-gpt2")
+    parser.add_argument("--student-backend", default="tiny_debug")
     parser.add_argument("--max-new-training-runs", type=int)
     parser.add_argument("--maximum-steps", type=int)
     parser.add_argument("--enable-convergence", action="store_true")
@@ -305,9 +324,40 @@ def main() -> None:
             json.dumps(build_crossover_plan(config).to_dict(), indent=2, sort_keys=True)
         )
         return
-    if not args.implementation_smoke:
-        raise SystemExit("P156.4 execution requires --implementation-smoke")
-    report = run_full_distillation_crossover(config, backend=TinyCpuCrossoverBackend())
+    if args.backend == "tiny_cpu_smoke":
+        if not args.implementation_smoke:
+            raise SystemExit(
+                "tiny_cpu_smoke backend is allowed only with --implementation-smoke"
+            )
+        backend = TinyCpuCrossoverBackend()
+    else:
+        mode_payload = json.loads(
+            (args.training_artifact / "modes.json").read_text(encoding="utf-8")
+        )
+        mode_ids = tuple(str(mode["mode_id"]) for mode in mode_payload["modes"])
+        scheduler = AdaptiveCorridorSchedulerConfig(
+            controller=ModePlateauConfig(
+                required_modes=mode_ids,
+                maximum_corridor_steps=args.maximum_steps or 100,
+            ),
+            mode_weights={mode_id: 1.0 for mode_id in mode_ids},
+        )
+        backend = RadjaxCrossoverBackend(
+            RadjaxCrossoverBackendConfig(
+                training_artifact=args.training_artifact,
+                calibration_artifact=args.calibration_artifact,
+                final_test_artifact=args.final_test_artifact,
+                source_texts=args.source_texts,
+                selected_profile_receipt=args.selected_profile_receipt,
+                receipt_root=args.output_dir,
+                adaptive_scheduler=scheduler,
+                teacher_backend=HFTeacherBackend(
+                    model_id=args.teacher_model, local_files_only=True
+                ),
+                student_backend=args.student_backend,
+            )
+        )
+    report = run_full_distillation_crossover(config, backend=backend)
     print(json.dumps(report, indent=2, sort_keys=True))
 
 

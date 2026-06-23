@@ -152,14 +152,19 @@ def validate_corridor_checkpoint_lineage(
             else manifest.loss_config.get("cycle") == 1
         ),
         "distill_mode_is_fingerprint_corridor": manifest.loss_config.get("kind")
-        == ("shared_initialization" if control_parent else "fingerprint_corridor"),
+        in (
+            {"shared_initialization"}
+            if control_parent
+            else {"fingerprint_corridor", "adaptive_fingerprint_corridor"}
+        ),
         "optimizer_steps_completed": (
             manifest.step == 0 if control_parent else manifest.step > 0
         ),
         "completed_corridor_checkpoint": (
             config.corridor_checkpoint.name == "initial"
             if control_parent
-            else config.corridor_checkpoint.name == "final"
+            else config.corridor_checkpoint.name
+            in {"final", "adaptive_corridor_final_checkpoint"}
         ),
         "student_backend_match": manifest.student_architecture
         == config.student_backend,
@@ -168,7 +173,13 @@ def validate_corridor_checkpoint_lineage(
         "vocab_size_match": manifest.student_config.get("vocab_size")
         == artifact_vocab_size,
         "artifact_manifest_hash_match": manifest.target_manifest.get(
-            "artifact_dir" if control_parent else "artifact_manifest_sha256"
+            "artifact_dir"
+            if control_parent
+            else (
+                "training_artifact_manifest_sha256"
+                if manifest.loss_config.get("kind") == "adaptive_fingerprint_corridor"
+                else "artifact_manifest_sha256"
+            )
         )
         == (str(parent_artifact) if control_parent else expected_manifest_hash),
         "p153_parent_binding_valid": p153_report_valid,
@@ -261,6 +272,10 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
         sampling_contract=sampling_contract,
     )
     state = resume_receipt.pop("state")
+    expected_fresh_optimizer_hash = _optimizer_state_hash(
+        init_optimizer_state(parent.params, optimizer_config)
+    )
+    actual_initial_optimizer_hash = _optimizer_state_hash(state.optimizer_state)
     initial_params = parent.params
     initial_fingerprint = parameter_fingerprint(initial_params)
     start_step = int(state.step)
@@ -414,6 +429,12 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
         "input_checkpoint_optimizer_state_loaded": False,
         "exemplar_optimizer_state_fresh": config.resume_checkpoint is None,
         "fresh_optimizer_state": config.resume_checkpoint is None,
+        "expected_fresh_exemplar_optimizer_hash": expected_fresh_optimizer_hash,
+        "actual_initial_exemplar_optimizer_hash": actual_initial_optimizer_hash,
+        "fresh_optimizer_exact_match": (
+            config.resume_checkpoint is None
+            and actual_initial_optimizer_hash == expected_fresh_optimizer_hash
+        ),
         "exemplar_local_step_start": start_step,
         "parent_corridor_optimizer_steps": parent.manifest.step,
         "requested_steps": config.steps,
@@ -514,6 +535,16 @@ def _sampling_contract(config, records):
             config.fingerprint_artifact / "manifest.json"
         ),
     }
+
+
+def _optimizer_state_hash(state) -> str:
+    return stable_hash(
+        {
+            "type": state.type,
+            "step": int(state.step),
+            "slots_parameter_fingerprint": parameter_fingerprint(state.slots),
+        }
+    )
 
 
 def _load_start_state(

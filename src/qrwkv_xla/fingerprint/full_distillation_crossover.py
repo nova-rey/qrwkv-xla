@@ -6,7 +6,7 @@ import math
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -130,6 +130,7 @@ class CheckpointEvaluation:
     evaluation_seconds: float = 0.0
 
 
+@runtime_checkable
 class CrossoverExecutionBackend(Protocol):
     def create_shared_initialization(
         self, *, seed: int, output_dir: Path
@@ -644,10 +645,19 @@ def _write_cycle_boundary_receipt(
     arms: Mapping[str, Sequence[ArmCheckpoint]],
 ) -> None:
     adaptive = arms["adaptive_two_cycle"]
+    expected_fresh = (
+        None
+        if not adaptive
+        else adaptive[0].resource_accounting.get(
+            "expected_fresh_exemplar_optimizer_hash",
+            adaptive[0].optimizer_initial_state_hash,
+        )
+    )
+    actual_fresh = None if not adaptive else adaptive[0].optimizer_initial_state_hash
     fresh = bool(
         adaptive
-        and adaptive[0].optimizer_initial_state_hash
-        != discovery.corridor_optimizer_state_hash
+        and actual_fresh == expected_fresh
+        and actual_fresh != discovery.corridor_optimizer_state_hash
     )
     _write_json(
         seed_dir / "cycle_boundary_receipt.json",
@@ -655,10 +665,11 @@ def _write_cycle_boundary_receipt(
             "phase": "P156.4",
             "corridor_checkpoint_hash": discovery.checkpoint_hash,
             "corridor_optimizer_state_hash": discovery.corridor_optimizer_state_hash,
-            "fresh_exemplar_optimizer_initial_state_hash": (
-                adaptive[0].optimizer_initial_state_hash
-            ),
+            "expected_fresh_exemplar_optimizer_hash": expected_fresh,
+            "actual_cycle_two_initial_optimizer_hash": actual_fresh,
+            "fresh_exemplar_optimizer_initial_state_hash": actual_fresh,
             "fresh_optimizer_confirmed": fresh,
+            "fresh_optimizer_exact_match": fresh,
             "cycle_one_step_S": discovery.optimizer_steps_completed,
             "cycle_two_starting_total_step": discovery.optimizer_steps_completed,
         },
@@ -764,14 +775,14 @@ def _target_costs(
         for row in resources
         if row["seed"] == seed and row["arm"] == arm and row["total_step"] == step
     )
-    byte_fields = (
-        "teacher_artifact_bytes_consumed",
-        "corridor_artifact_bytes_consumed",
-        "exemplar_artifact_bytes_consumed",
-    )
+    teacher_bytes = int(match.get("teacher_artifact_bytes_consumed", 0))
+    corridor_bytes = int(match.get("corridor_artifact_bytes_consumed", 0))
+    exemplar_bytes = int(match.get("exemplar_artifact_bytes_consumed", 0))
+    if corridor_bytes + exemplar_bytes > teacher_bytes:
+        raise ValueError("teacher artifact byte components exceed charged total")
     return {
         "steps_to_target": step,
-        "bytes_to_target": sum(int(match.get(name, 0)) for name in byte_fields),
+        "bytes_to_target": teacher_bytes,
         "wall_clock_to_target": float(match.get("total_seconds", 0.0)),
     }
 

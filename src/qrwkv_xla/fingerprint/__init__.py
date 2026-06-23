@@ -120,6 +120,12 @@ from qrwkv_xla.fingerprint.quality_per_byte import (
     run_fingerprint_quality_per_byte_experiment,
     run_unconfounded_quality_experiment,
 )
+from qrwkv_xla.fingerprint.radjax_crossover_backend import (
+    RadjaxCrossoverBackend,
+    RadjaxCrossoverBackendConfig,
+    teacher_bytes_to_target,
+    validate_byte_accounting,
+)
 from qrwkv_xla.fingerprint.real_teacher import (
     DEFAULT_TINY_REAL_TEACHER,
     TinyRealTeacherFingerprintCaptureConfig,
@@ -190,6 +196,8 @@ __all__ = [
     "CrossoverPlan",
     "FullDistillationCrossoverConfig",
     "SharedInitialization",
+    "RadjaxCrossoverBackend",
+    "RadjaxCrossoverBackendConfig",
     "ModeControllerState",
     "ModeObservation",
     "ModePlateauConfig",
@@ -250,8 +258,10 @@ __all__ = [
     "select_held_out_winner",
     "select_profile",
     "stable_hash",
+    "teacher_bytes_to_target",
     "validate_fingerprint_provenance",
     "validate_budgeted_artifact",
+    "validate_byte_accounting",
     "write_fingerprint_provenance",
     "write_resume_equivalence_receipt",
 ]

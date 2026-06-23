@@ -67,6 +67,7 @@ class AdaptiveCorridorPassConfig:
     distance_normalization: str = "none"
     parameter_norm_limit: float = 1e6
     gradient_norm_hard_limit: float = 1e6
+    initial_checkpoint: Path | None = None
     resume_checkpoint: Path | None = None
     overwrite: bool = False
 
@@ -135,7 +136,15 @@ def run_adaptive_corridor_pass(
             optimizer_state=loaded.optimizer_state,
         )
     else:
-        params = backend.init_params(jax.random.PRNGKey(config.seed))
+        if config.initial_checkpoint is None:
+            params = backend.init_params(jax.random.PRNGKey(config.seed))
+        else:
+            initial = load_checkpoint(config.initial_checkpoint)
+            if initial.manifest.student_architecture != config.student_backend:
+                raise ValueError("adaptive initial checkpoint backend mismatch")
+            if initial.manifest.student_config != student_config:
+                raise ValueError("adaptive initial checkpoint student config mismatch")
+            params = initial.params
         state = TrainState(
             params=params,
             step=0,
@@ -756,6 +765,11 @@ def _semantic_config(config: AdaptiveCorridorPassConfig) -> dict[str, Any]:
         "distance_normalization": config.distance_normalization,
         "parameter_norm_limit": config.parameter_norm_limit,
         "gradient_norm_hard_limit": config.gradient_norm_hard_limit,
+        "initial_checkpoint": (
+            None
+            if config.initial_checkpoint is None
+            else str(config.initial_checkpoint.resolve())
+        ),
     }
 
 
@@ -773,6 +787,12 @@ def _validate_config(config: AdaptiveCorridorPassConfig) -> None:
         raise ValueError("learning_rate must be > 0")
     if config.resume_checkpoint is not None and not config.resume_checkpoint.is_dir():
         raise ValueError("resume checkpoint does not exist")
+    if config.initial_checkpoint is not None and not config.initial_checkpoint.is_dir():
+        raise ValueError("initial checkpoint does not exist")
+    if config.initial_checkpoint is not None and config.resume_checkpoint is not None:
+        raise ValueError(
+            "initial_checkpoint and resume_checkpoint are mutually exclusive"
+        )
 
 
 def _stable_hash(value: Any) -> str:
