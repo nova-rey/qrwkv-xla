@@ -86,6 +86,7 @@ def run_adaptive_corridor_pass(
     *,
     calibration_override: CalibrationOverride | None = None,
     interrupt_after_optimizer_step: int | None = None,
+    interrupt_after_confirmation_only_evaluation: int | None = None,
 ) -> AdaptiveCorridorPassResult:
     _validate_config(config)
     config.output_dir.mkdir(parents=True, exist_ok=True)
@@ -165,31 +166,110 @@ def run_adaptive_corridor_pass(
             )
 
     stop_reason: str | None = None
-    while not scheduler.cycle_one_complete:
-        if state.step >= config.scheduler.controller.maximum_corridor_steps:
+    while True:
+        if scheduler.cycle_one_complete:
+            stop_reason = "all_required_modes_stably_frozen"
+            break
+
+        if scheduler.confirmation_phase_active:
+            if (
+                scheduler.confirmation_only_evaluations_completed
+                >= config.scheduler.maximum_confirmation_only_evaluations
+            ):
+                stop_reason = "confirmation_evaluation_cap"
+                break
+            evaluation_step = (
+                int(scheduler.controller.current_step or 0)
+                + config.evaluation_interval_steps
+            )
+            observations = _evaluate_all_modes(
+                backend,
+                state.params,
+                calibration_groups,
+                step=evaluation_step,
+                calibration_override=calibration_override,
+            )
+            events = scheduler.observe_calibration(
+                step=evaluation_step,
+                observations=observations,
+                confirmation_only=True,
+            )
+            _save_adaptive_checkpoint(
+                config,
+                state,
+                scheduler,
+                student_config,
+                runner_config_sha256,
+                config.output_dir
+                / "checkpoints"
+                / (
+                    f"step_{int(state.step):06d}_confirmation_"
+                    f"{scheduler.confirmation_only_evaluations_completed:03d}"
+                ),
+            )
+            reactivated = any(event["event"] == "mode_reactivated" for event in events)
+            if (
+                reactivated
+                and int(state.step)
+                >= config.scheduler.controller.maximum_corridor_steps
+            ):
+                stop_reason = "reactivation_at_optimizer_step_cap"
+                break
+            if (
+                not scheduler.cycle_one_complete
+                and scheduler.confirmation_only_evaluations_completed
+                >= config.scheduler.maximum_confirmation_only_evaluations
+            ):
+                stop_reason = "confirmation_evaluation_cap"
+                break
+            if (
+                interrupt_after_confirmation_only_evaluation is not None
+                and scheduler.confirmation_only_evaluations_completed
+                >= interrupt_after_confirmation_only_evaluation
+            ):
+                interruption_checkpoint = (
+                    config.output_dir
+                    / "checkpoints"
+                    / (
+                        f"step_{int(state.step):06d}_confirmation_interrupt_"
+                        f"{scheduler.confirmation_only_evaluations_completed:03d}"
+                    )
+                )
+                _save_adaptive_checkpoint(
+                    config,
+                    state,
+                    scheduler,
+                    student_config,
+                    runner_config_sha256,
+                    interruption_checkpoint,
+                )
+                stop_reason = "interrupted"
+                break
+            continue
+
+        if int(state.step) >= config.scheduler.controller.maximum_corridor_steps:
             stop_reason = "maximum_step_cap"
             break
         active_mode_ids = tuple(scheduler.active_mode_ids)
-        if active_mode_ids:
-            next_step = int(state.step) + 1
-            weights = scheduler.record_optimizer_step(next_step)
-            if active_mode_ids not in train_steps:
-                train_steps[active_mode_ids] = _make_adaptive_train_step(
-                    backend,
-                    {mode_id: train_batches[mode_id] for mode_id in active_mode_ids},
-                    {mode_id: weights[mode_id] for mode_id in active_mode_ids},
-                    optimizer_config=optimizer_config,
-                    max_grad_norm=config.max_grad_norm,
-                    measurement_config=measurement_config,
-                )
-            state, metrics = train_steps[active_mode_ids](state)
-            jax.block_until_ready(state.params)
-            loss = float(metrics["loss"])
-            if not math.isfinite(loss):
-                raise ValueError("adaptive corridor loss is non-finite")
-            should_evaluate = int(state.step) % config.evaluation_interval_steps == 0
-        else:
-            should_evaluate = True
+        if not active_mode_ids:
+            raise ValueError("no active modes outside confirmation phase")
+        next_step = int(state.step) + 1
+        weights = scheduler.record_optimizer_step(next_step)
+        if active_mode_ids not in train_steps:
+            train_steps[active_mode_ids] = _make_adaptive_train_step(
+                backend,
+                {mode_id: train_batches[mode_id] for mode_id in active_mode_ids},
+                {mode_id: weights[mode_id] for mode_id in active_mode_ids},
+                optimizer_config=optimizer_config,
+                max_grad_norm=config.max_grad_norm,
+                measurement_config=measurement_config,
+            )
+        state, metrics = train_steps[active_mode_ids](state)
+        jax.block_until_ready(state.params)
+        loss = float(metrics["loss"])
+        if not math.isfinite(loss):
+            raise ValueError("adaptive corridor loss is non-finite")
+        should_evaluate = int(state.step) % config.evaluation_interval_steps == 0
 
         events: list[dict[str, Any]] = []
         if should_evaluate:
@@ -243,8 +323,6 @@ def run_adaptive_corridor_pass(
             stop_reason = "interrupted"
             break
 
-    if scheduler.cycle_one_complete:
-        stop_reason = "all_required_modes_stably_frozen"
     final_checkpoint = (
         config.output_dir
         / "checkpoints"
@@ -294,7 +372,7 @@ def write_resume_equivalence_receipt(
     _write_json(
         output_dir / "adaptive_corridor_resume_receipt.json",
         {
-            "phase": "P156.3",
+            "phase": "P156.3.1",
             "resume_equivalent": bool(equivalent),
             "comparison": dict(comparison),
         },
@@ -442,6 +520,9 @@ def _save_adaptive_checkpoint(
 ) -> None:
     calibration_hash = _stable_hash(scheduler.calibration_trajectory)
     transition_hash = _stable_hash(scheduler.transition_events)
+    controller_state_hash = _stable_hash(scheduler.controller.to_dict())
+    scheduler_state = scheduler.to_dict()
+    scheduler_state_hash = _stable_hash(scheduler_state)
     save_checkpoint(
         path,
         state.params,
@@ -468,21 +549,34 @@ def _save_adaptive_checkpoint(
             "normalized_active_weights": scheduler.normalized_weights,
             "calibration_trajectory_sha256": calibration_hash,
             "transition_log_sha256": transition_hash,
+            "optimizer_steps_completed": scheduler.optimizer_steps_completed,
+            "confirmation_only_evaluations_completed": (
+                scheduler.confirmation_only_evaluations_completed
+            ),
+            "global_confirmation_count": scheduler.global_freeze_confirmation_count,
+            "all_required_modes_frozen": (
+                scheduler.controller.all_required_modes_frozen
+            ),
+            "global_cycle_one_complete": scheduler.cycle_one_complete,
+            "controller_state_sha256": controller_state_hash,
+            "scheduler_state_sha256": scheduler_state_hash,
         },
         optimizer_config=asdict(
             OptimizerConfig(type=config.optimizer, learning_rate=config.learning_rate)
         ),
         optimizer_state=state.optimizer_state,
         gradients={"max_grad_norm": config.max_grad_norm},
-        notes=["P156.3 adaptive corridor checkpoint"],
+        notes=["P156.3.1 adaptive corridor checkpoint"],
         overwrite=config.overwrite,
     )
     _write_json(
         path / "adaptive_state.json",
         {
-            "phase": "P156.3",
+            "phase": "P156.3.1",
             "runner_config_sha256": runner_config_sha256,
-            "scheduler_state": scheduler.to_dict(),
+            "scheduler_state": scheduler_state,
+            "controller_state_sha256": controller_state_hash,
+            "scheduler_state_sha256": scheduler_state_hash,
             "calibration_trajectory_sha256": calibration_hash,
             "transition_log_sha256": transition_hash,
         },
@@ -502,7 +596,7 @@ def _build_report(
         "checkpoint_bundle_sha256"
     ]
     return {
-        "phase": "P156.3",
+        "phase": "P156.3.1",
         "status": "pass" if scheduler.cycle_one_complete else "incomplete",
         "cycle_one_complete": scheduler.cycle_one_complete,
         "global_completion_step": scheduler.global_completion_step,
@@ -515,6 +609,17 @@ def _build_report(
         "optimizer_steps_completed": scheduler.optimizer_steps_completed,
         "calibration_evaluations_completed": (
             scheduler.calibration_evaluations_completed
+        ),
+        "confirmation_only_evaluations_completed": (
+            scheduler.confirmation_only_evaluations_completed
+        ),
+        "maximum_confirmation_only_evaluations": (
+            config.scheduler.maximum_confirmation_only_evaluations
+        ),
+        "maximum_corridor_steps": (config.scheduler.controller.maximum_corridor_steps),
+        "optimizer_step_cap_respected": (
+            scheduler.optimizer_steps_completed
+            <= config.scheduler.controller.maximum_corridor_steps
         ),
         "controller_config_sha256": scheduler.controller.config_sha256,
         "scheduler_config_sha256": scheduler.config_sha256,
@@ -580,7 +685,7 @@ def _write_outputs(
     _write_json(
         config.output_dir / "adaptive_corridor_checkpoint_lineage.json",
         {
-            "phase": "P156.3",
+            "phase": "P156.3.1",
             "controller_config_sha256": scheduler.controller.config_sha256,
             "scheduler_config_sha256": scheduler.config_sha256,
             "calibration_trajectory_sha256": _stable_hash(
@@ -599,14 +704,14 @@ def _write_outputs(
         _write_json(
             config.output_dir / "adaptive_corridor_resume_receipt.json",
             {
-                "phase": "P156.3",
+                "phase": "P156.3.1",
                 "resumed": resumed,
                 "resume_equivalent": None,
             },
         )
     summary = "\n".join(
         [
-            "# P156.3 Adaptive Corridor Summary",
+            "# P156.3.1 Adaptive Corridor Summary",
             "",
             f"- Status: {report['status']}",
             f"- Cycle 1 complete: {report['cycle_one_complete']}",

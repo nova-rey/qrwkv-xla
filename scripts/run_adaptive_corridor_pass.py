@@ -190,7 +190,7 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     report = run_smoke(args.output_dir)
-    print("phase=P156.3")
+    print("phase=P156.3.1")
     print(f"status={report['status']}")
     print(f"optimizer_steps={report['optimizer_steps_completed']}")
     print(f"reactivations={report['reactivation_count']}")

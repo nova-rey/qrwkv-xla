@@ -56,12 +56,17 @@ def _observe(
     losses: tuple[float, float, float],
     *,
     overrides: dict[str, dict[str, float]] | None = None,
+    confirmation_only: bool = False,
 ) -> list[dict]:
     observations = {
         mode_id: _metric(loss) for mode_id, loss in zip(MODES, losses, strict=True)
     }
     observations.update(overrides or {})
-    return scheduler.observe_calibration(step=step, observations=observations)
+    return scheduler.observe_calibration(
+        step=step,
+        observations=observations,
+        confirmation_only=confirmation_only,
+    )
 
 
 def test_active_weights_renormalize_and_frozen_mode_has_zero_weight() -> None:
@@ -152,10 +157,17 @@ def test_global_completion_waits_for_confirmation_and_resets_on_regression() -> 
     for step in range(4):
         _observe(scheduler, step, (1.0, 1.0, 1.0))
     assert scheduler.controller.all_required_modes_frozen
-    assert scheduler.global_freeze_confirmation_count == 1
+    assert scheduler.global_freeze_confirmation_count == 0
+    assert scheduler.confirmation_phase_active
     assert not scheduler.cycle_one_complete
     bad = _metric(1.0, inside=0.5, distance=0.2, violation=0.2)
-    _observe(scheduler, 4, (1.0, 1.0, 1.0), overrides={"0": bad})
+    _observe(
+        scheduler,
+        4,
+        (1.0, 1.0, 1.0),
+        overrides={"0": bad},
+        confirmation_only=True,
+    )
     assert scheduler.global_freeze_confirmation_count == 0
     assert not scheduler.cycle_one_complete
 
@@ -182,9 +194,15 @@ def test_stable_all_frozen_window_completes_and_optional_mode_does_not_block() -
     scheduler.observe_calibration(
         step=4,
         observations={"0": _metric(1.0), "1": _metric(1.0), "2": unfinished},
+        confirmation_only=True,
+    )
+    scheduler.observe_calibration(
+        step=5,
+        observations={"0": _metric(1.0), "1": _metric(1.0), "2": unfinished},
+        confirmation_only=True,
     )
     assert scheduler.cycle_one_complete
-    assert scheduler.global_completion_step == 4
+    assert scheduler.global_completion_step == 5
     assert scheduler.controller.modes["2"].state == ModeState.ACTIVE
 
 
@@ -194,8 +212,8 @@ def test_scheduler_round_trip_preserves_confirmation_and_trajectories() -> None:
         _observe(scheduler, step, (1.0, 1.0, 1.0))
     restored = AdaptiveCorridorScheduler.from_dict(scheduler.to_dict())
     assert restored.to_dict() == scheduler.to_dict()
-    _observe(restored, 4, (1.0, 1.0, 1.0))
-    _observe(scheduler, 4, (1.0, 1.0, 1.0))
+    _observe(restored, 4, (1.0, 1.0, 1.0), confirmation_only=True)
+    _observe(scheduler, 4, (1.0, 1.0, 1.0), confirmation_only=True)
     assert restored.to_dict() == scheduler.to_dict()
 
 

@@ -19,12 +19,22 @@ class AdaptiveCorridorSchedulerConfig:
     controller: ModePlateauConfig
     mode_weights: Mapping[str, float]
     global_freeze_confirmation_observations: int = 2
+    maximum_confirmation_only_evaluations: int = 8
     maximum_reactivations_per_mode: int = 3
     maximum_total_reactivations: int = 10
 
     def __post_init__(self) -> None:
         if self.global_freeze_confirmation_observations <= 0:
             raise ValueError("global_freeze_confirmation_observations must be > 0")
+        if self.maximum_confirmation_only_evaluations <= 0:
+            raise ValueError("maximum_confirmation_only_evaluations must be > 0")
+        if (
+            self.maximum_confirmation_only_evaluations
+            < self.global_freeze_confirmation_observations
+        ):
+            raise ValueError(
+                "maximum_confirmation_only_evaluations must cover confirmation window"
+            )
         if self.maximum_reactivations_per_mode < 0:
             raise ValueError("maximum_reactivations_per_mode must be >= 0")
         if self.maximum_total_reactivations < 0:
@@ -52,6 +62,9 @@ class AdaptiveCorridorSchedulerConfig:
             },
             "global_freeze_confirmation_observations": (
                 self.global_freeze_confirmation_observations
+            ),
+            "maximum_confirmation_only_evaluations": (
+                self.maximum_confirmation_only_evaluations
             ),
             "maximum_reactivations_per_mode": self.maximum_reactivations_per_mode,
             "maximum_total_reactivations": self.maximum_total_reactivations,
@@ -113,6 +126,8 @@ class AdaptiveCorridorScheduler:
         self.config_sha256 = _stable_hash(config.to_dict())
         self.controller = MultiModePlateauController(config.controller)
         self.global_freeze_confirmation_count = 0
+        self.confirmation_phase_active = False
+        self.confirmation_only_evaluations_completed = 0
         self.global_completion_step: int | None = None
         self.optimizer_steps_completed = 0
         self.calibration_evaluations_completed = 0
@@ -205,7 +220,11 @@ class AdaptiveCorridorScheduler:
         return weights
 
     def observe_calibration(
-        self, *, step: int, observations: Mapping[str, Mapping[str, float]]
+        self,
+        *,
+        step: int,
+        observations: Mapping[str, Mapping[str, float]],
+        confirmation_only: bool = False,
     ) -> list[dict[str, Any]]:
         before_states = {
             mode_id: state.state.value
@@ -216,6 +235,8 @@ class AdaptiveCorridorScheduler:
         transition_start = len(self.controller.transitions)
         self.controller.observe_all(step=step, observations=observations)
         self.calibration_evaluations_completed += 1
+        if confirmation_only:
+            self.confirmation_only_evaluations_completed += 1
         after_states = {
             mode_id: state.state.value
             for mode_id, state in self.controller.modes.items()
@@ -297,16 +318,23 @@ class AdaptiveCorridorScheduler:
         self._validate_caps()
         if self.controller.failed_mode_ids:
             raise ValueError("required controller mode failed closed")
+        reactivated = any(event["event"] == "mode_reactivated" for event in events)
         if self.controller.all_required_modes_frozen:
-            self.global_freeze_confirmation_count += 1
+            self.confirmation_phase_active = True
+            self.global_freeze_confirmation_count = (
+                self.global_freeze_confirmation_count + 1 if confirmation_only else 0
+            )
             if (
                 self.global_freeze_confirmation_count
                 >= self.config.global_freeze_confirmation_observations
             ):
                 self.global_completion_step = step
+                self.confirmation_phase_active = False
         else:
             self.global_freeze_confirmation_count = 0
             self.global_completion_step = None
+            if reactivated or not confirmation_only:
+                self.confirmation_phase_active = False
         self._validate_mask_state_agreement()
         return events
 
@@ -331,11 +359,15 @@ class AdaptiveCorridorScheduler:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "phase": "P156.3",
+            "phase": "P156.3.1",
             "scheduler_config": self.config.to_dict(),
             "scheduler_config_sha256": self.config_sha256,
             "controller_state": self.controller.to_dict(),
             "global_freeze_confirmation_count": self.global_freeze_confirmation_count,
+            "confirmation_phase_active": self.confirmation_phase_active,
+            "confirmation_only_evaluations_completed": (
+                self.confirmation_only_evaluations_completed
+            ),
             "global_completion_step": self.global_completion_step,
             "optimizer_steps_completed": self.optimizer_steps_completed,
             "calibration_evaluations_completed": self.calibration_evaluations_completed,
@@ -366,6 +398,12 @@ class AdaptiveCorridorScheduler:
         scheduler.global_freeze_confirmation_count = value[
             "global_freeze_confirmation_count"
         ]
+        scheduler.confirmation_phase_active = value.get(
+            "confirmation_phase_active", False
+        )
+        scheduler.confirmation_only_evaluations_completed = value.get(
+            "confirmation_only_evaluations_completed", 0
+        )
         scheduler.global_completion_step = value["global_completion_step"]
         scheduler.optimizer_steps_completed = value["optimizer_steps_completed"]
         scheduler.calibration_evaluations_completed = value[
