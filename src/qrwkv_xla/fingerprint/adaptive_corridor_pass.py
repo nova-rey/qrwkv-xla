@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import time
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -89,6 +90,9 @@ def run_adaptive_corridor_pass(
     interrupt_after_optimizer_step: int | None = None,
     interrupt_after_confirmation_only_evaluation: int | None = None,
 ) -> AdaptiveCorridorPassResult:
+    run_started = time.perf_counter()
+    training_seconds = evaluation_seconds = checkpoint_seconds = 0.0
+    training_records = training_tokens = 0
     _validate_config(config)
     config.output_dir.mkdir(parents=True, exist_ok=True)
     runner_config_sha256 = _stable_hash(_semantic_config(config))
@@ -155,7 +159,22 @@ def run_adaptive_corridor_pass(
 
     train_steps: dict[tuple[str, ...], Any] = {}
     interruption_checkpoint: Path | None = None
+
+    def save_timed(path: Path) -> None:
+        nonlocal checkpoint_seconds
+        started = time.perf_counter()
+        _save_adaptive_checkpoint(
+            config,
+            state,
+            scheduler,
+            student_config,
+            runner_config_sha256,
+            path,
+        )
+        checkpoint_seconds += time.perf_counter() - started
+
     if scheduler.calibration_evaluations_completed == 0:
+        evaluation_started = time.perf_counter()
         observations = _evaluate_all_modes(
             backend,
             state.params,
@@ -163,16 +182,10 @@ def run_adaptive_corridor_pass(
             step=0,
             calibration_override=calibration_override,
         )
+        evaluation_seconds += time.perf_counter() - evaluation_started
         events = scheduler.observe_calibration(step=0, observations=observations)
         if events:
-            _save_adaptive_checkpoint(
-                config,
-                state,
-                scheduler,
-                student_config,
-                runner_config_sha256,
-                config.output_dir / "checkpoints" / "step_000000_event",
-            )
+            save_timed(config.output_dir / "checkpoints" / "step_000000_event")
 
     stop_reason: str | None = None
     while True:
@@ -191,6 +204,7 @@ def run_adaptive_corridor_pass(
                 int(scheduler.controller.current_step or 0)
                 + config.evaluation_interval_steps
             )
+            evaluation_started = time.perf_counter()
             observations = _evaluate_all_modes(
                 backend,
                 state.params,
@@ -198,23 +212,19 @@ def run_adaptive_corridor_pass(
                 step=evaluation_step,
                 calibration_override=calibration_override,
             )
+            evaluation_seconds += time.perf_counter() - evaluation_started
             events = scheduler.observe_calibration(
                 step=evaluation_step,
                 observations=observations,
                 confirmation_only=True,
             )
-            _save_adaptive_checkpoint(
-                config,
-                state,
-                scheduler,
-                student_config,
-                runner_config_sha256,
+            save_timed(
                 config.output_dir
                 / "checkpoints"
                 / (
                     f"step_{int(state.step):06d}_confirmation_"
                     f"{scheduler.confirmation_only_evaluations_completed:03d}"
-                ),
+                )
             )
             reactivated = any(event["event"] == "mode_reactivated" for event in events)
             if (
@@ -244,14 +254,7 @@ def run_adaptive_corridor_pass(
                         f"{scheduler.confirmation_only_evaluations_completed:03d}"
                     )
                 )
-                _save_adaptive_checkpoint(
-                    config,
-                    state,
-                    scheduler,
-                    student_config,
-                    runner_config_sha256,
-                    interruption_checkpoint,
-                )
+                save_timed(interruption_checkpoint)
                 stop_reason = "interrupted"
                 break
             continue
@@ -273,8 +276,17 @@ def run_adaptive_corridor_pass(
                 max_grad_norm=config.max_grad_norm,
                 measurement_config=measurement_config,
             )
+        training_started = time.perf_counter()
         state, metrics = train_steps[active_mode_ids](state)
         jax.block_until_ready(state.params)
+        training_seconds += time.perf_counter() - training_started
+        training_records += sum(
+            int(train_batches[mode_id].input_ids.shape[0])
+            for mode_id in active_mode_ids
+        )
+        training_tokens += sum(
+            int(train_batches[mode_id].input_ids.size) for mode_id in active_mode_ids
+        )
         loss = float(metrics["loss"])
         if not math.isfinite(loss):
             raise ValueError("adaptive corridor loss is non-finite")
@@ -286,6 +298,7 @@ def run_adaptive_corridor_pass(
                 int(scheduler.controller.current_step or 0)
                 + config.evaluation_interval_steps
             )
+            evaluation_started = time.perf_counter()
             observations = _evaluate_all_modes(
                 backend,
                 state.params,
@@ -293,6 +306,7 @@ def run_adaptive_corridor_pass(
                 step=evaluation_step,
                 calibration_override=calibration_override,
             )
+            evaluation_seconds += time.perf_counter() - evaluation_started
             events = scheduler.observe_calibration(
                 step=evaluation_step, observations=observations
             )
@@ -302,15 +316,10 @@ def run_adaptive_corridor_pass(
         )
         if should_checkpoint:
             suffix = "event" if events else "periodic"
-            _save_adaptive_checkpoint(
-                config,
-                state,
-                scheduler,
-                student_config,
-                runner_config_sha256,
+            save_timed(
                 config.output_dir
                 / "checkpoints"
-                / f"step_{int(state.step):06d}_{suffix}",
+                / f"step_{int(state.step):06d}_{suffix}"
             )
         if (
             interrupt_after_optimizer_step is not None
@@ -321,14 +330,7 @@ def run_adaptive_corridor_pass(
                 / "checkpoints"
                 / f"step_{int(state.step):06d}_interrupt"
             )
-            _save_adaptive_checkpoint(
-                config,
-                state,
-                scheduler,
-                student_config,
-                runner_config_sha256,
-                interruption_checkpoint,
-            )
+            save_timed(interruption_checkpoint)
             stop_reason = "interrupted"
             break
 
@@ -341,14 +343,8 @@ def run_adaptive_corridor_pass(
             else "adaptive_corridor_latest_checkpoint"
         )
     )
-    _save_adaptive_checkpoint(
-        config,
-        state,
-        scheduler,
-        student_config,
-        runner_config_sha256,
-        final_checkpoint,
-    )
+    save_timed(final_checkpoint)
+    total_wall_seconds = time.perf_counter() - run_started
     report = _build_report(
         config,
         scheduler,
@@ -356,6 +352,14 @@ def run_adaptive_corridor_pass(
         stop_reason=stop_reason,
         resumed=resumed,
         runner_config_sha256=runner_config_sha256,
+        resources={
+            "training_records": training_records,
+            "training_tokens": training_tokens,
+            "training_wall_seconds": training_seconds,
+            "evaluation_wall_seconds": evaluation_seconds,
+            "checkpoint_wall_seconds": checkpoint_seconds,
+            "total_wall_seconds": total_wall_seconds,
+        },
     )
     _write_outputs(config, scheduler, report, resumed=resumed)
     return AdaptiveCorridorPassResult(
@@ -600,6 +604,7 @@ def _build_report(
     stop_reason: str | None,
     resumed: bool,
     runner_config_sha256: str,
+    resources: Mapping[str, Any],
 ) -> dict[str, Any]:
     checkpoint_hash = hash_checkpoint_bundle(final_checkpoint)[
         "checkpoint_bundle_sha256"
@@ -648,6 +653,7 @@ def _build_report(
             "frozen modes have zero direct loss; shared parameters remain trainable"
         ),
         "exemplar_training_launched": False,
+        "resource_accounting": dict(resources),
         "modes": {
             mode_id: {
                 "mode_id": mode_id,

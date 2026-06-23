@@ -1,0 +1,45 @@
+{
+  "adaptive_full_cost_accounting_valid": true,
+  "all_required_values_present": true,
+  "combined_resources": {
+    "optimizer_steps": 3,
+    "total_wall_seconds": 0.9053279499639757,
+    "training_records": 8,
+    "training_tokens": 64,
+    "training_wall_seconds": 0.7475257990299724
+  },
+  "cycle_one_resources": {
+    "checkpoint_wall_seconds": 0.009176148974802345,
+    "corridor_payload_bytes": 2409,
+    "cpu_seconds": null,
+    "evaluation_wall_seconds": 0.04525314597412944,
+    "exemplar_payload_bytes": 0,
+    "gpu_seconds": 0,
+    "optimizer_steps": 1,
+    "shared_metadata_bytes": 1182,
+    "source_text_bytes": 0,
+    "teacher_artifact_bytes": 3591,
+    "total_wall_seconds": 0.6534163359901868,
+    "tpu_seconds": 0,
+    "training_records": 4,
+    "training_tokens": 32,
+    "training_wall_seconds": 0.5921077580424026
+  },
+  "cycle_two_resources": {
+    "checkpoint_wall_seconds": 0.003452028031460941,
+    "evaluation_wall_seconds": 0.05733470001723617,
+    "optimizer_steps": 2,
+    "total_wall_seconds": 0.2519116139737889,
+    "training_records": 4,
+    "training_tokens": 32,
+    "training_wall_seconds": 0.15541804098756984
+  },
+  "formula_checks": {
+    "optimizer_steps": true,
+    "total_wall_seconds": true,
+    "training_records": true,
+    "training_tokens": true,
+    "training_wall_seconds": true
+  },
+  "phase": "P156.4.2.1"
+}

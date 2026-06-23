@@ -1,0 +1,251 @@
+{
+  "adaptive_cycle_two_resume_valid": true,
+  "adaptive_full_cost_accounting_valid": true,
+  "backend": "radjax",
+  "checkpoint_execution_mode": "continuous_trajectory",
+  "completed_steps_replayed": false,
+  "continuous_resume_valid": true,
+  "cycle_two_optimizer_reinitialized_per_checkpoint": false,
+  "exemplar_only_resume_valid": true,
+  "full_distillation_run_started": false,
+  "negative_total_wall_intervals_present": false,
+  "phase": "P156.4.2.1",
+  "publication_grade": false,
+  "ready_for_P156_5": true,
+  "real_cpu_smoke_complete": true,
+  "resource_snapshot": {
+    "actual_initial_exemplar_optimizer_hash": "sha256:41afd86d3e5438f5e8f7a462010fa2365166fccb268d4f9a0f519095f23b54d2",
+    "arm": "adaptive_two_cycle",
+    "artifact_bytes_available": 4733,
+    "artifact_bytes_logically_consumed": 4733,
+    "artifact_bytes_selected": 4733,
+    "artifact_consumption_policy": "full_assigned_artifact_charged_at_first_use",
+    "completed_steps_replayed": false,
+    "continuous_trajectory_confirmed": true,
+    "corridor_artifact_bytes_consumed": 2409,
+    "corridor_payload_bytes": 2409,
+    "cumulative_checkpoint_wall_seconds": 0.012628177006263286,
+    "cumulative_corridor_payload_bytes": 2409,
+    "cumulative_cpu_seconds": null,
+    "cumulative_evaluation_wall_seconds": 0.10258784599136561,
+    "cumulative_exemplar_payload_bytes": 1142,
+    "cumulative_gpu_seconds": 0,
+    "cumulative_optimizer_steps": 3,
+    "cumulative_shared_metadata_bytes": 1182,
+    "cumulative_source_text_bytes": 0,
+    "cumulative_teacher_artifact_bytes": 4733,
+    "cumulative_total_wall_seconds": 0.9053279499639757,
+    "cumulative_tpu_seconds": 0,
+    "cumulative_training_records": 8,
+    "cumulative_training_tokens": 64,
+    "cumulative_training_wall_seconds": 0.7475257990299724,
+    "cycle_one_resource_baseline_sha256": "sha256:60565110c33d7bd69d256389ae59786a2b3ce848469f871bf5d2eefde2de4eb7",
+    "cycle_two_cumulative_resources": {
+      "checkpoint_wall_seconds": 0.003452028031460941,
+      "evaluation_wall_seconds": 0.05733470001723617,
+      "optimizer_steps": 2,
+      "total_wall_seconds": 0.2519116139737889,
+      "training_records": 4,
+      "training_tokens": 32,
+      "training_wall_seconds": 0.15541804098756984
+    },
+    "cycle_two_optimizer_instantiated": true,
+    "exemplar_artifact_bytes_consumed": 1142,
+    "exemplar_payload_bytes": 1142,
+    "expected_fresh_exemplar_optimizer_hash": "sha256:41afd86d3e5438f5e8f7a462010fa2365166fccb268d4f9a0f519095f23b54d2",
+    "filesystem_bytes_read": null,
+    "fresh_optimizer_exact_match": true,
+    "fresh_optimizer_proof_status": "proven",
+    "interval_checkpoint_wall_seconds": 0.002175679022911936,
+    "interval_corridor_payload_bytes": 0,
+    "interval_cpu_seconds": null,
+    "interval_evaluation_wall_seconds": 0.029864762036595494,
+    "interval_exemplar_payload_bytes": 0,
+    "interval_gpu_seconds": 0,
+    "interval_optimizer_steps": 1,
+    "interval_shared_metadata_bytes": 0,
+    "interval_source_text_bytes": 0,
+    "interval_teacher_artifact_bytes": 0,
+    "interval_total_wall_seconds": 0.03375696501461789,
+    "interval_tpu_seconds": 0,
+    "interval_training_records": 2,
+    "interval_training_tokens": 16,
+    "interval_training_wall_seconds": 0.0013822849723510444,
+    "optimizer_steps": 3,
+    "previous_checkpoint_total_step": 2,
+    "previous_optimizer_state_hash": "sha256:eb8bbb869f441d07c10a27b4ab37e2661aa8888026e4e06eff50754d7a8ed61f",
+    "resource_provenance": {
+      "cumulative_checkpoint_wall_seconds": {
+        "source": "continuous_runner.checkpoint_wall_seconds",
+        "status": "measured",
+        "value": 0.012628177006263286
+      },
+      "cumulative_corridor_payload_bytes": {
+        "source": "continuous_runner.corridor_payload_bytes",
+        "status": "derived",
+        "value": 2409
+      },
+      "cumulative_cpu_seconds": {
+        "reason": "underlying runner does not expose this measurement",
+        "status": "unavailable",
+        "value": null
+      },
+      "cumulative_evaluation_wall_seconds": {
+        "source": "continuous_runner.evaluation_wall_seconds",
+        "status": "measured",
+        "value": 0.10258784599136561
+      },
+      "cumulative_exemplar_payload_bytes": {
+        "source": "continuous_runner.exemplar_payload_bytes",
+        "status": "derived",
+        "value": 1142
+      },
+      "cumulative_gpu_seconds": {
+        "source": "continuous_runner.gpu_seconds",
+        "status": "measured",
+        "value": 0
+      },
+      "cumulative_optimizer_steps": {
+        "source": "continuous_runner.optimizer_steps",
+        "status": "measured",
+        "value": 3
+      },
+      "cumulative_shared_metadata_bytes": {
+        "source": "continuous_runner.shared_metadata_bytes",
+        "status": "derived",
+        "value": 1182
+      },
+      "cumulative_source_text_bytes": {
+        "source": "continuous_runner.source_text_bytes",
+        "status": "derived",
+        "value": 0
+      },
+      "cumulative_teacher_artifact_bytes": {
+        "source": "continuous_runner.teacher_artifact_bytes",
+        "status": "derived",
+        "value": 4733
+      },
+      "cumulative_total_wall_seconds": {
+        "source": "continuous_runner.total_wall_seconds",
+        "status": "measured",
+        "value": 0.9053279499639757
+      },
+      "cumulative_tpu_seconds": {
+        "source": "continuous_runner.tpu_seconds",
+        "status": "measured",
+        "value": 0
+      },
+      "cumulative_training_records": {
+        "source": "continuous_runner.training_records",
+        "status": "measured",
+        "value": 8
+      },
+      "cumulative_training_tokens": {
+        "source": "continuous_runner.training_tokens",
+        "status": "measured",
+        "value": 64
+      },
+      "cumulative_training_wall_seconds": {
+        "source": "continuous_runner.training_wall_seconds",
+        "status": "measured",
+        "value": 0.7475257990299724
+      },
+      "interval_checkpoint_wall_seconds": {
+        "source": "cumulative_checkpoint_wall_seconds-previous_cumulative_checkpoint_wall_seconds",
+        "status": "derived",
+        "value": 0.002175679022911936
+      },
+      "interval_corridor_payload_bytes": {
+        "source": "cumulative_corridor_payload_bytes-previous_cumulative_corridor_payload_bytes",
+        "status": "derived",
+        "value": 0
+      },
+      "interval_cpu_seconds": {
+        "reason": "underlying runner does not expose this measurement",
+        "status": "unavailable",
+        "value": null
+      },
+      "interval_evaluation_wall_seconds": {
+        "source": "cumulative_evaluation_wall_seconds-previous_cumulative_evaluation_wall_seconds",
+        "status": "derived",
+        "value": 0.029864762036595494
+      },
+      "interval_exemplar_payload_bytes": {
+        "source": "cumulative_exemplar_payload_bytes-previous_cumulative_exemplar_payload_bytes",
+        "status": "derived",
+        "value": 0
+      },
+      "interval_gpu_seconds": {
+        "source": "cumulative_gpu_seconds-previous_cumulative_gpu_seconds",
+        "status": "derived",
+        "value": 0
+      },
+      "interval_optimizer_steps": {
+        "source": "cumulative_optimizer_steps-previous_cumulative_optimizer_steps",
+        "status": "derived",
+        "value": 1
+      },
+      "interval_shared_metadata_bytes": {
+        "source": "cumulative_shared_metadata_bytes-previous_cumulative_shared_metadata_bytes",
+        "status": "derived",
+        "value": 0
+      },
+      "interval_source_text_bytes": {
+        "source": "cumulative_source_text_bytes-previous_cumulative_source_text_bytes",
+        "status": "derived",
+        "value": 0
+      },
+      "interval_teacher_artifact_bytes": {
+        "source": "cumulative_teacher_artifact_bytes-previous_cumulative_teacher_artifact_bytes",
+        "status": "derived",
+        "value": 0
+      },
+      "interval_total_wall_seconds": {
+        "source": "cumulative_total_wall_seconds-previous_cumulative_total_wall_seconds",
+        "status": "derived",
+        "value": 0.03375696501461789
+      },
+      "interval_tpu_seconds": {
+        "source": "cumulative_tpu_seconds-previous_cumulative_tpu_seconds",
+        "status": "derived",
+        "value": 0
+      },
+      "interval_training_records": {
+        "source": "cumulative_training_records-previous_cumulative_training_records",
+        "status": "derived",
+        "value": 2
+      },
+      "interval_training_tokens": {
+        "source": "cumulative_training_tokens-previous_cumulative_training_tokens",
+        "status": "derived",
+        "value": 16
+      },
+      "interval_training_wall_seconds": {
+        "source": "cumulative_training_wall_seconds-previous_cumulative_training_wall_seconds",
+        "status": "derived",
+        "value": 0.0013822849723510444
+      }
+    },
+    "resume_source_checkpoint": null,
+    "resume_source_optimizer_hash": null,
+    "resume_source_total_step": null,
+    "resumed": false,
+    "shared_teacher_metadata_bytes": 1182,
+    "silent_zero_defaults_present": false,
+    "source_text_bytes_consumed": 0,
+    "strict_resource_accounting": true,
+    "teacher_artifact_bytes_consumed": 4733,
+    "teacher_artifact_bytes_total": 4733,
+    "token_counting_policy": "non_padding_training_tokens",
+    "total_seconds": 0.9053279499639757,
+    "training_records_consumed": 8,
+    "training_tokens_consumed": 64,
+    "trajectory_config_hash": "sha256:3222d513ed5e3462e856d1d763cf5f5adfe3499ea511a0edbad97100d4dd22f4",
+    "trajectory_root_checkpoint_hash": "sha256:677b02251d3549ef5290ebe81ae63055e9bcd3ddd080724a8f584f8d09930dd6",
+    "wall_clock_training_seconds": 0.7475257990299724
+  },
+  "silent_zero_defaults_present": false,
+  "status": "pass",
+  "strict_resource_accounting": true,
+  "vanilla_resume_valid": true
+}

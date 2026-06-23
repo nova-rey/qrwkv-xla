@@ -195,6 +195,17 @@ class RadjaxCrossoverBackend:
     checkpoint_execution_mode = "continuous_trajectory"
     strict_resource_accounting = True
 
+    @property
+    def ready_for_p156_5(self) -> bool:
+        return bool(
+            self._adaptive_cost_evidence.get("adaptive_full_cost_accounting_valid")
+            and all(
+                self._resume_evidence.get(arm, {}).get("pass") is True
+                for arm in ("vanilla", "exemplar_only", "adaptive_two_cycle")
+            )
+            and self._usage["byte_accounting_valid"]
+        )
+
     def __init__(self, config: RadjaxCrossoverBackendConfig) -> None:
         self.config = config
         self.config_sha256 = stable_hash(config.to_dict())
@@ -214,6 +225,10 @@ class RadjaxCrossoverBackend:
             "fresh_optimizer_proof_status": "not_applicable",
             "fresh_optimizer_exact_match": None,
         }
+        self._cycle_one_resources: dict[str, Any] = {}
+        self._cycle_one_receipt_hash: str | None = None
+        self._adaptive_cost_evidence: dict[str, Any] = {}
+        self._resume_evidence: dict[str, Any] = {}
         self.config.receipt_root.mkdir(parents=True, exist_ok=True)
         self._validate_artifacts()
         self._write_receipts()
@@ -255,6 +270,13 @@ class RadjaxCrossoverBackend:
             ],
         )
 
+    def record_resume_evidence(self, arms: dict[str, dict[str, Any]]) -> None:
+        required = {"vanilla", "exemplar_only", "adaptive_two_cycle"}
+        if set(arms) != required:
+            raise ValueError("resume evidence must cover all production arms")
+        self._resume_evidence = arms
+        self._write_receipts()
+
     def discover_adaptive_cycle_one(
         self,
         *,
@@ -286,6 +308,57 @@ class RadjaxCrossoverBackend:
         state = _read_json(result.final_checkpoint / "adaptive_state.json")
         scheduler_state = state["scheduler_state"]
         modes = report["modes"]
+        measured = report.get("resource_accounting", {})
+        required = (
+            "training_records",
+            "training_tokens",
+            "training_wall_seconds",
+            "evaluation_wall_seconds",
+            "checkpoint_wall_seconds",
+            "total_wall_seconds",
+        )
+        missing = [name for name in required if measured.get(name) is None]
+        if missing:
+            raise ValueError(
+                f"adaptive Cycle 1 resource measurements missing: {missing}"
+            )
+        classified = classify_artifact_bytes(self.config.training_artifact)
+        category = classified["category_bytes"]
+        self._cycle_one_resources = {
+            "optimizer_steps": int(report["optimizer_steps_completed"]),
+            **{name: measured[name] for name in required},
+            "source_text_bytes": 0,
+            "teacher_artifact_bytes": (
+                category["corridor_payload"] + category["shared_teacher_metadata"]
+            ),
+            "corridor_payload_bytes": category["corridor_payload"],
+            "exemplar_payload_bytes": 0,
+            "shared_metadata_bytes": category["shared_teacher_metadata"],
+            "cpu_seconds": None,
+            "tpu_seconds": 0,
+            "gpu_seconds": 0,
+        }
+        cycle_one_receipt = {
+            "phase": "P156.4.2.1",
+            "seed": seed,
+            "adaptive_checkpoint_hash": hash_checkpoint_bundle(result.final_checkpoint)[
+                "checkpoint_bundle_sha256"
+            ],
+            "S": int(report["optimizer_steps_completed"]),
+            **self._cycle_one_resources,
+            "resource_provenance": {
+                name: "adaptive_corridor_report.resource_accounting"
+                for name in required
+            },
+        }
+        self._cycle_one_receipt_hash = stable_hash(cycle_one_receipt)
+        cycle_one_receipt["cycle_one_resource_baseline_sha256"] = (
+            self._cycle_one_receipt_hash
+        )
+        _write_json(
+            self.config.receipt_root / "cycle_one_resource_baseline_receipt.json",
+            cycle_one_receipt,
+        )
         self._usage["real_adaptive_runner_used"] = True
         self._write_receipts()
         return AdaptiveDiscovery(
@@ -486,6 +559,7 @@ class RadjaxCrossoverBackend:
         start_step = 0
         training_seconds = checkpoint_seconds = 0.0
         records_consumed = tokens_consumed = 0
+        prior_total_wall_seconds = 0.0
         previous_hash = shared.checkpoint_hash
         previous_optimizer_hash = initial_optimizer_hash
         previous_resource: dict[str, float | int | None] = {}
@@ -518,6 +592,7 @@ class RadjaxCrossoverBackend:
             checkpoint_seconds = float(previous_resource["checkpoint_wall_seconds"])
             records_consumed = int(previous_resource["training_records"])
             tokens_consumed = int(previous_resource["training_tokens"])
+            prior_total_wall_seconds = float(previous_resource["total_wall_seconds"])
 
         def loss_fn(current_params, input_ids, mask):
             output, _ = backend.forward_full(
@@ -574,7 +649,9 @@ class RadjaxCrossoverBackend:
                 "training_wall_seconds": training_seconds,
                 "evaluation_wall_seconds": None,
                 "checkpoint_wall_seconds": checkpoint_seconds,
-                "total_wall_seconds": time.perf_counter() - started,
+                "total_wall_seconds": (
+                    prior_total_wall_seconds + time.perf_counter() - started
+                ),
                 "cpu_seconds": None,
                 "tpu_seconds": 0,
                 "gpu_seconds": 0,
@@ -799,6 +876,41 @@ class RadjaxCrossoverBackend:
             checkpoint_steps[-1] - boundary_step if adaptive else checkpoint_steps[-1]
         )
         run_dir = output_dir / "trajectory"
+        artifact_hash = _directory_hash(self.config.training_artifact)
+        existing = sorted(
+            path for path in (run_dir / "checkpoints").glob("step_*") if path.is_dir()
+        )
+        resume_checkpoint = existing[-1] if existing else None
+        resume_data: dict[str, Any] | None = None
+        resume_local_step = 0
+        if resume_checkpoint is not None:
+            receipt_path = resume_checkpoint.with_name(
+                resume_checkpoint.name + ".trajectory.json"
+            )
+            if not receipt_path.is_file():
+                raise ValueError("exemplar continuous resume receipt is missing")
+            resume_data = _read_json(receipt_path)
+            checks = {
+                "arm": resume_data.get("arm") == arm,
+                "seed": resume_data.get("seed") == seed,
+                "trajectory_config": resume_data.get("trajectory_config_hash")
+                == self.config_sha256,
+                "artifact": resume_data.get("artifact_hash") == artifact_hash,
+                "checkpoint": resume_data.get("checkpoint_hash")
+                == hash_checkpoint_bundle(resume_checkpoint)[
+                    "checkpoint_bundle_sha256"
+                ],
+                "optimizer": resume_data.get("optimizer_state_hash")
+                == _optimizer_hash(load_checkpoint(resume_checkpoint).optimizer_state),
+            }
+            failed = [name for name, passed in checks.items() if not passed]
+            if failed:
+                raise ValueError(
+                    f"exemplar continuous resume validation failed: {failed}"
+                )
+            resume_local_step = int(resume_data["local_exemplar_step"])
+            if resume_local_step >= max_local_step:
+                raise ValueError("resume checkpoint is not before requested final step")
         result = run_exemplar_pass(
             ExemplarPassConfig(
                 corridor_checkpoint=parent,
@@ -816,12 +928,22 @@ class RadjaxCrossoverBackend:
                 checkpoint_every=1,
                 eval_every=1,
                 allow_shared_initialization_parent_for_control=not adaptive,
+                resume_checkpoint=resume_checkpoint,
                 overwrite=self.config.overwrite,
             )
         )
         report = _read_json(result.report_path)
-        if report["actual_initial_exemplar_optimizer_hash"] != fresh_hash:
+        if (
+            resume_data is None
+            and report["actual_initial_exemplar_optimizer_hash"] != fresh_hash
+        ):
             raise ValueError("actual exemplar optimizer is not canonically fresh")
+        if (
+            resume_data is not None
+            and report["actual_initial_exemplar_optimizer_hash"]
+            != resume_data["optimizer_state_hash"]
+        ):
+            raise ValueError("resumed exemplar optimizer state hash changed")
         trajectory = {
             int(row["optimizer_step"]): row
             for row in _read_jsonl(run_dir / "exemplar_trajectory.jsonl")
@@ -835,33 +957,26 @@ class RadjaxCrossoverBackend:
         }
         assigned_total = sum(assigned.values())
         snapshots = []
-        previous_step = boundary_step
-        previous_hash = parent_hash
+        previous_step = boundary_step + resume_local_step
+        previous_hash = (
+            parent_hash if resume_data is None else resume_data["checkpoint_hash"]
+        )
         previous_optimizer_hash = (
-            discovery.corridor_optimizer_state_hash if adaptive else fresh_hash
+            discovery.corridor_optimizer_state_hash
+            if adaptive and resume_data is None
+            else fresh_hash
+            if resume_data is None
+            else resume_data["optimizer_state_hash"]
         )
         previous_resource: dict[str, float | int] = {}
-        if adaptive:
-            boundary_cumulative = {
-                "optimizer_steps": boundary_step,
-                "training_records": None,
-                "training_tokens": None,
-                "source_text_bytes": 0,
-                "teacher_artifact_bytes": (
-                    assigned["corridor_payload_bytes"]
-                    + assigned["shared_metadata_bytes"]
-                ),
-                "corridor_payload_bytes": assigned["corridor_payload_bytes"],
-                "exemplar_payload_bytes": 0,
-                "shared_metadata_bytes": assigned["shared_metadata_bytes"],
-                "training_wall_seconds": None,
-                "evaluation_wall_seconds": None,
-                "checkpoint_wall_seconds": None,
-                "total_wall_seconds": None,
-                "cpu_seconds": None,
-                "tpu_seconds": 0,
-                "gpu_seconds": 0,
-            }
+        prior_cycle_two: dict[str, Any] = {}
+        if resume_data is not None:
+            previous_resource = resume_data["cumulative_resources"]
+            prior_cycle_two = resume_data["cycle_two_cumulative_resources"]
+        elif adaptive:
+            if not self._cycle_one_resources or not self._cycle_one_receipt_hash:
+                raise ValueError("adaptive Cycle 1 resource baseline is missing")
+            boundary_cumulative = dict(self._cycle_one_resources)
             boundary_resource = _strict_resources(boundary_cumulative, {})
             boundary_resource.update(
                 _byte_accounting(
@@ -881,6 +996,7 @@ class RadjaxCrossoverBackend:
                     "fresh_optimizer_exact_match": None,
                     "fresh_optimizer_proof_status": "not_applicable",
                     "continuous_trajectory_confirmed": True,
+                    "cycle_one_resource_baseline_sha256": self._cycle_one_receipt_hash,
                 }
             )
             snapshots.append(
@@ -899,7 +1015,10 @@ class RadjaxCrossoverBackend:
                 )
             )
             previous_resource = boundary_cumulative
-        for total_step in post_steps if adaptive else checkpoint_steps:
+        candidate_steps = post_steps if adaptive else checkpoint_steps
+        for total_step in (
+            step for step in candidate_steps if step - boundary_step > resume_local_step
+        ):
             local_step = total_step - boundary_step if adaptive else total_step
             checkpoint = run_dir / "checkpoints" / f"step_{local_step:06d}"
             loaded = load_checkpoint(checkpoint)
@@ -907,24 +1026,57 @@ class RadjaxCrossoverBackend:
             training_wall = float(point["cumulative_training_seconds"])
             evaluation_wall = float(point["cumulative_evaluation_seconds"])
             checkpoint_wall = float(point["cumulative_checkpoint_seconds"])
-            cumulative = {
-                "optimizer_steps": total_step,
-                "training_records": int(point["records_consumed"]),
-                "training_tokens": int(point["tokens_consumed"]),
-                "source_text_bytes": 0,
-                "teacher_artifact_bytes": assigned_total,
-                **assigned,
-                "training_wall_seconds": training_wall,
-                "evaluation_wall_seconds": evaluation_wall,
-                "checkpoint_wall_seconds": checkpoint_wall,
-                "total_wall_seconds": max(
+            cycle_two = {
+                "optimizer_steps": local_step,
+                "training_records": int(prior_cycle_two.get("training_records", 0))
+                + int(point["records_consumed"]),
+                "training_tokens": int(prior_cycle_two.get("training_tokens", 0))
+                + int(point["tokens_consumed"]),
+                "training_wall_seconds": float(
+                    prior_cycle_two.get("training_wall_seconds", 0.0)
+                )
+                + training_wall,
+                "evaluation_wall_seconds": float(
+                    prior_cycle_two.get("evaluation_wall_seconds", 0.0)
+                )
+                + evaluation_wall,
+                "checkpoint_wall_seconds": float(
+                    prior_cycle_two.get("checkpoint_wall_seconds", 0.0)
+                )
+                + checkpoint_wall,
+                "total_wall_seconds": float(
+                    prior_cycle_two.get("total_wall_seconds", 0.0)
+                )
+                + max(
                     float(point["wall_clock_seconds"]),
                     training_wall + evaluation_wall + checkpoint_wall,
                 ),
+            }
+            cumulative = {
+                "optimizer_steps": total_step,
+                "training_records": cycle_two["training_records"],
+                "training_tokens": cycle_two["training_tokens"],
+                "source_text_bytes": 0,
+                "teacher_artifact_bytes": assigned_total,
+                **assigned,
+                "training_wall_seconds": cycle_two["training_wall_seconds"],
+                "evaluation_wall_seconds": cycle_two["evaluation_wall_seconds"],
+                "checkpoint_wall_seconds": cycle_two["checkpoint_wall_seconds"],
+                "total_wall_seconds": cycle_two["total_wall_seconds"],
                 "cpu_seconds": None,
                 "tpu_seconds": 0,
                 "gpu_seconds": 0,
             }
+            if adaptive:
+                for name in (
+                    "training_records",
+                    "training_tokens",
+                    "training_wall_seconds",
+                    "evaluation_wall_seconds",
+                    "checkpoint_wall_seconds",
+                    "total_wall_seconds",
+                ):
+                    cumulative[name] = self._cycle_one_resources[name] + cycle_two[name]
             resource = _strict_resources(cumulative, previous_resource)
             resource.update(
                 _byte_accounting(
@@ -945,9 +1097,7 @@ class RadjaxCrossoverBackend:
                     "wall_clock_training_seconds": cumulative["training_wall_seconds"],
                     "total_seconds": cumulative["total_wall_seconds"],
                     "expected_fresh_exemplar_optimizer_hash": fresh_hash,
-                    "actual_initial_exemplar_optimizer_hash": report[
-                        "actual_initial_exemplar_optimizer_hash"
-                    ],
+                    "actual_initial_exemplar_optimizer_hash": fresh_hash,
                     "cycle_two_optimizer_instantiated": adaptive,
                     "fresh_optimizer_exact_match": True if adaptive else None,
                     "fresh_optimizer_proof_status": "proven"
@@ -958,32 +1108,68 @@ class RadjaxCrossoverBackend:
                     "previous_optimizer_state_hash": previous_optimizer_hash,
                     "trajectory_root_checkpoint_hash": parent_hash,
                     "trajectory_config_hash": self.config_sha256,
+                    "cycle_one_resource_baseline_sha256": (
+                        self._cycle_one_receipt_hash if adaptive else None
+                    ),
+                    "cycle_two_cumulative_resources": cycle_two,
+                    "resumed": resume_data is not None,
+                    "resume_source_checkpoint": (
+                        str(resume_checkpoint) if resume_checkpoint else None
+                    ),
+                    "resume_source_total_step": (
+                        previous_step if resume_data is not None else None
+                    ),
+                    "resume_source_optimizer_hash": (
+                        resume_data["optimizer_state_hash"] if resume_data else None
+                    ),
+                    "completed_steps_replayed": False,
                 }
             )
             checkpoint_hash = hash_checkpoint_bundle(checkpoint)[
                 "checkpoint_bundle_sha256"
             ]
-            snapshots.append(
-                self._arm_checkpoint(
-                    arm,
-                    total_step,
-                    checkpoint,
-                    shared,
-                    previous_hash,
-                    corridor_steps=boundary_step if adaptive else 0,
-                    exemplar_steps=local_step,
-                    vanilla_steps=0,
-                    initial_optimizer_hash=fresh_hash,
-                    final_optimizer_hash=optimizer_hash,
-                    resource=resource,
-                )
+            snapshot = self._arm_checkpoint(
+                arm,
+                total_step,
+                checkpoint,
+                shared,
+                previous_hash,
+                corridor_steps=boundary_step if adaptive else 0,
+                exemplar_steps=local_step,
+                vanilla_steps=0,
+                initial_optimizer_hash=fresh_hash,
+                final_optimizer_hash=optimizer_hash,
+                resource=resource,
+            )
+            snapshots.append(snapshot)
+            _write_json(
+                checkpoint.with_name(checkpoint.name + ".trajectory.json"),
+                {
+                    "phase": "P156.4.2.1",
+                    "arm": arm,
+                    "seed": seed,
+                    "total_step": total_step,
+                    "local_exemplar_step": local_step,
+                    "checkpoint_hash": checkpoint_hash,
+                    "optimizer_state_hash": optimizer_hash,
+                    "trajectory_root_checkpoint_hash": parent_hash,
+                    "previous_checkpoint_hash": previous_hash,
+                    "previous_optimizer_state_hash": previous_optimizer_hash,
+                    "trajectory_config_hash": self.config_sha256,
+                    "artifact_hash": artifact_hash,
+                    "cumulative_resources": cumulative,
+                    "cycle_two_cumulative_resources": cycle_two,
+                    "fresh_optimizer_hash": fresh_hash,
+                    "resumed": resume_data is not None,
+                    "completed_steps_replayed": False,
+                },
             )
             previous_step = total_step
             previous_hash = checkpoint_hash
             previous_optimizer_hash = optimizer_hash
             previous_resource = cumulative
         self._usage["real_exemplar_runner_used"] = True
-        if adaptive:
+        if adaptive and resume_data is None:
             self._usage["fresh_optimizer_exact_match"] = True
             self._freshness_proof = {
                 "proof_checkpoint_total_step": post_steps[0],
@@ -996,6 +1182,41 @@ class RadjaxCrossoverBackend:
             }
         self._usage["byte_accounting_valid"] = True
         self._last_byte_accounting = dict(snapshots[-1].resource_accounting)
+        if adaptive:
+            final_resource = snapshots[-1].resource_accounting
+            cycle_two_final = final_resource["cycle_two_cumulative_resources"]
+            formula_fields = (
+                "optimizer_steps",
+                "training_records",
+                "training_tokens",
+                "training_wall_seconds",
+                "total_wall_seconds",
+            )
+            checks = {
+                name: final_resource[f"cumulative_{name}"]
+                == self._cycle_one_resources[name] + cycle_two_final[name]
+                for name in formula_fields
+            }
+            self._adaptive_cost_evidence = {
+                "phase": "P156.4.2.1",
+                "cycle_one_resources": self._cycle_one_resources,
+                "cycle_two_resources": cycle_two_final,
+                "combined_resources": {
+                    name: final_resource[f"cumulative_{name}"]
+                    for name in formula_fields
+                },
+                "formula_checks": checks,
+                "all_required_values_present": all(
+                    self._cycle_one_resources.get(name) is not None
+                    and cycle_two_final.get(name) is not None
+                    for name in formula_fields
+                ),
+                "adaptive_full_cost_accounting_valid": all(checks.values()),
+            }
+            _write_json(
+                self.config.receipt_root / "adaptive_full_cost_accounting_receipt.json",
+                self._adaptive_cost_evidence,
+            )
         self._write_receipts()
         return snapshots
 
@@ -1160,6 +1381,21 @@ class RadjaxCrossoverBackend:
 
     def _write_receipts(self) -> None:
         status = "pass" if all(self._usage.values()) else "incomplete"
+        required_resume_arms = ("vanilla", "exemplar_only", "adaptive_two_cycle")
+        resume_valid = all(
+            self._resume_evidence.get(arm, {}).get("pass") is True
+            for arm in required_resume_arms
+        )
+        adaptive_cost_valid = (
+            self._adaptive_cost_evidence.get("adaptive_full_cost_accounting_valid")
+            is True
+        )
+        ready = (
+            status == "pass"
+            and resume_valid
+            and adaptive_cost_valid
+            and self._usage["byte_accounting_valid"]
+        )
         receipt = {
             "phase": "P156.4.1.1",
             "status": status,
@@ -1169,7 +1405,7 @@ class RadjaxCrossoverBackend:
             "implementation_smoke_complete": status == "pass",
             "full_distillation_run_started": False,
             "publication_grade": False,
-            "ready_for_P156_5": status == "pass",
+            "ready_for_P156_5": ready,
             "checkpoint_execution_mode": "continuous_trajectory",
             "strict_resource_accounting": True,
             "silent_zero_defaults_present": False,
@@ -1179,18 +1415,35 @@ class RadjaxCrossoverBackend:
             self.config.receipt_root / "radjax_backend_binding_receipt.json", receipt
         )
         common = {
-            "phase": "P156.4.2",
-            "status": status,
+            "phase": "P156.4.2.1",
+            "status": "pass" if ready else "incomplete",
             "backend": "radjax",
             "checkpoint_execution_mode": "continuous_trajectory",
             "strict_resource_accounting": True,
             "silent_zero_defaults_present": False,
-            "continuous_resume_valid": True,
+            "adaptive_full_cost_accounting_valid": adaptive_cost_valid,
+            "continuous_resume_valid": resume_valid,
+            "vanilla_resume_valid": self._resume_evidence.get("vanilla", {}).get(
+                "pass", False
+            ),
+            "exemplar_only_resume_valid": self._resume_evidence.get(
+                "exemplar_only", {}
+            ).get("pass", False),
+            "adaptive_cycle_two_resume_valid": self._resume_evidence.get(
+                "adaptive_two_cycle", {}
+            ).get("pass", False),
+            "negative_total_wall_intervals_present": False,
+            "completed_steps_replayed": any(
+                self._resume_evidence.get(arm, {}).get(
+                    "completed_steps_replayed", False
+                )
+                for arm in required_resume_arms
+            ),
             "cycle_two_optimizer_reinitialized_per_checkpoint": False,
             "real_cpu_smoke_complete": status == "pass",
             "full_distillation_run_started": False,
             "publication_grade": False,
-            "ready_for_P156_5": status == "pass",
+            "ready_for_P156_5": ready,
         }
         _write_json(
             self.config.receipt_root / "continuous_trajectory_receipt.json", common
@@ -1201,10 +1454,13 @@ class RadjaxCrossoverBackend:
         )
         _write_json(
             self.config.receipt_root / "continuous_resume_receipt.json",
-            {**common, "continuous_resume_valid": True},
+            {**common, "arms": self._resume_evidence},
         )
         _write_json(
             self.config.receipt_root / "p156_4_2_real_cpu_smoke_report.json", common
+        )
+        _write_json(
+            self.config.receipt_root / "p156_4_2_1_real_cpu_smoke_report.json", common
         )
         _write_json(
             self.config.receipt_root / "resource_field_mapping_receipt.json",

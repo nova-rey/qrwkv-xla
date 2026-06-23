@@ -552,7 +552,9 @@ def run_full_distillation_crossover(
         "run_kind": "implementation_smoke" if len(config.seeds) == 1 else "harness_run",
         "full_distillation_run_started": False,
         "publication_grade": False,
-        "ready_for_P156_5": status == "pass",
+        "ready_for_P156_5": bool(
+            status == "pass" and getattr(backend, "ready_for_p156_5", status == "pass")
+        ),
         "checkpoint_execution_mode": getattr(
             backend, "checkpoint_execution_mode", "independent_replay"
         ),

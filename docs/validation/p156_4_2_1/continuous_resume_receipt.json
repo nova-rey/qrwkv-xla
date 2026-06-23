@@ -1,0 +1,58 @@
+{
+  "adaptive_cycle_two_resume_valid": true,
+  "adaptive_full_cost_accounting_valid": true,
+  "arms": {
+    "adaptive_two_cycle": {
+      "completed_steps_replayed": false,
+      "counters_match": true,
+      "interrupted_at_step": 2,
+      "optimizer_hash_match": true,
+      "parameter_hash_match": true,
+      "pass": true,
+      "resumed_final_checkpoint_hash": "sha256:f519bce3061b56705eed51af99251046bafffe01ef2942051327c9e8a73791ec",
+      "resumed_final_optimizer_hash": "sha256:505c0f4593e0a3774089aa9393eba7e89730c50bf963cb02d7e9551e7045bf69",
+      "uninterrupted_final_checkpoint_hash": "sha256:0ce68df88133d63a7b59195506758e62be8f95e59fcbc544dbf66a1c1b2dfe20",
+      "uninterrupted_final_optimizer_hash": "sha256:505c0f4593e0a3774089aa9393eba7e89730c50bf963cb02d7e9551e7045bf69"
+    },
+    "exemplar_only": {
+      "completed_steps_replayed": false,
+      "counters_match": true,
+      "interrupted_at_step": 2,
+      "optimizer_hash_match": true,
+      "parameter_hash_match": true,
+      "pass": true,
+      "resumed_final_checkpoint_hash": "sha256:3f377eb74a06b3f17e43f21f705824b4bf5a7c704fd5717b47410adec0983c73",
+      "resumed_final_optimizer_hash": "sha256:f2ed8d7a65115fb70d79e2b9691a1ef45c4e030ba0eba80b5295ca52cb891937",
+      "uninterrupted_final_checkpoint_hash": "sha256:9bcf821b447c5dfa776358d7bf1a52241289f2f5104346375e451690b404ef3b",
+      "uninterrupted_final_optimizer_hash": "sha256:f2ed8d7a65115fb70d79e2b9691a1ef45c4e030ba0eba80b5295ca52cb891937"
+    },
+    "vanilla": {
+      "completed_steps_replayed": false,
+      "counters_match": true,
+      "interrupted_at_step": 2,
+      "optimizer_hash_match": true,
+      "parameter_hash_match": true,
+      "pass": true,
+      "resumed_final_checkpoint_hash": "sha256:de5fd8a7e61e3b64c9492a3f41c9b34c79508c84ee32b397ef642eb7e4a5858e",
+      "resumed_final_optimizer_hash": "sha256:f2ed8d7a65115fb70d79e2b9691a1ef45c4e030ba0eba80b5295ca52cb891937",
+      "uninterrupted_final_checkpoint_hash": "sha256:de5fd8a7e61e3b64c9492a3f41c9b34c79508c84ee32b397ef642eb7e4a5858e",
+      "uninterrupted_final_optimizer_hash": "sha256:f2ed8d7a65115fb70d79e2b9691a1ef45c4e030ba0eba80b5295ca52cb891937"
+    }
+  },
+  "backend": "radjax",
+  "checkpoint_execution_mode": "continuous_trajectory",
+  "completed_steps_replayed": false,
+  "continuous_resume_valid": true,
+  "cycle_two_optimizer_reinitialized_per_checkpoint": false,
+  "exemplar_only_resume_valid": true,
+  "full_distillation_run_started": false,
+  "negative_total_wall_intervals_present": false,
+  "phase": "P156.4.2.1",
+  "publication_grade": false,
+  "ready_for_P156_5": true,
+  "real_cpu_smoke_complete": true,
+  "silent_zero_defaults_present": false,
+  "status": "pass",
+  "strict_resource_accounting": true,
+  "vanilla_resume_valid": true
+}

@@ -1,0 +1,20 @@
+{
+  "adaptive_cycle_two_resume_valid": true,
+  "adaptive_full_cost_accounting_valid": true,
+  "backend": "radjax",
+  "checkpoint_execution_mode": "continuous_trajectory",
+  "completed_steps_replayed": false,
+  "continuous_resume_valid": true,
+  "cycle_two_optimizer_reinitialized_per_checkpoint": false,
+  "exemplar_only_resume_valid": true,
+  "full_distillation_run_started": false,
+  "negative_total_wall_intervals_present": false,
+  "phase": "P156.4.2.1",
+  "publication_grade": false,
+  "ready_for_P156_5": true,
+  "real_cpu_smoke_complete": true,
+  "silent_zero_defaults_present": false,
+  "status": "pass",
+  "strict_resource_accounting": true,
+  "vanilla_resume_valid": true
+}
