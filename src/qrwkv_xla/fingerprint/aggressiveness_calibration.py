@@ -21,6 +21,7 @@ from qrwkv_xla.fingerprint.corridor_measurement import (
     run_corridor_measurement,
 )
 from qrwkv_xla.fingerprint.provenance import (
+    file_sha256,
     hash_checkpoint_bundle,
     parameter_fingerprint,
     stable_hash,
@@ -70,6 +71,7 @@ class AggressivenessCalibrationConfig:
     maximum_severe_rebound_rate: float = 1.0
     maximum_trajectory_variance: float = float("inf")
     minimum_seed_count: int = 3
+    held_out_artifact_role: str = "held_out_evaluation"
     overrides: dict[str, float | str | bool | None] | None = None
     overwrite: bool = False
 
@@ -274,6 +276,7 @@ def run_aggressiveness_calibration(
                     stop_on_stable_entry=False,
                     selected_aggressiveness_profile=profile.profile_name,
                     selected_profile_config_sha256=stable_hash(profile.to_dict()),
+                    held_out_artifact_role=config.held_out_artifact_role,
                     overwrite=config.overwrite,
                 )
             )
@@ -381,6 +384,8 @@ def run_aggressiveness_calibration(
         config.output_dir / "paired_profile_deltas.jsonl",
         _paired(rows, config.profiles),
     )
+    report_path = config.output_dir / "aggressiveness_calibration_report.json"
+    write_json(report_path, report)
     if selected:
         selected_config = next(
             p.to_dict() for p in resolved if p.profile_name == selected
@@ -404,12 +409,23 @@ def run_aggressiveness_calibration(
                 "selected_corridor_parameter_fingerprint": parameter_fingerprint(
                     load_checkpoint(selected_checkpoint).params
                 ),
+                "calibration_training_artifact_sha256": file_sha256(
+                    config.fingerprint_artifact / "manifest.json"
+                ),
+                "calibration_validation_artifact_sha256": file_sha256(
+                    config.held_out_fingerprint_artifact / "manifest.json"
+                ),
+                "calibration_student_config_sha256": stable_hash(
+                    load_checkpoint(selected_checkpoint).manifest.student_config
+                ),
+                "calibration_report_sha256": file_sha256(report_path),
+                "publication_grade_receipt_sha256": file_sha256(
+                    config.output_dir / "publication_grade_receipt.json"
+                ),
             }
         )
         write_json(config.output_dir / "selected_profile_config.json", selected_config)
     write_json(config.output_dir / "profile_selection_receipt.json", selection_receipt)
-    report_path = config.output_dir / "aggressiveness_calibration_report.json"
-    write_json(report_path, report)
     (config.output_dir / "aggressiveness_calibration_summary.md").write_text(
         "# P153.1.2 Selection Integrity\n\n"
         f"- Status: {status}\n"

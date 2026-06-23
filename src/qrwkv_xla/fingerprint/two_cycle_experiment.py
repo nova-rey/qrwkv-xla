@@ -5,13 +5,18 @@ import math
 import shutil
 import time
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from qrwkv_xla.artifacts import (
+    summarize_fingerprint_artifact,
+)
 from qrwkv_xla.artifacts._json import read_json_object, write_json
 from qrwkv_xla.checkpointing import load_checkpoint
+from qrwkv_xla.contracts import VocabContract
 from qrwkv_xla.fingerprint.aggressiveness_profiles import (
     resolve_aggressiveness_profile,
 )
@@ -28,6 +33,7 @@ from qrwkv_xla.fingerprint.held_out_evaluation import (
     _exemplar_map,
     _target_records,
     paired_bootstrap_interval,
+    validate_fingerprint_provenance,
 )
 from qrwkv_xla.fingerprint.provenance import (
     file_sha256,
@@ -39,6 +45,7 @@ from qrwkv_xla.fingerprint.trained_baseline import (
     FingerprintTrainedBaselineConfig,
     run_fingerprint_trained_baseline_comparison,
 )
+from qrwkv_xla.students import create_student_backend
 from qrwkv_xla.tracking import get_git_metadata
 
 ARM_NAMES = (
@@ -52,7 +59,8 @@ ARM_NAMES = (
 @dataclass(frozen=True)
 class TwoCycleExperimentConfig:
     training_fingerprint_artifact: Path
-    held_out_fingerprint_artifact: Path
+    calibration_fingerprint_artifact: Path
+    final_test_fingerprint_artifact: Path
     source_texts: Path
     selected_profile_receipt: Path
     output_dir: Path
@@ -92,9 +100,23 @@ def run_two_cycle_experiment(
     _validate_config(config)
     started = time.perf_counter()
     config.output_dir.mkdir(parents=True, exist_ok=True)
+    split_validation = validate_three_way_split(config)
+    write_json(config.output_dir / "three_way_split_validation.json", split_validation)
     selection, selected_config = _load_selected_profile(config)
     profile_name = str(selection["selected_profile"])
     resolve_aggressiveness_profile(profile_name)
+    expected_student_config_sha256 = _expected_student_config_sha256(config)
+    calibration_lineage = _validate_calibration_lineage(
+        config,
+        selection=selection,
+        selected_config=selected_config,
+        split_validation=split_validation,
+        expected_student_config_sha256=expected_student_config_sha256,
+    )
+    write_json(
+        config.output_dir / "calibration_lineage_validation.json",
+        calibration_lineage,
+    )
 
     baseline_result = run_fingerprint_trained_baseline_comparison(
         FingerprintTrainedBaselineConfig(
@@ -245,6 +267,30 @@ def run_two_cycle_experiment(
         "two_cycle_corridor": two_cycle_corridor.checkpoint_dir,
         "two_cycle_final": two_cycle_exemplar.final_checkpoint,
     }
+    freeze = build_configuration_freeze(
+        config,
+        shared_initialization_hash=shared_hashes["checkpoint_bundle_sha256"],
+        selected_profile=profile_name,
+        selected_profile_config_sha256=selection["selected_profile_config_sha256"],
+        exemplar_sampling_receipt=read_json_object(
+            exemplar_only.output_dir / "sampling_receipt.json"
+        ),
+        calibration_artifact_sha256=split_validation["calibration"][
+            "artifact_manifest_sha256"
+        ],
+        training_artifact_sha256=split_validation["training"][
+            "artifact_manifest_sha256"
+        ],
+    )
+    freeze_path = config.output_dir / "experiment_configuration_freeze.json"
+    write_json(freeze_path, freeze)
+    final_test_access = _final_test_access_receipt(
+        config,
+        freeze_path=freeze_path,
+        freeze=freeze,
+        split_validation=split_validation,
+    )
+    write_json(config.output_dir / "final_test_access_receipt.json", final_test_access)
     evaluations = _evaluate_all(config, checkpoints)
     per_record_rows = _aligned_per_record_metrics(evaluations)
     comparisons = _paired_comparisons(config, per_record_rows)
@@ -284,6 +330,17 @@ def run_two_cycle_experiment(
         "tie_tolerance": config.tie_tolerance,
         "bootstrap_samples": config.bootstrap_samples,
         "bootstrap_seed": config.bootstrap_seed,
+        "three_way_split_valid": split_validation["three_way_split_valid"],
+        "calibration_lineage_valid": calibration_lineage["calibration_lineage_valid"],
+        "final_test_independent": True,
+        "evaluation_artifact_role": "final_held_out_test",
+        "evaluation_artifact_sha256": split_validation["final_test"][
+            "artifact_manifest_sha256"
+        ],
+        "calibration_artifact_sha256": split_validation["calibration"][
+            "artifact_manifest_sha256"
+        ],
+        "evaluation_calibration_artifacts_distinct": True,
     }
     write_json(config.output_dir / "experiment_fairness_contract.json", fairness)
     write_json(config.output_dir / "paired_comparison_metrics.json", comparisons)
@@ -304,12 +361,15 @@ def run_two_cycle_experiment(
                 corridor_configs_match,
                 exemplar_configs_match,
                 cycle_boundary["cycle_boundary_valid"],
+                split_validation["three_way_split_valid"],
+                calibration_lineage["calibration_lineage_valid"],
+                final_test_access["final_test_access_valid"],
             )
         )
         else "fail"
     )
     report = {
-        "phase": "P155",
+        "phase": "P155.1",
         "status": status,
         "experiment_kind": "sequential_corridor_then_exemplar",
         "arms": list(ARM_NAMES),
@@ -330,6 +390,41 @@ def run_two_cycle_experiment(
         "comparisons": comparisons,
         "resources": resources,
         "arm_lineage": arm_lineage,
+        "split_integrity": {
+            "training_artifact_sha256": split_validation["training"][
+                "artifact_manifest_sha256"
+            ],
+            "calibration_artifact_sha256": split_validation["calibration"][
+                "artifact_manifest_sha256"
+            ],
+            "final_test_artifact_sha256": split_validation["final_test"][
+                "artifact_manifest_sha256"
+            ],
+            "three_way_split_valid": split_validation["three_way_split_valid"],
+            "final_test_independent": True,
+            "configuration_frozen_before_final_test_access": final_test_access[
+                "configuration_frozen_before_final_test_access"
+            ],
+        },
+        "evaluation_artifact_role": "final_held_out_test",
+        "evaluation_artifact_sha256": split_validation["final_test"][
+            "artifact_manifest_sha256"
+        ],
+        "calibration_artifact_sha256": split_validation["calibration"][
+            "artifact_manifest_sha256"
+        ],
+        "evaluation_calibration_artifacts_distinct": True,
+        "final_test_unseen_by_calibration": True,
+        "final_test_used_for_profile_selection": False,
+        "final_test_used_for_hyperparameter_selection": False,
+        "final_test_opened_after_configuration_freeze": True,
+        "final_test_independent": True,
+        "result_scope": "independent_final_test",
+        "publication_grade_final_test": bool(
+            status == "pass"
+            and fairness["publication_grade_calibration"] is True
+            and split_validation["three_way_split_valid"]
+        ),
         "total_wall_clock_seconds": time.perf_counter() - started,
         "general_quality_claim_made": False,
         "quality_per_byte_claim_made": False,
@@ -339,7 +434,7 @@ def run_two_cycle_experiment(
     report_path = config.output_dir / "two_cycle_experiment_report.json"
     write_json(report_path, report)
     (config.output_dir / "two_cycle_experiment_summary.md").write_text(
-        "# P155 Sequential Two-Cycle Experiment\n\n"
+        "# P155.1 Sequential Two-Cycle Split Integrity\n\n"
         f"- Status: {status}\n"
         f"- Selected corridor profile: {profile_name}\n"
         f"- Primary metric: held_out_teacher_student_kl (lower is better)\n"
@@ -420,6 +515,194 @@ def required_arms_present(arms: dict[str, Any]) -> bool:
     return set(arms) >= set(ARM_NAMES)
 
 
+def validate_three_way_split(config: TwoCycleExperimentConfig) -> dict[str, Any]:
+    paths = {
+        "training": config.training_fingerprint_artifact.resolve(),
+        "calibration": config.calibration_fingerprint_artifact.resolve(),
+        "final_test": config.final_test_fingerprint_artifact.resolve(),
+    }
+    if paths["training"] == paths["calibration"]:
+        raise ValueError("training_calibration_split_overlap")
+    if paths["training"] == paths["final_test"]:
+        raise ValueError("training_final_test_split_overlap")
+    if paths["calibration"] == paths["final_test"]:
+        raise ValueError("calibration_final_test_split_overlap")
+    specifications = (
+        ("training", config.training_fingerprint_artifact, "training"),
+        (
+            "calibration",
+            config.calibration_fingerprint_artifact,
+            "calibration_validation",
+        ),
+        (
+            "final_test",
+            config.final_test_fingerprint_artifact,
+            "final_held_out_test",
+        ),
+    )
+    rows: dict[str, dict[str, Any]] = {}
+    sets: dict[str, dict[str, set[str]]] = {}
+    for name, path, role in specifications:
+        if name == "final_test":
+            provenance = _validate_final_test_provenance_metadata(path, role)
+        else:
+            validated = validate_fingerprint_provenance(path, expected_role=role)
+            if not validated["valid"]:
+                raise ValueError(f"missing_or_invalid_{name}_split_provenance")
+            provenance = validated["provenance"]
+        manifest = read_json_object(path / "manifest.json")
+        rows[name] = {
+            "artifact_dir": str(path),
+            "artifact_role": role,
+            "artifact_manifest_sha256": provenance["artifact_manifest_sha256"],
+            "source_file_sha256": provenance["source_file_sha256"],
+            "ordered_example_ids_sha256": provenance["ordered_example_ids_sha256"],
+            "source_example_set_sha256": provenance["source_example_set_sha256"],
+            "ordered_source_text_sha256": provenance["ordered_source_text_sha256"],
+            "tokenized_inputs_sha256": provenance["tokenized_inputs_sha256"],
+            "teacher_identity_sha256": provenance["teacher_identity_sha256"],
+            "capture_config_sha256": provenance["capture_config_sha256"],
+            "tokenizer_identity": provenance["tokenizer_identity"],
+            "vocab_size": int(manifest["teacher"]["vocab_size"]),
+            "tracked_statistics": list(manifest["stats"]["tracked"]),
+            "sequence_length_policy": {
+                "kind": "fixed",
+                "max_seq_len": int(manifest["sequence"]["max_seq_len"]),
+            },
+        }
+        sets[name] = {
+            "ids": set(provenance["ordered_example_ids"]),
+            "tokens": set(provenance["token_sequence_hashes"]),
+            "texts": set(provenance["source_text_hashes"]),
+        }
+    pair_specs = (
+        ("training", "calibration", "training_calibration_split_overlap"),
+        ("training", "final_test", "training_final_test_split_overlap"),
+        (
+            "calibration",
+            "final_test",
+            "calibration_final_test_split_overlap",
+        ),
+    )
+    disjointness: dict[str, bool] = {}
+    for left, right, error in pair_specs:
+        pair_name = f"{left}_vs_{right}"
+        overlaps = {
+            kind: sets[left][kind] & sets[right][kind]
+            for kind in ("ids", "tokens", "texts")
+        }
+        for kind, overlap in overlaps.items():
+            disjointness[f"{pair_name}_{kind}"] = not overlap
+        if any(overlaps.values()):
+            raise ValueError(error)
+    return {
+        "status": "pass",
+        **rows,
+        "pairwise_disjointness": disjointness,
+        "three_way_split_valid": all(disjointness.values()),
+        "final_test_unseen_by_calibration": True,
+    }
+
+
+def _validate_final_test_provenance_metadata(path, expected_role):
+    provenance_path = path / "fingerprint_provenance.json"
+    provenance = read_json_object(provenance_path)
+    required = (
+        "artifact_manifest_sha256",
+        "source_file_sha256",
+        "ordered_example_ids_sha256",
+        "source_example_set_sha256",
+        "ordered_source_text_sha256",
+        "tokenized_inputs_sha256",
+        "teacher_identity_sha256",
+        "capture_config_sha256",
+        "ordered_example_ids",
+        "token_sequence_hashes",
+        "source_text_hashes",
+    )
+    valid = bool(
+        provenance.get("artifact_role") == expected_role
+        and all(provenance.get(key) for key in required)
+        and provenance.get("artifact_manifest_sha256")
+        == file_sha256(path / "manifest.json")
+        and provenance.get("source_file_sha256")
+        == file_sha256(Path(provenance["source_file"]))
+        and provenance.get("split_manifest_sha256")
+        == stable_hash(
+            {
+                "artifact_role": provenance.get("artifact_role"),
+                "ordered_example_ids": provenance.get("ordered_example_ids"),
+                "source_text_hashes": provenance.get("source_text_hashes"),
+                "token_sequence_hashes": provenance.get("token_sequence_hashes"),
+            }
+        )
+    )
+    if not valid:
+        raise ValueError("missing_or_invalid_final_test_split_provenance")
+    return provenance
+
+
+def build_configuration_freeze(
+    config: TwoCycleExperimentConfig,
+    *,
+    shared_initialization_hash: str,
+    selected_profile: str,
+    selected_profile_config_sha256: str,
+    exemplar_sampling_receipt: dict[str, Any],
+    calibration_artifact_sha256: str,
+    training_artifact_sha256: str,
+) -> dict[str, Any]:
+    frozen = {
+        "student_architecture": config.student_architecture,
+        "student_backend": config.student_backend,
+        "shared_initialization_hash": shared_initialization_hash,
+        "selected_corridor_profile": selected_profile,
+        "selected_corridor_config_sha256": selected_profile_config_sha256,
+        "corridor_step_budget": config.corridor_steps,
+        "exemplar_step_budget": config.exemplar_steps,
+        "baseline_step_budget": config.baseline_steps,
+        "batch_size": config.batch_size,
+        "initialization_and_sampling_seed": config.seed,
+        "corridor_eval_every": config.corridor_eval_every,
+        "exemplar_eval_every": config.exemplar_eval_every,
+        "checkpoint_every": config.checkpoint_every,
+        "optimizer_configuration": {
+            "type": config.optimizer,
+            "baseline_learning_rate": config.baseline_learning_rate,
+            "exemplar_learning_rate": config.exemplar_learning_rate,
+            "exemplar_max_grad_norm": config.exemplar_max_grad_norm,
+        },
+        "exemplar_sampling_policy": config.exemplar_sampling_policy,
+        "exemplar_max_records": config.exemplar_max_records,
+        "exemplar_records_selected": exemplar_sampling_receipt["records_selected"],
+        "exemplar_record_order_sha256": exemplar_sampling_receipt[
+            "record_order_sha256"
+        ],
+        "primary_metric": "held_out_teacher_student_kl",
+        "secondary_metrics": [
+            "held_out_corridor_loss",
+            "inside_all_rate",
+            "mean_distance_outside_corridor",
+        ],
+        "bootstrap_samples": config.bootstrap_samples,
+        "bootstrap_seed": config.bootstrap_seed,
+        "tie_tolerance": config.tie_tolerance,
+        "training_artifact_sha256": training_artifact_sha256,
+        "calibration_artifact_sha256": calibration_artifact_sha256,
+        "software_commit": get_git_metadata(Path(__file__).resolve().parents[3]).get(
+            "commit"
+        ),
+    }
+    return {
+        "phase": "P155.1",
+        "status": "frozen",
+        "freeze_timestamp": datetime.now(UTC).isoformat(),
+        "frozen_configuration": frozen,
+        "configuration_freeze_sha256": stable_hash(frozen),
+        "final_test_artifact_influenced_freeze": False,
+    }
+
+
 def _load_selected_profile(config):
     receipt = read_json_object(config.selected_profile_receipt)
     selected = receipt.get("selected_profile")
@@ -455,14 +738,114 @@ def _load_selected_profile(config):
         selected_config.get("profile_name") != selected
         or stable_hash(selected_config) != receipt["selected_profile_config_sha256"]
     ):
-        raise ValueError("selected_profile_config_hash_mismatch")
+        raise ValueError("selected_profile_config_mismatch")
     return receipt, selected_config
+
+
+def _expected_student_config_sha256(config):
+    artifact = summarize_fingerprint_artifact(config.training_fingerprint_artifact)
+    contract = VocabContract(
+        tokenizer_id=artifact.tokenizer_name or "fingerprint-artifact",
+        tokenizer_hash=artifact.tokenizer_name or None,
+        vocab_size=artifact.vocab_size,
+        model_id=artifact.teacher_model_name or None,
+        model_family="behavioral_fingerprint",
+    )
+    backend = create_student_backend(
+        vocab_contract=contract, architecture_id=config.student_backend
+    )
+    raw = getattr(getattr(backend, "student", None), "config", None)
+    student_config = {
+        "architecture_id": config.student_backend,
+        "backend_name": type(backend).__name__,
+        "architecture": type(raw).__name__,
+        "vocab_size": int(getattr(raw, "vocab_size", artifact.vocab_size)),
+        "hidden_size": int(getattr(raw, "hidden_size", 0)),
+        "num_layers": int(getattr(raw, "num_layers", 0)),
+        "num_heads": None
+        if getattr(raw, "num_heads", None) is None
+        else int(raw.num_heads),
+        "num_kv_heads": None
+        if getattr(raw, "num_kv_heads", None) is None
+        else int(raw.num_kv_heads),
+        "emit_logits": bool(getattr(raw, "emit_logits", True)),
+        "tie_embeddings": bool(getattr(raw, "tie_embeddings", False)),
+        "emit_mixer_outputs": bool(getattr(raw, "emit_mixer_outputs", False)),
+    }
+    return stable_hash(student_config)
+
+
+def _validate_calibration_lineage(
+    config,
+    *,
+    selection,
+    selected_config,
+    split_validation,
+    expected_student_config_sha256,
+):
+    required = (
+        "calibration_training_artifact_sha256",
+        "calibration_validation_artifact_sha256",
+        "calibration_student_config_sha256",
+        "selected_profile_config_sha256",
+        "calibration_report_sha256",
+        "publication_grade_receipt_sha256",
+    )
+    if any(not selection.get(key) for key in required):
+        raise ValueError("calibration_artifact_hashes_missing")
+    if (
+        selection["calibration_training_artifact_sha256"]
+        != split_validation["training"]["artifact_manifest_sha256"]
+    ):
+        raise ValueError("calibration_training_artifact_mismatch")
+    if (
+        selection["calibration_validation_artifact_sha256"]
+        != split_validation["calibration"]["artifact_manifest_sha256"]
+    ):
+        raise ValueError("calibration_validation_artifact_mismatch")
+    if selection["calibration_student_config_sha256"] != expected_student_config_sha256:
+        raise ValueError("calibration_student_config_mismatch")
+    if selection["selected_profile_config_sha256"] != stable_hash(selected_config):
+        raise ValueError("selected_profile_config_mismatch")
+    calibration_report_path = config.selected_profile_receipt.with_name(
+        "aggressiveness_calibration_report.json"
+    )
+    publication_receipt_path = config.selected_profile_receipt.with_name(
+        "publication_grade_receipt.json"
+    )
+    if selection["calibration_report_sha256"] != file_sha256(
+        calibration_report_path
+    ) or selection["publication_grade_receipt_sha256"] != file_sha256(
+        publication_receipt_path
+    ):
+        raise ValueError("calibration_report_lineage_mismatch")
+    return {
+        "status": "pass",
+        "calibration_lineage_valid": True,
+        "calibration_training_artifact_sha256": selection[
+            "calibration_training_artifact_sha256"
+        ],
+        "calibration_validation_artifact_sha256": selection[
+            "calibration_validation_artifact_sha256"
+        ],
+        "calibration_student_config_sha256": selection[
+            "calibration_student_config_sha256"
+        ],
+        "selected_profile_name": selection["selected_profile"],
+        "selected_profile_config_sha256": stable_hash(selected_config),
+        "calibration_report_sha256": selection["calibration_report_sha256"],
+        "selection_receipt_sha256": file_sha256(config.selected_profile_receipt),
+        "publication_grade_receipt_sha256": selection[
+            "publication_grade_receipt_sha256"
+        ],
+    }
 
 
 def _corridor_config_fields(config, profile):
     return {
         "fingerprint_artifact": config.training_fingerprint_artifact,
-        "held_out_fingerprint_artifact": config.held_out_fingerprint_artifact,
+        "held_out_fingerprint_artifact": config.calibration_fingerprint_artifact,
+        "held_out_artifact_role": "calibration_validation",
         "source_texts": config.source_texts,
         "steps": config.corridor_steps,
         "eval_every": config.corridor_eval_every,
@@ -495,7 +878,7 @@ def _corridor_config_fields(config, profile):
 def _exemplar_config_fields(config):
     return {
         "fingerprint_artifact": config.training_fingerprint_artifact,
-        "held_out_fingerprint_artifact": config.held_out_fingerprint_artifact,
+        "held_out_fingerprint_artifact": config.calibration_fingerprint_artifact,
         "student_backend": config.student_backend,
         "student_architecture": config.student_architecture,
         "steps": config.exemplar_steps,
@@ -627,15 +1010,45 @@ def _cycle_boundary_receipt(
     }
 
 
+def _final_test_access_receipt(config, *, freeze_path, freeze, split_validation):
+    if not freeze_path.is_file():
+        raise ValueError("configuration_freeze_receipt_missing")
+    freeze_valid = freeze["configuration_freeze_sha256"] == stable_hash(
+        freeze["frozen_configuration"]
+    )
+    final_test = split_validation["final_test"]
+    calibration = split_validation["calibration"]
+    valid = bool(
+        freeze_valid
+        and final_test["artifact_role"] == "final_held_out_test"
+        and final_test["artifact_manifest_sha256"]
+        != calibration["artifact_manifest_sha256"]
+        and split_validation["three_way_split_valid"]
+    )
+    if not valid:
+        raise ValueError("final_test_access_invalid")
+    return {
+        "status": "pass",
+        "configuration_freeze_sha256": freeze["configuration_freeze_sha256"],
+        "configuration_frozen_before_final_test_access": True,
+        "final_test_artifact_sha256": final_test["artifact_manifest_sha256"],
+        "final_test_role": "final_held_out_test",
+        "final_test_used_for_training": False,
+        "final_test_used_for_calibration": False,
+        "final_test_used_for_selection": False,
+        "final_test_access_valid": True,
+    }
+
+
 def _evaluate_all(config, checkpoints):
-    records = _target_records(config.held_out_fingerprint_artifact)
-    exemplars = _exemplar_map(config.held_out_fingerprint_artifact)
+    records = _target_records(config.final_test_fingerprint_artifact)
+    exemplars = _exemplar_map(config.final_test_fingerprint_artifact)
     if not records or not exemplars:
         raise ValueError("held_out_teacher_exemplars_required")
     evaluations = {
         name: _evaluate_checkpoint(
             checkpoint,
-            config.held_out_fingerprint_artifact,
+            config.final_test_fingerprint_artifact,
             records,
             exemplars,
         )
@@ -849,7 +1262,7 @@ def _arm_lineage(config, checkpoints, evaluations, resources):
                 evaluations[name]["record_keys"]
             ),
             "held_out_artifact_sha256": file_sha256(
-                config.held_out_fingerprint_artifact / "manifest.json"
+                config.final_test_fingerprint_artifact / "manifest.json"
             ),
             "training_artifact_sha256": file_sha256(
                 config.training_fingerprint_artifact / "manifest.json"

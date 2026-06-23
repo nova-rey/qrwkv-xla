@@ -17,6 +17,11 @@ def main() -> int:
     )
     parser.add_argument("--fingerprint-artifact", type=Path, required=True)
     parser.add_argument("--held-out-fingerprint-artifact", type=Path, required=True)
+    parser.add_argument(
+        "--held-out-artifact-role",
+        choices=("held_out_evaluation", "calibration_validation"),
+        default="held_out_evaluation",
+    )
     parser.add_argument("--source-texts", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--profiles", default=",".join(PROFILE_NAMES))
@@ -68,6 +73,7 @@ def main() -> int:
         AggressivenessCalibrationConfig(
             fingerprint_artifact=args.fingerprint_artifact,
             held_out_fingerprint_artifact=args.held_out_fingerprint_artifact,
+            held_out_artifact_role=args.held_out_artifact_role,
             source_texts=args.source_texts,
             output_dir=args.output_dir,
             profiles=profiles,

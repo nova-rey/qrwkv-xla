@@ -77,8 +77,17 @@ def write_fingerprint_provenance(
     artifact_role: str,
     allow_legacy_positional_source_join: bool = False,
 ) -> Path:
-    if artifact_role not in {"training", "held_out_evaluation"}:
-        raise ValueError("artifact_role must be training or held_out_evaluation")
+    allowed_roles = {
+        "training",
+        "held_out_evaluation",
+        "calibration_validation",
+        "final_held_out_test",
+    }
+    if artifact_role not in allowed_roles:
+        raise ValueError(
+            "artifact_role must be training, held_out_evaluation, "
+            "calibration_validation, or final_held_out_test"
+        )
     lineage = build_artifact_source_lineage(
         artifact_dir,
         source_file,

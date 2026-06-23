@@ -12,10 +12,11 @@ from qrwkv_xla.fingerprint import (
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run the P155 sequential corridor-to-exemplar experiment."
+        description="Run the P155.1 three-split sequential two-cycle experiment."
     )
     parser.add_argument("--training-fingerprint-artifact", type=Path, required=True)
-    parser.add_argument("--held-out-fingerprint-artifact", type=Path, required=True)
+    parser.add_argument("--calibration-fingerprint-artifact", type=Path, required=True)
+    parser.add_argument("--final-test-fingerprint-artifact", type=Path, required=True)
     parser.add_argument("--source-texts", type=Path, required=True)
     parser.add_argument("--selected-profile-receipt", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -49,7 +50,8 @@ def main() -> int:
     result = run_two_cycle_experiment(
         TwoCycleExperimentConfig(
             training_fingerprint_artifact=args.training_fingerprint_artifact,
-            held_out_fingerprint_artifact=args.held_out_fingerprint_artifact,
+            calibration_fingerprint_artifact=args.calibration_fingerprint_artifact,
+            final_test_fingerprint_artifact=args.final_test_fingerprint_artifact,
             source_texts=args.source_texts,
             selected_profile_receipt=args.selected_profile_receipt,
             output_dir=args.output_dir,

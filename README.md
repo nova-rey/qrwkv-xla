@@ -7,7 +7,7 @@ students using TPU-friendly training infrastructure.
 
 ## Current Status
 
-Current phase: P155, Sequential Two-Cycle Experiment.
+Current phase: P155.1, Three-Way Split and Final-Test Integrity.
 The Pallas runway is closed after a recorded real TPU v5 lite smoke pass for the tiny
 opt-in Pallas WKV path, the cascaded target pipeline has been merged into main,
 and behavioral fingerprint corridor training is wired into the main staged
@@ -69,6 +69,11 @@ predeclares held-out teacher-student KL, preserves the optimizer/checkpoint
 boundary between cycles, emits aligned per-record bootstrap comparisons, and
 reports stage-matched and total resource budgets without making a
 quality-per-byte claim.
+P155.1 requires mutually disjoint training, calibration/validation, and final
+test artifacts. Hammer lineage is bound to the first two splits, the complete
+experiment configuration is frozen before final metric evaluation, and final
+paired comparisons use only the independently held-out test records. Earlier
+two-split P155 outputs are validation-set smokes, not independent final tests.
 
 Current emphasis is behavioral fingerprint integration, teacher-pure capture
 planning, teacher backend modularity, vocab contracts, target stores, the

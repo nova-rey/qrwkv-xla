@@ -86,6 +86,7 @@ class CorridorMeasurementConfig:
     p151_report: Path | None = None
     selected_aggressiveness_profile: str | None = None
     selected_profile_config_sha256: str | None = None
+    held_out_artifact_role: str = "held_out_evaluation"
     overwrite: bool = False
 
 
@@ -167,7 +168,7 @@ def run_corridor_measurement(
     )
     held_out_provenance = validate_fingerprint_provenance(
         config.held_out_fingerprint_artifact,
-        expected_role="held_out_evaluation",
+        expected_role=config.held_out_artifact_role,
     )
     artifact_lineage = build_artifact_source_lineage(
         config.fingerprint_artifact,
