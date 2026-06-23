@@ -11,3 +11,8 @@ artifacts/
 checkpoints/
 runs/
 eval_outputs/
+
+# Generated P156/P156.1 experiment output trees
+docs/agent-handoffs/p156_1_results/
+p156-results/
+p1561-results/

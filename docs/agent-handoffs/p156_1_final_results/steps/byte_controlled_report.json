@@ -1,0 +1,2237 @@
+{
+  "actual_subsets_consumed": true,
+  "auc_method": "deterministic_trapezoidal_integration",
+  "cells": [
+    {
+      "actual_consumption": {
+        "conventional_baseline": {
+          "logical_payload_bytes_consumed": 0,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.6340546380379237
+        },
+        "corridor_only": {
+          "logical_payload_bytes_consumed": 811,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 2.7824645370128565
+        },
+        "exemplar_only": {
+          "logical_payload_bytes_consumed": 791,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 1.096824760956224
+        },
+        "two_cycle": {
+          "logical_payload_bytes_consumed": 505,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.6517675979994237
+        }
+      },
+      "arms": {
+        "conventional_baseline": {
+          "arm_charged_bytes": 0,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.0,
+          "configured_subset_manifest_sha256": null,
+          "configured_training_artifact_path": null,
+          "declared_byte_budget": 1000,
+          "efficiency": null,
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.0,
+          "final_test_primary_score": 1.9248997668525125,
+          "loader_observed_artifact_sha256": null,
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 0,
+          "logical_payload_bytes_consumed": 0,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 0,
+          "quality": {
+            "entropy_absolute_error": 1.4367016358395455,
+            "held_out_corridor_loss": 1.0232826347498774,
+            "held_out_exemplar_loss": 3.208396874606011,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9828600391000509,
+            "student_entropy": 2.6678087656158604,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.9248997668525125,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 0,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 0,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 0,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.6340546380379237,
+          "training_seconds": 0.6340546380379237,
+          "unused_budget_bytes": 1000,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "corridor_only": {
+          "arm_charged_bytes": 811,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.0037050689570605755,
+          "configured_subset_manifest_sha256": "sha256:d465936c02bc4a64ad7dc4b2344a659b1ec52ab12360da5d3da859fd65e260e1",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_1000/corridor_subset",
+          "declared_byte_budget": 1000,
+          "efficiency": {
+            "primary_score_improvement": -0.0016482616884174739,
+            "primary_score_improvement_per_100_steps": -0.04120654221043685,
+            "primary_score_improvement_per_megabyte": -2.0323818599475634,
+            "primary_score_improvement_per_minute": -0.035542484006361834
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.22243499098112807,
+          "final_test_primary_score": 2.0491845307968144,
+          "loader_observed_artifact_sha256": "sha256:1bb82d71948096c63bb5a46f8c7b851e1485745cb0a378779c86564dd2b2151a",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 811,
+          "logical_payload_bytes_consumed": 811,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 5334,
+          "quality": {
+            "entropy_absolute_error": 1.4132998903180305,
+            "held_out_corridor_loss": 0.9532705721467548,
+            "held_out_exemplar_loss": 3.332681638550313,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9484830811619759,
+            "student_entropy": 2.6210052787483895,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 2.0491845307968144,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 3,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4523,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 811,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 2.7824645370128565,
+          "training_seconds": 0.3732898199232295,
+          "unused_budget_bytes": 189,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "exemplar_only": {
+          "arm_charged_bytes": 791,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.007632863998878747,
+          "configured_subset_manifest_sha256": "sha256:400f7c5fc13eff683689fe591fda70aa22c8f7b120e5e20942907cc699dd10b0",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_1000/exemplar_subset",
+          "declared_byte_budget": 1000,
+          "efficiency": {
+            "primary_score_improvement": 0.21242686170009595,
+            "primary_score_improvement_per_100_steps": 5.310671542502399,
+            "primary_score_improvement_per_megabyte": 268.5548188370366,
+            "primary_score_improvement_per_minute": 11.62046313660351
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.9238178690429777,
+          "final_test_primary_score": 1.835109407408301,
+          "loader_observed_artifact_sha256": "sha256:8035e545851470987f0ef8b21c56432a70f6ce54b280a470fb0fb2e577b396a2",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 791,
+          "logical_payload_bytes_consumed": 791,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 6366,
+          "quality": {
+            "entropy_absolute_error": 1.4524074054376526,
+            "held_out_corridor_loss": 1.0736514973356321,
+            "held_out_exemplar_loss": 3.1186065151617997,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 1.016307783946395,
+            "student_entropy": 2.6992202982871527,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.835109407408301,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 3,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4764,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 791,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 1.096824760956224,
+          "training_seconds": 0.15930520399706438,
+          "unused_budget_bytes": 209,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "two_cycle": {
+          "arm_charged_bytes": 505,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.0089347620960325,
+          "configured_subset_manifest_sha256": "sha256:bd1086c8258313eb9097d1f9230b6bf4871c0684c847e3f1d8b6003495f632b1",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_1000/combined_two_cycle_subset",
+          "declared_byte_budget": 1000,
+          "efficiency": {
+            "primary_score_improvement": 0.10885781726257249,
+            "primary_score_improvement_per_100_steps": 2.721445431564312,
+            "primary_score_improvement_per_megabyte": 215.56003418331184,
+            "primary_score_improvement_per_minute": 10.021162536772998
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.12697581405518577,
+          "final_test_primary_score": 1.9386784518458244,
+          "loader_observed_artifact_sha256": "sha256:2518c64e1925f983f3e4f7292170b18e3bc229a2d1662708184822fa58cc3e49",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 505,
+          "logical_payload_bytes_consumed": 505,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 4919,
+          "quality": {
+            "entropy_absolute_error": 1.434186883572944,
+            "held_out_corridor_loss": 1.0154854695569049,
+            "held_out_exemplar_loss": 3.2221755595993233,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9778038161993027,
+            "student_entropy": 2.6627792611182817,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.9386784518458244,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 2,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4414,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 505,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.6517675979994237,
+          "training_seconds": 0.4915774449473247,
+          "unused_budget_bytes": 495,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        }
+      },
+      "budget_integrity_valid": true,
+      "budget_point": "bytes_1000",
+      "cell_config_hash": "sha256:251048fef11be939756c47f42c8c08e9d2a63d10f733616c075acd6a5f437808",
+      "control_family": "bytes",
+      "fixed_resource_receipt": {
+        "artifact_budget": 1000,
+        "batch_size": 1,
+        "final_test_artifact_sha256": "sha256:f74e681c6400b7edeb412f75abf5810314a354b3156c653ee34102f040a22cb6",
+        "total_steps": 4,
+        "wall_clock_safety_ceiling": 120.0
+      },
+      "p155_report": "/tmp/p1561-final-4um77248/bytes/runs/bytes/bytes_1000/seed_0/p155/two_cycle_experiment_report.json",
+      "per_record_metrics": "/tmp/p1561-final-4um77248/bytes/runs/bytes/bytes_1000/seed_0/p155/per_record_arm_metrics.jsonl",
+      "phase": "P156.1",
+      "seed": 0,
+      "split_integrity": {
+        "calibration_artifact_sha256": "sha256:ba33cc71ae21cd742349de0aeb33942450c21886d8b5c925726a9a6a6fa8d155",
+        "configuration_frozen_before_final_test_access": true,
+        "final_test_artifact_sha256": "sha256:f74e681c6400b7edeb412f75abf5810314a354b3156c653ee34102f040a22cb6",
+        "final_test_independent": true,
+        "three_way_split_valid": true,
+        "training_artifact_sha256": "sha256:3ac370ef4cc49eff0532934018a9303b88b35392537a4d42f729f92e007d6bc8"
+      },
+      "status": "pass",
+      "subset_hashes": {
+        "combined_two_cycle_subset": "sha256:bd1086c8258313eb9097d1f9230b6bf4871c0684c847e3f1d8b6003495f632b1",
+        "corridor_subset": "sha256:d465936c02bc4a64ad7dc4b2344a659b1ec52ab12360da5d3da859fd65e260e1",
+        "exemplar_subset": "sha256:400f7c5fc13eff683689fe591fda70aa22c8f7b120e5e20942907cc699dd10b0",
+        "initialization_subset": "sha256:46f1156716a3f674c97478003ea966a04086b2ce222738e96dc385f226f8812b"
+      },
+      "varied_resource": "artifact_bytes"
+    },
+    {
+      "actual_consumption": {
+        "conventional_baseline": {
+          "logical_payload_bytes_consumed": 0,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.143172427022364
+        },
+        "corridor_only": {
+          "logical_payload_bytes_consumed": 811,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.5025225229910575
+        },
+        "exemplar_only": {
+          "logical_payload_bytes_consumed": 791,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.29669616202590987
+        },
+        "two_cycle": {
+          "logical_payload_bytes_consumed": 505,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.6709920710418373
+        }
+      },
+      "arms": {
+        "conventional_baseline": {
+          "arm_charged_bytes": 0,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.0,
+          "configured_subset_manifest_sha256": null,
+          "configured_training_artifact_path": null,
+          "declared_byte_budget": 1000,
+          "efficiency": null,
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.0,
+          "final_test_primary_score": 1.9248997668525125,
+          "loader_observed_artifact_sha256": null,
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 0,
+          "logical_payload_bytes_consumed": 0,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 0,
+          "quality": {
+            "entropy_absolute_error": 1.4367016358395455,
+            "held_out_corridor_loss": 1.0232826347498774,
+            "held_out_exemplar_loss": 3.208396874606011,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9828600391000509,
+            "student_entropy": 2.6678087656158604,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.9248997668525125,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 0,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 0,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 0,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.143172427022364,
+          "training_seconds": 0.143172427022364,
+          "unused_budget_bytes": 1000,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "corridor_only": {
+          "arm_charged_bytes": 811,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.003598235023673624,
+          "configured_subset_manifest_sha256": "sha256:d465936c02bc4a64ad7dc4b2344a659b1ec52ab12360da5d3da859fd65e260e1",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_1000/corridor_subset",
+          "declared_byte_budget": 1000,
+          "efficiency": {
+            "primary_score_improvement": -0.0016482616884174739,
+            "primary_score_improvement_per_100_steps": -0.04120654221043685,
+            "primary_score_improvement_per_megabyte": -2.0323818599475634,
+            "primary_score_improvement_per_minute": -0.19679854490185372
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.0717367060133256,
+          "final_test_primary_score": 2.0491845307968144,
+          "loader_observed_artifact_sha256": "sha256:1bb82d71948096c63bb5a46f8c7b851e1485745cb0a378779c86564dd2b2151a",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 811,
+          "logical_payload_bytes_consumed": 811,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 5334,
+          "quality": {
+            "entropy_absolute_error": 1.4132998903180305,
+            "held_out_corridor_loss": 0.9532705721467548,
+            "held_out_exemplar_loss": 3.332681638550313,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9484830811619759,
+            "student_entropy": 2.6210052787483895,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 2.0491845307968144,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 3,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4523,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 811,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.5025225229910575,
+          "training_seconds": 0.4039356239954941,
+          "unused_budget_bytes": 189,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "exemplar_only": {
+          "arm_charged_bytes": 791,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.007554879994131625,
+          "configured_subset_manifest_sha256": "sha256:400f7c5fc13eff683689fe591fda70aa22c8f7b120e5e20942907cc699dd10b0",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_1000/exemplar_subset",
+          "declared_byte_budget": 1000,
+          "efficiency": {
+            "primary_score_improvement": 0.21242686170009595,
+            "primary_score_improvement_per_100_steps": 5.310671542502399,
+            "primary_score_improvement_per_megabyte": 268.5548188370366,
+            "primary_score_improvement_per_minute": 42.95846503364175
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.14000665699131787,
+          "final_test_primary_score": 1.835109407408301,
+          "loader_observed_artifact_sha256": "sha256:8035e545851470987f0ef8b21c56432a70f6ce54b280a470fb0fb2e577b396a2",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 791,
+          "logical_payload_bytes_consumed": 791,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 6366,
+          "quality": {
+            "entropy_absolute_error": 1.4524074054376526,
+            "held_out_corridor_loss": 1.0736514973356321,
+            "held_out_exemplar_loss": 3.1186065151617997,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 1.016307783946395,
+            "student_entropy": 2.6992202982871527,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.835109407408301,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 3,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4764,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 791,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.29669616202590987,
+          "training_seconds": 0.14328532898798585,
+          "unused_budget_bytes": 209,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "two_cycle": {
+          "arm_charged_bytes": 505,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.00946951494552195,
+          "configured_subset_manifest_sha256": "sha256:bd1086c8258313eb9097d1f9230b6bf4871c0684c847e3f1d8b6003495f632b1",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_1000/combined_two_cycle_subset",
+          "declared_byte_budget": 1000,
+          "efficiency": {
+            "primary_score_improvement": 0.10885781726257249,
+            "primary_score_improvement_per_100_steps": 2.721445431564312,
+            "primary_score_improvement_per_megabyte": 215.56003418331184,
+            "primary_score_improvement_per_minute": 9.734048012837253
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.13105876895133406,
+          "final_test_primary_score": 1.9386784518458244,
+          "loader_observed_artifact_sha256": "sha256:2518c64e1925f983f3e4f7292170b18e3bc229a2d1662708184822fa58cc3e49",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 505,
+          "logical_payload_bytes_consumed": 505,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 4919,
+          "quality": {
+            "entropy_absolute_error": 1.434186883572944,
+            "held_out_corridor_loss": 1.0154854695569049,
+            "held_out_exemplar_loss": 3.2221755595993233,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9778038161993027,
+            "student_entropy": 2.6627792611182817,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.9386784518458244,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 2,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4414,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 505,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.6709920710418373,
+          "training_seconds": 0.5069907329743728,
+          "unused_budget_bytes": 495,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        }
+      },
+      "budget_integrity_valid": true,
+      "budget_point": "bytes_1000",
+      "cell_config_hash": "sha256:24ab6afb6e4ee742b437cfbacdb3739a73d1cff971f5a2b689c2ce524847964a",
+      "control_family": "bytes",
+      "fixed_resource_receipt": {
+        "artifact_budget": 1000,
+        "batch_size": 1,
+        "final_test_artifact_sha256": "sha256:f74e681c6400b7edeb412f75abf5810314a354b3156c653ee34102f040a22cb6",
+        "total_steps": 4,
+        "wall_clock_safety_ceiling": 120.0
+      },
+      "p155_report": "/tmp/p1561-final-4um77248/bytes/runs/bytes/bytes_1000/seed_1/p155/two_cycle_experiment_report.json",
+      "per_record_metrics": "/tmp/p1561-final-4um77248/bytes/runs/bytes/bytes_1000/seed_1/p155/per_record_arm_metrics.jsonl",
+      "phase": "P156.1",
+      "seed": 1,
+      "split_integrity": {
+        "calibration_artifact_sha256": "sha256:ba33cc71ae21cd742349de0aeb33942450c21886d8b5c925726a9a6a6fa8d155",
+        "configuration_frozen_before_final_test_access": true,
+        "final_test_artifact_sha256": "sha256:f74e681c6400b7edeb412f75abf5810314a354b3156c653ee34102f040a22cb6",
+        "final_test_independent": true,
+        "three_way_split_valid": true,
+        "training_artifact_sha256": "sha256:3ac370ef4cc49eff0532934018a9303b88b35392537a4d42f729f92e007d6bc8"
+      },
+      "status": "pass",
+      "subset_hashes": {
+        "combined_two_cycle_subset": "sha256:bd1086c8258313eb9097d1f9230b6bf4871c0684c847e3f1d8b6003495f632b1",
+        "corridor_subset": "sha256:d465936c02bc4a64ad7dc4b2344a659b1ec52ab12360da5d3da859fd65e260e1",
+        "exemplar_subset": "sha256:400f7c5fc13eff683689fe591fda70aa22c8f7b120e5e20942907cc699dd10b0",
+        "initialization_subset": "sha256:46f1156716a3f674c97478003ea966a04086b2ce222738e96dc385f226f8812b"
+      },
+      "varied_resource": "artifact_bytes"
+    },
+    {
+      "actual_consumption": {
+        "conventional_baseline": {
+          "logical_payload_bytes_consumed": 0,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.1521343050408177
+        },
+        "corridor_only": {
+          "logical_payload_bytes_consumed": 811,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.4577444500173442
+        },
+        "exemplar_only": {
+          "logical_payload_bytes_consumed": 791,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.305239909037482
+        },
+        "two_cycle": {
+          "logical_payload_bytes_consumed": 505,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.651581019978039
+        }
+      },
+      "arms": {
+        "conventional_baseline": {
+          "arm_charged_bytes": 0,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.0,
+          "configured_subset_manifest_sha256": null,
+          "configured_training_artifact_path": null,
+          "declared_byte_budget": 1000,
+          "efficiency": null,
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.0,
+          "final_test_primary_score": 1.9248997668525125,
+          "loader_observed_artifact_sha256": null,
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 0,
+          "logical_payload_bytes_consumed": 0,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 0,
+          "quality": {
+            "entropy_absolute_error": 1.4367016358395455,
+            "held_out_corridor_loss": 1.0232826347498774,
+            "held_out_exemplar_loss": 3.208396874606011,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9828600391000509,
+            "student_entropy": 2.6678087656158604,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.9248997668525125,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 0,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 0,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 0,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.1521343050408177,
+          "training_seconds": 0.1521343050408177,
+          "unused_budget_bytes": 1000,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "corridor_only": {
+          "arm_charged_bytes": 811,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.003488388902042061,
+          "configured_subset_manifest_sha256": "sha256:d465936c02bc4a64ad7dc4b2344a659b1ec52ab12360da5d3da859fd65e260e1",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_1000/corridor_subset",
+          "declared_byte_budget": 1000,
+          "efficiency": {
+            "primary_score_improvement": -0.0016482616884174739,
+            "primary_score_improvement_per_100_steps": -0.04120654221043685,
+            "primary_score_improvement_per_megabyte": -2.0323818599475634,
+            "primary_score_improvement_per_minute": -0.21605002813535198
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.07158540503587574,
+          "final_test_primary_score": 2.0491845307968144,
+          "loader_observed_artifact_sha256": "sha256:1bb82d71948096c63bb5a46f8c7b851e1485745cb0a378779c86564dd2b2151a",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 811,
+          "logical_payload_bytes_consumed": 811,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 5334,
+          "quality": {
+            "entropy_absolute_error": 1.4132998903180305,
+            "held_out_corridor_loss": 0.9532705721467548,
+            "held_out_exemplar_loss": 3.332681638550313,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9484830811619759,
+            "student_entropy": 2.6210052787483895,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 2.0491845307968144,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 3,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4523,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 811,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.4577444500173442,
+          "training_seconds": 0.3604313669493422,
+          "unused_budget_bytes": 189,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "exemplar_only": {
+          "arm_charged_bytes": 791,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.007619430078193545,
+          "configured_subset_manifest_sha256": "sha256:400f7c5fc13eff683689fe591fda70aa22c8f7b120e5e20942907cc699dd10b0",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_1000/exemplar_subset",
+          "declared_byte_budget": 1000,
+          "efficiency": {
+            "primary_score_improvement": 0.21242686170009595,
+            "primary_score_improvement_per_100_steps": 5.310671542502399,
+            "primary_score_improvement_per_megabyte": 268.5548188370366,
+            "primary_score_improvement_per_minute": 41.756046062904105
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.14051079598721117,
+          "final_test_primary_score": 1.835109407408301,
+          "loader_observed_artifact_sha256": "sha256:8035e545851470987f0ef8b21c56432a70f6ce54b280a470fb0fb2e577b396a2",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 791,
+          "logical_payload_bytes_consumed": 791,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 6366,
+          "quality": {
+            "entropy_absolute_error": 1.4524074054376526,
+            "held_out_corridor_loss": 1.0736514973356321,
+            "held_out_exemplar_loss": 3.1186065151617997,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 1.016307783946395,
+            "student_entropy": 2.6992202982871527,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.835109407408301,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 3,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4764,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 791,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.305239909037482,
+          "training_seconds": 0.15090581006370485,
+          "unused_budget_bytes": 209,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "two_cycle": {
+          "arm_charged_bytes": 505,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.008876838954165578,
+          "configured_subset_manifest_sha256": "sha256:bd1086c8258313eb9097d1f9230b6bf4871c0684c847e3f1d8b6003495f632b1",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_1000/combined_two_cycle_subset",
+          "declared_byte_budget": 1000,
+          "efficiency": {
+            "primary_score_improvement": 0.10885781726257249,
+            "primary_score_improvement_per_100_steps": 2.721445431564312,
+            "primary_score_improvement_per_megabyte": 215.56003418331184,
+            "primary_score_improvement_per_minute": 10.024032062773232
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.13284796505467966,
+          "final_test_primary_score": 1.9386784518458244,
+          "loader_observed_artifact_sha256": "sha256:2518c64e1925f983f3e4f7292170b18e3bc229a2d1662708184822fa58cc3e49",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 505,
+          "logical_payload_bytes_consumed": 505,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 4919,
+          "quality": {
+            "entropy_absolute_error": 1.434186883572944,
+            "held_out_corridor_loss": 1.0154854695569049,
+            "held_out_exemplar_loss": 3.2221755595993233,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9778038161993027,
+            "student_entropy": 2.6627792611182817,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.9386784518458244,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 2,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4414,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 505,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.651581019978039,
+          "training_seconds": 0.4866056999890134,
+          "unused_budget_bytes": 495,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        }
+      },
+      "budget_integrity_valid": true,
+      "budget_point": "bytes_1000",
+      "cell_config_hash": "sha256:21f4405a88cfa6b8dc005fa3b19022f06211e343a07ac44508530330c9fc096b",
+      "control_family": "bytes",
+      "fixed_resource_receipt": {
+        "artifact_budget": 1000,
+        "batch_size": 1,
+        "final_test_artifact_sha256": "sha256:f74e681c6400b7edeb412f75abf5810314a354b3156c653ee34102f040a22cb6",
+        "total_steps": 4,
+        "wall_clock_safety_ceiling": 120.0
+      },
+      "p155_report": "/tmp/p1561-final-4um77248/bytes/runs/bytes/bytes_1000/seed_2/p155/two_cycle_experiment_report.json",
+      "per_record_metrics": "/tmp/p1561-final-4um77248/bytes/runs/bytes/bytes_1000/seed_2/p155/per_record_arm_metrics.jsonl",
+      "phase": "P156.1",
+      "seed": 2,
+      "split_integrity": {
+        "calibration_artifact_sha256": "sha256:ba33cc71ae21cd742349de0aeb33942450c21886d8b5c925726a9a6a6fa8d155",
+        "configuration_frozen_before_final_test_access": true,
+        "final_test_artifact_sha256": "sha256:f74e681c6400b7edeb412f75abf5810314a354b3156c653ee34102f040a22cb6",
+        "final_test_independent": true,
+        "three_way_split_valid": true,
+        "training_artifact_sha256": "sha256:3ac370ef4cc49eff0532934018a9303b88b35392537a4d42f729f92e007d6bc8"
+      },
+      "status": "pass",
+      "subset_hashes": {
+        "combined_two_cycle_subset": "sha256:bd1086c8258313eb9097d1f9230b6bf4871c0684c847e3f1d8b6003495f632b1",
+        "corridor_subset": "sha256:d465936c02bc4a64ad7dc4b2344a659b1ec52ab12360da5d3da859fd65e260e1",
+        "exemplar_subset": "sha256:400f7c5fc13eff683689fe591fda70aa22c8f7b120e5e20942907cc699dd10b0",
+        "initialization_subset": "sha256:46f1156716a3f674c97478003ea966a04086b2ce222738e96dc385f226f8812b"
+      },
+      "varied_resource": "artifact_bytes"
+    },
+    {
+      "actual_consumption": {
+        "conventional_baseline": {
+          "logical_payload_bytes_consumed": 0,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.13926142099080607
+        },
+        "corridor_only": {
+          "logical_payload_bytes_consumed": 1085,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.46700032002991065
+        },
+        "exemplar_only": {
+          "logical_payload_bytes_consumed": 1001,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.3057276860345155
+        },
+        "two_cycle": {
+          "logical_payload_bytes_consumed": 1068,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.6516309399157763
+        }
+      },
+      "arms": {
+        "conventional_baseline": {
+          "arm_charged_bytes": 0,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.0,
+          "configured_subset_manifest_sha256": null,
+          "configured_training_artifact_path": null,
+          "declared_byte_budget": 2000,
+          "efficiency": null,
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.0,
+          "final_test_primary_score": 1.9248997668525125,
+          "loader_observed_artifact_sha256": null,
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 0,
+          "logical_payload_bytes_consumed": 0,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 0,
+          "quality": {
+            "entropy_absolute_error": 1.4367016358395455,
+            "held_out_corridor_loss": 1.0232826347498774,
+            "held_out_exemplar_loss": 3.208396874606011,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9828600391000509,
+            "student_entropy": 2.6678087656158604,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.9248997668525125,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 0,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 0,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 0,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.13926142099080607,
+          "training_seconds": 0.13926142099080607,
+          "unused_budget_bytes": 2000,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "corridor_only": {
+          "arm_charged_bytes": 1085,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.0037457599537447095,
+          "configured_subset_manifest_sha256": "sha256:46f1156716a3f674c97478003ea966a04086b2ce222738e96dc385f226f8812b",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_2000/corridor_subset",
+          "declared_byte_budget": 2000,
+          "efficiency": {
+            "primary_score_improvement": -0.0010599985090884445,
+            "primary_score_improvement_per_100_steps": -0.026499962727211113,
+            "primary_score_improvement_per_megabyte": -0.9769571512335894,
+            "primary_score_improvement_per_minute": -0.13618815195080208
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.07469385699369013,
+          "final_test_primary_score": 2.0485962676174854,
+          "loader_observed_artifact_sha256": "sha256:2e62c6cf25a38f848c5bc4220cae95c6ac92751b0764cd44c669ee70a1e0a202",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 1085,
+          "logical_payload_bytes_consumed": 1085,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 5783,
+          "quality": {
+            "entropy_absolute_error": 1.413413819446101,
+            "held_out_corridor_loss": 0.953597935726281,
+            "held_out_exemplar_loss": 3.332093375370985,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9486124362796545,
+            "student_entropy": 2.6212331322146936,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 2.0485962676174854,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 4,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4698,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 1085,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.46700032002991065,
+          "training_seconds": 0.3603332409984432,
+          "unused_budget_bytes": 915,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "exemplar_only": {
+          "arm_charged_bytes": 1001,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.007506260939408094,
+          "configured_subset_manifest_sha256": "sha256:933077056d502b92b73cb7bb1d75273d6c406632ace8ab62875e86b18c8585eb",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_2000/exemplar_subset",
+          "declared_byte_budget": 2000,
+          "efficiency": {
+            "primary_score_improvement": 0.19102038228995988,
+            "primary_score_improvement_per_100_steps": 4.775509557248997,
+            "primary_score_improvement_per_megabyte": 190.82955273722266,
+            "primary_score_improvement_per_minute": 37.48833835122039
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.14210351096699014,
+          "final_test_primary_score": 1.856515886818437,
+          "loader_observed_artifact_sha256": "sha256:545f2528861abd5ea11e42d0b877b6a28cd543b30086f6aa31ee06d99a80ecf7",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 1001,
+          "logical_payload_bytes_consumed": 1001,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 7025,
+          "quality": {
+            "entropy_absolute_error": 1.4487844832868169,
+            "held_out_corridor_loss": 1.0617461857802055,
+            "held_out_exemplar_loss": 3.1400129945719355,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 1.0082010027766228,
+            "student_entropy": 2.691974453560422,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.856515886818437,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 4,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4939,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 1001,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.3057276860345155,
+          "training_seconds": 0.14606812206329778,
+          "unused_budget_bytes": 999,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "two_cycle": {
+          "arm_charged_bytes": 1602,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.009087409009225667,
+          "configured_subset_manifest_sha256": "sha256:b41f6aa02e40d06add23118187442eb8c3bdfb402736c188b798e31dfdea9be4",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_2000/combined_two_cycle_subset",
+          "declared_byte_budget": 2000,
+          "efficiency": {
+            "primary_score_improvement": 0.10885781726257249,
+            "primary_score_improvement_per_100_steps": 2.721445431564312,
+            "primary_score_improvement_per_megabyte": 67.95119679311641,
+            "primary_score_improvement_per_minute": 10.023264144883216
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.13006283110007644,
+          "final_test_primary_score": 1.9386784518458244,
+          "loader_observed_artifact_sha256": "sha256:8035e545851470987f0ef8b21c56432a70f6ce54b280a470fb0fb2e577b396a2",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 1602,
+          "logical_payload_bytes_consumed": 1068,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 6366,
+          "quality": {
+            "entropy_absolute_error": 1.434186883572944,
+            "held_out_corridor_loss": 1.0154854695569049,
+            "held_out_exemplar_loss": 3.2221755595993233,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9778038161993027,
+            "student_entropy": 2.6627792611182817,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.9386784518458244,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 6,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4764,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 1602,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.6516309399157763,
+          "training_seconds": 0.485806361946743,
+          "unused_budget_bytes": 398,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        }
+      },
+      "budget_integrity_valid": true,
+      "budget_point": "bytes_2000",
+      "cell_config_hash": "sha256:eb5a6c2c3b8494185928f30e46e66474fd88f23992156466e99d8dd723b227d1",
+      "control_family": "bytes",
+      "fixed_resource_receipt": {
+        "artifact_budget": 2000,
+        "batch_size": 1,
+        "final_test_artifact_sha256": "sha256:f74e681c6400b7edeb412f75abf5810314a354b3156c653ee34102f040a22cb6",
+        "total_steps": 4,
+        "wall_clock_safety_ceiling": 120.0
+      },
+      "p155_report": "/tmp/p1561-final-4um77248/bytes/runs/bytes/bytes_2000/seed_0/p155/two_cycle_experiment_report.json",
+      "per_record_metrics": "/tmp/p1561-final-4um77248/bytes/runs/bytes/bytes_2000/seed_0/p155/per_record_arm_metrics.jsonl",
+      "phase": "P156.1",
+      "seed": 0,
+      "split_integrity": {
+        "calibration_artifact_sha256": "sha256:ba33cc71ae21cd742349de0aeb33942450c21886d8b5c925726a9a6a6fa8d155",
+        "configuration_frozen_before_final_test_access": true,
+        "final_test_artifact_sha256": "sha256:f74e681c6400b7edeb412f75abf5810314a354b3156c653ee34102f040a22cb6",
+        "final_test_independent": true,
+        "three_way_split_valid": true,
+        "training_artifact_sha256": "sha256:3ac370ef4cc49eff0532934018a9303b88b35392537a4d42f729f92e007d6bc8"
+      },
+      "status": "pass",
+      "subset_hashes": {
+        "combined_two_cycle_subset": "sha256:b41f6aa02e40d06add23118187442eb8c3bdfb402736c188b798e31dfdea9be4",
+        "corridor_subset": "sha256:46f1156716a3f674c97478003ea966a04086b2ce222738e96dc385f226f8812b",
+        "exemplar_subset": "sha256:933077056d502b92b73cb7bb1d75273d6c406632ace8ab62875e86b18c8585eb",
+        "initialization_subset": "sha256:46f1156716a3f674c97478003ea966a04086b2ce222738e96dc385f226f8812b"
+      },
+      "varied_resource": "artifact_bytes"
+    },
+    {
+      "actual_consumption": {
+        "conventional_baseline": {
+          "logical_payload_bytes_consumed": 0,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.143087227945216
+        },
+        "corridor_only": {
+          "logical_payload_bytes_consumed": 1085,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.4610352599993348
+        },
+        "exemplar_only": {
+          "logical_payload_bytes_consumed": 1001,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.30698515800759196
+        },
+        "two_cycle": {
+          "logical_payload_bytes_consumed": 1068,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.6560786190093495
+        }
+      },
+      "arms": {
+        "conventional_baseline": {
+          "arm_charged_bytes": 0,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.0,
+          "configured_subset_manifest_sha256": null,
+          "configured_training_artifact_path": null,
+          "declared_byte_budget": 2000,
+          "efficiency": null,
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.0,
+          "final_test_primary_score": 1.9248997668525125,
+          "loader_observed_artifact_sha256": null,
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 0,
+          "logical_payload_bytes_consumed": 0,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 0,
+          "quality": {
+            "entropy_absolute_error": 1.4367016358395455,
+            "held_out_corridor_loss": 1.0232826347498774,
+            "held_out_exemplar_loss": 3.208396874606011,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9828600391000509,
+            "student_entropy": 2.6678087656158604,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.9248997668525125,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 0,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 0,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 0,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.143087227945216,
+          "training_seconds": 0.143087227945216,
+          "unused_budget_bytes": 2000,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "corridor_only": {
+          "arm_charged_bytes": 1085,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.0034223488764837384,
+          "configured_subset_manifest_sha256": "sha256:46f1156716a3f674c97478003ea966a04086b2ce222738e96dc385f226f8812b",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_2000/corridor_subset",
+          "declared_byte_budget": 2000,
+          "efficiency": {
+            "primary_score_improvement": -0.0010599985090884445,
+            "primary_score_improvement_per_100_steps": -0.026499962727211113,
+            "primary_score_improvement_per_megabyte": -0.9769571512335894,
+            "primary_score_improvement_per_minute": -0.13795020915623338
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.07858923892490566,
+          "final_test_primary_score": 2.0485962676174854,
+          "loader_observed_artifact_sha256": "sha256:2e62c6cf25a38f848c5bc4220cae95c6ac92751b0764cd44c669ee70a1e0a202",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 1085,
+          "logical_payload_bytes_consumed": 1085,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 5783,
+          "quality": {
+            "entropy_absolute_error": 1.413413819446101,
+            "held_out_corridor_loss": 0.953597935726281,
+            "held_out_exemplar_loss": 3.332093375370985,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9486124362796545,
+            "student_entropy": 2.6212331322146936,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 2.0485962676174854,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 4,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4698,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 1085,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.4610352599993348,
+          "training_seconds": 0.35301469097612426,
+          "unused_budget_bytes": 915,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "exemplar_only": {
+          "arm_charged_bytes": 1001,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.007917326933238655,
+          "configured_subset_manifest_sha256": "sha256:933077056d502b92b73cb7bb1d75273d6c406632ace8ab62875e86b18c8585eb",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_2000/exemplar_subset",
+          "declared_byte_budget": 2000,
+          "efficiency": {
+            "primary_score_improvement": 0.19102038228995988,
+            "primary_score_improvement_per_100_steps": 4.775509557248997,
+            "primary_score_improvement_per_megabyte": 190.82955273722266,
+            "primary_score_improvement_per_minute": 37.33477869674125
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.14454964495962486,
+          "final_test_primary_score": 1.856515886818437,
+          "loader_observed_artifact_sha256": "sha256:545f2528861abd5ea11e42d0b877b6a28cd543b30086f6aa31ee06d99a80ecf7",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 1001,
+          "logical_payload_bytes_consumed": 1001,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 7025,
+          "quality": {
+            "entropy_absolute_error": 1.4487844832868169,
+            "held_out_corridor_loss": 1.0617461857802055,
+            "held_out_exemplar_loss": 3.1400129945719355,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 1.0082010027766228,
+            "student_entropy": 2.691974453560422,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.856515886818437,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 4,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4939,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 1001,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.30698515800759196,
+          "training_seconds": 0.14855501701822504,
+          "unused_budget_bytes": 999,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "two_cycle": {
+          "arm_charged_bytes": 1602,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.008904072048608214,
+          "configured_subset_manifest_sha256": "sha256:b41f6aa02e40d06add23118187442eb8c3bdfb402736c188b798e31dfdea9be4",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_2000/combined_two_cycle_subset",
+          "declared_byte_budget": 2000,
+          "efficiency": {
+            "primary_score_improvement": 0.10885781726257249,
+            "primary_score_improvement_per_100_steps": 2.721445431564312,
+            "primary_score_improvement_per_megabyte": 67.95119679311641,
+            "primary_score_improvement_per_minute": 9.955314571318583
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.12961340905167162,
+          "final_test_primary_score": 1.9386784518458244,
+          "loader_observed_artifact_sha256": "sha256:8035e545851470987f0ef8b21c56432a70f6ce54b280a470fb0fb2e577b396a2",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 1602,
+          "logical_payload_bytes_consumed": 1068,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 6366,
+          "quality": {
+            "entropy_absolute_error": 1.434186883572944,
+            "held_out_corridor_loss": 1.0154854695569049,
+            "held_out_exemplar_loss": 3.2221755595993233,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9778038161993027,
+            "student_entropy": 2.6627792611182817,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.9386784518458244,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 6,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4764,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 1602,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.6560786190093495,
+          "training_seconds": 0.4911879139835946,
+          "unused_budget_bytes": 398,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        }
+      },
+      "budget_integrity_valid": true,
+      "budget_point": "bytes_2000",
+      "cell_config_hash": "sha256:1724ff17251e7e0e53775f80904e4bfdf4259e76fd42741428cd799d4de3f149",
+      "control_family": "bytes",
+      "fixed_resource_receipt": {
+        "artifact_budget": 2000,
+        "batch_size": 1,
+        "final_test_artifact_sha256": "sha256:f74e681c6400b7edeb412f75abf5810314a354b3156c653ee34102f040a22cb6",
+        "total_steps": 4,
+        "wall_clock_safety_ceiling": 120.0
+      },
+      "p155_report": "/tmp/p1561-final-4um77248/bytes/runs/bytes/bytes_2000/seed_1/p155/two_cycle_experiment_report.json",
+      "per_record_metrics": "/tmp/p1561-final-4um77248/bytes/runs/bytes/bytes_2000/seed_1/p155/per_record_arm_metrics.jsonl",
+      "phase": "P156.1",
+      "seed": 1,
+      "split_integrity": {
+        "calibration_artifact_sha256": "sha256:ba33cc71ae21cd742349de0aeb33942450c21886d8b5c925726a9a6a6fa8d155",
+        "configuration_frozen_before_final_test_access": true,
+        "final_test_artifact_sha256": "sha256:f74e681c6400b7edeb412f75abf5810314a354b3156c653ee34102f040a22cb6",
+        "final_test_independent": true,
+        "three_way_split_valid": true,
+        "training_artifact_sha256": "sha256:3ac370ef4cc49eff0532934018a9303b88b35392537a4d42f729f92e007d6bc8"
+      },
+      "status": "pass",
+      "subset_hashes": {
+        "combined_two_cycle_subset": "sha256:b41f6aa02e40d06add23118187442eb8c3bdfb402736c188b798e31dfdea9be4",
+        "corridor_subset": "sha256:46f1156716a3f674c97478003ea966a04086b2ce222738e96dc385f226f8812b",
+        "exemplar_subset": "sha256:933077056d502b92b73cb7bb1d75273d6c406632ace8ab62875e86b18c8585eb",
+        "initialization_subset": "sha256:46f1156716a3f674c97478003ea966a04086b2ce222738e96dc385f226f8812b"
+      },
+      "varied_resource": "artifact_bytes"
+    },
+    {
+      "actual_consumption": {
+        "conventional_baseline": {
+          "logical_payload_bytes_consumed": 0,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.14531124697532505
+        },
+        "corridor_only": {
+          "logical_payload_bytes_consumed": 1085,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.45301912497961894
+        },
+        "exemplar_only": {
+          "logical_payload_bytes_consumed": 1001,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.2956911720102653
+        },
+        "two_cycle": {
+          "logical_payload_bytes_consumed": 1068,
+          "optimizer_steps": 4,
+          "records_consumed": 4,
+          "total_wall_clock_seconds": 0.649613059067633
+        }
+      },
+      "arms": {
+        "conventional_baseline": {
+          "arm_charged_bytes": 0,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.0,
+          "configured_subset_manifest_sha256": null,
+          "configured_training_artifact_path": null,
+          "declared_byte_budget": 2000,
+          "efficiency": null,
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.0,
+          "final_test_primary_score": 1.9248997668525125,
+          "loader_observed_artifact_sha256": null,
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 0,
+          "logical_payload_bytes_consumed": 0,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 0,
+          "quality": {
+            "entropy_absolute_error": 1.4367016358395455,
+            "held_out_corridor_loss": 1.0232826347498774,
+            "held_out_exemplar_loss": 3.208396874606011,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9828600391000509,
+            "student_entropy": 2.6678087656158604,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.9248997668525125,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 0,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 0,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 0,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.14531124697532505,
+          "training_seconds": 0.14531124697532505,
+          "unused_budget_bytes": 2000,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "corridor_only": {
+          "arm_charged_bytes": 1085,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.005467352049890906,
+          "configured_subset_manifest_sha256": "sha256:46f1156716a3f674c97478003ea966a04086b2ce222738e96dc385f226f8812b",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_2000/corridor_subset",
+          "declared_byte_budget": 2000,
+          "efficiency": {
+            "primary_score_improvement": -0.0010599985090884445,
+            "primary_score_improvement_per_100_steps": -0.026499962727211113,
+            "primary_score_improvement_per_megabyte": -0.9769571512335894,
+            "primary_score_improvement_per_minute": -0.14039122641492893
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.07382227398920804,
+          "final_test_primary_score": 2.0485962676174854,
+          "loader_observed_artifact_sha256": "sha256:2e62c6cf25a38f848c5bc4220cae95c6ac92751b0764cd44c669ee70a1e0a202",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 1085,
+          "logical_payload_bytes_consumed": 1085,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 5783,
+          "quality": {
+            "entropy_absolute_error": 1.413413819446101,
+            "held_out_corridor_loss": 0.953597935726281,
+            "held_out_exemplar_loss": 3.332093375370985,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9486124362796545,
+            "student_entropy": 2.6212331322146936,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 2.0485962676174854,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 4,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4698,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 1085,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.45301912497961894,
+          "training_seconds": 0.3499032720574178,
+          "unused_budget_bytes": 915,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "exemplar_only": {
+          "arm_charged_bytes": 1001,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.007430203957483172,
+          "configured_subset_manifest_sha256": "sha256:933077056d502b92b73cb7bb1d75273d6c406632ace8ab62875e86b18c8585eb",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_2000/exemplar_subset",
+          "declared_byte_budget": 2000,
+          "efficiency": {
+            "primary_score_improvement": 0.19102038228995988,
+            "primary_score_improvement_per_100_steps": 4.775509557248997,
+            "primary_score_improvement_per_megabyte": 190.82955273722266,
+            "primary_score_improvement_per_minute": 38.76078835725167
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.14160368393640965,
+          "final_test_primary_score": 1.856515886818437,
+          "loader_observed_artifact_sha256": "sha256:545f2528861abd5ea11e42d0b877b6a28cd543b30086f6aa31ee06d99a80ecf7",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 1001,
+          "logical_payload_bytes_consumed": 1001,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 7025,
+          "quality": {
+            "entropy_absolute_error": 1.4487844832868169,
+            "held_out_corridor_loss": 1.0617461857802055,
+            "held_out_exemplar_loss": 3.1400129945719355,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 1.0082010027766228,
+            "student_entropy": 2.691974453560422,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.856515886818437,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 4,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4939,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 1001,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.2956911720102653,
+          "training_seconds": 0.14067244599573314,
+          "unused_budget_bytes": 999,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        },
+        "two_cycle": {
+          "arm_charged_bytes": 1602,
+          "budget_ceiling_respected": true,
+          "checkpoint_seconds": 0.010994248965289444,
+          "configured_subset_manifest_sha256": "sha256:b41f6aa02e40d06add23118187442eb8c3bdfb402736c188b798e31dfdea9be4",
+          "configured_training_artifact_path": "/tmp/p1561-final-4um77248/bytes/subsets/bytes_2000/combined_two_cycle_subset",
+          "declared_byte_budget": 2000,
+          "efficiency": {
+            "primary_score_improvement": 0.10885781726257249,
+            "primary_score_improvement_per_100_steps": 2.721445431564312,
+            "primary_score_improvement_per_megabyte": 67.95119679311641,
+            "primary_score_improvement_per_minute": 10.054399222098057
+          },
+          "efficiency_reference_arm": "shared_initialization",
+          "efficiency_reference_score": 2.047536269108397,
+          "evaluation_seconds": 0.12570477795088664,
+          "final_test_primary_score": 1.9386784518458244,
+          "loader_observed_artifact_sha256": "sha256:8035e545851470987f0ef8b21c56432a70f6ce54b280a470fb0fb2e577b396a2",
+          "loader_observed_subset_hash_matches": true,
+          "logical_bytes_available": 1602,
+          "logical_payload_bytes_consumed": 1068,
+          "optimizer_steps": 4,
+          "physical_subset_bytes": 6366,
+          "quality": {
+            "entropy_absolute_error": 1.434186883572944,
+            "held_out_corridor_loss": 1.0154854695569049,
+            "held_out_exemplar_loss": 3.2221755595993233,
+            "inside_all_rate": 0.0,
+            "mean_distance_outside_corridor": 0.9778038161993027,
+            "student_entropy": 2.6627792611182817,
+            "teacher_entropy": 1.283497107753499,
+            "teacher_student_kl": 1.9386784518458244,
+            "top1_agreement": 0.0,
+            "topk_overlap": 0.71875
+          },
+          "records_available": 6,
+          "records_consumed": 4,
+          "shared_metadata_bytes": 4764,
+          "step_budget_match_valid": true,
+          "teacher_artifact_bytes": 1602,
+          "total_step_budget": 4,
+          "total_wall_clock_seconds": 0.649613059067633,
+          "training_seconds": 0.4863113479805179,
+          "unused_budget_bytes": 398,
+          "wall_clock_budget_exceeded": false,
+          "wall_clock_budget_seconds": 120.0
+        }
+      },
+      "budget_integrity_valid": true,
+      "budget_point": "bytes_2000",
+      "cell_config_hash": "sha256:f86e980fc7a7fdee9b6baf4b8f69284c2db32b3ce539371feed5e80b3beaf303",
+      "control_family": "bytes",
+      "fixed_resource_receipt": {
+        "artifact_budget": 2000,
+        "batch_size": 1,
+        "final_test_artifact_sha256": "sha256:f74e681c6400b7edeb412f75abf5810314a354b3156c653ee34102f040a22cb6",
+        "total_steps": 4,
+        "wall_clock_safety_ceiling": 120.0
+      },
+      "p155_report": "/tmp/p1561-final-4um77248/bytes/runs/bytes/bytes_2000/seed_2/p155/two_cycle_experiment_report.json",
+      "per_record_metrics": "/tmp/p1561-final-4um77248/bytes/runs/bytes/bytes_2000/seed_2/p155/per_record_arm_metrics.jsonl",
+      "phase": "P156.1",
+      "seed": 2,
+      "split_integrity": {
+        "calibration_artifact_sha256": "sha256:ba33cc71ae21cd742349de0aeb33942450c21886d8b5c925726a9a6a6fa8d155",
+        "configuration_frozen_before_final_test_access": true,
+        "final_test_artifact_sha256": "sha256:f74e681c6400b7edeb412f75abf5810314a354b3156c653ee34102f040a22cb6",
+        "final_test_independent": true,
+        "three_way_split_valid": true,
+        "training_artifact_sha256": "sha256:3ac370ef4cc49eff0532934018a9303b88b35392537a4d42f729f92e007d6bc8"
+      },
+      "status": "pass",
+      "subset_hashes": {
+        "combined_two_cycle_subset": "sha256:b41f6aa02e40d06add23118187442eb8c3bdfb402736c188b798e31dfdea9be4",
+        "corridor_subset": "sha256:46f1156716a3f674c97478003ea966a04086b2ce222738e96dc385f226f8812b",
+        "exemplar_subset": "sha256:933077056d502b92b73cb7bb1d75273d6c406632ace8ab62875e86b18c8585eb",
+        "initialization_subset": "sha256:46f1156716a3f674c97478003ea966a04086b2ce222738e96dc385f226f8812b"
+      },
+      "varied_resource": "artifact_bytes"
+    }
+  ],
+  "claim_scope": "tiny_cpu_controlled_experiment",
+  "comparisons": [
+    {
+      "aligned_seeds": [
+        0,
+        1,
+        2
+      ],
+      "budget_point": "bytes_1000",
+      "ci95": [
+        0.06019901865457097,
+        0.14459608247011504
+      ],
+      "fraction_lost": 1.0,
+      "fraction_tied": 0.0,
+      "fraction_won": 0.0,
+      "left_arm": "two_cycle",
+      "mean_paired_delta": 0.10356904443752347,
+      "median_paired_delta": 0.10596777945771556,
+      "paired_observation_count": 12,
+      "result": "right_better",
+      "right_arm": "exemplar_only"
+    },
+    {
+      "aligned_seeds": [
+        0,
+        1,
+        2
+      ],
+      "budget_point": "bytes_1000",
+      "ci95": [
+        0.008195811948369495,
+        0.018893821762464152
+      ],
+      "fraction_lost": 1.0,
+      "fraction_tied": 0.0,
+      "fraction_won": 0.0,
+      "left_arm": "two_cycle",
+      "mean_paired_delta": 0.01377868499331164,
+      "median_paired_delta": 0.01408779763191692,
+      "paired_observation_count": 12,
+      "result": "right_better",
+      "right_arm": "conventional_baseline"
+    },
+    {
+      "aligned_seeds": [
+        0,
+        1,
+        2
+      ],
+      "budget_point": "bytes_1000",
+      "ci95": [
+        0.11015974314757099,
+        0.3089608471089939
+      ],
+      "fraction_lost": 1.0,
+      "fraction_tied": 0.0,
+      "fraction_won": 0.0,
+      "left_arm": "corridor_only",
+      "mean_paired_delta": 0.21407512338851364,
+      "median_paired_delta": 0.21885956957491676,
+      "paired_observation_count": 12,
+      "result": "right_better",
+      "right_arm": "exemplar_only"
+    },
+    {
+      "aligned_seeds": [
+        0,
+        1,
+        2
+      ],
+      "budget_point": "bytes_1000",
+      "ci95": [
+        -0.1552247726168065,
+        -0.06735380166885171
+      ],
+      "fraction_lost": 0.0,
+      "fraction_tied": 0.0,
+      "fraction_won": 1.0,
+      "left_arm": "two_cycle",
+      "mean_paired_delta": -0.11050607895099013,
+      "median_paired_delta": -0.11289179011720121,
+      "paired_observation_count": 12,
+      "result": "left_better",
+      "right_arm": "corridor_only"
+    },
+    {
+      "aligned_seeds": [
+        0,
+        1,
+        2
+      ],
+      "budget_point": "bytes_2000",
+      "ci95": [
+        0.04802970858168662,
+        0.1144514546494742
+      ],
+      "fraction_lost": 1.0,
+      "fraction_tied": 0.0,
+      "fraction_won": 0.0,
+      "left_arm": "two_cycle",
+      "mean_paired_delta": 0.08216256502738747,
+      "median_paired_delta": 0.08405041525662554,
+      "paired_observation_count": 12,
+      "result": "right_better",
+      "right_arm": "exemplar_only"
+    },
+    {
+      "aligned_seeds": [
+        0,
+        1,
+        2
+      ],
+      "budget_point": "bytes_2000",
+      "ci95": [
+        0.008195811948369495,
+        0.018893821762464152
+      ],
+      "fraction_lost": 1.0,
+      "fraction_tied": 0.0,
+      "fraction_won": 0.0,
+      "left_arm": "two_cycle",
+      "mean_paired_delta": 0.01377868499331164,
+      "median_paired_delta": 0.01408779763191692,
+      "paired_observation_count": 12,
+      "result": "right_better",
+      "right_arm": "conventional_baseline"
+    },
+    {
+      "aligned_seeds": [
+        0,
+        1,
+        2
+      ],
+      "budget_point": "bytes_2000",
+      "ci95": [
+        0.0995284787932574,
+        0.276590072913001
+      ],
+      "fraction_lost": 1.0,
+      "fraction_tied": 0.0,
+      "fraction_won": 0.0,
+      "left_arm": "corridor_only",
+      "mean_paired_delta": 0.19208038079904885,
+      "median_paired_delta": 0.19634167227726346,
+      "paired_observation_count": 12,
+      "result": "right_better",
+      "right_arm": "exemplar_only"
+    },
+    {
+      "aligned_seeds": [
+        0,
+        1,
+        2
+      ],
+      "budget_point": "bytes_2000",
+      "ci95": [
+        -0.15440596484954566,
+        -0.06698800297806097
+      ],
+      "fraction_lost": 0.0,
+      "fraction_tied": 0.0,
+      "fraction_won": 1.0,
+      "left_arm": "two_cycle",
+      "mean_paired_delta": -0.10991781577166138,
+      "median_paired_delta": -0.11229125702063791,
+      "paired_observation_count": 12,
+      "result": "left_better",
+      "right_arm": "corridor_only"
+    }
+  ],
+  "curve_auc": [
+    {
+      "area_under_quality_curve": null,
+      "arm": "conventional_baseline",
+      "available": false,
+      "budget_view": "artifact_bytes",
+      "seed": 0,
+      "unavailable_reason": "budget view has no nonzero x-axis range",
+      "x_range": [
+        0,
+        0
+      ]
+    },
+    {
+      "area_under_quality_curve": null,
+      "arm": "conventional_baseline",
+      "available": false,
+      "budget_view": "artifact_bytes",
+      "seed": 1,
+      "unavailable_reason": "budget view has no nonzero x-axis range",
+      "x_range": [
+        0,
+        0
+      ]
+    },
+    {
+      "area_under_quality_curve": null,
+      "arm": "conventional_baseline",
+      "available": false,
+      "budget_view": "artifact_bytes",
+      "seed": 2,
+      "unavailable_reason": "budget view has no nonzero x-axis range",
+      "x_range": [
+        0,
+        0
+      ]
+    },
+    {
+      "area_under_quality_curve": 561.3959693827592,
+      "arm": "corridor_only",
+      "available": true,
+      "budget_view": "artifact_bytes",
+      "seed": 0,
+      "unavailable_reason": null,
+      "x_range": [
+        811,
+        1085
+      ]
+    },
+    {
+      "area_under_quality_curve": 561.3959693827592,
+      "arm": "corridor_only",
+      "available": true,
+      "budget_view": "artifact_bytes",
+      "seed": 1,
+      "unavailable_reason": null,
+      "x_range": [
+        811,
+        1085
+      ]
+    },
+    {
+      "area_under_quality_curve": 561.3959693827592,
+      "arm": "corridor_only",
+      "available": true,
+      "budget_view": "artifact_bytes",
+      "seed": 2,
+      "unavailable_reason": null,
+      "x_range": [
+        811,
+        1085
+      ]
+    },
+    {
+      "area_under_quality_curve": 387.6206558938075,
+      "arm": "exemplar_only",
+      "available": true,
+      "budget_view": "artifact_bytes",
+      "seed": 0,
+      "unavailable_reason": null,
+      "x_range": [
+        791,
+        1001
+      ]
+    },
+    {
+      "area_under_quality_curve": 387.6206558938075,
+      "arm": "exemplar_only",
+      "available": true,
+      "budget_view": "artifact_bytes",
+      "seed": 1,
+      "unavailable_reason": null,
+      "x_range": [
+        791,
+        1001
+      ]
+    },
+    {
+      "area_under_quality_curve": 387.6206558938075,
+      "arm": "exemplar_only",
+      "available": true,
+      "budget_view": "artifact_bytes",
+      "seed": 2,
+      "unavailable_reason": null,
+      "x_range": [
+        791,
+        1001
+      ]
+    },
+    {
+      "area_under_quality_curve": 2126.7302616748693,
+      "arm": "two_cycle",
+      "available": true,
+      "budget_view": "artifact_bytes",
+      "seed": 0,
+      "unavailable_reason": null,
+      "x_range": [
+        505,
+        1602
+      ]
+    },
+    {
+      "area_under_quality_curve": 2126.7302616748693,
+      "arm": "two_cycle",
+      "available": true,
+      "budget_view": "artifact_bytes",
+      "seed": 1,
+      "unavailable_reason": null,
+      "x_range": [
+        505,
+        1602
+      ]
+    },
+    {
+      "area_under_quality_curve": 2126.7302616748693,
+      "arm": "two_cycle",
+      "available": true,
+      "budget_view": "artifact_bytes",
+      "seed": 2,
+      "unavailable_reason": null,
+      "x_range": [
+        505,
+        1602
+      ]
+    },
+    {
+      "area_under_quality_curve": null,
+      "arm": "conventional_baseline",
+      "available": false,
+      "budget_view": "optimizer_steps",
+      "seed": 0,
+      "unavailable_reason": "budget view has no nonzero x-axis range",
+      "x_range": [
+        4,
+        4
+      ]
+    },
+    {
+      "area_under_quality_curve": null,
+      "arm": "conventional_baseline",
+      "available": false,
+      "budget_view": "optimizer_steps",
+      "seed": 1,
+      "unavailable_reason": "budget view has no nonzero x-axis range",
+      "x_range": [
+        4,
+        4
+      ]
+    },
+    {
+      "area_under_quality_curve": null,
+      "arm": "conventional_baseline",
+      "available": false,
+      "budget_view": "optimizer_steps",
+      "seed": 2,
+      "unavailable_reason": "budget view has no nonzero x-axis range",
+      "x_range": [
+        4,
+        4
+      ]
+    },
+    {
+      "area_under_quality_curve": null,
+      "arm": "corridor_only",
+      "available": false,
+      "budget_view": "optimizer_steps",
+      "seed": 0,
+      "unavailable_reason": "budget view has no nonzero x-axis range",
+      "x_range": [
+        4,
+        4
+      ]
+    },
+    {
+      "area_under_quality_curve": null,
+      "arm": "corridor_only",
+      "available": false,
+      "budget_view": "optimizer_steps",
+      "seed": 1,
+      "unavailable_reason": "budget view has no nonzero x-axis range",
+      "x_range": [
+        4,
+        4
+      ]
+    },
+    {
+      "area_under_quality_curve": null,
+      "arm": "corridor_only",
+      "available": false,
+      "budget_view": "optimizer_steps",
+      "seed": 2,
+      "unavailable_reason": "budget view has no nonzero x-axis range",
+      "x_range": [
+        4,
+        4
+      ]
+    },
+    {
+      "area_under_quality_curve": null,
+      "arm": "exemplar_only",
+      "available": false,
+      "budget_view": "optimizer_steps",
+      "seed": 0,
+      "unavailable_reason": "budget view has no nonzero x-axis range",
+      "x_range": [
+        4,
+        4
+      ]
+    },
+    {
+      "area_under_quality_curve": null,
+      "arm": "exemplar_only",
+      "available": false,
+      "budget_view": "optimizer_steps",
+      "seed": 1,
+      "unavailable_reason": "budget view has no nonzero x-axis range",
+      "x_range": [
+        4,
+        4
+      ]
+    },
+    {
+      "area_under_quality_curve": null,
+      "arm": "exemplar_only",
+      "available": false,
+      "budget_view": "optimizer_steps",
+      "seed": 2,
+      "unavailable_reason": "budget view has no nonzero x-axis range",
+      "x_range": [
+        4,
+        4
+      ]
+    },
+    {
+      "area_under_quality_curve": null,
+      "arm": "two_cycle",
+      "available": false,
+      "budget_view": "optimizer_steps",
+      "seed": 0,
+      "unavailable_reason": "budget view has no nonzero x-axis range",
+      "x_range": [
+        4,
+        4
+      ]
+    },
+    {
+      "area_under_quality_curve": null,
+      "arm": "two_cycle",
+      "available": false,
+      "budget_view": "optimizer_steps",
+      "seed": 1,
+      "unavailable_reason": "budget view has no nonzero x-axis range",
+      "x_range": [
+        4,
+        4
+      ]
+    },
+    {
+      "area_under_quality_curve": null,
+      "arm": "two_cycle",
+      "available": false,
+      "budget_view": "optimizer_steps",
+      "seed": 2,
+      "unavailable_reason": "budget view has no nonzero x-axis range",
+      "x_range": [
+        4,
+        4
+      ]
+    },
+    {
+      "area_under_quality_curve": 0.9524273481342014,
+      "arm": "conventional_baseline",
+      "available": true,
+      "budget_view": "wall_clock",
+      "seed": 0,
+      "unavailable_reason": null,
+      "x_range": [
+        0.13926142099080607,
+        0.6340546380379237
+      ]
+    },
+    {
+      "area_under_quality_curve": 0.00016399968373821607,
+      "arm": "conventional_baseline",
+      "available": true,
+      "budget_view": "wall_clock",
+      "seed": 1,
+      "unavailable_reason": null,
+      "x_range": [
+        0.143087227945216,
+        0.143172427022364
+      ]
+    },
+    {
+      "area_under_quality_curve": 0.013133702879487976,
+      "arm": "conventional_baseline",
+      "available": true,
+      "budget_view": "wall_clock",
+      "seed": 2,
+      "unavailable_reason": null,
+      "x_range": [
+        0.14531124697532505,
+        0.1521343050408177
+      ]
+    },
+    {
+      "area_under_quality_curve": 4.744132403884059,
+      "arm": "corridor_only",
+      "available": true,
+      "budget_view": "wall_clock",
+      "seed": 0,
+      "unavailable_reason": null,
+      "x_range": [
+        0.46700032002991065,
+        2.7824645370128565
+      ]
+    },
+    {
+      "area_under_quality_curve": 0.0850028548331227,
+      "arm": "corridor_only",
+      "available": true,
+      "budget_view": "wall_clock",
+      "seed": 1,
+      "unavailable_reason": null,
+      "x_range": [
+        0.4610352599993348,
+        0.5025225229910575
+      ]
+    },
+    {
+      "area_under_quality_curve": 0.00968167310292847,
+      "arm": "corridor_only",
+      "available": true,
+      "budget_view": "wall_clock",
+      "seed": 2,
+      "unavailable_reason": null,
+      "x_range": [
+        0.45301912497961894,
+        0.4577444500173442
+      ]
+    },
+    {
+      "area_under_quality_curve": 1.4602169859848821,
+      "arm": "exemplar_only",
+      "available": true,
+      "budget_view": "wall_clock",
+      "seed": 0,
+      "unavailable_reason": null,
+      "x_range": [
+        0.3057276860345155,
+        1.096824760956224
+      ]
+    },
+    {
+      "area_under_quality_curve": 0.01899155890908744,
+      "arm": "exemplar_only",
+      "available": true,
+      "budget_view": "wall_clock",
+      "seed": 1,
+      "unavailable_reason": null,
+      "x_range": [
+        0.29669616202590987,
+        0.30698515800759196
+      ]
+    },
+    {
+      "area_under_quality_curve": 0.017625179568796306,
+      "arm": "exemplar_only",
+      "available": true,
+      "budget_view": "wall_clock",
+      "seed": 2,
+      "unavailable_reason": null,
+      "x_range": [
+        0.2956911720102653,
+        0.305239909037482
+      ]
+    },
+    {
+      "area_under_quality_curve": 0.00026493608203793223,
+      "arm": "two_cycle",
+      "available": true,
+      "budget_view": "wall_clock",
+      "seed": 0,
+      "unavailable_reason": null,
+      "x_range": [
+        0.6516309399157763,
+        0.6517675979994237
+      ]
+    },
+    {
+      "area_under_quality_curve": 0.028912388098020488,
+      "arm": "two_cycle",
+      "available": true,
+      "budget_view": "wall_clock",
+      "seed": 1,
+      "unavailable_reason": null,
+      "x_range": [
+        0.6560786190093495,
+        0.6709920710418373
+      ]
+    },
+    {
+      "area_under_quality_curve": 0.003815243411078933,
+      "arm": "two_cycle",
+      "available": true,
+      "budget_view": "wall_clock",
+      "seed": 2,
+      "unavailable_reason": null,
+      "x_range": [
+        0.649613059067633,
+        0.651581019978039
+      ]
+    }
+  ],
+  "execution_backend": "cpu",
+  "experiment_family": "bytes_controlled",
+  "experiment_kind": "unconfounded_controlled_efficiency",
+  "gpt2_claim_made": false,
+  "independent_final_test": true,
+  "phase": "P156.1",
+  "points": [
+    {
+      "artifact_byte_ceiling": 1000,
+      "name": "bytes_1000",
+      "total_step_budget": 4
+    },
+    {
+      "artifact_byte_ceiling": 2000,
+      "name": "bytes_2000",
+      "total_step_budget": 4
+    }
+  ],
+  "primary_comparison": "two_cycle_vs_exemplar_only",
+  "primary_metric": "independent_final_test_teacher_student_kl",
+  "primary_metric_direction": "lower_is_better",
+  "primary_result": "exemplar_only_better",
+  "primary_result_by_point": {
+    "bytes_1000": "exemplar_only_better",
+    "bytes_2000": "exemplar_only_better"
+  },
+  "quality_per_byte_claim_allowed": true,
+  "quality_per_step_claim_allowed": false,
+  "quality_per_time_claim_allowed": false,
+  "radlads_parity_claim_made": false,
+  "required_arms_complete": true,
+  "required_seeds_complete": true,
+  "scale_claim_made": false,
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "status": "pass",
+  "target_quality": [
+    {
+      "arm": "conventional_baseline",
+      "bytes_to_target": null,
+      "records_to_target": null,
+      "seconds_to_target": null,
+      "seed": 0,
+      "steps_to_target": null,
+      "target_quality_threshold": 1.0,
+      "target_reached": false
+    },
+    {
+      "arm": "corridor_only",
+      "bytes_to_target": null,
+      "records_to_target": null,
+      "seconds_to_target": null,
+      "seed": 0,
+      "steps_to_target": null,
+      "target_quality_threshold": 1.0,
+      "target_reached": false
+    },
+    {
+      "arm": "exemplar_only",
+      "bytes_to_target": null,
+      "records_to_target": null,
+      "seconds_to_target": null,
+      "seed": 0,
+      "steps_to_target": null,
+      "target_quality_threshold": 1.0,
+      "target_reached": false
+    },
+    {
+      "arm": "two_cycle",
+      "bytes_to_target": null,
+      "records_to_target": null,
+      "seconds_to_target": null,
+      "seed": 0,
+      "steps_to_target": null,
+      "target_quality_threshold": 1.0,
+      "target_reached": false
+    },
+    {
+      "arm": "conventional_baseline",
+      "bytes_to_target": null,
+      "records_to_target": null,
+      "seconds_to_target": null,
+      "seed": 1,
+      "steps_to_target": null,
+      "target_quality_threshold": 1.0,
+      "target_reached": false
+    },
+    {
+      "arm": "corridor_only",
+      "bytes_to_target": null,
+      "records_to_target": null,
+      "seconds_to_target": null,
+      "seed": 1,
+      "steps_to_target": null,
+      "target_quality_threshold": 1.0,
+      "target_reached": false
+    },
+    {
+      "arm": "exemplar_only",
+      "bytes_to_target": null,
+      "records_to_target": null,
+      "seconds_to_target": null,
+      "seed": 1,
+      "steps_to_target": null,
+      "target_quality_threshold": 1.0,
+      "target_reached": false
+    },
+    {
+      "arm": "two_cycle",
+      "bytes_to_target": null,
+      "records_to_target": null,
+      "seconds_to_target": null,
+      "seed": 1,
+      "steps_to_target": null,
+      "target_quality_threshold": 1.0,
+      "target_reached": false
+    },
+    {
+      "arm": "conventional_baseline",
+      "bytes_to_target": null,
+      "records_to_target": null,
+      "seconds_to_target": null,
+      "seed": 2,
+      "steps_to_target": null,
+      "target_quality_threshold": 1.0,
+      "target_reached": false
+    },
+    {
+      "arm": "corridor_only",
+      "bytes_to_target": null,
+      "records_to_target": null,
+      "seconds_to_target": null,
+      "seed": 2,
+      "steps_to_target": null,
+      "target_quality_threshold": 1.0,
+      "target_reached": false
+    },
+    {
+      "arm": "exemplar_only",
+      "bytes_to_target": null,
+      "records_to_target": null,
+      "seconds_to_target": null,
+      "seed": 2,
+      "steps_to_target": null,
+      "target_quality_threshold": 1.0,
+      "target_reached": false
+    },
+    {
+      "arm": "two_cycle",
+      "bytes_to_target": null,
+      "records_to_target": null,
+      "seconds_to_target": null,
+      "seed": 2,
+      "steps_to_target": null,
+      "target_quality_threshold": 1.0,
+      "target_reached": false
+    }
+  ],
+  "winner_declared": true
+}
