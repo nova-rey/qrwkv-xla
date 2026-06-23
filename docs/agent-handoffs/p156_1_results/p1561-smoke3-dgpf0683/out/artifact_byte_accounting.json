@@ -1,0 +1,59 @@
+{
+  "byte_accounting_policy": "arm_charged_logical_payload_bytes_v1",
+  "phase": "P156.1",
+  "physical_and_logical_bytes_distinct": true,
+  "rows": [
+    {
+      "arm": "conventional_baseline",
+      "arm_charged_bytes": 0,
+      "budget_ceiling_respected": true,
+      "budget_point": "bytes_1000",
+      "declared_byte_budget": 1000,
+      "logical_bytes_available": 0,
+      "logical_payload_bytes_consumed": 0,
+      "physical_subset_bytes": 0,
+      "seed": 0,
+      "shared_metadata_bytes": 0,
+      "unused_budget_bytes": 1000
+    },
+    {
+      "arm": "corridor_only",
+      "arm_charged_bytes": 811,
+      "budget_ceiling_respected": true,
+      "budget_point": "bytes_1000",
+      "declared_byte_budget": 1000,
+      "logical_bytes_available": 811,
+      "logical_payload_bytes_consumed": 541,
+      "physical_subset_bytes": 5336,
+      "seed": 0,
+      "shared_metadata_bytes": 4525,
+      "unused_budget_bytes": 189
+    },
+    {
+      "arm": "exemplar_only",
+      "arm_charged_bytes": 791,
+      "budget_ceiling_respected": true,
+      "budget_point": "bytes_1000",
+      "declared_byte_budget": 1000,
+      "logical_bytes_available": 791,
+      "logical_payload_bytes_consumed": 527,
+      "physical_subset_bytes": 6368,
+      "seed": 0,
+      "shared_metadata_bytes": 4766,
+      "unused_budget_bytes": 209
+    },
+    {
+      "arm": "two_cycle",
+      "arm_charged_bytes": 505,
+      "budget_ceiling_respected": true,
+      "budget_point": "bytes_1000",
+      "declared_byte_budget": 1000,
+      "logical_bytes_available": 505,
+      "logical_payload_bytes_consumed": 505,
+      "physical_subset_bytes": 4921,
+      "seed": 0,
+      "shared_metadata_bytes": 4416,
+      "unused_budget_bytes": 495
+    }
+  ]
+}

@@ -63,6 +63,7 @@ class ExemplarPassConfig:
     corridor_entry_threshold: float = 0.95
     corridor_retention_tolerance: float = 0.0
     allow_shared_initialization_parent_for_control: bool = False
+    parent_fingerprint_artifact: Path | None = None
     overwrite: bool = False
 
 
@@ -85,7 +86,8 @@ def validate_corridor_checkpoint_lineage(
     loaded = load_checkpoint(config.corridor_checkpoint)
     manifest = loaded.manifest
     hashes = hash_checkpoint_bundle(config.corridor_checkpoint)
-    expected_manifest_hash = file_sha256(config.fingerprint_artifact / "manifest.json")
+    parent_artifact = config.parent_fingerprint_artifact or config.fingerprint_artifact
+    expected_manifest_hash = file_sha256(parent_artifact / "manifest.json")
     p153_report_valid = True
     if config.p153_report is not None:
         p153 = read_json_object(config.p153_report)
@@ -168,11 +170,7 @@ def validate_corridor_checkpoint_lineage(
         "artifact_manifest_hash_match": manifest.target_manifest.get(
             "artifact_dir" if control_parent else "artifact_manifest_sha256"
         )
-        == (
-            str(config.fingerprint_artifact)
-            if control_parent
-            else expected_manifest_hash
-        ),
+        == (str(parent_artifact) if control_parent else expected_manifest_hash),
         "p153_parent_binding_valid": p153_report_valid,
         "calibration_parent_binding_valid": selected_profile_valid,
     }

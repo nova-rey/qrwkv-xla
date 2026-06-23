@@ -25,6 +25,13 @@ from qrwkv_xla.fingerprint.baseline_comparison import (
     FingerprintBaselineComparisonResult,
     run_fingerprint_baseline_comparison,
 )
+from qrwkv_xla.fingerprint.budgeted_artifact import (
+    BudgetedArtifactConfig,
+    BudgetedArtifactResult,
+    budget_subset_cache_key,
+    materialize_budgeted_artifact,
+    validate_budgeted_artifact,
+)
 from qrwkv_xla.fingerprint.capture import (
     FingerprintCaptureBudgetConfig,
     FingerprintCaptureConfig,
@@ -69,9 +76,12 @@ from qrwkv_xla.fingerprint.quality_per_byte import (
     FingerprintQualityPerByteExperimentConfig,
     FingerprintQualityPerByteExperimentResult,
     QualityBudgetPoint,
+    UnconfoundedQualityExperimentConfig,
+    UnconfoundedQualityExperimentResult,
     evaluate_student_corridor_adherence,
     run_controlled_quality_per_byte_experiment,
     run_fingerprint_quality_per_byte_experiment,
+    run_unconfounded_quality_experiment,
 )
 from qrwkv_xla.fingerprint.real_teacher import (
     DEFAULT_TINY_REAL_TEACHER,
@@ -117,6 +127,8 @@ __all__ = [
     "CorridorMeasurementResult",
     "ControlledQualityPerByteConfig",
     "ControlledQualityPerByteResult",
+    "BudgetedArtifactConfig",
+    "BudgetedArtifactResult",
     "ExemplarPassConfig",
     "ExemplarPassResult",
     "FingerprintExemplarReservoirCaptureConfig",
@@ -130,6 +142,8 @@ __all__ = [
     "DEFAULT_TINY_TEXTS",
     "PROFILE_NAMES",
     "QualityBudgetPoint",
+    "UnconfoundedQualityExperimentConfig",
+    "UnconfoundedQualityExperimentResult",
     "RealTeacherFingerprintTrainingRehearsalConfig",
     "RealTeacherFingerprintTrainingRehearsalResult",
     "TinyRealTeacherFingerprintCaptureConfig",
@@ -140,6 +154,7 @@ __all__ = [
     "aggressiveness_profiles",
     "bootstrap_ci95",
     "build_fingerprint_arc2_report",
+    "budget_subset_cache_key",
     "build_artifact_source_lineage",
     "capture_fingerprint_artifact",
     "corridor_distance",
@@ -147,6 +162,7 @@ __all__ = [
     "entry_exit_metrics",
     "evaluate_student_corridor_adherence",
     "load_text_fixture",
+    "materialize_budgeted_artifact",
     "hash_checkpoint_bundle",
     "join_sources_by_example_id",
     "masked_causal_lm_loss",
@@ -165,9 +181,11 @@ __all__ = [
     "run_real_teacher_fingerprint_training_rehearsal",
     "run_tiny_real_teacher_fingerprint_capture",
     "run_two_cycle_experiment",
+    "run_unconfounded_quality_experiment",
     "select_held_out_winner",
     "select_profile",
     "stable_hash",
     "validate_fingerprint_provenance",
+    "validate_budgeted_artifact",
     "write_fingerprint_provenance",
 ]

@@ -1,0 +1,29 @@
+{
+  "allocation_policy_sha256": "sha256:6e3d82cf5b66dd76209b1e0a4a9610687c02a6a8b8fbc6a30a60c782de34d40b",
+  "arm_charged_bytes": 1085,
+  "artifact_byte_accounting_sha256": "sha256:4cf87a661e91ffee1ec6cc59c59f9ba117eb13d57ff07f00b1e5bd8018ab1a11",
+  "artifact_manifest_sha256": "sha256:2e62c6cf25a38f848c5bc4220cae95c6ac92751b0764cd44c669ee70a1e0a202",
+  "budget_ceiling_respected": true,
+  "cache_key": "sha256:a2c6bac5d69b836c01194312fbcc206282723da26d513066ea8ef090c7b75b96",
+  "corridor_byte_budget": 2000,
+  "corridor_byte_fraction": 0.5,
+  "declared_byte_budget": 2000,
+  "exemplar_byte_budget": 0,
+  "logical_payload_bytes_selected": 1085,
+  "ordered_record_ids_sha256": "sha256:8b256209777b181f0a287b2b4b331349ca4345597353f9b3c8ef3af1b51043b6",
+  "physical_subset_bytes": 5783,
+  "record_selection_receipt_sha256": "sha256:d35cd4ad94217c30e7c5b6acd49bc5cd3fe21e01699e87ecb04f3b902a5aae04",
+  "schema_version": "qrwkv_xla.budget_subset.v1",
+  "selected_record_count": 4,
+  "selection_policy": "canonical_prefix_v1",
+  "selection_seed": 0,
+  "shard_hashes": {
+    "targets/targets-00000.jsonl": "sha256:6e33e7b5a0baacf5dae9b6ba17f9de32a9890845c3b10f7632102e0231ca4eaa"
+  },
+  "source_artifact": "/tmp/p1561-final-4um77248/train",
+  "source_artifact_sha256": "sha256:3ac370ef4cc49eff0532934018a9303b88b35392537a4d42f729f92e007d6bc8",
+  "source_capture_config_sha256": "sha256:2896ce1bf71955867a0db202c6c39b5f211fef419ba52783d48e1cedb6c25091",
+  "source_teacher_identity_sha256": "sha256:de19a4b960d08e1c53fb55be28d8e1459b6d2a5599a0a8ab9a7c022c7eb09cdc",
+  "subset_manifest_sha256": "sha256:46f1156716a3f674c97478003ea966a04086b2ce222738e96dc385f226f8812b",
+  "subset_role": "corridor_subset"
+}

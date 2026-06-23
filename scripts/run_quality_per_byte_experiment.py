@@ -5,15 +5,14 @@ import argparse
 from pathlib import Path
 
 from qrwkv_xla.fingerprint import (
-    ControlledQualityPerByteConfig,
-    QualityBudgetPoint,
-    run_controlled_quality_per_byte_experiment,
+    UnconfoundedQualityExperimentConfig,
+    run_unconfounded_quality_experiment,
 )
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run the P156 controlled CPU quality-per-byte matrix."
+        description="Run a P156.1 unconfounded CPU efficiency family."
     )
     parser.add_argument("--training-fingerprint-artifact", type=Path, required=True)
     parser.add_argument("--calibration-fingerprint-artifact", type=Path, required=True)
@@ -21,13 +20,25 @@ def main() -> int:
     parser.add_argument("--selected-profile-receipt", type=Path, required=True)
     parser.add_argument("--source-texts", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--experiment-family", choices=("bytes", "steps", "time"), required=True
+    )
+    parser.add_argument("--byte-budgets", default="")
+    parser.add_argument("--step-budgets", default="")
+    parser.add_argument("--fixed-total-steps", type=int, default=25)
+    parser.add_argument("--fixed-artifact-budget", type=int)
+    parser.add_argument("--wall-clock-safety-ceiling", type=float, default=1800.0)
+    parser.add_argument("--corridor-byte-fraction", type=float, default=0.5)
+    parser.add_argument("--selection-seed", type=int, default=0)
+    parser.add_argument("--seeds", default="0,1,2")
     parser.add_argument("--student-architecture")
     parser.add_argument("--student-backend", default="current_qrwkv")
-    parser.add_argument("--byte-budgets", default="small,medium")
-    parser.add_argument("--step-budgets", default="10,25")
-    parser.add_argument("--wall-clock-budgets", default="300,600")
-    parser.add_argument("--seeds", default="0,1,2")
     parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument(
+        "--optimizer", choices=("sgd", "adam", "adamw"), default="adamw"
+    )
+    parser.add_argument("--baseline-learning-rate", type=float, default=1e-4)
+    parser.add_argument("--exemplar-learning-rate", type=float, default=5e-5)
     parser.add_argument("--bootstrap-samples", type=int, default=1000)
     parser.add_argument("--bootstrap-seed", type=int, default=0)
     parser.add_argument("--target-quality-threshold", type=float, default=1.0)
@@ -38,38 +49,29 @@ def main() -> int:
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
-    labels = [value.strip() for value in args.byte_budgets.split(",")]
-    steps = [int(value) for value in args.step_budgets.split(",")]
-    wall = [float(value) for value in args.wall_clock_budgets.split(",")]
-    if not (len(labels) == len(steps) == len(wall)):
-        parser.error("byte, step, and wall-clock budget lists must have equal lengths")
-    physical_bytes = sum(
-        path.stat().st_size
-        for path in args.training_fingerprint_artifact.rglob("*")
-        if path.is_file()
-    )
-    points = tuple(
-        QualityBudgetPoint(
-            name=label,
-            teacher_artifact_bytes=_byte_budget(label, physical_bytes, index),
-            total_steps=steps[index],
-            wall_clock_seconds=wall[index],
-        )
-        for index, label in enumerate(labels)
-    )
-    result = run_controlled_quality_per_byte_experiment(
-        ControlledQualityPerByteConfig(
+    result = run_unconfounded_quality_experiment(
+        UnconfoundedQualityExperimentConfig(
             training_fingerprint_artifact=args.training_fingerprint_artifact,
             calibration_fingerprint_artifact=args.calibration_fingerprint_artifact,
             final_test_fingerprint_artifact=args.final_test_fingerprint_artifact,
             selected_profile_receipt=args.selected_profile_receipt,
             source_texts=args.source_texts,
             output_dir=args.output_dir,
+            experiment_family=args.experiment_family,
+            byte_budgets=_ints(args.byte_budgets),
+            step_budgets=_ints(args.step_budgets),
+            fixed_total_steps=args.fixed_total_steps,
+            fixed_artifact_budget=args.fixed_artifact_budget,
+            wall_clock_safety_ceiling=args.wall_clock_safety_ceiling,
+            corridor_byte_fraction=args.corridor_byte_fraction,
+            selection_seed=args.selection_seed,
+            seeds=_ints(args.seeds),
             student_architecture=args.student_architecture,
             student_backend=args.student_backend,
-            budget_points=points,
-            seeds=tuple(int(value) for value in args.seeds.split(",")),
             batch_size=args.batch_size,
+            optimizer=args.optimizer,
+            baseline_learning_rate=args.baseline_learning_rate,
+            exemplar_learning_rate=args.exemplar_learning_rate,
             bootstrap_samples=args.bootstrap_samples,
             bootstrap_seed=args.bootstrap_seed,
             target_quality_threshold=args.target_quality_threshold,
@@ -80,15 +82,12 @@ def main() -> int:
     )
     print(f"status={result.status}")
     print(f"report_path={result.report_path}")
-    print(f"matrix_state_path={result.matrix_state_path}")
-    return 0 if result.status == "pass" else 1
+    print(f"integrity_path={result.integrity_path}")
+    return 0 if result.status in {"pass", "deferred"} else 1
 
 
-def _byte_budget(label: str, physical_bytes: int, index: int) -> int:
-    try:
-        return int(label)
-    except ValueError:
-        return physical_bytes * (index + 1)
+def _ints(value: str) -> tuple[int, ...]:
+    return tuple(int(item.strip()) for item in value.split(",") if item.strip())
 
 
 if __name__ == "__main__":

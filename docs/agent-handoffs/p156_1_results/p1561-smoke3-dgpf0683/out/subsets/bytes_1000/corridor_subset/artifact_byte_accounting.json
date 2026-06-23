@@ -1,0 +1,15 @@
+{
+  "arm_charged_bytes": 811,
+  "budget_ceiling_respected": true,
+  "byte_accounting_policy": "arm_charged_logical_payload_bytes_v1",
+  "corridor_charged_bytes": 811,
+  "declared_byte_budget": 1000,
+  "exemplar_charged_bytes": 0,
+  "logical_payload_bytes_consumed": null,
+  "logical_payload_bytes_selected": 811,
+  "physical_file_counted_once": true,
+  "physical_subset_bytes": 5336,
+  "required_uncharged_scaffolding_bytes": 0,
+  "shared_metadata_bytes": 4525,
+  "unused_budget_bytes": 189
+}

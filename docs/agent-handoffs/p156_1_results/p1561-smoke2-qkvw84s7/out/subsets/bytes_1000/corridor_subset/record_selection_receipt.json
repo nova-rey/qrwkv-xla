@@ -1,0 +1,12 @@
+{
+  "ordered_record_ids": [
+    "target:train-000:0",
+    "target:train-001:1",
+    "target:train-002:2"
+  ],
+  "ordered_record_ids_sha256": "sha256:eb020f9881ff02f4deec358ca64eb0fb15e2680bbd06572c9f4148daee029cce",
+  "selected_exemplar_count": 0,
+  "selected_target_count": 3,
+  "selection_policy": "canonical_prefix_v1",
+  "selection_seed": 0
+}

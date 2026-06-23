@@ -16,7 +16,9 @@ from qrwkv_xla.fingerprint.provenance import file_sha256, stable_hash
 from qrwkv_xla.fingerprint.quality_per_byte import (
     ControlledQualityPerByteConfig,
     QualityBudgetPoint,
+    UnconfoundedQualityExperimentConfig,
     run_controlled_quality_per_byte_experiment,
+    run_unconfounded_quality_experiment,
 )
 from qrwkv_xla.fingerprint.two_cycle_experiment import (
     ARM_NAMES,
@@ -369,9 +371,74 @@ def test_controlled_quality_per_byte_fast_cpu_smoke(tmp_path: Path) -> None:
     assert report["required_arms_complete"] is True
     assert report["required_seeds_complete"] is False
     assert report["quality_per_byte_claim_allowed"] is False
+    assert report["actual_byte_budget_enforced"] is False
+    assert report["independent_budget_views"] is False
+    assert report["quality_per_step_claim_allowed"] is False
+    assert report["quality_per_time_claim_allowed"] is False
     assert len(_jsonl(result.output_dir / "quality_budget_curve.jsonl")) == 12
     publication = _json(result.output_dir / "publication_grade_receipt.json")
     assert publication["publication_grade"] is False
+
+
+def test_unconfounded_byte_family_fast_cpu_smoke(tmp_path: Path) -> None:
+    train_artifact, train_source = _artifact_copy(
+        tmp_path / "train", prefix="train", token_offset=0, role="training"
+    )
+    calibration_artifact, _ = _artifact_copy(
+        tmp_path / "calibration",
+        prefix="calibration",
+        token_offset=2,
+        role="calibration_validation",
+    )
+    final_test_artifact, _ = _artifact_copy(
+        tmp_path / "final-test",
+        prefix="final-test",
+        token_offset=1,
+        role="final_held_out_test",
+    )
+    selection = _selection_receipt(
+        tmp_path,
+        training_artifact=train_artifact,
+        calibration_artifact=calibration_artifact,
+    )
+    result = run_unconfounded_quality_experiment(
+        UnconfoundedQualityExperimentConfig(
+            training_fingerprint_artifact=train_artifact,
+            calibration_fingerprint_artifact=calibration_artifact,
+            final_test_fingerprint_artifact=final_test_artifact,
+            source_texts=train_source,
+            selected_profile_receipt=selection,
+            output_dir=tmp_path / "p156-1",
+            experiment_family="bytes",
+            seeds=(0,),
+            byte_budgets=(1000,),
+            fixed_total_steps=2,
+            wall_clock_safety_ceiling=120.0,
+            student_backend="tiny_debug",
+            optimizer="sgd",
+            baseline_learning_rate=1e-2,
+            exemplar_learning_rate=1e-2,
+            bootstrap_samples=20,
+        )
+    )
+    report = _json(result.report_path)
+    integrity = _json(result.integrity_path)
+    assert result.status == "pass"
+    assert report["actual_subsets_consumed"] is True
+    assert report["quality_per_byte_claim_allowed"] is False
+    assert integrity["byte_controlled"]["bytes_vary"] is False
+    assert integrity["byte_controlled"]["valid"] is False
+    cell = report["cells"][0]
+    assert cell["budget_integrity_valid"] is True
+    assert all(
+        arm["configured_training_artifact_path"] != str(train_artifact)
+        for name, arm in cell["arms"].items()
+        if name != "conventional_baseline"
+    )
+    assert all(
+        arm["logical_payload_bytes_consumed"] <= arm["logical_bytes_available"]
+        for arm in cell["arms"].values()
+    )
 
 
 def _artifact_copy(

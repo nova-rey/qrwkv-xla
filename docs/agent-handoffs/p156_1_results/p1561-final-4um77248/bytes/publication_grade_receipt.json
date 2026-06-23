@@ -1,0 +1,11 @@
+{
+  "completed_arm_cells": 24,
+  "expected_arm_cells": 24,
+  "experiment_family": "bytes",
+  "phase": "P156.1",
+  "publication_grade": true,
+  "quality_per_byte_claim_allowed": true,
+  "quality_per_step_claim_allowed": false,
+  "quality_per_time_claim_allowed": false,
+  "status": "pass"
+}

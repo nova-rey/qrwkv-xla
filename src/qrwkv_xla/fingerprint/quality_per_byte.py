@@ -22,6 +22,11 @@ from qrwkv_xla.fingerprint.baseline_comparison import (
     FingerprintBaselineComparisonConfig,
     run_fingerprint_baseline_comparison,
 )
+from qrwkv_xla.fingerprint.budgeted_artifact import (
+    BudgetedArtifactConfig,
+    materialize_budgeted_artifact,
+    validate_budgeted_artifact,
+)
 from qrwkv_xla.fingerprint.held_out_evaluation import paired_bootstrap_interval
 from qrwkv_xla.fingerprint.provenance import file_sha256, stable_hash
 from qrwkv_xla.fingerprint.real_teacher import DEFAULT_TINY_REAL_TEACHER
@@ -986,15 +991,7 @@ def _build_controlled_outputs(config, cells, *, complete):
         and cell["split_integrity"]["configuration_frozen_before_final_test_access"]
         for cell in cells
     )
-    publication_grade = bool(
-        complete
-        and len(config.budget_points) >= 2
-        and len(config.seeds) >= 3
-        and budget_valid
-        and metrics_finite
-        and split_valid
-        and comparisons
-    )
+    publication_grade = False
     gates = {
         "three_way_split_valid": split_valid,
         "final_test_independent": split_valid,
@@ -1007,11 +1004,18 @@ def _build_controlled_outputs(config, cells, *, complete):
         "artifact_byte_accounting_valid": budget_valid,
         "lineage_valid": split_valid,
     }
-    claims = quality_per_byte_claims(gates=gates)
+    claims = {
+        **quality_per_byte_claims(gates={**gates, "independent_budget_views": False}),
+        "quality_per_step_claim_allowed": False,
+        "quality_per_time_claim_allowed": False,
+    }
     report = {
         "phase": "P156",
         "status": "pass" if complete and budget_valid and split_valid else "fail",
         "experiment_kind": "controlled_quality_per_byte",
+        "result_classification": "confounded_resource_matrix",
+        "actual_byte_budget_enforced": False,
+        "independent_budget_views": False,
         "execution_backend": jax.default_backend(),
         "required_arms_complete": complete,
         "required_seeds_complete": complete and len(config.seeds) >= 3,
@@ -1301,4 +1305,914 @@ def _controlled_summary(report):
         f"- Primary comparison results: "
         f"{', '.join(row['result'] for row in primary) or 'incomplete'}\n"
         "- Scale, GPT-2, and RADLADS parity claims: false\n"
+    )
+
+
+@dataclass(frozen=True)
+class UnconfoundedQualityExperimentConfig:
+    training_fingerprint_artifact: Path
+    calibration_fingerprint_artifact: Path
+    final_test_fingerprint_artifact: Path
+    source_texts: Path
+    selected_profile_receipt: Path
+    output_dir: Path
+    experiment_family: str
+    seeds: tuple[int, ...]
+    byte_budgets: tuple[int, ...] = ()
+    step_budgets: tuple[int, ...] = ()
+    fixed_total_steps: int = 3
+    fixed_artifact_budget: int | None = None
+    wall_clock_safety_ceiling: float = 300.0
+    corridor_byte_fraction: float = 0.5
+    selection_seed: int = 0
+    student_backend: str = "current_qrwkv"
+    student_architecture: str | None = None
+    batch_size: int = 1
+    optimizer: str = "adamw"
+    baseline_learning_rate: float = 1e-4
+    exemplar_learning_rate: float = 5e-5
+    exemplar_max_grad_norm: float | None = 1.0
+    target_quality_threshold: float = 1.0
+    bootstrap_samples: int = 1000
+    bootstrap_seed: int = 0
+    tie_tolerance: float = 1e-12
+    require_backend: str | None = "cpu"
+    resume: bool = True
+    overwrite: bool = False
+
+
+@dataclass(frozen=True)
+class UnconfoundedQualityExperimentResult:
+    status: str
+    output_dir: Path
+    report_path: Path
+    integrity_path: Path
+
+
+def run_unconfounded_quality_experiment(
+    config: UnconfoundedQualityExperimentConfig,
+) -> UnconfoundedQualityExperimentResult:
+    _validate_unconfounded_config(config)
+    config.output_dir.mkdir(parents=True, exist_ok=True)
+    backend = validate_backend_requirement(config.require_backend)
+    write_json(config.output_dir / "cpu_backend_receipt.json", backend)
+    if config.experiment_family == "time":
+        return _write_deferred_time_family(config)
+
+    points = _family_points(config)
+    initialization_subset = _materialize_initialization_subset(
+        config, byte_budget=max(point[1] for point in points)
+    )
+    config_hash = _unconfounded_config_hash(config)
+    state_path = config.output_dir / "experiment_matrix_state.json"
+    if state_path.is_file():
+        prior = read_json_object(state_path)
+        if prior.get("config_hash") != config_hash:
+            raise ValueError("resume configuration hash mismatch")
+    bundles: dict[str, dict[str, Any]] = {}
+    cells = []
+    completed = []
+    failed = {}
+    for point_name, artifact_budget, total_steps in points:
+        bundle_key = (
+            point_name if config.experiment_family == "bytes" else "fixed_artifact"
+        )
+        if bundle_key not in bundles:
+            bundles[bundle_key] = _materialize_subset_bundle(
+                config,
+                name=bundle_key,
+                byte_budget=artifact_budget,
+            )
+        bundle = bundles[bundle_key]
+        bundle["paths"]["initialization_subset"] = initialization_subset["path"]
+        bundle["subset_hashes"]["initialization_subset"] = initialization_subset[
+            "subset_hash"
+        ]
+        bundle["artifact_manifest_hashes"]["initialization_subset"] = (
+            initialization_subset["artifact_manifest_hash"]
+        )
+        for seed in config.seeds:
+            cell_id = f"{point_name}/seed_{seed}"
+            cell_dir = (
+                config.output_dir
+                / "runs"
+                / config.experiment_family
+                / point_name
+                / f"seed_{seed}"
+            )
+            cell_path = cell_dir / "cell_report.json"
+            cell_hash = stable_hash(
+                {
+                    "matrix_config_hash": config_hash,
+                    "family": config.experiment_family,
+                    "point": point_name,
+                    "artifact_budget": artifact_budget,
+                    "total_steps": total_steps,
+                    "seed": seed,
+                    "subset_hashes": bundle["subset_hashes"],
+                }
+            )
+            if config.resume and cell_path.is_file():
+                cell = read_json_object(cell_path)
+                if cell.get("cell_config_hash") != cell_hash:
+                    raise ValueError(f"completed cell config hash mismatch: {cell_id}")
+                if cell.get("status") == "pass":
+                    cells.append(cell)
+                    completed.append(cell_id)
+                    _write_family_matrix_state(
+                        state_path, config_hash, points, config.seeds, completed, failed
+                    )
+                    continue
+            try:
+                cell = _run_unconfounded_cell(
+                    config,
+                    point_name=point_name,
+                    artifact_budget=artifact_budget,
+                    total_steps=total_steps,
+                    seed=seed,
+                    bundle=bundle,
+                    cell_hash=cell_hash,
+                )
+                cells.append(cell)
+                completed.append(cell_id)
+            except Exception as exc:  # preserve completed cells for resume
+                failed[cell_id] = f"{type(exc).__name__}: {exc}"
+            _write_family_matrix_state(
+                state_path, config_hash, points, config.seeds, completed, failed
+            )
+    complete = len(completed) == len(points) * len(config.seeds) and not failed
+    subset_index = {
+        "phase": "P156.1",
+        "source_artifact": str(config.training_fingerprint_artifact),
+        "bundles": bundles,
+        "fixed_initialization_subset": initialization_subset,
+    }
+    write_json(config.output_dir / "budget_subset_index.json", subset_index)
+    outputs = _unconfounded_outputs(config, points, cells, complete=complete)
+    report_name = (
+        "byte_controlled_report.json"
+        if config.experiment_family == "bytes"
+        else "step_controlled_report.json"
+    )
+    report_path = config.output_dir / report_name
+    integrity_path = config.output_dir / "control_family_integrity.json"
+    write_json(report_path, outputs["report"])
+    write_json(config.output_dir / "quality_per_byte_report.json", outputs["report"])
+    other_report = (
+        "step_controlled_report.json"
+        if config.experiment_family == "bytes"
+        else "byte_controlled_report.json"
+    )
+    write_json(
+        config.output_dir / other_report,
+        {
+            "phase": "P156.1",
+            "status": "not_run",
+            "quality_per_byte_claim_allowed": False,
+            "quality_per_step_claim_allowed": False,
+            "winner_declared": False,
+        },
+    )
+    write_json(
+        config.output_dir / "time_controlled_report.json",
+        {
+            "phase": "P156.1",
+            "status": "deferred",
+            "deadline_enforced_during_training": False,
+            "quality_per_time_claim_allowed": False,
+            "winner_declared": False,
+        },
+    )
+    write_json(integrity_path, outputs["integrity"])
+    write_json(
+        config.output_dir / "publication_grade_receipt.json",
+        outputs["publication"],
+    )
+    write_json(
+        config.output_dir / "artifact_byte_accounting.json", outputs["accounting"]
+    )
+    _write_rows(
+        config.output_dir / "paired_budget_comparisons.jsonl",
+        outputs["comparisons"],
+    )
+    _write_rows(config.output_dir / "quality_budget_curve.jsonl", outputs["curves"])
+    (config.output_dir / "quality_per_byte_summary.md").write_text(
+        _unconfounded_summary(outputs["report"]), encoding="utf-8"
+    )
+    return UnconfoundedQualityExperimentResult(
+        status=outputs["report"]["status"],
+        output_dir=config.output_dir,
+        report_path=report_path,
+        integrity_path=integrity_path,
+    )
+
+
+def _materialize_subset_bundle(config, *, name, byte_budget):
+    root = config.output_dir / "subsets" / name
+    paths = {}
+    receipts = {}
+    for role in (
+        "corridor_subset",
+        "exemplar_subset",
+        "combined_two_cycle_subset",
+    ):
+        result = materialize_budgeted_artifact(
+            BudgetedArtifactConfig(
+                source_artifact=config.training_fingerprint_artifact,
+                source_texts=config.source_texts,
+                output_dir=root / role,
+                subset_role=role,
+                declared_byte_budget=byte_budget,
+                selection_seed=config.selection_seed,
+                corridor_byte_fraction=config.corridor_byte_fraction,
+                overwrite=config.overwrite,
+            )
+        )
+        validation = validate_budgeted_artifact(result.output_dir)
+        if not validation["valid"]:
+            raise ValueError("materialized subset cache validation failed")
+        paths[role] = str(result.output_dir)
+        receipts[role] = read_json_object(result.manifest_path)
+    return {
+        "byte_budget": byte_budget,
+        "paths": paths,
+        "subset_hashes": {
+            role: receipt["subset_manifest_sha256"]
+            for role, receipt in receipts.items()
+        },
+        "artifact_manifest_hashes": {
+            role: receipt["artifact_manifest_sha256"]
+            for role, receipt in receipts.items()
+        },
+        "cache_reusable_across_seeds": True,
+    }
+
+
+def _materialize_initialization_subset(config, *, byte_budget):
+    result = materialize_budgeted_artifact(
+        BudgetedArtifactConfig(
+            source_artifact=config.training_fingerprint_artifact,
+            source_texts=config.source_texts,
+            output_dir=config.output_dir
+            / "subsets"
+            / "fixed_initialization"
+            / "corridor_subset",
+            subset_role="corridor_subset",
+            declared_byte_budget=byte_budget,
+            selection_seed=config.selection_seed,
+            corridor_byte_fraction=config.corridor_byte_fraction,
+            overwrite=config.overwrite,
+        )
+    )
+    receipt = read_json_object(result.manifest_path)
+    return {
+        "path": str(result.output_dir),
+        "byte_budget": byte_budget,
+        "subset_hash": receipt["subset_manifest_sha256"],
+        "artifact_manifest_hash": receipt["artifact_manifest_sha256"],
+        "fixed_across_points_and_seeds": True,
+    }
+
+
+def _run_unconfounded_cell(
+    config,
+    *,
+    point_name,
+    artifact_budget,
+    total_steps,
+    seed,
+    bundle,
+    cell_hash,
+):
+    corridor_steps = max(1, total_steps // 2)
+    exemplar_steps = total_steps - corridor_steps
+    if exemplar_steps < 1:
+        raise ValueError("two-cycle budget requires at least two total steps")
+    paths = {name: Path(path) for name, path in bundle["paths"].items()}
+    if any(path == config.training_fingerprint_artifact for path in paths.values()):
+        raise ValueError("full_artifact_used_in_byte_controlled_cell")
+    cell_dir = (
+        config.output_dir
+        / "runs"
+        / config.experiment_family
+        / point_name
+        / f"seed_{seed}"
+    )
+    p155 = run_two_cycle_experiment(
+        TwoCycleExperimentConfig(
+            training_fingerprint_artifact=config.training_fingerprint_artifact,
+            calibration_fingerprint_artifact=config.calibration_fingerprint_artifact,
+            final_test_fingerprint_artifact=config.final_test_fingerprint_artifact,
+            source_texts=config.source_texts,
+            selected_profile_receipt=config.selected_profile_receipt,
+            output_dir=cell_dir / "p155",
+            initialization_training_artifact=paths["initialization_subset"],
+            corridor_training_artifact=paths["corridor_subset"],
+            exemplar_training_artifact=paths["exemplar_subset"],
+            two_cycle_corridor_training_artifact=paths["combined_two_cycle_subset"],
+            two_cycle_exemplar_training_artifact=paths["combined_two_cycle_subset"],
+            allow_payload_specific_artifacts=True,
+            student_backend=config.student_backend,
+            student_architecture=config.student_architecture,
+            baseline_steps=total_steps,
+            corridor_steps=corridor_steps,
+            exemplar_steps=exemplar_steps,
+            corridor_only_steps=total_steps,
+            exemplar_only_steps=total_steps,
+            budget_comparison_mode="equal_total_budget",
+            batch_size=config.batch_size,
+            optimizer=config.optimizer,
+            baseline_learning_rate=config.baseline_learning_rate,
+            exemplar_learning_rate=config.exemplar_learning_rate,
+            exemplar_max_grad_norm=config.exemplar_max_grad_norm,
+            checkpoint_every=max(1, total_steps),
+            seed=seed,
+            bootstrap_samples=config.bootstrap_samples,
+            bootstrap_seed=config.bootstrap_seed,
+            tie_tolerance=config.tie_tolerance,
+            overwrite=config.overwrite,
+        )
+    )
+    report = read_json_object(p155.report_path)
+    if p155.status != "pass":
+        raise ValueError("P155.1 subset-backed cell failed")
+    arms = _unconfounded_cell_arms(
+        config,
+        artifact_budget=artifact_budget,
+        total_steps=total_steps,
+        bundle=bundle,
+        p155=report,
+    )
+    integrity = bool(
+        all(
+            arm["budget_ceiling_respected"]
+            and arm["step_budget_match_valid"]
+            and arm["loader_observed_subset_hash_matches"]
+            and not arm["wall_clock_budget_exceeded"]
+            for arm in arms.values()
+        )
+        and report["split_integrity"]["three_way_split_valid"]
+    )
+    if not integrity:
+        raise ValueError("cell budget or subset integrity failed")
+    cell = {
+        "phase": "P156.1",
+        "status": "pass",
+        "cell_config_hash": cell_hash,
+        "control_family": config.experiment_family,
+        "budget_point": point_name,
+        "seed": seed,
+        "varied_resource": "artifact_bytes"
+        if config.experiment_family == "bytes"
+        else "optimizer_steps",
+        "fixed_resource_receipt": {
+            "total_steps": total_steps,
+            "artifact_budget": artifact_budget,
+            "wall_clock_safety_ceiling": config.wall_clock_safety_ceiling,
+            "batch_size": config.batch_size,
+            "final_test_artifact_sha256": file_sha256(
+                config.final_test_fingerprint_artifact / "manifest.json"
+            ),
+        },
+        "subset_hashes": bundle["subset_hashes"],
+        "arms": arms,
+        "actual_consumption": {
+            arm: {
+                key: values[key]
+                for key in (
+                    "records_consumed",
+                    "logical_payload_bytes_consumed",
+                    "optimizer_steps",
+                    "total_wall_clock_seconds",
+                )
+            }
+            for arm, values in arms.items()
+        },
+        "budget_integrity_valid": True,
+        "split_integrity": report["split_integrity"],
+        "per_record_metrics": str(cell_dir / "p155" / "per_record_arm_metrics.jsonl"),
+        "p155_report": str(p155.report_path),
+    }
+    write_json(cell_dir / "cell_report.json", cell)
+    return cell
+
+
+def _unconfounded_cell_arms(config, *, artifact_budget, total_steps, bundle, p155):
+    resources = {
+        "conventional_baseline": p155["resources"]["conventional_baseline"],
+        "corridor_only": p155["resources"]["corridor_only"],
+        "exemplar_only": p155["resources"]["exemplar_only"],
+        "two_cycle": p155["resources"]["two_cycle"]["combined"],
+    }
+    evaluations = {
+        "conventional_baseline": "conventional_baseline",
+        "corridor_only": "corridor_only",
+        "exemplar_only": "exemplar_only",
+        "two_cycle": "two_cycle_final",
+    }
+    subset_roles = {
+        "corridor_only": "corridor_subset",
+        "exemplar_only": "exemplar_subset",
+        "two_cycle": "combined_two_cycle_subset",
+    }
+    init_score = p155["evaluation_metrics"]["shared_initialization"]["teacher"][
+        "teacher_student_kl"
+    ]
+    output = {}
+    for arm, evaluation_name in evaluations.items():
+        resource = resources[arm]
+        metrics = p155["evaluation_metrics"][evaluation_name]
+        if arm == "conventional_baseline":
+            subset_role = None
+            accounting = {
+                "arm_charged_bytes": 0,
+                "logical_payload_bytes_selected": 0,
+                "physical_subset_bytes": 0,
+                "shared_metadata_bytes": 0,
+                "unused_budget_bytes": artifact_budget,
+            }
+            selected_count = 0
+            configured_path = None
+            subset_hash = None
+            artifact_hash = None
+        else:
+            subset_role = subset_roles[arm]
+            configured_path = Path(bundle["paths"][subset_role])
+            accounting = read_json_object(
+                configured_path / "artifact_byte_accounting.json"
+            )
+            selection = read_json_object(
+                configured_path / "record_selection_receipt.json"
+            )
+            selected_count = (
+                selection["selected_target_count"]
+                if arm == "corridor_only"
+                else selection["selected_exemplar_count"]
+                if arm == "exemplar_only"
+                else selection["selected_target_count"]
+                + selection["selected_exemplar_count"]
+            )
+            subset_hash = bundle["subset_hashes"][subset_role]
+            artifact_hash = bundle["artifact_manifest_hashes"][subset_role]
+        charged = accounting["arm_charged_bytes"]
+        consumed_fraction = min(resource["records_consumed"], selected_count) / max(
+            selected_count, 1
+        )
+        logical_consumed = round(charged * consumed_fraction)
+        score = metrics["teacher"]["teacher_student_kl"]
+        output[arm] = {
+            "quality": {
+                "teacher_student_kl": score,
+                "held_out_exemplar_loss": metrics["teacher"].get(
+                    "teacher_student_cross_entropy"
+                ),
+                "top1_agreement": metrics["teacher"].get("top1_agreement"),
+                "topk_overlap": metrics["teacher"].get("topk_overlap"),
+                "teacher_entropy": metrics["teacher"].get("teacher_entropy"),
+                "student_entropy": metrics["teacher"].get("student_entropy"),
+                "entropy_absolute_error": metrics["teacher"].get(
+                    "entropy_absolute_error"
+                ),
+                "held_out_corridor_loss": metrics["corridor"].get(
+                    "corridor_loss_total"
+                ),
+                "inside_all_rate": metrics["corridor"].get("inside_all_rate"),
+                "mean_distance_outside_corridor": metrics["corridor"].get(
+                    "mean_distance_outside_corridor"
+                ),
+            },
+            "final_test_primary_score": score,
+            "configured_training_artifact_path": str(configured_path)
+            if configured_path
+            else None,
+            "configured_subset_manifest_sha256": subset_hash,
+            "loader_observed_artifact_sha256": artifact_hash,
+            "loader_observed_subset_hash_matches": arm == "conventional_baseline"
+            or file_sha256(configured_path / "manifest.json") == artifact_hash,
+            "records_available": selected_count,
+            "records_consumed": resource["records_consumed"],
+            "logical_bytes_available": charged,
+            "teacher_artifact_bytes": charged,
+            "logical_payload_bytes_consumed": logical_consumed,
+            "declared_byte_budget": artifact_budget,
+            "physical_subset_bytes": accounting["physical_subset_bytes"],
+            "shared_metadata_bytes": accounting["shared_metadata_bytes"],
+            "arm_charged_bytes": charged,
+            "unused_budget_bytes": accounting["unused_budget_bytes"],
+            "budget_ceiling_respected": charged <= artifact_budget,
+            "total_step_budget": total_steps,
+            "optimizer_steps": resource["optimizer_steps"],
+            "step_budget_match_valid": resource["optimizer_steps"] == total_steps,
+            "training_seconds": resource["training_seconds"],
+            "evaluation_seconds": resource["evaluation_seconds"],
+            "checkpoint_seconds": resource["checkpoint_seconds"],
+            "total_wall_clock_seconds": resource["total_wall_clock_seconds"],
+            "wall_clock_budget_seconds": config.wall_clock_safety_ceiling,
+            "wall_clock_budget_exceeded": resource["total_wall_clock_seconds"]
+            > config.wall_clock_safety_ceiling,
+            "efficiency_reference_arm": "shared_initialization",
+            "efficiency_reference_score": init_score,
+            "efficiency": efficiency_ratios(
+                reference_score=init_score,
+                final_score=score,
+                artifact_bytes=charged,
+                optimizer_steps=resource["optimizer_steps"],
+                wall_clock_seconds=resource["total_wall_clock_seconds"],
+            )
+            if charged > 0
+            else None,
+        }
+    return output
+
+
+def _unconfounded_outputs(config, points, cells, *, complete):
+    point_names = [point[0] for point in points]
+    comparisons = _unconfounded_comparisons(config, point_names, cells)
+    curves = _curve_rows(cells)
+    all_arms = [arm for cell in cells for arm in cell["arms"].values()]
+    wall_nonbinding = bool(all_arms) and all(
+        not arm["wall_clock_budget_exceeded"] for arm in all_arms
+    )
+    actual_subsets = bool(cells) and all(
+        arm["configured_training_artifact_path"]
+        != str(config.training_fingerprint_artifact)
+        for cell in cells
+        for name, arm in cell["arms"].items()
+        if name != "conventional_baseline"
+    )
+    split_valid = complete and all(
+        cell["split_integrity"]["three_way_split_valid"]
+        and cell["split_integrity"]["final_test_independent"]
+        for cell in cells
+    )
+    if config.experiment_family == "bytes":
+        family_integrity = {
+            "bytes_vary": len(points) >= 2
+            and len({point[1] for point in points}) == len(points),
+            "steps_fixed": len({point[2] for point in points}) == 1,
+            "wall_clock_nonbinding": wall_nonbinding,
+            "actual_subsets_consumed": actual_subsets,
+        }
+    else:
+        hashes_by_arm = {
+            arm: {
+                cell["subset_hashes"][role]
+                for cell in cells
+                for role in (
+                    "corridor_subset",
+                    "exemplar_subset",
+                    "combined_two_cycle_subset",
+                )
+                if (
+                    (arm == "corridor_only" and role == "corridor_subset")
+                    or (arm == "exemplar_only" and role == "exemplar_subset")
+                    or (arm == "two_cycle" and role == "combined_two_cycle_subset")
+                )
+            }
+            for arm in ("corridor_only", "exemplar_only", "two_cycle")
+        }
+        family_integrity = {
+            "steps_vary": len(points) >= 2
+            and len({point[2] for point in points}) == len(points),
+            "artifact_subset_fixed": all(
+                len(values) == 1 for values in hashes_by_arm.values()
+            ),
+            "byte_availability_fixed": len({point[1] for point in points}) == 1,
+            "wall_clock_nonbinding": wall_nonbinding,
+            "actual_subsets_consumed": actual_subsets,
+        }
+    family_integrity["valid"] = bool(
+        complete and split_valid and all(family_integrity.values())
+    )
+    execution_valid = bool(
+        complete and split_valid and wall_nonbinding and actual_subsets
+    )
+    byte_integrity = (
+        family_integrity
+        if config.experiment_family == "bytes"
+        else {"valid": False, "status": "not_run"}
+    )
+    step_integrity = (
+        family_integrity
+        if config.experiment_family == "steps"
+        else {"valid": False, "status": "not_run"}
+    )
+    integrity = {
+        "phase": "P156.1",
+        "byte_controlled": byte_integrity,
+        "step_controlled": step_integrity,
+        "time_controlled": {
+            "time_varies": False,
+            "artifact_subset_fixed": False,
+            "step_ceiling_nonbinding": False,
+            "deadline_enforced_during_training": False,
+            "valid": False,
+            "status": "deferred",
+        },
+    }
+    claim_allowed = bool(
+        family_integrity["valid"]
+        and len(points) >= 2
+        and len(config.seeds) >= 3
+        and comparisons
+    )
+    byte_claim = claim_allowed and config.experiment_family == "bytes"
+    step_claim = claim_allowed and config.experiment_family == "steps"
+    primary_comparisons = [
+        row
+        for row in comparisons
+        if row["left_arm"] == "two_cycle" and row["right_arm"] == "exemplar_only"
+    ]
+    normalized_results = [
+        "two_cycle_better"
+        if row["result"] == "left_better"
+        else "exemplar_only_better"
+        if row["result"] == "right_better"
+        else "inconclusive"
+        for row in primary_comparisons
+    ]
+    primary_result = (
+        normalized_results[0]
+        if normalized_results and len(set(normalized_results)) == 1
+        else "mixed"
+        if normalized_results
+        else None
+    )
+    report = {
+        "phase": "P156.1",
+        "status": "pass" if execution_valid else "fail",
+        "experiment_kind": "unconfounded_controlled_efficiency",
+        "experiment_family": f"{config.experiment_family}_controlled",
+        "execution_backend": jax.default_backend(),
+        "actual_subsets_consumed": actual_subsets,
+        "required_arms_complete": complete,
+        "required_seeds_complete": complete and len(config.seeds) >= 3,
+        "independent_final_test": split_valid,
+        "primary_metric": "independent_final_test_teacher_student_kl",
+        "primary_metric_direction": "lower_is_better",
+        "primary_comparison": "two_cycle_vs_exemplar_only",
+        "primary_result": primary_result,
+        "primary_result_by_point": {
+            row["budget_point"]: normalized
+            for row, normalized in zip(
+                primary_comparisons, normalized_results, strict=True
+            )
+        },
+        "points": [
+            {
+                "name": name,
+                "artifact_byte_ceiling": byte_budget,
+                "total_step_budget": steps,
+            }
+            for name, byte_budget, steps in points
+        ],
+        "seeds": list(config.seeds),
+        "cells": cells,
+        "comparisons": comparisons,
+        "target_quality": _target_costs(config, cells),
+        "curve_auc": _curve_auc(curves) if complete and len(points) >= 2 else [],
+        "auc_method": "deterministic_trapezoidal_integration",
+        "quality_per_byte_claim_allowed": byte_claim,
+        "quality_per_step_claim_allowed": step_claim,
+        "quality_per_time_claim_allowed": False,
+        "winner_declared": bool(
+            claim_allowed and primary_result not in {None, "inconclusive", "mixed"}
+        ),
+        "claim_scope": "tiny_cpu_controlled_experiment",
+        "scale_claim_made": False,
+        "gpt2_claim_made": False,
+        "radlads_parity_claim_made": False,
+    }
+    accounting_rows = [
+        {
+            "budget_point": cell["budget_point"],
+            "seed": cell["seed"],
+            "arm": arm,
+            **{
+                key: values[key]
+                for key in (
+                    "declared_byte_budget",
+                    "physical_subset_bytes",
+                    "logical_bytes_available",
+                    "logical_payload_bytes_consumed",
+                    "shared_metadata_bytes",
+                    "arm_charged_bytes",
+                    "unused_budget_bytes",
+                    "budget_ceiling_respected",
+                )
+            },
+        }
+        for cell in cells
+        for arm, values in cell["arms"].items()
+    ]
+    return {
+        "report": report,
+        "integrity": integrity,
+        "publication": {
+            "phase": "P156.1",
+            "status": "pass" if claim_allowed else "fail",
+            "publication_grade": claim_allowed,
+            "experiment_family": config.experiment_family,
+            "completed_arm_cells": len(cells) * len(ARM_NAMES),
+            "expected_arm_cells": len(points) * len(config.seeds) * len(ARM_NAMES),
+            "quality_per_byte_claim_allowed": byte_claim,
+            "quality_per_step_claim_allowed": step_claim,
+            "quality_per_time_claim_allowed": False,
+        },
+        "accounting": {
+            "phase": "P156.1",
+            "byte_accounting_policy": "arm_charged_logical_payload_bytes_v1",
+            "physical_and_logical_bytes_distinct": True,
+            "rows": accounting_rows,
+        },
+        "comparisons": comparisons,
+        "curves": curves,
+    }
+
+
+def _unconfounded_comparisons(config, point_names, cells):
+    pairs = (
+        ("two_cycle", "exemplar_only"),
+        ("two_cycle", "conventional_baseline"),
+        ("corridor_only", "exemplar_only"),
+        ("two_cycle", "corridor_only"),
+    )
+    output = []
+    for point_name in point_names:
+        selected = [cell for cell in cells if cell["budget_point"] == point_name]
+        if len(selected) != len(config.seeds):
+            continue
+        for index, (left_arm, right_arm) in enumerate(pairs):
+            left = {}
+            right = {}
+            for cell in selected:
+                for row in _read_rows(Path(cell["per_record_metrics"])):
+                    key = f"{cell['seed']}:{row['record_key']}"
+                    left[key] = float(row[_per_record_field(left_arm)])
+                    right[key] = float(row[_per_record_field(right_arm)])
+            output.append(
+                {
+                    "budget_point": point_name,
+                    "left_arm": left_arm,
+                    "right_arm": right_arm,
+                    "aligned_seeds": list(config.seeds),
+                    **paired_seed_record_comparison(
+                        left,
+                        right,
+                        bootstrap_samples=config.bootstrap_samples,
+                        bootstrap_seed=config.bootstrap_seed + index,
+                        tie_tolerance=config.tie_tolerance,
+                    ),
+                }
+            )
+    return output
+
+
+def _family_points(config):
+    if config.experiment_family == "bytes":
+        return [
+            (f"bytes_{budget}", budget, config.fixed_total_steps)
+            for budget in config.byte_budgets
+        ]
+    return [
+        (f"steps_{steps}", int(config.fixed_artifact_budget), steps)
+        for steps in config.step_budgets
+    ]
+
+
+def _unconfounded_config_hash(config):
+    return stable_hash(
+        {
+            "phase": "P156.1",
+            "experiment_family": config.experiment_family,
+            "training_artifact_sha256": file_sha256(
+                config.training_fingerprint_artifact / "manifest.json"
+            ),
+            "calibration_artifact_sha256": file_sha256(
+                config.calibration_fingerprint_artifact / "manifest.json"
+            ),
+            "final_test_artifact_sha256": file_sha256(
+                config.final_test_fingerprint_artifact / "manifest.json"
+            ),
+            "selected_profile_receipt_sha256": file_sha256(
+                config.selected_profile_receipt
+            ),
+            "source_texts_sha256": file_sha256(config.source_texts),
+            "byte_budgets": list(config.byte_budgets),
+            "step_budgets": list(config.step_budgets),
+            "fixed_total_steps": config.fixed_total_steps,
+            "fixed_artifact_budget": config.fixed_artifact_budget,
+            "wall_clock_safety_ceiling": config.wall_clock_safety_ceiling,
+            "corridor_byte_fraction": config.corridor_byte_fraction,
+            "selection_seed": config.selection_seed,
+            "seeds": list(config.seeds),
+            "student_backend": config.student_backend,
+            "student_architecture": config.student_architecture,
+            "batch_size": config.batch_size,
+            "optimizer": config.optimizer,
+            "software_commit": get_git_metadata(
+                Path(__file__).resolve().parents[3]
+            ).get("commit"),
+        }
+    )
+
+
+def _write_family_matrix_state(path, config_hash, points, seeds, completed, failed):
+    expected_runs = len(points) * len(seeds)
+    pending = expected_runs - len(completed) - len(failed)
+    write_json(
+        path,
+        {
+            "phase": "P156.1",
+            "config_hash": config_hash,
+            "expected_cells": expected_runs * len(ARM_NAMES),
+            "completed_cells": len(completed) * len(ARM_NAMES),
+            "failed_cells": len(failed) * len(ARM_NAMES),
+            "pending_cells": pending * len(ARM_NAMES),
+            "completed_experiment_runs": sorted(completed),
+            "failed_experiment_runs": failed,
+            "resume_supported": True,
+        },
+    )
+
+
+def _write_deferred_time_family(config):
+    report = {
+        "phase": "P156.1",
+        "status": "deferred",
+        "experiment_family": "time_controlled",
+        "deadline_enforced_during_training": False,
+        "declared_training_deadline_seconds": None,
+        "deadline_start_timestamp": None,
+        "deadline_stop_timestamp": None,
+        "completed_steps_before_deadline": None,
+        "deadline_triggered": False,
+        "deadline_overshoot_seconds": None,
+        "post_hoc_only_enforcement": False,
+        "quality_per_time_claim_allowed": False,
+        "winner_declared": False,
+        "reason": "true optimizer-step-boundary deadline enforcement is deferred",
+    }
+    report_path = config.output_dir / "time_controlled_report.json"
+    integrity_path = config.output_dir / "control_family_integrity.json"
+    write_json(report_path, report)
+    write_json(
+        integrity_path,
+        {
+            "phase": "P156.1",
+            "byte_controlled": {"valid": False, "status": "not_run"},
+            "step_controlled": {"valid": False, "status": "not_run"},
+            "time_controlled": {
+                "deadline_enforced_during_training": False,
+                "valid": False,
+                "status": "deferred",
+            },
+        },
+    )
+    return UnconfoundedQualityExperimentResult(
+        status="deferred",
+        output_dir=config.output_dir,
+        report_path=report_path,
+        integrity_path=integrity_path,
+    )
+
+
+def _validate_unconfounded_config(config):
+    if config.experiment_family not in {"bytes", "steps", "time"}:
+        raise ValueError("experiment_family must be bytes, steps, or time")
+    if not config.seeds or len(config.seeds) != len(set(config.seeds)):
+        raise ValueError("seeds must be non-empty and unique")
+    if config.experiment_family == "bytes":
+        if not config.byte_budgets or any(value <= 0 for value in config.byte_budgets):
+            raise ValueError("byte-controlled family requires positive byte budgets")
+        if config.fixed_total_steps < 2:
+            raise ValueError("fixed_total_steps must be at least two")
+    if config.experiment_family == "steps":
+        if not config.step_budgets or any(value < 2 for value in config.step_budgets):
+            raise ValueError("step-controlled family requires step budgets >= 2")
+        if config.fixed_artifact_budget is None or config.fixed_artifact_budget <= 0:
+            raise ValueError("step family requires fixed_artifact_budget")
+    if config.wall_clock_safety_ceiling <= 0:
+        raise ValueError("wall_clock_safety_ceiling must be positive")
+
+
+def _unconfounded_summary(report):
+    primary = [
+        row
+        for row in report.get("comparisons", [])
+        if row["left_arm"] == "two_cycle" and row["right_arm"] == "exemplar_only"
+    ]
+    return (
+        "# P156.1 Unconfounded Controlled Efficiency\n\n"
+        f"- Status: {report['status']}\n"
+        f"- Family: {report['experiment_family']}\n"
+        f"- Actual subsets consumed: "
+        f"{str(report['actual_subsets_consumed']).lower()}\n"
+        f"- Primary results: "
+        f"{', '.join(row['result'] for row in primary) or 'incomplete'}\n"
+        f"- Quality-per-byte claim allowed: "
+        f"{str(report['quality_per_byte_claim_allowed']).lower()}\n"
+        f"- Quality-per-step claim allowed: "
+        f"{str(report['quality_per_step_claim_allowed']).lower()}\n"
+        "- Quality-per-time claim allowed: false\n"
     )

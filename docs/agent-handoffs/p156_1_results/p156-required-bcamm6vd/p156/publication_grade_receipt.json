@@ -1,0 +1,12 @@
+{
+  "completed_arm_cells": 24,
+  "expected_arm_cells": 24,
+  "gpt2_claim_made": false,
+  "phase": "P156",
+  "publication_grade": true,
+  "quality_per_byte_claim_allowed": true,
+  "radlads_parity_claim_made": false,
+  "scale_claim_made": false,
+  "scope": "tiny_cpu_controlled_experiment",
+  "status": "pass"
+}

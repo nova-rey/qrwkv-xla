@@ -1,0 +1,25 @@
+{
+  "bundles": {
+    "bytes_1000": {
+      "artifact_manifest_hashes": {
+        "combined_two_cycle_subset": "sha256:2518c64e1925f983f3e4f7292170b18e3bc229a2d1662708184822fa58cc3e49",
+        "corridor_subset": "sha256:1bb82d71948096c63bb5a46f8c7b851e1485745cb0a378779c86564dd2b2151a",
+        "exemplar_subset": "sha256:8035e545851470987f0ef8b21c56432a70f6ce54b280a470fb0fb2e577b396a2"
+      },
+      "byte_budget": 1000,
+      "cache_reusable_across_seeds": true,
+      "paths": {
+        "combined_two_cycle_subset": "/tmp/p1561-smoke-tbij7syk/out/subsets/bytes_1000/combined_two_cycle_subset",
+        "corridor_subset": "/tmp/p1561-smoke-tbij7syk/out/subsets/bytes_1000/corridor_subset",
+        "exemplar_subset": "/tmp/p1561-smoke-tbij7syk/out/subsets/bytes_1000/exemplar_subset"
+      },
+      "subset_hashes": {
+        "combined_two_cycle_subset": "sha256:2e87f20e9406d8e893b90424766b2dde12fcb6dd03f96256c731ae4ebe8ab122",
+        "corridor_subset": "sha256:1ac2dcc7efb1e42958a9d8a2ff94ab28d325f4948b07bb2b784c9cfe7fcf4ca2",
+        "exemplar_subset": "sha256:2937c0ecd77686b31b673d379a50e8e246b289c5e0d38d68cb244ab216876aad"
+      }
+    }
+  },
+  "phase": "P156.1",
+  "source_artifact": "/tmp/p1561-smoke-tbij7syk/train"
+}

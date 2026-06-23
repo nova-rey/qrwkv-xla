@@ -1,0 +1,25 @@
+{
+  "bundles": {
+    "bytes_1000": {
+      "artifact_manifest_hashes": {
+        "combined_two_cycle_subset": "sha256:2518c64e1925f983f3e4f7292170b18e3bc229a2d1662708184822fa58cc3e49",
+        "corridor_subset": "sha256:1bb82d71948096c63bb5a46f8c7b851e1485745cb0a378779c86564dd2b2151a",
+        "exemplar_subset": "sha256:8035e545851470987f0ef8b21c56432a70f6ce54b280a470fb0fb2e577b396a2"
+      },
+      "byte_budget": 1000,
+      "cache_reusable_across_seeds": true,
+      "paths": {
+        "combined_two_cycle_subset": "/tmp/p1561-smoke2-qkvw84s7/out/subsets/bytes_1000/combined_two_cycle_subset",
+        "corridor_subset": "/tmp/p1561-smoke2-qkvw84s7/out/subsets/bytes_1000/corridor_subset",
+        "exemplar_subset": "/tmp/p1561-smoke2-qkvw84s7/out/subsets/bytes_1000/exemplar_subset"
+      },
+      "subset_hashes": {
+        "combined_two_cycle_subset": "sha256:4e87d005c2597aa9fec6c79a8b2902f5a11d3c89a04ba5e7d9545143f8ad0582",
+        "corridor_subset": "sha256:a5b8842c67ae3d7fde25faba38ef7e231436cca45f4dfe0f503f97274bbbc217",
+        "exemplar_subset": "sha256:3700b28125d047043878504ff28c22e10b31b90d817b31110e74f2fa8dfd55ee"
+      }
+    }
+  },
+  "phase": "P156.1",
+  "source_artifact": "/tmp/p1561-smoke2-qkvw84s7/train"
+}

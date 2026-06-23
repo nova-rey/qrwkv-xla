@@ -1,0 +1,13 @@
+{
+  "completed_cells": 0,
+  "completed_experiment_runs": [],
+  "config_hash": "sha256:a766e5abc14a9a9c239bb1365a6a77cdd8157912b77b13f66938ff118b72936c",
+  "expected_cells": 4,
+  "failed_cells": 4,
+  "failed_experiment_runs": {
+    "bytes_1000/seed_0": "ValueError: P155.1 subset-backed cell failed"
+  },
+  "pending_cells": 0,
+  "phase": "P156.1",
+  "resume_supported": true
+}

@@ -72,6 +72,12 @@ class TwoCycleExperimentConfig:
     corridor_only_steps: int | None = None
     exemplar_only_steps: int | None = None
     budget_comparison_mode: str = "stage_matched"
+    initialization_training_artifact: Path | None = None
+    corridor_training_artifact: Path | None = None
+    exemplar_training_artifact: Path | None = None
+    two_cycle_corridor_training_artifact: Path | None = None
+    two_cycle_exemplar_training_artifact: Path | None = None
+    allow_payload_specific_artifacts: bool = False
     batch_size: int = 1
     optimizer: str = "adamw"
     baseline_learning_rate: float = 1e-4
@@ -121,9 +127,27 @@ def run_two_cycle_experiment(
         calibration_lineage,
     )
 
+    initialization_artifact = (
+        config.initialization_training_artifact
+        or config.corridor_training_artifact
+        or config.training_fingerprint_artifact
+    )
+    corridor_artifact = (
+        config.corridor_training_artifact or config.training_fingerprint_artifact
+    )
+    exemplar_artifact = (
+        config.exemplar_training_artifact or config.training_fingerprint_artifact
+    )
+    two_cycle_corridor_artifact = (
+        config.two_cycle_corridor_training_artifact or corridor_artifact
+    )
+    two_cycle_exemplar_artifact = (
+        config.two_cycle_exemplar_training_artifact or exemplar_artifact
+    )
+
     baseline_result = run_fingerprint_trained_baseline_comparison(
         FingerprintTrainedBaselineConfig(
-            fingerprint_artifact=config.training_fingerprint_artifact,
+            fingerprint_artifact=initialization_artifact,
             source_texts=config.source_texts,
             output_dir=config.output_dir / "arms" / "conventional_baseline",
             steps=config.baseline_steps,
@@ -173,10 +197,14 @@ def run_two_cycle_experiment(
     corridor_only_common = _corridor_config_fields(
         config,
         selected_config,
+        artifact=corridor_artifact,
         steps=config.corridor_only_steps or config.corridor_steps,
     )
     two_cycle_corridor_common = _corridor_config_fields(
-        config, selected_config, steps=config.corridor_steps
+        config,
+        selected_config,
+        artifact=two_cycle_corridor_artifact,
+        steps=config.corridor_steps,
     )
     corridor_only = run_corridor_measurement(
         CorridorMeasurementConfig(
@@ -227,10 +255,16 @@ def run_two_cycle_experiment(
         corridor_checkpoint=two_cycle_corridor.checkpoint_dir,
     )
     exemplar_only_common = _exemplar_config_fields(
-        config, steps=config.exemplar_only_steps or config.exemplar_steps
+        config,
+        artifact=exemplar_artifact,
+        parent_artifact=initialization_artifact,
+        steps=config.exemplar_only_steps or config.exemplar_steps,
     )
     two_cycle_exemplar_common = _exemplar_config_fields(
-        config, steps=config.exemplar_steps
+        config,
+        artifact=two_cycle_exemplar_artifact,
+        parent_artifact=two_cycle_corridor_artifact,
+        steps=config.exemplar_steps,
     )
     exemplar_only = run_exemplar_pass(
         ExemplarPassConfig(
@@ -257,9 +291,13 @@ def run_two_cycle_experiment(
     two_cycle_exemplar_view = _exemplar_fairness_view(
         two_cycle_exemplar_report, two_cycle_exemplar.output_dir
     )
-    exemplar_configs_match = _without_requested_steps(
-        exemplar_only_view
-    ) == _without_requested_steps(two_cycle_exemplar_view) and (
+    exemplar_configs_match = _exemplar_comparison_view(
+        exemplar_only_view,
+        payload_specific=config.allow_payload_specific_artifacts,
+    ) == _exemplar_comparison_view(
+        two_cycle_exemplar_view,
+        payload_specific=config.allow_payload_specific_artifacts,
+    ) and (
         config.budget_comparison_mode == "equal_total_budget"
         or exemplar_only_view == two_cycle_exemplar_view
     )
@@ -339,6 +377,14 @@ def run_two_cycle_experiment(
         "corridor_stage_configs_match": corridor_stage_configs_match,
         "exemplar_configs_match": exemplar_configs_match,
         "budget_comparison_mode": config.budget_comparison_mode,
+        "training_artifacts": {
+            "split_source": str(config.training_fingerprint_artifact),
+            "initialization": str(initialization_artifact),
+            "corridor": str(corridor_artifact),
+            "exemplar": str(exemplar_artifact),
+            "two_cycle_corridor": str(two_cycle_corridor_artifact),
+            "two_cycle_exemplar": str(two_cycle_exemplar_artifact),
+        },
         "held_out_record_order_identical": True,
         "selected_profile": profile_name,
         "selected_profile_config_sha256": selection["selected_profile_config_sha256"],
@@ -695,6 +741,38 @@ def build_configuration_freeze(
         "corridor_only_step_budget": config.corridor_only_steps,
         "exemplar_only_step_budget": config.exemplar_only_steps,
         "budget_comparison_mode": config.budget_comparison_mode,
+        "initialization_training_artifact_sha256": file_sha256(
+            (
+                config.initialization_training_artifact
+                or config.corridor_training_artifact
+                or config.training_fingerprint_artifact
+            )
+            / "manifest.json"
+        ),
+        "corridor_training_artifact_sha256": file_sha256(
+            (config.corridor_training_artifact or config.training_fingerprint_artifact)
+            / "manifest.json"
+        ),
+        "exemplar_training_artifact_sha256": file_sha256(
+            (config.exemplar_training_artifact or config.training_fingerprint_artifact)
+            / "manifest.json"
+        ),
+        "two_cycle_corridor_training_artifact_sha256": file_sha256(
+            (
+                config.two_cycle_corridor_training_artifact
+                or config.corridor_training_artifact
+                or config.training_fingerprint_artifact
+            )
+            / "manifest.json"
+        ),
+        "two_cycle_exemplar_training_artifact_sha256": file_sha256(
+            (
+                config.two_cycle_exemplar_training_artifact
+                or config.exemplar_training_artifact
+                or config.training_fingerprint_artifact
+            )
+            / "manifest.json"
+        ),
         "batch_size": config.batch_size,
         "initialization_and_sampling_seed": config.seed,
         "corridor_eval_every": config.corridor_eval_every,
@@ -875,9 +953,9 @@ def _validate_calibration_lineage(
     }
 
 
-def _corridor_config_fields(config, profile, *, steps):
+def _corridor_config_fields(config, profile, *, artifact, steps):
     return {
-        "fingerprint_artifact": config.training_fingerprint_artifact,
+        "fingerprint_artifact": artifact,
         "held_out_fingerprint_artifact": config.calibration_fingerprint_artifact,
         "held_out_artifact_role": "calibration_validation",
         "source_texts": config.source_texts,
@@ -909,9 +987,10 @@ def _corridor_config_fields(config, profile, *, steps):
     }
 
 
-def _exemplar_config_fields(config, *, steps):
+def _exemplar_config_fields(config, *, artifact, parent_artifact, steps):
     return {
-        "fingerprint_artifact": config.training_fingerprint_artifact,
+        "fingerprint_artifact": artifact,
+        "parent_fingerprint_artifact": parent_artifact,
         "held_out_fingerprint_artifact": config.calibration_fingerprint_artifact,
         "student_backend": config.student_backend,
         "student_architecture": config.student_architecture,
@@ -973,8 +1052,18 @@ def _exemplar_fairness_view(report, output_dir):
     }
 
 
-def _without_requested_steps(view):
-    return {key: value for key, value in view.items() if key != "requested_steps"}
+def _exemplar_comparison_view(view, *, payload_specific):
+    ignored = {"requested_steps"}
+    if payload_specific:
+        ignored.update(
+            {
+                "record_order_sha256",
+                "records_selected",
+                "exemplar_max_records",
+                "exemplar_artifact_sha256",
+            }
+        )
+    return {key: value for key, value in view.items() if key not in ignored}
 
 
 def _all_arm_initialization_valid(
@@ -1304,6 +1393,31 @@ def _arm_lineage(config, checkpoints, evaluations, resources):
         "commit"
     )
     output = {}
+    initialization_artifact = (
+        config.initialization_training_artifact
+        or config.corridor_training_artifact
+        or config.training_fingerprint_artifact
+    )
+    corridor_artifact = (
+        config.corridor_training_artifact or config.training_fingerprint_artifact
+    )
+    exemplar_artifact = (
+        config.exemplar_training_artifact or config.training_fingerprint_artifact
+    )
+    two_cycle_corridor_artifact = (
+        config.two_cycle_corridor_training_artifact or corridor_artifact
+    )
+    two_cycle_exemplar_artifact = (
+        config.two_cycle_exemplar_training_artifact or exemplar_artifact
+    )
+    training_artifacts = {
+        "shared_initialization": initialization_artifact,
+        "conventional_baseline": initialization_artifact,
+        "corridor_only": corridor_artifact,
+        "exemplar_only": exemplar_artifact,
+        "two_cycle_corridor": two_cycle_corridor_artifact,
+        "two_cycle_final": two_cycle_exemplar_artifact,
+    }
     for name, checkpoint in checkpoints.items():
         loaded = load_checkpoint(checkpoint)
         output[name] = {
@@ -1321,8 +1435,9 @@ def _arm_lineage(config, checkpoints, evaluations, resources):
                 config.final_test_fingerprint_artifact / "manifest.json"
             ),
             "training_artifact_sha256": file_sha256(
-                config.training_fingerprint_artifact / "manifest.json"
+                training_artifacts[name] / "manifest.json"
             ),
+            "configured_training_artifact_path": str(training_artifacts[name]),
             "software_commit": software_commit,
         }
     output["resource_views"] = resources

@@ -1,0 +1,44 @@
+{
+  "bundles": {
+    "bytes_1000": {
+      "artifact_manifest_hashes": {
+        "combined_two_cycle_subset": "sha256:2518c64e1925f983f3e4f7292170b18e3bc229a2d1662708184822fa58cc3e49",
+        "corridor_subset": "sha256:1bb82d71948096c63bb5a46f8c7b851e1485745cb0a378779c86564dd2b2151a",
+        "exemplar_subset": "sha256:8035e545851470987f0ef8b21c56432a70f6ce54b280a470fb0fb2e577b396a2"
+      },
+      "byte_budget": 1000,
+      "cache_reusable_across_seeds": true,
+      "paths": {
+        "combined_two_cycle_subset": "/tmp/p1561-required-0j2a57dv/bytes/subsets/bytes_1000/combined_two_cycle_subset",
+        "corridor_subset": "/tmp/p1561-required-0j2a57dv/bytes/subsets/bytes_1000/corridor_subset",
+        "exemplar_subset": "/tmp/p1561-required-0j2a57dv/bytes/subsets/bytes_1000/exemplar_subset"
+      },
+      "subset_hashes": {
+        "combined_two_cycle_subset": "sha256:127ff45c68fc5b8de3997aa29ef94061628b81996129dd22ef313975244e3c7a",
+        "corridor_subset": "sha256:6fcde3675d5d21811d05e035f12de9d5dc9fd46ec39c372a612789e3f807f945",
+        "exemplar_subset": "sha256:b1c73b9152a5e1c8126ccba1eb0b39040d32e6ed0346ce0380380a3e1560d92d"
+      }
+    },
+    "bytes_2000": {
+      "artifact_manifest_hashes": {
+        "combined_two_cycle_subset": "sha256:8035e545851470987f0ef8b21c56432a70f6ce54b280a470fb0fb2e577b396a2",
+        "corridor_subset": "sha256:2e62c6cf25a38f848c5bc4220cae95c6ac92751b0764cd44c669ee70a1e0a202",
+        "exemplar_subset": "sha256:545f2528861abd5ea11e42d0b877b6a28cd543b30086f6aa31ee06d99a80ecf7"
+      },
+      "byte_budget": 2000,
+      "cache_reusable_across_seeds": true,
+      "paths": {
+        "combined_two_cycle_subset": "/tmp/p1561-required-0j2a57dv/bytes/subsets/bytes_2000/combined_two_cycle_subset",
+        "corridor_subset": "/tmp/p1561-required-0j2a57dv/bytes/subsets/bytes_2000/corridor_subset",
+        "exemplar_subset": "/tmp/p1561-required-0j2a57dv/bytes/subsets/bytes_2000/exemplar_subset"
+      },
+      "subset_hashes": {
+        "combined_two_cycle_subset": "sha256:906335265b985b64f8c8fa4dd5621323d95937603170911dacac81057ddce026",
+        "corridor_subset": "sha256:b7789161a1908cbc18387bd79fa23c1ecbbed5cee48251cf2a948f46da4d5c68",
+        "exemplar_subset": "sha256:fb44583e6edbc8b65ded7c4859ce0df9561f5d6023793a248a54f4c4980721da"
+      }
+    }
+  },
+  "phase": "P156.1",
+  "source_artifact": "/tmp/p1561-required-0j2a57dv/train"
+}

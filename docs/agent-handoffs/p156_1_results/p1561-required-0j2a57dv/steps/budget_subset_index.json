@@ -1,0 +1,25 @@
+{
+  "bundles": {
+    "fixed_artifact": {
+      "artifact_manifest_hashes": {
+        "combined_two_cycle_subset": "sha256:8035e545851470987f0ef8b21c56432a70f6ce54b280a470fb0fb2e577b396a2",
+        "corridor_subset": "sha256:2e62c6cf25a38f848c5bc4220cae95c6ac92751b0764cd44c669ee70a1e0a202",
+        "exemplar_subset": "sha256:545f2528861abd5ea11e42d0b877b6a28cd543b30086f6aa31ee06d99a80ecf7"
+      },
+      "byte_budget": 2000,
+      "cache_reusable_across_seeds": true,
+      "paths": {
+        "combined_two_cycle_subset": "/tmp/p1561-required-0j2a57dv/steps/subsets/fixed_artifact/combined_two_cycle_subset",
+        "corridor_subset": "/tmp/p1561-required-0j2a57dv/steps/subsets/fixed_artifact/corridor_subset",
+        "exemplar_subset": "/tmp/p1561-required-0j2a57dv/steps/subsets/fixed_artifact/exemplar_subset"
+      },
+      "subset_hashes": {
+        "combined_two_cycle_subset": "sha256:906335265b985b64f8c8fa4dd5621323d95937603170911dacac81057ddce026",
+        "corridor_subset": "sha256:b7789161a1908cbc18387bd79fa23c1ecbbed5cee48251cf2a948f46da4d5c68",
+        "exemplar_subset": "sha256:fb44583e6edbc8b65ded7c4859ce0df9561f5d6023793a248a54f4c4980721da"
+      }
+    }
+  },
+  "phase": "P156.1",
+  "source_artifact": "/tmp/p1561-required-0j2a57dv/train"
+}

@@ -1,0 +1,14 @@
+{
+  "aligned_seeds": [
+    0,
+    1,
+    2
+  ],
+  "configuration_frozen_before_final_test": true,
+  "equal_teacher_artifact_budget": true,
+  "equal_total_optimizer_steps": true,
+  "same_declared_wall_clock_maximum": true,
+  "same_final_test_records": true,
+  "status": "pass",
+  "three_way_split_valid": true
+}

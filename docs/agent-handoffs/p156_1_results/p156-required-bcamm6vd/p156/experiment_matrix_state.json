@@ -1,0 +1,19 @@
+{
+  "completed_cells": 24,
+  "completed_experiment_runs": [
+    "medium/seed_0",
+    "medium/seed_1",
+    "medium/seed_2",
+    "small/seed_0",
+    "small/seed_1",
+    "small/seed_2"
+  ],
+  "config_hash": "sha256:9c9476f1485d239ebe68d8e1eb442eae383b67b7fe99a38232e2bee90dc8f4c1",
+  "expected_cells": 24,
+  "expected_experiment_runs": 6,
+  "failed_cells": 0,
+  "failed_experiment_runs": {},
+  "pending_cells": 0,
+  "phase": "P156",
+  "resume_supported": true
+}

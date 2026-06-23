@@ -1,0 +1,18 @@
+{
+  "completed_cells": 24,
+  "completed_experiment_runs": [
+    "bytes_1000/seed_0",
+    "bytes_1000/seed_1",
+    "bytes_1000/seed_2",
+    "bytes_2000/seed_0",
+    "bytes_2000/seed_1",
+    "bytes_2000/seed_2"
+  ],
+  "config_hash": "sha256:cc96466432ce4074a6ce7fff71c0942a7812b943e092f741da621885ec940899",
+  "expected_cells": 24,
+  "failed_cells": 0,
+  "failed_experiment_runs": {},
+  "pending_cells": 0,
+  "phase": "P156.1",
+  "resume_supported": true
+}

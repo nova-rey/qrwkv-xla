@@ -176,6 +176,7 @@ def build_artifact_source_lineage(
     )
     manifest = read_json_object(artifact_dir / "manifest.json")
     capture_summary = _optional_json(artifact_dir / "capture_summary.json")
+    subset_source = _optional_json(artifact_dir / "budget_subset_source.json")
     source_text_hashes = [
         stable_hash(text) for text in source_join["ordered_source_texts"]
     ]
@@ -190,7 +191,8 @@ def build_artifact_source_lineage(
         "ordered_source_text_sha256": stable_hash(source_text_hashes),
         "token_sequence_hashes": token_sequence_hashes,
         "tokenized_inputs_sha256": stable_hash(token_sequence_hashes),
-        "capture_config_sha256": stable_hash(
+        "capture_config_sha256": subset_source.get("source_capture_config_sha256")
+        or stable_hash(
             {
                 "sequence": manifest.get("sequence"),
                 "stats": manifest.get("stats"),
@@ -201,7 +203,8 @@ def build_artifact_source_lineage(
                 "max_exemplars": capture_summary.get("max_exemplars"),
             }
         ),
-        "teacher_identity_sha256": stable_hash(manifest.get("teacher", {})),
+        "teacher_identity_sha256": subset_source.get("source_teacher_identity_sha256")
+        or stable_hash(manifest.get("teacher", {})),
         "artifact_manifest_sha256": file_sha256(artifact_dir / "manifest.json"),
         "source_join_kind": source_join["source_join_kind"],
         "source_join_complete": source_join["source_join_complete"],

@@ -1,0 +1,8 @@
+{
+  "backend_requirement_met": true,
+  "device_count": 1,
+  "distributed": false,
+  "observed_backend": "cpu",
+  "process_count": 1,
+  "requested_backend": "cpu"
+}

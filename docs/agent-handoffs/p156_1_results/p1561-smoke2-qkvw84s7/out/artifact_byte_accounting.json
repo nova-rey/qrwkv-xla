@@ -1,0 +1,6 @@
+{
+  "byte_accounting_policy": "arm_charged_logical_payload_bytes_v1",
+  "phase": "P156.1",
+  "physical_and_logical_bytes_distinct": true,
+  "rows": []
+}
