@@ -47,6 +47,23 @@ from qrwkv_xla.fingerprint.trained_baseline import (
 )
 from qrwkv_xla.optimizers import OptimizerConfig, init_optimizer_state
 
+ARTIFACT_BYTE_CATEGORIES = (
+    "corridor_payload",
+    "exemplar_payload",
+    "shared_teacher_metadata",
+    "excluded",
+)
+_SHARED_METADATA_NAMES = {
+    "README.md",
+    "checksums.json",
+    "manifest.json",
+    "schema.json",
+    "splits.json",
+    "teacher_config.json",
+    "vocab_contract.json",
+}
+_EXCLUDED_NAMES = {".DS_Store"}
+
 
 @dataclass(frozen=True)
 class RadjaxCrossoverBackendConfig:
@@ -96,21 +113,75 @@ class RadjaxCrossoverBackendConfig:
 
 
 def validate_byte_accounting(accounting: dict[str, Any], *, arm: str) -> None:
-    total = int(accounting["teacher_artifact_bytes_consumed"])
-    corridor = int(accounting["corridor_artifact_bytes_consumed"])
-    exemplar = int(accounting["exemplar_artifact_bytes_consumed"])
+    total = int(accounting["teacher_artifact_bytes_total"])
+    logical = int(accounting["artifact_bytes_logically_consumed"])
+    corridor = int(accounting["corridor_payload_bytes"])
+    exemplar = int(accounting["exemplar_payload_bytes"])
+    shared = int(accounting["shared_teacher_metadata_bytes"])
     source = int(accounting["source_text_bytes_consumed"])
-    if min(total, corridor, exemplar, source) < 0:
+    if min(total, logical, corridor, exemplar, shared, source) < 0:
         raise ValueError("byte accounting values must be non-negative")
-    if corridor + exemplar > total:
-        raise ValueError("corridor plus exemplar bytes exceed total teacher bytes")
-    if arm == "vanilla" and any((total, corridor, exemplar)):
+    if corridor + exemplar + shared != total:
+        raise ValueError("teacher artifact total must equal disjoint components")
+    if logical != total:
+        raise ValueError("logical teacher bytes must equal selected component total")
+    if arm == "vanilla" and any((total, logical, corridor, exemplar, shared)):
         raise ValueError("vanilla arm must not consume teacher artifact bytes")
+    if arm == "exemplar_only" and corridor:
+        raise ValueError("exemplar-only arm must not consume corridor payload")
 
 
 def teacher_bytes_to_target(accounting: dict[str, Any]) -> int:
     validate_byte_accounting(accounting, arm=str(accounting["arm"]))
-    return int(accounting["teacher_artifact_bytes_consumed"])
+    return int(accounting["artifact_bytes_logically_consumed"])
+
+
+def classify_artifact_file(artifact_root: Path, path: Path) -> str:
+    relative = path.relative_to(artifact_root)
+    parts = relative.parts
+    matches: list[str] = []
+    if parts and parts[0] == "exemplars":
+        matches.append("exemplar_payload")
+    if parts and parts[0] in {"targets", "corridor"}:
+        matches.append("corridor_payload")
+    if relative.name == "modes.json":
+        matches.append("corridor_payload")
+    if relative.name in _SHARED_METADATA_NAMES:
+        matches.append("shared_teacher_metadata")
+    if relative.name in _EXCLUDED_NAMES or any(
+        part in {"checkpoints", "cache", "logs", "reports", "tmp"} for part in parts
+    ):
+        matches.append("excluded")
+    if len(matches) != 1:
+        raise ValueError(
+            "artifact file must match exactly one byte category: "
+            f"{relative} -> {matches}"
+        )
+    return matches[0]
+
+
+def classify_artifact_bytes(artifact_root: Path) -> dict[str, Any]:
+    files = []
+    totals = {category: 0 for category in ARTIFACT_BYTE_CATEGORIES}
+    for path in sorted(
+        candidate for candidate in artifact_root.rglob("*") if candidate.is_file()
+    ):
+        category = classify_artifact_file(artifact_root, path)
+        size = path.stat().st_size
+        totals[category] += size
+        files.append(
+            {
+                "path": str(path.relative_to(artifact_root)),
+                "category": category,
+                "bytes": size,
+            }
+        )
+    available = sum(value for key, value in totals.items() if key != "excluded")
+    return {
+        "files": files,
+        "category_bytes": totals,
+        "artifact_bytes_available": available,
+    }
 
 
 class RadjaxCrossoverBackend:
@@ -127,6 +198,11 @@ class RadjaxCrossoverBackend:
             "real_evaluation_adapters_used": False,
             "fresh_optimizer_exact_match": False,
             "byte_accounting_valid": False,
+        }
+        self._last_byte_accounting: dict[str, Any] = {}
+        self._freshness_proof: dict[str, Any] = {
+            "fresh_optimizer_proof_status": "not_applicable",
+            "fresh_optimizer_exact_match": None,
         }
         self.config.receipt_root.mkdir(parents=True, exist_ok=True)
         self._validate_artifacts()
@@ -416,8 +492,12 @@ class RadjaxCrossoverBackend:
         )
         if local_steps == 0:
             checkpoint = parent
-            final_optimizer_hash = fresh_hash
-            report = {"resource_accounting": {}}
+            final_optimizer_hash = discovery.corridor_optimizer_state_hash
+            report = {
+                "resource_accounting": {},
+                "actual_initial_exemplar_optimizer_hash": None,
+                "fresh_optimizer_exact_match": None,
+            }
         else:
             result = run_exemplar_pass(
                 ExemplarPassConfig(
@@ -448,15 +528,18 @@ class RadjaxCrossoverBackend:
             final_optimizer_hash = _optimizer_hash(
                 load_checkpoint(checkpoint).optimizer_state
             )
-        corridor_bytes = (
-            _directory_size(self.config.training_artifact) if adaptive else 0
-        )
-        exemplar_bytes = _directory_size(self.config.training_artifact / "exemplars")
+        classified = classify_artifact_bytes(self.config.training_artifact)
+        category_bytes = classified["category_bytes"]
+        corridor_bytes = category_bytes["corridor_payload"] if adaptive else 0
+        exemplar_bytes = category_bytes["exemplar_payload"]
+        shared_bytes = category_bytes["shared_teacher_metadata"]
         resource = _byte_accounting(
             arm=arm,
             source_text_bytes=0,
             corridor_bytes=corridor_bytes,
             exemplar_bytes=exemplar_bytes,
+            shared_bytes=shared_bytes,
+            artifact_bytes_available=classified["artifact_bytes_available"],
         )
         exemplar_resource = report.get("resource_accounting", {})
         resource.update(
@@ -471,14 +554,34 @@ class RadjaxCrossoverBackend:
                 ),
                 "total_seconds": exemplar_resource.get("total_wall_clock_seconds", 0.0),
                 "expected_fresh_exemplar_optimizer_hash": fresh_hash,
-                "actual_initial_exemplar_optimizer_hash": fresh_hash,
+                "actual_initial_exemplar_optimizer_hash": report[
+                    "actual_initial_exemplar_optimizer_hash"
+                ],
+                "cycle_two_optimizer_instantiated": local_steps > 0,
+                "fresh_optimizer_exact_match": report["fresh_optimizer_exact_match"],
+                "fresh_optimizer_proof_status": (
+                    "proven" if local_steps > 0 else "not_applicable"
+                ),
             }
         )
         validate_byte_accounting(resource, arm=arm)
+        self._last_byte_accounting = dict(resource)
+        if local_steps > 0 and adaptive:
+            self._freshness_proof = {
+                "proof_checkpoint_total_step": total_step,
+                "expected_fresh_exemplar_optimizer_hash": fresh_hash,
+                "actual_initial_exemplar_optimizer_hash": report[
+                    "actual_initial_exemplar_optimizer_hash"
+                ],
+                "fresh_optimizer_exact_match": report["fresh_optimizer_exact_match"],
+                "fresh_optimizer_proof_status": "proven",
+            }
         self._usage["real_exemplar_runner_used"] = (
             self._usage["real_exemplar_runner_used"] or local_steps > 0
         )
-        self._usage["fresh_optimizer_exact_match"] = True
+        self._usage["fresh_optimizer_exact_match"] = (
+            self._usage["fresh_optimizer_exact_match"] or local_steps > 0
+        )
         self._usage["byte_accounting_valid"] = True
         self._write_receipts()
         return self._arm_checkpoint(
@@ -659,7 +762,7 @@ class RadjaxCrossoverBackend:
     def _write_receipts(self) -> None:
         status = "pass" if all(self._usage.values()) else "incomplete"
         receipt = {
-            "phase": "P156.4.1",
+            "phase": "P156.4.1.1",
             "status": status,
             "backend": "radjax",
             "radjax_crossover_backend_config_sha256": self.config_sha256,
@@ -668,6 +771,8 @@ class RadjaxCrossoverBackend:
             "full_distillation_run_started": False,
             "publication_grade": False,
             "ready_for_P156_5": status == "pass",
+            "checkpoint_execution_mode": "independent_replay",
+            "matrix_wall_clock_must_not_be_interpreted_as_single_trajectory_cost": True,
         }
         _write_json(
             self.config.receipt_root / "radjax_backend_binding_receipt.json", receipt
@@ -679,7 +784,7 @@ class RadjaxCrossoverBackend:
         _write_json(
             self.config.receipt_root / "real_backend_evaluation_provenance.json",
             {
-                "phase": "P156.4.1",
+                "phase": "P156.4.1.1",
                 **{
                     key: value
                     for key, value in self._usage.items()
@@ -690,17 +795,16 @@ class RadjaxCrossoverBackend:
         _write_json(
             self.config.receipt_root / "real_backend_byte_accounting_receipt.json",
             {
-                "phase": "P156.4.1",
+                "phase": "P156.4.1.1",
                 "byte_accounting_valid": self._usage["byte_accounting_valid"],
+                **self._last_byte_accounting,
             },
         )
         _write_json(
             self.config.receipt_root / "real_backend_optimizer_freshness_receipt.json",
             {
-                "phase": "P156.4.1",
-                "fresh_optimizer_exact_match": self._usage[
-                    "fresh_optimizer_exact_match"
-                ],
+                "phase": "P156.4.1.1",
+                **self._freshness_proof,
             },
         )
 
@@ -723,10 +827,22 @@ def _byte_accounting(
     source_text_bytes: int,
     corridor_bytes: int = 0,
     exemplar_bytes: int = 0,
+    shared_bytes: int = 0,
+    artifact_bytes_available: int = 0,
 ) -> dict[str, Any]:
+    total = corridor_bytes + exemplar_bytes + shared_bytes
     result = {
         "arm": arm,
-        "teacher_artifact_bytes_consumed": corridor_bytes + exemplar_bytes,
+        "artifact_bytes_available": artifact_bytes_available,
+        "artifact_bytes_selected": total,
+        "artifact_bytes_logically_consumed": total,
+        "filesystem_bytes_read": None,
+        "corridor_payload_bytes": corridor_bytes,
+        "exemplar_payload_bytes": exemplar_bytes,
+        "shared_teacher_metadata_bytes": shared_bytes,
+        "teacher_artifact_bytes_total": total,
+        # Compatibility aliases for existing P156.4 report readers.
+        "teacher_artifact_bytes_consumed": total,
         "corridor_artifact_bytes_consumed": corridor_bytes,
         "exemplar_artifact_bytes_consumed": exemplar_bytes,
         "source_text_bytes_consumed": source_text_bytes,

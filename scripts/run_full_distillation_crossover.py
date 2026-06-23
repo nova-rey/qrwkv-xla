@@ -156,6 +156,31 @@ class TinyCpuCrossoverBackend:
                         "wall_clock_training_seconds": 0.0,
                         "checkpoint_seconds": 0.0,
                         "total_seconds": 0.0,
+                        "expected_fresh_exemplar_optimizer_hash": (
+                            initial_optimizer_hash
+                            if arm == "adaptive_two_cycle"
+                            else None
+                        ),
+                        "actual_initial_exemplar_optimizer_hash": (
+                            initial_optimizer_hash
+                            if arm == "adaptive_two_cycle" and total_step > start
+                            else None
+                        ),
+                        "cycle_two_optimizer_instantiated": (
+                            arm == "adaptive_two_cycle" and total_step > start
+                        ),
+                        "fresh_optimizer_exact_match": (
+                            True
+                            if arm == "adaptive_two_cycle" and total_step > start
+                            else None
+                        ),
+                        "fresh_optimizer_proof_status": (
+                            "proven"
+                            if arm == "adaptive_two_cycle" and total_step > start
+                            else "not_applicable"
+                            if arm == "adaptive_two_cycle"
+                            else None
+                        ),
                     },
                 )
             )

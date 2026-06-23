@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from pathlib import Path
 from types import SimpleNamespace
@@ -20,6 +21,8 @@ from qrwkv_xla.fingerprint.mode_plateau_controller import ModePlateauConfig
 from qrwkv_xla.fingerprint.radjax_crossover_backend import (
     RadjaxCrossoverBackend,
     RadjaxCrossoverBackendConfig,
+    classify_artifact_bytes,
+    classify_artifact_file,
     teacher_bytes_to_target,
     validate_byte_accounting,
 )
@@ -39,74 +42,84 @@ def test_incomplete_backend_does_not_implement_protocol() -> None:
     assert not isinstance(SimpleNamespace(), CrossoverExecutionBackend)
 
 
+def _accounting(arm: str, corridor: int, exemplar: int, shared: int) -> dict:
+    total = corridor + exemplar + shared
+    return {
+        "arm": arm,
+        "artifact_bytes_available": total,
+        "artifact_bytes_selected": total,
+        "artifact_bytes_logically_consumed": total,
+        "corridor_payload_bytes": corridor,
+        "exemplar_payload_bytes": exemplar,
+        "shared_teacher_metadata_bytes": shared,
+        "teacher_artifact_bytes_total": total,
+        "source_text_bytes_consumed": 0,
+    }
+
+
 @pytest.mark.parametrize(
     "accounting",
     [
-        {
-            "arm": "adaptive_two_cycle",
-            "teacher_artifact_bytes_consumed": 30,
-            "corridor_artifact_bytes_consumed": 10,
-            "exemplar_artifact_bytes_consumed": 20,
-            "source_text_bytes_consumed": 0,
-        },
-        {
-            "arm": "exemplar_only",
-            "teacher_artifact_bytes_consumed": 30,
-            "corridor_artifact_bytes_consumed": 0,
-            "exemplar_artifact_bytes_consumed": 20,
-            "source_text_bytes_consumed": 0,
-        },
+        _accounting("adaptive_two_cycle", 10, 20, 5),
+        _accounting("exemplar_only", 0, 20, 5),
     ],
 )
 def test_valid_byte_accounting_contract(accounting: dict) -> None:
     validate_byte_accounting(accounting, arm=accounting["arm"])
-    assert teacher_bytes_to_target(accounting) == 30
+    assert (
+        teacher_bytes_to_target(accounting)
+        == accounting["teacher_artifact_bytes_total"]
+    )
 
 
 def test_byte_components_may_not_exceed_total() -> None:
-    accounting = {
-        "arm": "adaptive_two_cycle",
-        "teacher_artifact_bytes_consumed": 20,
-        "corridor_artifact_bytes_consumed": 15,
-        "exemplar_artifact_bytes_consumed": 10,
-        "source_text_bytes_consumed": 0,
-    }
-    with pytest.raises(ValueError, match="exceed"):
+    accounting = _accounting("adaptive_two_cycle", 15, 10, 0)
+    accounting["teacher_artifact_bytes_total"] = 20
+    with pytest.raises(ValueError, match="disjoint"):
         validate_byte_accounting(accounting, arm=accounting["arm"])
 
 
 def test_vanilla_teacher_bytes_are_zero() -> None:
-    valid = {
-        "arm": "vanilla",
-        "teacher_artifact_bytes_consumed": 0,
-        "corridor_artifact_bytes_consumed": 0,
-        "exemplar_artifact_bytes_consumed": 0,
-        "source_text_bytes_consumed": 100,
-    }
+    valid = _accounting("vanilla", 0, 0, 0)
+    valid["source_text_bytes_consumed"] = 100
     validate_byte_accounting(valid, arm="vanilla")
-    invalid = {**valid, "teacher_artifact_bytes_consumed": 1}
-    with pytest.raises(ValueError, match="vanilla"):
+    invalid = {**valid, "teacher_artifact_bytes_total": 1}
+    with pytest.raises(ValueError, match="disjoint"):
         validate_byte_accounting(invalid, arm="vanilla")
 
 
 def test_old_additive_bytes_to_target_formula_is_rejected() -> None:
-    accounting = {
-        "arm": "adaptive_two_cycle",
-        "teacher_artifact_bytes_consumed": 30,
-        "corridor_artifact_bytes_consumed": 10,
-        "exemplar_artifact_bytes_consumed": 20,
-        "source_text_bytes_consumed": 0,
-    }
-    old_double_counted = sum(
-        accounting[key]
-        for key in (
-            "teacher_artifact_bytes_consumed",
-            "corridor_artifact_bytes_consumed",
-            "exemplar_artifact_bytes_consumed",
-        )
-    )
+    accounting = _accounting("adaptive_two_cycle", 10, 20, 0)
+    old_double_counted = accounting["teacher_artifact_bytes_total"] + 10 + 20
     assert old_double_counted == 60
     assert teacher_bytes_to_target(accounting) == 30
+
+
+def test_disjoint_100_20_30_artifact_fixture(tmp_path: Path) -> None:
+    (tmp_path / "targets").mkdir()
+    (tmp_path / "targets" / "corridor.bin").write_bytes(b"c" * 100)
+    (tmp_path / "manifest.json").write_bytes(b"m" * 20)
+    (tmp_path / "exemplars").mkdir()
+    (tmp_path / "exemplars" / "exemplar.bin").write_bytes(b"e" * 30)
+    result = classify_artifact_bytes(tmp_path)
+    totals = result["category_bytes"]
+    assert totals["corridor_payload"] == 100
+    assert totals["exemplar_payload"] == 30
+    assert totals["shared_teacher_metadata"] == 20
+    assert result["artifact_bytes_available"] == 150
+    assert result["artifact_bytes_available"] != 180
+    assert {row["category"] for row in result["files"]} == {
+        "corridor_payload",
+        "exemplar_payload",
+        "shared_teacher_metadata",
+    }
+
+
+def test_unknown_artifact_file_fails_closed(tmp_path: Path) -> None:
+    path = tmp_path / "unknown.bin"
+    path.write_bytes(b"x")
+    with pytest.raises(ValueError, match="exactly one"):
+        classify_artifact_file(tmp_path, path)
 
 
 class TinyTeacherModel:
@@ -212,6 +225,11 @@ def test_real_radjax_three_arm_cpu_smoke(tmp_path: Path) -> None:
         backend=backend,
     )
     assert report["status"] == "pass"
+    assert report["checkpoint_execution_mode"] == "independent_replay"
+    assert (
+        report["matrix_wall_clock_must_not_be_interpreted_as_single_trajectory_cost"]
+        is True
+    )
     binding = json.loads((output / "radjax_backend_binding_receipt.json").read_text())
     assert binding["status"] == "pass"
     assert binding["backend"] == "radjax"
@@ -225,10 +243,42 @@ def test_real_radjax_three_arm_cpu_smoke(tmp_path: Path) -> None:
     assert binding["publication_grade"] is False
     assert binding["full_distillation_run_started"] is False
     assert binding["ready_for_P156_5"] is True
+    state = json.loads((output / "crossover_experiment_state.json").read_text())
+    adaptive_rows = state["arm_checkpoint_results"]["0:adaptive_two_cycle"]
+    boundary_resource = adaptive_rows[0]["resource_accounting"]
+    assert boundary_resource["cycle_two_optimizer_instantiated"] is False
+    assert boundary_resource["actual_initial_exemplar_optimizer_hash"] is None
+    assert boundary_resource["fresh_optimizer_exact_match"] is None
+    assert boundary_resource["fresh_optimizer_proof_status"] == "not_applicable"
+    proof_resource = adaptive_rows[1]["resource_accounting"]
+    assert proof_resource["cycle_two_optimizer_instantiated"] is True
+    assert proof_resource["fresh_optimizer_proof_status"] == "proven"
+    assert proof_resource["fresh_optimizer_exact_match"] is True
+    assert (
+        proof_resource["expected_fresh_exemplar_optimizer_hash"]
+        == proof_resource["actual_initial_exemplar_optimizer_hash"]
+    )
+    byte_receipt = json.loads(
+        (output / "real_backend_byte_accounting_receipt.json").read_text()
+    )
+    assert byte_receipt["teacher_artifact_bytes_total"] == sum(
+        byte_receipt[key]
+        for key in (
+            "corridor_payload_bytes",
+            "exemplar_payload_bytes",
+            "shared_teacher_metadata_bytes",
+        )
+    )
+    assert (
+        byte_receipt["artifact_bytes_logically_consumed"]
+        == byte_receipt["teacher_artifact_bytes_total"]
+    )
     boundary = json.loads(
         (output / "seed_0" / "cycle_boundary_receipt.json").read_text()
     )
     assert boundary["fresh_optimizer_exact_match"] is True
+    assert boundary["fresh_optimizer_proof_status"] == "proven"
+    assert boundary["freshness_proof_total_step"] > boundary["boundary_total_step"]
     assert (
         boundary["expected_fresh_exemplar_optimizer_hash"]
         == boundary["actual_cycle_two_initial_optimizer_hash"]
@@ -237,3 +287,16 @@ def test_real_radjax_three_arm_cpu_smoke(tmp_path: Path) -> None:
         boundary["actual_cycle_two_initial_optimizer_hash"]
         != boundary["corridor_optimizer_state_hash"]
     )
+    evidence_dir = os.environ.get("P156_4_1_1_SMOKE_RECEIPT_DIR")
+    if evidence_dir:
+        destination = Path(evidence_dir)
+        destination.mkdir(parents=True, exist_ok=True)
+        for source_path in (
+            output / "real_backend_integration_smoke_report.json",
+            output / "radjax_backend_binding_receipt.json",
+            output / "real_backend_optimizer_freshness_receipt.json",
+            output / "real_backend_byte_accounting_receipt.json",
+            output / "seed_0" / "cycle_boundary_receipt.json",
+            output / "full_distillation_crossover_summary.md",
+        ):
+            shutil.copy2(source_path, destination / source_path.name)

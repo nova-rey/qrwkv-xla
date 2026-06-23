@@ -1,0 +1,16 @@
+{
+  "actual_cycle_two_initial_optimizer_hash": "sha256:41afd86d3e5438f5e8f7a462010fa2365166fccb268d4f9a0f519095f23b54d2",
+  "actual_initial_exemplar_optimizer_hash": "sha256:41afd86d3e5438f5e8f7a462010fa2365166fccb268d4f9a0f519095f23b54d2",
+  "boundary_checkpoint_hash": "sha256:2ace9501cbb811cec7b08c6c693503b3ca85685e770330a67ed943bb739c4df4",
+  "boundary_total_step": 1,
+  "corridor_final_optimizer_hash": "sha256:eb8bbb869f441d07c10a27b4ab37e2661aa8888026e4e06eff50754d7a8ed61f",
+  "corridor_optimizer_state_hash": "sha256:eb8bbb869f441d07c10a27b4ab37e2661aa8888026e4e06eff50754d7a8ed61f",
+  "cycle_two_optimizer_instantiated": true,
+  "expected_fresh_exemplar_optimizer_hash": "sha256:41afd86d3e5438f5e8f7a462010fa2365166fccb268d4f9a0f519095f23b54d2",
+  "fresh_optimizer_confirmed": true,
+  "fresh_optimizer_exact_match": true,
+  "fresh_optimizer_proof_status": "proven",
+  "freshness_proof_checkpoint_hash": "sha256:3c10bf231be645720f5b5244359d72229a05604b437ad23f507b4a3c956cc7e4",
+  "freshness_proof_total_step": 2,
+  "phase": "P156.4.1.1"
+}

@@ -1,0 +1,21 @@
+{
+  "backend": "radjax",
+  "byte_accounting_valid": true,
+  "checkpoint_execution_mode": "independent_replay",
+  "fresh_optimizer_exact_match": true,
+  "full_distillation_run_started": false,
+  "implementation_smoke_complete": true,
+  "matrix_wall_clock_must_not_be_interpreted_as_single_trajectory_cost": true,
+  "phase": "P156.4.1.1",
+  "publication_grade": false,
+  "radjax_crossover_backend_config_sha256": "sha256:8a6524a85268db603aa69a6fb6efc7b22f99c066eab8031d0067fc5033bf84fc",
+  "ready_for_P156_5": true,
+  "real_adaptive_runner_used": true,
+  "real_artifact_loaders_used": true,
+  "real_evaluation_adapters_used": true,
+  "real_exemplar_runner_used": true,
+  "real_student_used": true,
+  "real_teacher_used": true,
+  "real_vanilla_runner_used": true,
+  "status": "pass"
+}

@@ -123,6 +123,8 @@ from qrwkv_xla.fingerprint.quality_per_byte import (
 from qrwkv_xla.fingerprint.radjax_crossover_backend import (
     RadjaxCrossoverBackend,
     RadjaxCrossoverBackendConfig,
+    classify_artifact_bytes,
+    classify_artifact_file,
     teacher_bytes_to_target,
     validate_byte_accounting,
 )
@@ -248,6 +250,8 @@ __all__ = [
     "run_fingerprint_quality_per_byte_experiment",
     "run_fingerprint_trained_baseline_comparison",
     "run_corridor_measurement",
+    "classify_artifact_bytes",
+    "classify_artifact_file",
     "run_controlled_quality_per_byte_experiment",
     "run_exemplar_pass",
     "run_held_out_fingerprint_evaluation",

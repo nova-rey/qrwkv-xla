@@ -553,6 +553,8 @@ def run_full_distillation_crossover(
         "full_distillation_run_started": False,
         "publication_grade": False,
         "ready_for_P156_5": status == "pass",
+        "checkpoint_execution_mode": "independent_replay",
+        "matrix_wall_clock_must_not_be_interpreted_as_single_trajectory_cost": True,
         "config_sha256": config_hash,
         "plan": _jsonable(plan.to_dict()),
         "seeds_completed": len(state["completed_adaptive_discoveries"]),
@@ -645,33 +647,49 @@ def _write_cycle_boundary_receipt(
     arms: Mapping[str, Sequence[ArmCheckpoint]],
 ) -> None:
     adaptive = arms["adaptive_two_cycle"]
-    expected_fresh = (
-        None
-        if not adaptive
-        else adaptive[0].resource_accounting.get(
-            "expected_fresh_exemplar_optimizer_hash",
-            adaptive[0].optimizer_initial_state_hash,
+    boundary_step = int(discovery.optimizer_steps_completed or 0)
+    boundary = next((row for row in adaptive if row.total_step == boundary_step), None)
+    proof = next((row for row in adaptive if row.total_step > boundary_step), None)
+    if boundary is None:
+        raise ValueError("adaptive boundary checkpoint at S is missing")
+    if proof is None:
+        raise ValueError(
+            "adaptive freshness proof requires a checkpoint greater than S"
         )
-    )
-    actual_fresh = None if not adaptive else adaptive[0].optimizer_initial_state_hash
+    boundary_resource = boundary.resource_accounting
+    if (
+        boundary_resource.get("cycle_two_optimizer_instantiated") is not False
+        or boundary_resource.get("actual_initial_exemplar_optimizer_hash") is not None
+        or boundary_resource.get("fresh_optimizer_proof_status") != "not_applicable"
+    ):
+        raise ValueError("checkpoint at S makes an invalid Cycle 2 optimizer claim")
+    proof_resource = proof.resource_accounting
+    expected_fresh = proof_resource.get("expected_fresh_exemplar_optimizer_hash")
+    actual_fresh = proof_resource.get("actual_initial_exemplar_optimizer_hash")
     fresh = bool(
-        adaptive
+        proof_resource.get("cycle_two_optimizer_instantiated") is True
+        and proof_resource.get("fresh_optimizer_proof_status") == "proven"
+        and actual_fresh is not None
         and actual_fresh == expected_fresh
         and actual_fresh != discovery.corridor_optimizer_state_hash
     )
     _write_json(
         seed_dir / "cycle_boundary_receipt.json",
         {
-            "phase": "P156.4",
-            "corridor_checkpoint_hash": discovery.checkpoint_hash,
+            "phase": "P156.4.1.1",
+            "boundary_checkpoint_hash": boundary.checkpoint_hash,
+            "boundary_total_step": boundary_step,
+            "freshness_proof_checkpoint_hash": proof.checkpoint_hash,
+            "freshness_proof_total_step": proof.total_step,
+            "corridor_final_optimizer_hash": discovery.corridor_optimizer_state_hash,
             "corridor_optimizer_state_hash": discovery.corridor_optimizer_state_hash,
             "expected_fresh_exemplar_optimizer_hash": expected_fresh,
+            "actual_initial_exemplar_optimizer_hash": actual_fresh,
             "actual_cycle_two_initial_optimizer_hash": actual_fresh,
-            "fresh_exemplar_optimizer_initial_state_hash": actual_fresh,
-            "fresh_optimizer_confirmed": fresh,
             "fresh_optimizer_exact_match": fresh,
-            "cycle_one_step_S": discovery.optimizer_steps_completed,
-            "cycle_two_starting_total_step": discovery.optimizer_steps_completed,
+            "fresh_optimizer_confirmed": fresh,
+            "fresh_optimizer_proof_status": "proven" if fresh else "failed",
+            "cycle_two_optimizer_instantiated": True,
         },
     )
     if not fresh:
@@ -775,7 +793,12 @@ def _target_costs(
         for row in resources
         if row["seed"] == seed and row["arm"] == arm and row["total_step"] == step
     )
-    teacher_bytes = int(match.get("teacher_artifact_bytes_consumed", 0))
+    teacher_bytes = int(
+        match.get(
+            "artifact_bytes_logically_consumed",
+            match.get("teacher_artifact_bytes_consumed", 0),
+        )
+    )
     corridor_bytes = int(match.get("corridor_artifact_bytes_consumed", 0))
     exemplar_bytes = int(match.get("exemplar_artifact_bytes_consumed", 0))
     if corridor_bytes + exemplar_bytes > teacher_bytes:
@@ -873,6 +896,9 @@ def _render_summary(report: Mapping[str, Any]) -> str:
             "- Publication grade: false",
             "- Full distillation run started: false",
             "- Winner declared: false",
+            "- Checkpoint execution mode: independent_replay",
+            "- Matrix wall clock is not a single-trajectory cost.",
+            "- P156.5 should use continuous trajectories unless explicitly overridden.",
             "",
         ]
     )

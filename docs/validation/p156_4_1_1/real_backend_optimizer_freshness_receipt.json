@@ -1,0 +1,8 @@
+{
+  "actual_initial_exemplar_optimizer_hash": "sha256:41afd86d3e5438f5e8f7a462010fa2365166fccb268d4f9a0f519095f23b54d2",
+  "expected_fresh_exemplar_optimizer_hash": "sha256:41afd86d3e5438f5e8f7a462010fa2365166fccb268d4f9a0f519095f23b54d2",
+  "fresh_optimizer_exact_match": true,
+  "fresh_optimizer_proof_status": "proven",
+  "phase": "P156.4.1.1",
+  "proof_checkpoint_total_step": 2
+}
