@@ -129,6 +129,9 @@ class ModeControllerState:
     cooldown_observations_remaining: int = 0
     final_metric_snapshot: dict[str, float] = field(default_factory=dict)
     metric_history: dict[str, list[float]] = field(default_factory=dict)
+    last_signed_improvement: float | None = None
+    last_relative_improvement: float | None = None
+    plateau_observation: bool = False
     transition_count: int = 0
 
     @property
@@ -256,9 +259,12 @@ class MultiModePlateauController:
             self._reset_plateau(state)
             self._transition(state, step, ModeState.ACTIVE, "entry_condition_not_met")
             return
-        if not self._is_plateau(state):
+        plateau, degraded = self._plateau_status(state)
+        state.plateau_observation = plateau
+        if not plateau:
             self._reset_plateau(state)
-            self._transition(state, step, ModeState.ACTIVE, "meaningful_progress")
+            reason = "primary_metric_degraded" if degraded else "meaningful_progress"
+            self._transition(state, step, ModeState.ACTIVE, reason)
             return
 
         if state.state != ModeState.PLATEAU_CANDIDATE:
@@ -347,25 +353,35 @@ class MultiModePlateauController:
             checks[name](metrics[name]) for name in self.config.regression_metrics
         )
 
-    def _is_plateau(self, state: ModeControllerState) -> bool:
+    def _plateau_status(self, state: ModeControllerState) -> tuple[bool, bool]:
         values = state.metric_history[self.config.primary_progress_metric]
         smoothed = _rolling_means(values, self.config.smoothing_window_observations)
         window = self.config.progress_window_observations
         if len(smoothed) < window:
-            return False
-        old, new = smoothed[-window], smoothed[-1]
+            state.last_signed_improvement = None
+            state.last_relative_improvement = None
+            return False, False
         direction = self.config.metric_directions[self.config.primary_progress_metric]
-        absolute = old - new if direction == "lower" else new - old
-        relative = absolute / max(abs(old), 1e-12)
+        latest_signed = _signed_improvement(smoothed[-2], smoothed[-1], direction)
+        latest_relative = latest_signed / max(abs(smoothed[-2]), 1e-12)
+        state.last_signed_improvement = latest_signed
+        state.last_relative_improvement = latest_relative
+        if latest_signed < 0:
+            return False, True
+        old, new = smoothed[-window], smoothed[-1]
+        signed = _signed_improvement(old, new, direction)
+        relative = signed / max(abs(old), 1e-12)
         return (
-            absolute < self.config.plateau_absolute_improvement_threshold
+            signed >= 0
+            and signed < self.config.plateau_absolute_improvement_threshold
             and relative < self.config.plateau_relative_improvement_threshold
-        )
+        ), False
 
     def _reset_plateau(self, state: ModeControllerState) -> None:
         state.plateau_candidate_first_step = None
         state.plateau_patience_count = 0
         state.plateau_patience_satisfied = False
+        state.plateau_observation = False
 
     def _transition(
         self, state: ModeControllerState, step: int, target: ModeState, reason: str
@@ -466,6 +482,9 @@ class MultiModePlateauController:
                 "reactivation_count": state.reactivation_count,
                 "last_reactivation_step": state.last_reactivation_step,
                 "final_metric_snapshot": state.final_metric_snapshot,
+                "last_signed_improvement": state.last_signed_improvement,
+                "last_relative_improvement": state.last_relative_improvement,
+                "plateau_observation": state.plateau_observation,
                 "observation_count": state.observation_count,
                 "transition_count": state.transition_count,
             }
@@ -612,6 +631,10 @@ def _rolling_means(values: list[float], window: int) -> list[float]:
         / len(values[max(0, index - window + 1) : index + 1])
         for index in range(len(values))
     ]
+
+
+def _signed_improvement(previous: float, current: float, direction: str) -> float:
+    return previous - current if direction == "lower" else current - previous
 
 
 def _stable_hash(value: Any) -> str:

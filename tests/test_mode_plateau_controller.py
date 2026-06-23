@@ -107,6 +107,77 @@ def test_strong_progress_resets_plateau_and_patience_must_be_consecutive() -> No
     assert controller.modes["fast"].state == ModeState.FROZEN
 
 
+def test_lower_is_better_degradation_never_counts_as_plateau() -> None:
+    controller = MultiModePlateauController(_config())
+    _feed(controller, [1.0, 0.5, 0.6, 0.7, 0.8])
+    state = controller.modes["fast"]
+    assert state.state == ModeState.ACTIVE
+    assert state.freeze_step is None
+    assert state.plateau_patience_count == 0
+    assert state.last_signed_improvement is not None
+    assert state.last_signed_improvement < 0
+    assert state.last_relative_improvement is not None
+    assert state.last_relative_improvement < 0
+    assert not state.plateau_observation
+    assert not controller.global_cycle_one_complete
+
+
+def test_higher_is_better_degradation_never_counts_as_plateau() -> None:
+    directions = {**_config().metric_directions, "quality": "higher"}
+    controller = MultiModePlateauController(
+        _config(primary_progress_metric="quality", metric_directions=directions)
+    )
+    for step, quality in enumerate([0.2, 0.8, 0.7, 0.6, 0.5]):
+        controller.observe(
+            step=step,
+            mode_id="fast",
+            metrics={**_metrics(1.0), "quality": quality},
+        )
+    state = controller.modes["fast"]
+    assert state.state == ModeState.ACTIVE
+    assert state.freeze_step is None
+    assert state.plateau_patience_count == 0
+    assert state.last_signed_improvement is not None
+    assert state.last_signed_improvement < 0
+    assert not state.plateau_observation
+    assert not controller.global_cycle_one_complete
+
+
+def test_degradation_cancels_plateau_candidate_with_explicit_reason() -> None:
+    controller = MultiModePlateauController(_config())
+    _feed(controller, [0.5, 0.5, 0.5])
+    state = controller.modes["fast"]
+    assert state.state == ModeState.PLATEAU_CANDIDATE
+    controller.observe(step=3, mode_id="fast", metrics=_metrics(0.6))
+    assert state.state == ModeState.ACTIVE
+    assert state.plateau_patience_count == 0
+    assert state.plateau_candidate_first_step is None
+    assert state.last_signed_improvement is not None
+    assert state.last_signed_improvement < 0
+    assert not state.plateau_observation
+    assert controller.transitions[-1].reason == "primary_metric_degraded"
+
+
+@pytest.mark.parametrize(
+    "losses",
+    [
+        [0.5, 0.5, 0.5, 0.5],
+        [0.500, 0.499, 0.498, 0.497],
+    ],
+)
+def test_zero_and_small_positive_progress_remain_plateau_evidence(
+    losses: list[float],
+) -> None:
+    controller = MultiModePlateauController(_config())
+    _feed(controller, losses)
+    state = controller.modes["fast"]
+    assert state.state == ModeState.FROZEN
+    assert state.freeze_step == 3
+    assert state.last_signed_improvement is not None
+    assert state.last_signed_improvement >= 0
+    assert state.plateau_observation
+
+
 def test_minimum_step_rail_prevents_early_freeze() -> None:
     controller = MultiModePlateauController(_config(minimum_corridor_steps=8))
     _feed(controller, [1.0] * 8)
@@ -266,3 +337,21 @@ def test_resume_round_trip_matches_uninterrupted_execution(tmp_path) -> None:
     _feed(resumed, [1.0] * 3, start=3)
     assert resumed.to_dict() == uninterrupted.to_dict()
     assert resumed.report() == uninterrupted.report()
+
+
+def test_resume_immediately_before_degradation_matches_uninterrupted(tmp_path) -> None:
+    config = _config()
+    uninterrupted = MultiModePlateauController(config)
+    _feed(uninterrupted, [0.5, 0.5, 0.5, 0.6])
+
+    resumed = MultiModePlateauController(config)
+    _feed(resumed, [0.5, 0.5, 0.5])
+    resumed.write_receipts(tmp_path)
+    resumed = MultiModePlateauController.load(
+        tmp_path / "mode_plateau_controller_state.json"
+    )
+    resumed.observe(step=3, mode_id="fast", metrics=_metrics(0.6))
+
+    assert resumed.to_dict() == uninterrupted.to_dict()
+    assert resumed.report() == uninterrupted.report()
+    assert resumed.transitions[-1].reason == "primary_metric_degraded"
