@@ -69,6 +69,9 @@ class TwoCycleExperimentConfig:
     baseline_steps: int = 3
     corridor_steps: int = 3
     exemplar_steps: int = 3
+    corridor_only_steps: int | None = None
+    exemplar_only_steps: int | None = None
+    budget_comparison_mode: str = "stage_matched"
     batch_size: int = 1
     optimizer: str = "adamw"
     baseline_learning_rate: float = 1e-4
@@ -167,7 +170,14 @@ def run_two_cycle_experiment(
     }
     write_json(config.output_dir / "shared_initialization_receipt.json", shared_receipt)
 
-    corridor_common = _corridor_config_fields(config, selected_config)
+    corridor_only_common = _corridor_config_fields(
+        config,
+        selected_config,
+        steps=config.corridor_only_steps or config.corridor_steps,
+    )
+    two_cycle_corridor_common = _corridor_config_fields(
+        config, selected_config, steps=config.corridor_steps
+    )
     corridor_only = run_corridor_measurement(
         CorridorMeasurementConfig(
             output_dir=config.output_dir / "arms" / "corridor_only",
@@ -175,7 +185,7 @@ def run_two_cycle_experiment(
             p151_report=baseline_result.report_path,
             selected_aggressiveness_profile=profile_name,
             selected_profile_config_sha256=selection["selected_profile_config_sha256"],
-            **corridor_common,
+            **corridor_only_common,
         )
     )
     two_cycle_corridor = run_corridor_measurement(
@@ -185,19 +195,26 @@ def run_two_cycle_experiment(
             p151_report=baseline_result.report_path,
             selected_aggressiveness_profile=profile_name,
             selected_profile_config_sha256=selection["selected_profile_config_sha256"],
-            **corridor_common,
+            **two_cycle_corridor_common,
         )
     )
     corridor_only_report = read_json_object(corridor_only.report_path)
     two_cycle_corridor_report = read_json_object(two_cycle_corridor.report_path)
-    corridor_configs_match = (
+    corridor_stage_configs_match = (
         corridor_only_report["corridor_aggressiveness"]
         == two_cycle_corridor_report["corridor_aggressiveness"]
-        and corridor_only_report["requested_steps"]
-        == two_cycle_corridor_report["requested_steps"]
-        and parameter_fingerprint(load_checkpoint(corridor_only.checkpoint_dir).params)
-        == parameter_fingerprint(
-            load_checkpoint(two_cycle_corridor.checkpoint_dir).params
+    )
+    corridor_configs_match = corridor_stage_configs_match and (
+        config.budget_comparison_mode == "equal_total_budget"
+        or (
+            corridor_only_report["requested_steps"]
+            == two_cycle_corridor_report["requested_steps"]
+            and parameter_fingerprint(
+                load_checkpoint(corridor_only.checkpoint_dir).params
+            )
+            == parameter_fingerprint(
+                load_checkpoint(two_cycle_corridor.checkpoint_dir).params
+            )
         )
     )
     if not corridor_configs_match:
@@ -209,13 +226,18 @@ def run_two_cycle_experiment(
         selected_config=selected_config,
         corridor_checkpoint=two_cycle_corridor.checkpoint_dir,
     )
-    exemplar_common = _exemplar_config_fields(config)
+    exemplar_only_common = _exemplar_config_fields(
+        config, steps=config.exemplar_only_steps or config.exemplar_steps
+    )
+    two_cycle_exemplar_common = _exemplar_config_fields(
+        config, steps=config.exemplar_steps
+    )
     exemplar_only = run_exemplar_pass(
         ExemplarPassConfig(
             corridor_checkpoint=shared_checkpoint,
             output_dir=config.output_dir / "arms" / "exemplar_only",
             allow_shared_initialization_parent_for_control=True,
-            **exemplar_common,
+            **exemplar_only_common,
         )
     )
     two_cycle_exemplar = run_exemplar_pass(
@@ -224,17 +246,22 @@ def run_two_cycle_experiment(
             output_dir=config.output_dir / "arms" / "two_cycle" / "exemplar",
             p153_report=two_cycle_corridor.report_path,
             selected_profile=derived_selection,
-            **exemplar_common,
+            **two_cycle_exemplar_common,
         )
     )
     exemplar_only_report = read_json_object(exemplar_only.report_path)
     two_cycle_exemplar_report = read_json_object(two_cycle_exemplar.report_path)
-    exemplar_configs_match = _exemplar_fairness_view(
+    exemplar_only_view = _exemplar_fairness_view(
         exemplar_only_report, exemplar_only.output_dir
-    ) == (
-        _exemplar_fairness_view(
-            two_cycle_exemplar_report, two_cycle_exemplar.output_dir
-        )
+    )
+    two_cycle_exemplar_view = _exemplar_fairness_view(
+        two_cycle_exemplar_report, two_cycle_exemplar.output_dir
+    )
+    exemplar_configs_match = _without_requested_steps(
+        exemplar_only_view
+    ) == _without_requested_steps(two_cycle_exemplar_view) and (
+        config.budget_comparison_mode == "equal_total_budget"
+        or exemplar_only_view == two_cycle_exemplar_view
     )
     if not exemplar_configs_match:
         raise ValueError("exemplar_arm_configuration_mismatch")
@@ -292,6 +319,7 @@ def run_two_cycle_experiment(
     )
     write_json(config.output_dir / "final_test_access_receipt.json", final_test_access)
     evaluations = _evaluate_all(config, checkpoints)
+    evaluation_metrics = _evaluation_metrics(evaluations)
     per_record_rows = _aligned_per_record_metrics(evaluations)
     comparisons = _paired_comparisons(config, per_record_rows)
     primary = comparisons["two_cycle_final_vs_exemplar_only_final"]
@@ -308,7 +336,9 @@ def run_two_cycle_experiment(
         "shared_initialization_valid": shared_valid,
         "all_arms_share_initialization": all_arm_initialization_valid,
         "corridor_configs_match": corridor_configs_match,
+        "corridor_stage_configs_match": corridor_stage_configs_match,
         "exemplar_configs_match": exemplar_configs_match,
+        "budget_comparison_mode": config.budget_comparison_mode,
         "held_out_record_order_identical": True,
         "selected_profile": profile_name,
         "selected_profile_config_sha256": selection["selected_profile_config_sha256"],
@@ -389,6 +419,7 @@ def run_two_cycle_experiment(
         "cycle_boundary": cycle_boundary,
         "comparisons": comparisons,
         "resources": resources,
+        "evaluation_metrics": evaluation_metrics,
         "arm_lineage": arm_lineage,
         "split_integrity": {
             "training_artifact_sha256": split_validation["training"][
@@ -661,6 +692,9 @@ def build_configuration_freeze(
         "corridor_step_budget": config.corridor_steps,
         "exemplar_step_budget": config.exemplar_steps,
         "baseline_step_budget": config.baseline_steps,
+        "corridor_only_step_budget": config.corridor_only_steps,
+        "exemplar_only_step_budget": config.exemplar_only_steps,
+        "budget_comparison_mode": config.budget_comparison_mode,
         "batch_size": config.batch_size,
         "initialization_and_sampling_seed": config.seed,
         "corridor_eval_every": config.corridor_eval_every,
@@ -841,13 +875,13 @@ def _validate_calibration_lineage(
     }
 
 
-def _corridor_config_fields(config, profile):
+def _corridor_config_fields(config, profile, *, steps):
     return {
         "fingerprint_artifact": config.training_fingerprint_artifact,
         "held_out_fingerprint_artifact": config.calibration_fingerprint_artifact,
         "held_out_artifact_role": "calibration_validation",
         "source_texts": config.source_texts,
-        "steps": config.corridor_steps,
+        "steps": steps,
         "eval_every": config.corridor_eval_every,
         "checkpoint_every": config.checkpoint_every,
         "batch_size": config.batch_size,
@@ -875,13 +909,13 @@ def _corridor_config_fields(config, profile):
     }
 
 
-def _exemplar_config_fields(config):
+def _exemplar_config_fields(config, *, steps):
     return {
         "fingerprint_artifact": config.training_fingerprint_artifact,
         "held_out_fingerprint_artifact": config.calibration_fingerprint_artifact,
         "student_backend": config.student_backend,
         "student_architecture": config.student_architecture,
-        "steps": config.exemplar_steps,
+        "steps": steps,
         "batch_size": config.batch_size,
         "optimizer": config.optimizer,
         "learning_rate": config.exemplar_learning_rate,
@@ -937,6 +971,10 @@ def _exemplar_fairness_view(report, output_dir):
         "exemplar_max_records": sampling["exemplar_max_records"],
         "exemplar_artifact_sha256": sampling["exemplar_artifact_sha256"],
     }
+
+
+def _without_requested_steps(view):
+    return {key: value for key, value in view.items() if key != "requested_steps"}
 
 
 def _all_arm_initialization_valid(
@@ -1103,6 +1141,24 @@ def _aligned_per_record_metrics(evaluations):
         }
         for key in keys
     ]
+
+
+def _evaluation_metrics(evaluations):
+    return {
+        arm: {
+            "teacher": result["teacher_metrics"],
+            "corridor": {
+                key: result["aggregate"].get(key)
+                for key in (
+                    "corridor_loss_total",
+                    "inside_all_rate",
+                    "mean_distance_outside_corridor",
+                )
+            },
+            "teacher_metric_availability": result["teacher_metric_availability"],
+        }
+        for arm, result in evaluations.items()
+    }
 
 
 def _paired_comparisons(config, rows):
@@ -1310,6 +1366,15 @@ def _validate_config(config):
     for name in ("baseline_steps", "corridor_steps", "exemplar_steps", "batch_size"):
         if int(getattr(config, name)) < 1:
             raise ValueError(f"{name} must be >= 1")
+    for name in ("corridor_only_steps", "exemplar_only_steps"):
+        value = getattr(config, name)
+        if value is not None and int(value) < 1:
+            raise ValueError(f"{name} must be >= 1")
+    if config.budget_comparison_mode not in {
+        "stage_matched",
+        "equal_total_budget",
+    }:
+        raise ValueError("unsupported budget_comparison_mode")
     if config.bootstrap_samples < 1:
         raise ValueError("bootstrap_samples must be >= 1")
     if config.tie_tolerance < 0.0 or not math.isfinite(config.tie_tolerance):

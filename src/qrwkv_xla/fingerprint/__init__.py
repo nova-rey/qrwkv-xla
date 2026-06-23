@@ -64,9 +64,13 @@ from qrwkv_xla.fingerprint.provenance import (
     join_sources_by_example_id,
 )
 from qrwkv_xla.fingerprint.quality_per_byte import (
+    ControlledQualityPerByteConfig,
+    ControlledQualityPerByteResult,
     FingerprintQualityPerByteExperimentConfig,
     FingerprintQualityPerByteExperimentResult,
+    QualityBudgetPoint,
     evaluate_student_corridor_adherence,
+    run_controlled_quality_per_byte_experiment,
     run_fingerprint_quality_per_byte_experiment,
 )
 from qrwkv_xla.fingerprint.real_teacher import (
@@ -111,6 +115,8 @@ __all__ = [
     "FingerprintCorridorBoundsConfig",
     "CorridorMeasurementConfig",
     "CorridorMeasurementResult",
+    "ControlledQualityPerByteConfig",
+    "ControlledQualityPerByteResult",
     "ExemplarPassConfig",
     "ExemplarPassResult",
     "FingerprintExemplarReservoirCaptureConfig",
@@ -123,6 +129,7 @@ __all__ = [
     "HeldOutFingerprintEvaluationResult",
     "DEFAULT_TINY_TEXTS",
     "PROFILE_NAMES",
+    "QualityBudgetPoint",
     "RealTeacherFingerprintTrainingRehearsalConfig",
     "RealTeacherFingerprintTrainingRehearsalResult",
     "TinyRealTeacherFingerprintCaptureConfig",
@@ -152,6 +159,7 @@ __all__ = [
     "run_fingerprint_quality_per_byte_experiment",
     "run_fingerprint_trained_baseline_comparison",
     "run_corridor_measurement",
+    "run_controlled_quality_per_byte_experiment",
     "run_exemplar_pass",
     "run_held_out_fingerprint_evaluation",
     "run_real_teacher_fingerprint_training_rehearsal",

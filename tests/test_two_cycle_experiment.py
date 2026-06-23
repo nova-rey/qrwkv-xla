@@ -13,6 +13,11 @@ from qrwkv_xla.fingerprint.aggressiveness_profiles import (
     resolve_aggressiveness_profile,
 )
 from qrwkv_xla.fingerprint.provenance import file_sha256, stable_hash
+from qrwkv_xla.fingerprint.quality_per_byte import (
+    ControlledQualityPerByteConfig,
+    QualityBudgetPoint,
+    run_controlled_quality_per_byte_experiment,
+)
 from qrwkv_xla.fingerprint.two_cycle_experiment import (
     ARM_NAMES,
     TwoCycleExperimentConfig,
@@ -316,6 +321,57 @@ def test_sequential_two_cycle_integration_smoke(tmp_path: Path) -> None:
         "final_test_access_receipt.json",
     ):
         assert (result.output_dir / name).is_file()
+
+
+def test_controlled_quality_per_byte_fast_cpu_smoke(tmp_path: Path) -> None:
+    train_artifact, train_source = _artifact_copy(
+        tmp_path / "train", prefix="train", token_offset=0, role="training"
+    )
+    calibration_artifact, _ = _artifact_copy(
+        tmp_path / "calibration",
+        prefix="calibration",
+        token_offset=2,
+        role="calibration_validation",
+    )
+    final_test_artifact, _ = _artifact_copy(
+        tmp_path / "final-test",
+        prefix="final-test",
+        token_offset=1,
+        role="final_held_out_test",
+    )
+    selection = _selection_receipt(
+        tmp_path,
+        training_artifact=train_artifact,
+        calibration_artifact=calibration_artifact,
+    )
+    physical_bytes = sum(
+        path.stat().st_size for path in train_artifact.rglob("*") if path.is_file()
+    )
+    result = run_controlled_quality_per_byte_experiment(
+        ControlledQualityPerByteConfig(
+            training_fingerprint_artifact=train_artifact,
+            calibration_fingerprint_artifact=calibration_artifact,
+            final_test_fingerprint_artifact=final_test_artifact,
+            source_texts=train_source,
+            selected_profile_receipt=selection,
+            output_dir=tmp_path / "p156",
+            budget_points=(QualityBudgetPoint("smoke", physical_bytes, 2, 120.0),),
+            seeds=(0,),
+            student_backend="tiny_debug",
+            optimizer="sgd",
+            baseline_learning_rate=1e-2,
+            exemplar_learning_rate=1e-2,
+            bootstrap_samples=20,
+        )
+    )
+    report = _json(result.report_path)
+    assert result.status == "pass"
+    assert report["required_arms_complete"] is True
+    assert report["required_seeds_complete"] is False
+    assert report["quality_per_byte_claim_allowed"] is False
+    assert len(_jsonl(result.output_dir / "quality_budget_curve.jsonl")) == 12
+    publication = _json(result.output_dir / "publication_grade_receipt.json")
+    assert publication["publication_grade"] is False
 
 
 def _artifact_copy(
