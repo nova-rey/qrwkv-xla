@@ -1,0 +1,13 @@
+{
+  "phase": "P156.5",
+  "receipt": "compressed_exemplar_size_comparison",
+  "status": "unavailable",
+  "reason": "The real 25-example Cardboard compressed artifact was not generated because the HF teacher runtime is unavailable in this workspace.",
+  "dense_probe_reference_bytes": 73000000,
+  "required_size_gate": "compressed exemplar bytes <= 3650000",
+  "compressed_exemplar_bytes": null,
+  "bytes_per_exemplar": null,
+  "compression_ratio_vs_dense_probe": null,
+  "gate_passed": null,
+  "not_faked": true
+}

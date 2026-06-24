@@ -5,6 +5,8 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
+import jax
+import jax.numpy as jnp
 import numpy as np
 
 from qrwkv_xla.artifacts import (
@@ -14,6 +16,12 @@ from qrwkv_xla.artifacts import (
     validate_fingerprint_artifact,
 )
 from qrwkv_xla.artifacts._json import read_json_object, write_json
+from qrwkv_xla.artifacts.cascaded_soft_labels import (
+    DEFAULT_BUCKET_MASS_DTYPE,
+    DEFAULT_BUCKET_MEAN_LOGP_DTYPE,
+    DEFAULT_CASCADED_BUCKET_EDGES,
+    DEFAULT_TOP_LOG_PROBS_DTYPE,
+)
 from qrwkv_xla.distill import (
     DISTILL_MODE_FINGERPRINT_CORRIDOR,
     DistillFingerprintConfig,
@@ -29,9 +37,10 @@ from qrwkv_xla.fingerprint.capture import (
     FingerprintModeDiscoveryConfig,
     capture_fingerprint_artifact,
 )
-from qrwkv_xla.teachers import HFTeacherBackend, HFTeacherUnavailable
+from qrwkv_xla.teachers import HFTeacherBackend
 from qrwkv_xla.training import (
     RealStudentFingerprintForwardConfig,
+    compute_fingerprint_exemplar_loss,
     run_real_student_fingerprint_forward_smoke,
 )
 
@@ -57,6 +66,12 @@ class TinyRealTeacherFingerprintCaptureConfig:
     upper_quantile: float = 0.95
     exemplar_selection_policy: str = "stratified_interestingness_v0"
     per_mode_min: int = 1
+    exemplar_target_type: str = "cascaded_soft_labels_v1"
+    exemplar_top_k: int = 256
+    exemplar_bucket_edges: tuple[float, ...] = DEFAULT_CASCADED_BUCKET_EDGES
+    exemplar_top_log_probs_dtype: str = DEFAULT_TOP_LOG_PROBS_DTYPE
+    exemplar_bucket_mass_dtype: str = DEFAULT_BUCKET_MASS_DTYPE
+    exemplar_bucket_mean_logp_dtype: str = DEFAULT_BUCKET_MEAN_LOGP_DTYPE
     consumer_vocab_limit: int = DEFAULT_CONSUMER_VOCAB_LIMIT
     example_id_prefix: str = "p145-real-teacher"
 
@@ -101,35 +116,35 @@ def run_tiny_real_teacher_fingerprint_capture(
         local_files_only=effective_local_files_only,
         prompts=prompts,
     )
-    teacher.prompts = prompts
-    try:
-        emitted = teacher.emit_targets(
-            num_examples=len(prompts),
-            sequence_length=config.sequence_length,
-        )
-    except HFTeacherUnavailable:
-        raise
+    emission = {"tokens": 0, "vocab_size": None}
 
-    input_ids = np.asarray(emitted["input_ids"], dtype=np.int32)
-    attention_mask = np.asarray(emitted["attention_mask"], dtype=np.int32)
-    logits = np.asarray(emitted["logits"], dtype=np.float32)
-    _validate_emitted_shapes(
-        input_ids=input_ids,
-        attention_mask=attention_mask,
-        logits=logits,
-        examples=len(prompts),
-        sequence_length=config.sequence_length,
-    )
-
-    vocab_size = int(logits.shape[-1])
-    examples = tuple(
-        FingerprintCaptureExample(
-            example_id=f"{config.example_id_prefix}-{index:06d}",
-            input_ids=tuple(int(token) for token in input_ids[index]),
-            logits=logits[index],
-        )
-        for index in range(input_ids.shape[0])
-    )
+    def iter_examples() -> Any:
+        for index, prompt in enumerate(prompts):
+            teacher.prompts = (prompt,)
+            emitted = teacher.emit_targets(
+                num_examples=1,
+                sequence_length=config.sequence_length,
+            )
+            input_ids = np.asarray(emitted["input_ids"], dtype=np.int32)
+            attention_mask = np.asarray(emitted["attention_mask"], dtype=np.int32)
+            logits = np.asarray(emitted["logits"], dtype=np.float32)
+            _validate_emitted_shapes(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                logits=logits,
+                examples=1,
+                sequence_length=config.sequence_length,
+            )
+            vocab_size = int(logits.shape[-1])
+            if emission["vocab_size"] not in {None, vocab_size}:
+                raise ValueError("teacher vocabulary size changed during capture")
+            emission["vocab_size"] = vocab_size
+            emission["tokens"] += int(np.sum(attention_mask))
+            yield FingerprintCaptureExample(
+                example_id=f"{config.example_id_prefix}-{index:06d}",
+                input_ids=tuple(int(token) for token in input_ids[0]),
+                logits=logits[0],
+            )
     capture_config = FingerprintCaptureConfig(
         output_dir=config.output_dir,
         overwrite=config.overwrite,
@@ -148,11 +163,18 @@ def run_tiny_real_teacher_fingerprint_capture(
         exemplar_reservoir=FingerprintExemplarReservoirCaptureConfig(
             enabled=True,
             max_exemplars=config.max_exemplars,
+            payload_type=config.exemplar_target_type,
             selection_policy=config.exemplar_selection_policy,
             per_mode_min=config.per_mode_min,
+            top_k=config.exemplar_top_k,
+            bucket_edges=config.exemplar_bucket_edges,
+            top_log_probs_dtype=config.exemplar_top_log_probs_dtype,
+            bucket_mass_dtype=config.exemplar_bucket_mass_dtype,
+            bucket_mean_logp_dtype=config.exemplar_bucket_mean_logp_dtype,
         ),
     )
-    capture = capture_fingerprint_artifact(capture_config, examples)
+    capture = capture_fingerprint_artifact(capture_config, iter_examples())
+    vocab_size = int(emission["vocab_size"] or 0)
     _rewrite_manifest_for_p145(
         capture.manifest_path,
         config=config,
@@ -185,7 +207,7 @@ def run_tiny_real_teacher_fingerprint_capture(
         teacher=teacher,
         effective_local_files_only=effective_local_files_only,
         examples_processed=len(prompts),
-        tokens_processed=int(np.sum(attention_mask)),
+        tokens_processed=int(emission["tokens"]),
         target_positions_processed=target_records,
         vocab_size=vocab_size,
         artifact_validated=validation.ok,
@@ -210,7 +232,7 @@ def run_tiny_real_teacher_fingerprint_capture(
         tokenizer_name_or_path=config.tokenizer or config.teacher_model,
         local_files_only=effective_local_files_only,
         examples_processed=len(prompts),
-        tokens_processed=int(np.sum(attention_mask)),
+        tokens_processed=int(emission["tokens"]),
         target_positions_processed=target_records,
         modes_discovered=int(summary["modes_discovered"]),
         exemplars_retained=exemplar_records,
@@ -247,6 +269,13 @@ def _validate_config(config: TinyRealTeacherFingerprintCaptureConfig) -> None:
         raise ValueError("max_target_positions must be > 0")
     if config.max_exemplars < 0:
         raise ValueError("max_exemplars must be >= 0")
+    if config.exemplar_target_type not in {
+        "dense_probs",
+        "cascaded_soft_labels_v1",
+    }:
+        raise ValueError("unsupported exemplar_target_type")
+    if config.exemplar_top_k <= 0:
+        raise ValueError("exemplar_top_k must be > 0")
     if config.consumer_vocab_limit < 0:
         raise ValueError("consumer_vocab_limit must be >= 0")
     if config.local_files_only and config.allow_downloads:
@@ -315,6 +344,40 @@ def _run_consumer_sanity(
             "status": "fail",
             "reason": "artifact validation failed",
         }
+    if config.exemplar_target_type == "cascaded_soft_labels_v1":
+        try:
+            batch = next(
+                iter(
+                    load_fingerprint_exemplars(
+                        config.output_dir, batch_size=1
+                    ).iter_batches()
+                )
+            )
+            initial = jnp.zeros((1, vocab_size), dtype=jnp.float32)
+
+            def loss_fn(logits: jax.Array) -> jax.Array:
+                return compute_fingerprint_exemplar_loss(logits, batch).loss
+
+            loss, gradient = jax.value_and_grad(loss_fn)(initial)
+            updated = initial - 0.01 * gradient
+            changed = bool(np.any(np.asarray(updated) != np.asarray(initial)))
+            finite = bool(
+                np.isfinite(float(loss)) and np.all(np.isfinite(np.asarray(gradient)))
+            )
+            return {
+                "kind": "compressed_exemplar_optimizer_step",
+                "status": "pass" if finite and changed else "fail",
+                "reason": None if finite and changed else "nonfinite_or_unchanged",
+                "initial_loss": float(loss),
+                "gradient_finite": bool(np.all(np.isfinite(np.asarray(gradient)))),
+                "parameters_changed": changed,
+            }
+        except Exception as error:
+            return {
+                "kind": "compressed_exemplar_optimizer_step",
+                "status": "fail",
+                "reason": f"{type(error).__name__}: {error}",
+            }
     if vocab_size > config.consumer_vocab_limit:
         return {
             "kind": "loader_only",

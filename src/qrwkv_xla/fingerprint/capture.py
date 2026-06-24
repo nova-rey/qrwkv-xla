@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import heapq
 import json
 import math
 import shutil
 from collections import Counter
 from dataclasses import asdict, dataclass, field
+from itertools import chain, islice
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +20,14 @@ from qrwkv_xla.artifacts import (
     validate_fingerprint_artifact,
 )
 from qrwkv_xla.artifacts._json import write_json
+from qrwkv_xla.artifacts.cascaded_soft_labels import (
+    DEFAULT_BUCKET_MASS_DTYPE,
+    DEFAULT_BUCKET_MEAN_LOGP_DTYPE,
+    DEFAULT_CASCADED_BUCKET_EDGES,
+    DEFAULT_TOP_LOG_PROBS_DTYPE,
+    encode_cascaded_soft_labels,
+    validate_cascaded_bucket_edges,
+)
 from qrwkv_xla.training.fingerprint_stats import (
     compute_fingerprint_distribution_stats,
 )
@@ -62,6 +72,12 @@ class FingerprintExemplarReservoirCaptureConfig:
     payload_type: str = "dense_probs"
     selection_policy: str = "top_interestingness_v0"
     per_mode_min: int = 0
+    top_k: int = 256
+    bucket_edges: tuple[float, ...] = DEFAULT_CASCADED_BUCKET_EDGES
+    top_log_probs_dtype: str = DEFAULT_TOP_LOG_PROBS_DTYPE
+    bucket_mass_dtype: str = DEFAULT_BUCKET_MASS_DTYPE
+    bucket_mean_logp_dtype: str = DEFAULT_BUCKET_MEAN_LOGP_DTYPE
+    shard_size: int = 256
 
 
 @dataclass(frozen=True)
@@ -134,9 +150,111 @@ class _CapturedPosition:
     position: int
     mode_id: int
     stats: dict[str, float]
-    teacher_probs: tuple[float, ...]
+    exemplar_payload: dict[str, Any] | None
     interestingness_score: float
     reason_codes: tuple[str, ...]
+
+
+class _BoundedExemplarReservoir:
+    def __init__(self, config: FingerprintExemplarReservoirCaptureConfig) -> None:
+        self._config = config
+        self._global: list[tuple[Any, int, _CapturedPosition]] = []
+        self._by_mode: dict[int, list[tuple[Any, int, _CapturedPosition]]] = {}
+        self._sequence = 0
+
+    def consider(
+        self,
+        position: _CapturedPosition,
+        logits: np.ndarray,
+        probs: np.ndarray | None,
+    ) -> None:
+        if not self._config.enabled or self._config.max_exemplars == 0:
+            return
+        quality = _reservoir_quality(position)
+        global_eligible = _heap_would_accept(
+            self._global, quality, self._config.max_exemplars
+        )
+        mode_heap = self._by_mode.setdefault(position.mode_id, [])
+        mode_eligible = (
+            self._config.selection_policy == "stratified_interestingness_v0"
+            and self._config.per_mode_min > 0
+            and _heap_would_accept(mode_heap, quality, self._config.per_mode_min)
+        )
+        if not global_eligible and not mode_eligible:
+            return
+
+        encoded = _CapturedPosition(
+            example_id=position.example_id,
+            input_ids=position.input_ids,
+            position=position.position,
+            mode_id=position.mode_id,
+            stats=position.stats,
+            exemplar_payload=_exemplar_payload(logits, probs, self._config),
+            interestingness_score=position.interestingness_score,
+            reason_codes=position.reason_codes,
+        )
+        if global_eligible:
+            self._push(self._global, quality, encoded, self._config.max_exemplars)
+        if mode_eligible:
+            self._push(mode_heap, quality, encoded, self._config.per_mode_min)
+
+    def selected(self) -> list[_CapturedPosition]:
+        global_rows = [item[2] for item in self._global]
+        if self._config.selection_policy != "stratified_interestingness_v0":
+            return _top_interestingness(global_rows, self._config.max_exemplars)
+
+        selected: list[_CapturedPosition] = []
+        selected_keys: set[tuple[str, int]] = set()
+        for mode_id in sorted(self._by_mode):
+            rows = _top_interestingness(
+                [item[2] for item in self._by_mode[mode_id]],
+                self._config.per_mode_min,
+            )
+            for row in rows:
+                if len(selected) >= self._config.max_exemplars:
+                    return selected
+                key = (row.example_id, row.position)
+                if key not in selected_keys:
+                    selected.append(row)
+                    selected_keys.add(key)
+        for row in _top_interestingness(global_rows, len(global_rows)):
+            if len(selected) >= self._config.max_exemplars:
+                break
+            key = (row.example_id, row.position)
+            if key not in selected_keys:
+                selected.append(row)
+                selected_keys.add(key)
+        return selected
+
+    def _push(
+        self,
+        heap: list[tuple[Any, int, _CapturedPosition]],
+        quality: Any,
+        row: _CapturedPosition,
+        limit: int,
+    ) -> None:
+        item = (quality, self._sequence, row)
+        self._sequence += 1
+        if len(heap) < limit:
+            heapq.heappush(heap, item)
+        else:
+            heapq.heapreplace(heap, item)
+
+
+def _reservoir_quality(position: _CapturedPosition) -> tuple[Any, ...]:
+    return (
+        position.interestingness_score,
+        tuple(-ord(char) for char in position.example_id),
+        -position.position,
+    )
+
+
+def _heap_would_accept(
+    heap: list[tuple[Any, int, _CapturedPosition]],
+    quality: Any,
+    limit: int,
+) -> bool:
+    return limit > 0 and (len(heap) < limit or quality > heap[0][0])
 
 
 def capture_fingerprint_artifact(
@@ -144,11 +262,11 @@ def capture_fingerprint_artifact(
     examples: Any,
 ) -> FingerprintCaptureResult:
     _validate_config(config)
-    selected_examples = _select_examples(tuple(examples), config.capture_budget)
-    if not selected_examples:
+    selected_examples = iter(_select_examples(examples, config.capture_budget))
+    first_example = next(selected_examples, None)
+    if first_example is None:
         raise ValueError("fingerprint capture requires at least one example")
-
-    max_seq_len, vocab_size = _validate_examples(selected_examples)
+    max_seq_len, vocab_size = _validate_example(first_example)
     if config.output_dir.exists():
         if not config.overwrite:
             raise FileExistsError(
@@ -160,16 +278,29 @@ def capture_fingerprint_artifact(
     mode_ids: dict[tuple[int, int, int], int] = {}
     aggregates: dict[int, dict[str, _StatAggregate]] = {}
     captured: list[_CapturedPosition] = []
+    exemplar_reservoir = _BoundedExemplarReservoir(config.exemplar_reservoir)
 
-    for example in selected_examples:
+    examples_processed = 0
+    target_positions_processed = 0
+    for example in chain((first_example,), selected_examples):
+        _validate_example(
+            example,
+            expected_shape=(max_seq_len, vocab_size),
+        )
+        examples_processed += 1
         logits = np.asarray(example.logits, dtype=np.float32)
         stats = compute_fingerprint_distribution_stats(jnp.asarray(logits))
         stat_arrays = _stats_to_numpy(stats)
-        probs = np.asarray(jax.nn.softmax(jnp.asarray(logits), axis=-1))
+        probs = (
+            np.asarray(jax.nn.softmax(jnp.asarray(logits), axis=-1))
+            if config.exemplar_reservoir.payload_type == "dense_probs"
+            else None
+        )
         for position in range(logits.shape[0]):
             if (
                 config.capture_budget.max_target_positions is not None
-                and len(captured) >= config.capture_budget.max_target_positions
+                and target_positions_processed
+                >= config.capture_budget.max_target_positions
             ):
                 break
             row_stats = {
@@ -189,21 +320,26 @@ def capture_fingerprint_artifact(
             )
             for stat, value in row_stats.items():
                 aggregates[mode_id][stat].update(value)
-            captured.append(
-                _CapturedPosition(
-                    example_id=example.example_id,
-                    input_ids=example.input_ids,
-                    position=position,
-                    mode_id=mode_id,
-                    stats=row_stats,
-                    teacher_probs=tuple(float(x) for x in probs[position]),
-                    interestingness_score=_interestingness(row_stats),
-                    reason_codes=_reason_codes(row_stats),
-                )
+            captured_position = _CapturedPosition(
+                example_id=example.example_id,
+                input_ids=example.input_ids,
+                position=position,
+                mode_id=mode_id,
+                stats=row_stats,
+                exemplar_payload=None,
+                interestingness_score=_interestingness(row_stats),
+                reason_codes=_reason_codes(row_stats),
             )
+            captured.append(captured_position)
+            exemplar_reservoir.consider(
+                captured_position,
+                logits[position],
+                probs[position] if probs is not None else None,
+            )
+            target_positions_processed += 1
         if (
             config.capture_budget.max_target_positions is not None
-            and len(captured) >= config.capture_budget.max_target_positions
+            and target_positions_processed >= config.capture_budget.max_target_positions
         ):
             break
 
@@ -215,26 +351,31 @@ def capture_fingerprint_artifact(
     target_rows = [
         _target_row(position, mode_bounds[position.mode_id]) for position in captured
     ]
-    exemplar_rows = _select_exemplar_rows(captured, config.exemplar_reservoir)
+    exemplar_rows = _exemplar_rows(exemplar_reservoir.selected())
 
     modes_path = config.output_dir / "modes.json"
     targets_path = config.output_dir / "targets" / "targets-00000.jsonl"
-    exemplars_path = (
-        config.output_dir / "exemplars" / "exemplars-00000.jsonl"
+    exemplar_shards = (
+        _write_exemplar_shards(
+            config.output_dir,
+            exemplar_rows,
+            config.exemplar_reservoir.shard_size,
+        )
         if config.exemplar_reservoir.enabled
-        else None
+        else []
+    )
+    exemplars_path = (
+        config.output_dir / exemplar_shards[0]["path"] if exemplar_shards else None
     )
     write_json(modes_path, modes_payload)
     _write_jsonl(targets_path, target_rows)
-    if exemplars_path is not None:
-        _write_jsonl(exemplars_path, exemplar_rows)
-
     manifest = _manifest_payload(
         config=config,
         max_seq_len=max_seq_len,
         vocab_size=vocab_size,
         target_count=len(target_rows),
         exemplar_count=len(exemplar_rows),
+        exemplar_shards=exemplar_shards,
     )
     manifest_path = config.output_dir / "manifest.json"
     write_json(manifest_path, manifest)
@@ -246,7 +387,7 @@ def capture_fingerprint_artifact(
     )
     summary = _summary_payload(
         config=config,
-        examples_processed=len(selected_examples),
+        examples_processed=examples_processed,
         target_positions_processed=len(captured),
         modes_discovered=len(mode_ids),
         records_per_mode=dict(sorted(records_per_mode.items())),
@@ -255,6 +396,44 @@ def capture_fingerprint_artifact(
         artifact_validated=validation.ok,
         validation_blockers=validation.blockers,
         artifact_size_bytes=_artifact_size(config.output_dir),
+        exemplar_payload_bytes=sum(
+            (config.output_dir / shard["path"]).stat().st_size
+            for shard in exemplar_shards
+        ),
+        stored_top_k=[
+            len(row.get("top_token_ids", ())) for row in exemplar_rows
+        ],
+        dense_oracle_bytes=sum(
+            len(
+                json.dumps(
+                    {
+                        **{
+                            key: value
+                            for key, value in row.items()
+                            if key
+                            not in {
+                                "top_token_ids",
+                                "top_log_probs",
+                                "top_mass",
+                                "tail_mass",
+                                "teacher_entropy",
+                                "bucket_edges",
+                                "bucket_mass",
+                                "bucket_count",
+                                "bucket_mean_logp",
+                                "original_vocab_size",
+                                "encoding_kind",
+                                "encoding_version",
+                            }
+                        },
+                        "teacher_probs": [0.0] * vocab_size,
+                    },
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+            for row in exemplar_rows
+        ),
     )
     capture_summary_path = config.output_dir / "capture_summary.json"
     write_json(capture_summary_path, summary)
@@ -351,8 +530,16 @@ def _validate_config(config: FingerprintCaptureConfig) -> None:
         raise ValueError("corridor_bounds.lower_quantile must be < upper_quantile")
     if config.exemplar_reservoir.max_exemplars < 0:
         raise ValueError("exemplar_reservoir.max_exemplars must be >= 0")
-    if config.exemplar_reservoir.payload_type != "dense_probs":
-        raise ValueError("P143 supports only dense_probs exemplars")
+    if config.exemplar_reservoir.payload_type not in {
+        "dense_probs",
+        "cascaded_soft_labels_v1",
+    }:
+        raise ValueError("unsupported exemplar_reservoir.payload_type")
+    if config.exemplar_reservoir.top_k <= 0:
+        raise ValueError("exemplar_reservoir.top_k must be > 0")
+    validate_cascaded_bucket_edges(config.exemplar_reservoir.bucket_edges)
+    if config.exemplar_reservoir.shard_size <= 0:
+        raise ValueError("exemplar_reservoir.shard_size must be > 0")
     if config.exemplar_reservoir.selection_policy not in {
         "top_interestingness_v0",
         "stratified_interestingness_v0",
@@ -378,47 +565,42 @@ def _validate_bins(values: tuple[float, ...], name: str) -> None:
 
 
 def _select_examples(
-    examples: tuple[FingerprintCaptureExample, ...],
+    examples: Any,
     budget: FingerprintCaptureBudgetConfig,
-) -> tuple[FingerprintCaptureExample, ...]:
+) -> Any:
     if budget.max_examples is None:
         return examples
-    return examples[: budget.max_examples]
+    return islice(examples, budget.max_examples)
 
 
-def _validate_examples(
-    examples: tuple[FingerprintCaptureExample, ...],
+def _validate_example(
+    example: FingerprintCaptureExample,
+    *,
+    expected_shape: tuple[int, int] | None = None,
 ) -> tuple[int, int]:
-    first_logits = np.asarray(examples[0].logits)
-    if first_logits.ndim != 2:
+    logits = np.asarray(example.logits)
+    if logits.ndim != 2:
         raise ValueError("FingerprintCaptureExample.logits must be [seq, vocab]")
-    max_seq_len, vocab_size = first_logits.shape
+    max_seq_len, vocab_size = logits.shape
     if max_seq_len <= 0 or vocab_size <= 0:
         raise ValueError("FingerprintCaptureExample.logits must be non-empty")
-    for example in examples:
-        if not example.example_id.strip():
-            raise ValueError("FingerprintCaptureExample.example_id must be non-empty")
-        logits = np.asarray(example.logits)
-        if logits.shape != (max_seq_len, vocab_size):
+    if expected_shape is not None and logits.shape != expected_shape:
+        raise ValueError(
+            f"all capture examples must share logits shape {expected_shape}, "
+            f"got {logits.shape}"
+        )
+    if not example.example_id.strip():
+        raise ValueError("FingerprintCaptureExample.example_id must be non-empty")
+    if len(example.input_ids) != max_seq_len:
+        raise ValueError("input_ids length must equal logits sequence length")
+    if not np.all(np.isfinite(logits)):
+        raise ValueError(f"example {example.example_id!r} contains non-finite logits")
+    for token_id in example.input_ids:
+        if not isinstance(token_id, int) or not 0 <= token_id < vocab_size:
             raise ValueError(
-                "all capture examples must share logits shape "
-                f"{(max_seq_len, vocab_size)}, got {logits.shape}"
+                f"example {example.example_id!r} has token id {token_id!r} "
+                f"outside [0, {vocab_size})"
             )
-        if len(example.input_ids) != max_seq_len:
-            raise ValueError(
-                "input_ids length must equal logits sequence length: "
-                f"len(input_ids)={len(example.input_ids)} max_seq_len={max_seq_len}"
-            )
-        if not np.all(np.isfinite(logits)):
-            raise ValueError(
-                f"example {example.example_id!r} contains non-finite logits"
-            )
-        for token_id in example.input_ids:
-            if not isinstance(token_id, int) or not 0 <= token_id < vocab_size:
-                raise ValueError(
-                    f"example {example.example_id!r} has token id {token_id!r} "
-                    f"outside [0, {vocab_size})"
-                )
     return int(max_seq_len), int(vocab_size)
 
 
@@ -548,25 +730,13 @@ def _target_row(
     }
 
 
-def _select_exemplar_rows(
-    captured: list[_CapturedPosition],
-    config: FingerprintExemplarReservoirCaptureConfig,
-) -> list[dict[str, Any]]:
-    if not config.enabled:
-        return []
-    if config.max_exemplars == 0:
-        return []
-    selected = (
-        _select_stratified(captured, config)
-        if config.selection_policy == "stratified_interestingness_v0"
-        else _top_interestingness(captured, config.max_exemplars)
-    )
+def _exemplar_rows(selected: list[_CapturedPosition]) -> list[dict[str, Any]]:
     return [
         {
             "example_id": f"{row.example_id}:pos-{row.position}",
             "input_ids": list(row.input_ids),
             "position": row.position,
-            "teacher_probs": list(row.teacher_probs),
+            **(row.exemplar_payload or {}),
             "mode_id": row.mode_id,
             "interestingness_score": row.interestingness_score,
             "reason_codes": list(row.reason_codes),
@@ -586,42 +756,6 @@ def _top_interestingness(
     )[:max_exemplars]
 
 
-def _select_stratified(
-    captured: list[_CapturedPosition],
-    config: FingerprintExemplarReservoirCaptureConfig,
-) -> list[_CapturedPosition]:
-    by_mode: dict[int, list[_CapturedPosition]] = {}
-    for row in captured:
-        by_mode.setdefault(row.mode_id, []).append(row)
-    for rows in by_mode.values():
-        rows.sort(
-            key=lambda row: (-row.interestingness_score, row.example_id, row.position)
-        )
-
-    selected: list[_CapturedPosition] = []
-    selected_keys: set[tuple[str, int]] = set()
-    budget = config.max_exemplars
-    if config.per_mode_min > 0:
-        for mode_id in sorted(by_mode):
-            for row in by_mode[mode_id][: config.per_mode_min]:
-                if len(selected) >= budget:
-                    break
-                key = (row.example_id, row.position)
-                selected.append(row)
-                selected_keys.add(key)
-            if len(selected) >= budget:
-                break
-
-    if len(selected) < budget:
-        remaining = [
-            row
-            for row in _top_interestingness(captured, len(captured))
-            if (row.example_id, row.position) not in selected_keys
-        ]
-        selected.extend(remaining[: budget - len(selected)])
-    return selected
-
-
 def _manifest_payload(
     *,
     config: FingerprintCaptureConfig,
@@ -629,6 +763,7 @@ def _manifest_payload(
     vocab_size: int,
     target_count: int,
     exemplar_count: int,
+    exemplar_shards: list[dict[str, Any]],
 ) -> dict[str, Any]:
     manifest: dict[str, Any] = {
         "artifact_type": BEHAVIORAL_FINGERPRINT_ARTIFACT_TYPE,
@@ -667,12 +802,18 @@ def _manifest_payload(
             "num_records": exemplar_count,
             "max_exemplars": config.exemplar_reservoir.max_exemplars,
             "selection_policy": config.exemplar_reservoir.selection_policy,
-            "shards": [
-                {
-                    "path": "exemplars/exemplars-00000.jsonl",
-                    "num_records": exemplar_count,
-                }
-            ],
+            "encoding_contract": {
+                "kind": config.exemplar_reservoir.payload_type,
+                "version": 1,
+                "top_k": config.exemplar_reservoir.top_k,
+                "bucket_edges": list(config.exemplar_reservoir.bucket_edges),
+                "top_log_probs_dtype": config.exemplar_reservoir.top_log_probs_dtype,
+                "bucket_mass_dtype": config.exemplar_reservoir.bucket_mass_dtype,
+                "bucket_mean_logp_dtype": (
+                    config.exemplar_reservoir.bucket_mean_logp_dtype
+                ),
+            },
+            "shards": exemplar_shards,
         }
     return manifest
 
@@ -689,7 +830,11 @@ def _summary_payload(
     artifact_validated: bool,
     validation_blockers: tuple[str, ...],
     artifact_size_bytes: int,
+    exemplar_payload_bytes: int,
+    stored_top_k: list[int],
+    dense_oracle_bytes: int,
 ) -> dict[str, Any]:
+    mean_k = float(np.mean(stored_top_k)) if stored_top_k else 0.0
     return {
         "phase": "P143",
         "capture_method": "teacher_side_capture_skeleton_v0",
@@ -706,6 +851,25 @@ def _summary_payload(
         "exemplar_selection_policy": config.exemplar_reservoir.selection_policy,
         "per_mode_min": config.exemplar_reservoir.per_mode_min,
         "artifact_size_bytes": artifact_size_bytes,
+        "exemplar_target_type": config.exemplar_reservoir.payload_type,
+        "configured_top_k": config.exemplar_reservoir.top_k,
+        "actual_stored_k": {
+            "min": min(stored_top_k, default=0),
+            "mean": mean_k,
+            "max": max(stored_top_k, default=0),
+        },
+        "exemplar_payload_bytes": exemplar_payload_bytes,
+        "bytes_per_exemplar": (
+            exemplar_payload_bytes / exemplars_retained
+            if exemplars_retained
+            else 0.0
+        ),
+        "dense_json_oracle_bytes": dense_oracle_bytes,
+        "compression_ratio_vs_dense_json_oracle": (
+            dense_oracle_bytes / exemplar_payload_bytes
+            if exemplar_payload_bytes
+            else None
+        ),
         "artifact_validated": artifact_validated,
         "validation_blockers": list(validation_blockers),
         "capture_config": _json_safe(asdict(config)),
@@ -719,6 +883,55 @@ def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     text = "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows)
     path.write_text(text, encoding="utf-8")
+
+
+def _write_exemplar_shards(
+    output_dir: Path, rows: list[dict[str, Any]], shard_size: int
+) -> list[dict[str, Any]]:
+    if not rows:
+        relative = Path("exemplars") / "exemplars-00000.jsonl"
+        _write_jsonl(output_dir / relative, [])
+        return [{"path": str(relative), "num_records": 0}]
+    shards = []
+    for shard_index, start in enumerate(range(0, len(rows), shard_size)):
+        shard_rows = rows[start : start + shard_size]
+        relative = Path("exemplars") / f"exemplars-{shard_index:05d}.jsonl"
+        _write_jsonl(output_dir / relative, shard_rows)
+        shards.append({"path": str(relative), "num_records": len(shard_rows)})
+    return shards
+
+
+def _exemplar_payload(
+    logits: np.ndarray,
+    probs: np.ndarray | None,
+    config: FingerprintExemplarReservoirCaptureConfig,
+) -> dict[str, Any]:
+    if config.payload_type == "dense_probs":
+        if probs is None:
+            raise ValueError("dense exemplar probabilities are missing")
+        return {"teacher_probs": [float(value) for value in probs]}
+    encoded = encode_cascaded_soft_labels(
+        logits,
+        top_k=min(config.top_k, int(np.asarray(logits).size)),
+        bucket_edges=config.bucket_edges,
+        top_log_probs_dtype=config.top_log_probs_dtype,
+        bucket_mass_dtype=config.bucket_mass_dtype,
+        bucket_mean_logp_dtype=config.bucket_mean_logp_dtype,
+    )
+    return {
+        "encoding_kind": "cascaded_soft_labels_v1",
+        "encoding_version": 1,
+        "original_vocab_size": int(np.asarray(logits).size),
+        "top_token_ids": encoded.top_token_ids.tolist(),
+        "top_log_probs": encoded.top_log_probs.astype(np.float32).tolist(),
+        "top_mass": float(encoded.top_mass),
+        "tail_mass": float(encoded.tail_mass),
+        "teacher_entropy": float(encoded.teacher_entropy),
+        "bucket_edges": list(config.bucket_edges),
+        "bucket_mass": encoded.bucket_mass.astype(np.float32).tolist(),
+        "bucket_count": encoded.bucket_count.tolist(),
+        "bucket_mean_logp": encoded.bucket_mean_logp.astype(np.float32).tolist(),
+    }
 
 
 def _artifact_size(root: Path) -> int:

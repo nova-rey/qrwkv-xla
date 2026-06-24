@@ -1,0 +1,25 @@
+{
+  "phase": "P156.5",
+  "receipt": "compressed_exemplar_smoke",
+  "status": "unavailable",
+  "reason": "Exact 25-example Cardboard smoke could not run in this workspace because optional HF teacher dependencies are not installed and sshleifer/tiny-gpt2 is not present in the local Hugging Face cache.",
+  "requested_probe": {
+    "teacher": "sshleifer/tiny-gpt2",
+    "sequence_length": 256,
+    "target_positions": 6400,
+    "max_exemplars": 64,
+    "fixed_top_k": 256,
+    "encoding": "cascaded_soft_labels_v1"
+  },
+  "attempted_command": ".venv/bin/python scripts/build_real_teacher_fingerprint_artifact.py --teacher-model sshleifer/tiny-gpt2 --tokenizer sshleifer/tiny-gpt2 --texts tests/fixtures/fingerprint_capture_real_teacher/tiny_texts.jsonl --output-dir /tmp/qrwkv_p156_5_unavailable_probe --sequence-length 256 --max-examples 25 --max-target-positions 6400 --max-exemplars 64 --exemplar-target-type cascaded_soft_labels_v1 --exemplar-top-k 256 --bounds-method quantile --exemplar-selection-policy stratified_interestingness_v0 --local-files-only --overwrite",
+  "observed": {
+    "exit_code": 2,
+    "stderr_status": "status=unavailable",
+    "stderr_reason": "transformers is not installed; install optional HF teacher dependencies to use HFTeacherBackend",
+    "local_hf_cache": "not_cached"
+  },
+  "implementation_smoke": {
+    "focused_tests": "tests/test_compressed_fingerprint_exemplars.py tests/test_tiny_real_teacher_fingerprint_capture.py",
+    "result": "13 passed, 1 skipped"
+  }
+}

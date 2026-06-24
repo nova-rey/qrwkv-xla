@@ -103,6 +103,7 @@ def test_summary_fields_and_consumer_sanity_are_recorded(tmp_path: Path) -> None
     assert summary["targets_loadable"] is True
     assert summary["exemplars_loadable"] is True
     assert summary["consumer_sanity"]["kind"] in {
+        "compressed_exemplar_optimizer_step",
         "p141_one_step",
         "p140_forward",
         "loader_only",
@@ -131,6 +132,7 @@ def test_large_vocab_records_loader_only_consumer_reason(tmp_path: Path) -> None
             max_target_positions=8,
             overwrite=True,
             max_exemplars=2,
+            exemplar_target_type="dense_probs",
             consumer_vocab_limit=8,
         ),
         backend=_fake_backend(vocab_size=16),
@@ -157,6 +159,8 @@ def test_config_defaults_to_local_files_only(tmp_path: Path) -> None:
 
     assert config.local_files_only is True
     assert config.allow_downloads is False
+    assert config.exemplar_target_type == "cascaded_soft_labels_v1"
+    assert config.exemplar_top_k == 256
 
 
 def test_optional_cli_smoke_skips_when_local_teacher_unavailable(

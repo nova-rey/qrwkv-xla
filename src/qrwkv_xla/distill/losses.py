@@ -525,7 +525,10 @@ def _masked_mean(values: jax.Array, mask: jax.Array) -> jax.Array:
 
 
 def _array_has_any(value: jax.Array) -> bool:
-    return bool(jnp.asarray(jnp.any(value)))
+    try:
+        return bool(jnp.asarray(jnp.any(value)))
+    except (jax.errors.TracerBoolConversionError, TypeError):
+        return False
 
 
 def _validate_bucket_edges(edges: jax.Array) -> None:

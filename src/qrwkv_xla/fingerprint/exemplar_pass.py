@@ -279,7 +279,12 @@ def run_exemplar_pass(config: ExemplarPassConfig) -> ExemplarPassResult:
     initial_params = parent.params
     initial_fingerprint = parameter_fingerprint(initial_params)
     start_step = int(state.step)
-    train_step = _make_train_step(backend, optimizer_config, config.max_grad_norm)
+    train_step = _make_train_step(
+        backend,
+        optimizer_config,
+        config.max_grad_norm,
+        records[0].target_type,
+    )
     evaluation_interval = config.eval_every or max(1, config.steps // 20)
     evaluation_records, held_out_receipt = _resolve_evaluation_records(config, records)
     write_json(config.output_dir / "held_out_evaluation_receipt.json", held_out_receipt)
@@ -637,12 +642,12 @@ def _load_start_state(
     }
 
 
-def _make_train_step(backend, optimizer_config, max_grad_norm):
+def _make_train_step(backend, optimizer_config, max_grad_norm, target_type):
     def train_step(state, batch):
         def loss_fn(params):
             output, _ = backend.forward_full(params, batch["input_ids"])
             loss = compute_fingerprint_exemplar_loss_at_positions(
-                backend.logits(output), _jax_exemplar_batch(batch)
+                backend.logits(output), _jax_exemplar_batch(batch, target_type)
             )
             return loss.loss
 
@@ -678,21 +683,35 @@ def _evaluate_exemplars(backend, params, records):
             backend.logits(output), jnp.asarray([record.position], dtype=jnp.int32)
         )[0]
         probs = jax.nn.softmax(logits)
-        teacher = jnp.asarray(record.teacher_probs, dtype=jnp.float32)
+        batch = _records_to_batches((record,), 1, len(record.input_ids))[0]
         losses.append(
             float(
-                jnp.sum(
-                    teacher * (jnp.log(teacher + 1e-8) - jax.nn.log_softmax(logits))
+                compute_fingerprint_exemplar_loss_at_positions(
+                    backend.logits(output), batch
+                ).loss
+            )
+        )
+        teacher_top_ids = (
+            np.asarray(record.top_token_ids, dtype=np.int32)
+            if record.target_type == "cascaded_soft_labels_v1"
+            else np.argsort(np.asarray(record.teacher_probs, dtype=np.float64))[::-1]
+        )
+        top1.append(int(jnp.argmax(probs) == int(teacher_top_ids[0])))
+        k = min(8, int(teacher_top_ids.shape[0]))
+        student_top = set(np.asarray(jnp.argsort(probs)[-k:]).tolist())
+        teacher_top = set(teacher_top_ids[:k].tolist())
+        overlaps.append(len(student_top & teacher_top) / k)
+        student_entropy = -jnp.sum(probs * jnp.log(probs + 1e-8))
+        teacher_entropy = (
+            float(record.teacher_entropy)
+            if record.teacher_entropy is not None
+            else float(
+                -np.sum(
+                    np.asarray(record.teacher_probs)
+                    * np.log(np.asarray(record.teacher_probs) + 1e-8)
                 )
             )
         )
-        top1.append(int(jnp.argmax(probs) == jnp.argmax(teacher)))
-        k = min(8, int(teacher.shape[0]))
-        student_top = set(np.asarray(jnp.argsort(probs)[-k:]).tolist())
-        teacher_top = set(np.asarray(jnp.argsort(teacher)[-k:]).tolist())
-        overlaps.append(len(student_top & teacher_top) / k)
-        student_entropy = -jnp.sum(probs * jnp.log(probs + 1e-8))
-        teacher_entropy = -jnp.sum(teacher * jnp.log(teacher + 1e-8))
         entropy_errors.append(abs(float(student_entropy - teacher_entropy)))
     return {
         "kl_loss": float(np.mean(losses)),
@@ -883,14 +902,19 @@ def _records_to_batches(records, batch_size, max_seq_len):
     batches = []
     for start in range(0, len(records), batch_size):
         selected = records[start : start + batch_size]
+        target_type = selected[0].target_type
         batches.append(
             FingerprintExemplarBatch(
                 input_ids=np.asarray(
                     [r.input_ids for r in selected], dtype=np.int32
                 ).reshape((len(selected), max_seq_len)),
                 position=np.asarray([r.position for r in selected], dtype=np.int32),
-                teacher_probs=np.asarray(
-                    [r.teacher_probs for r in selected], dtype=np.float32
+                teacher_probs=(
+                    np.asarray(
+                        [r.teacher_probs for r in selected], dtype=np.float32
+                    )
+                    if target_type == "dense_probs"
+                    else None
                 ),
                 weight=np.asarray([r.weight for r in selected], dtype=np.float32),
                 mode_id=np.asarray(
@@ -908,21 +932,53 @@ def _records_to_batches(records, batch_size, max_seq_len):
                 ),
                 reason_codes=tuple(r.reason_codes for r in selected),
                 example_id=tuple(r.example_id for r in selected),
+                target_type=target_type,
+                top_token_ids=_record_array(selected, "top_token_ids", np.int32),
+                top_log_probs=_record_array(selected, "top_log_probs", np.float32),
+                top_mass=_record_array(selected, "top_mass", np.float32),
+                tail_mass=_record_array(selected, "tail_mass", np.float32),
+                teacher_entropy=_record_array(
+                    selected, "teacher_entropy", np.float32
+                ),
+                bucket_edges=(
+                    np.asarray(selected[0].bucket_edges, dtype=np.float32)
+                    if selected[0].bucket_edges is not None
+                    else None
+                ),
+                bucket_mass=_record_array(selected, "bucket_mass", np.float32),
+                bucket_count=_record_array(selected, "bucket_count", np.int32),
+                bucket_mean_logp=_record_array(
+                    selected, "bucket_mean_logp", np.float32
+                ),
             )
         )
     return tuple(batches)
 
 
 def _batch_to_jax(batch):
-    return {
+    result = {
         "input_ids": jnp.asarray(batch.input_ids),
         "position": jnp.asarray(batch.position),
-        "teacher_probs": jnp.asarray(batch.teacher_probs),
         "weight": jnp.asarray(batch.weight),
     }
+    for name in (
+        "teacher_probs",
+        "top_token_ids",
+        "top_log_probs",
+        "top_mass",
+        "tail_mass",
+        "teacher_entropy",
+        "bucket_edges",
+        "bucket_mass",
+        "bucket_count",
+        "bucket_mean_logp",
+    ):
+        value = getattr(batch, name)
+        result[name] = None if value is None else jnp.asarray(value)
+    return result
 
 
-def _jax_exemplar_batch(batch):
+def _jax_exemplar_batch(batch, target_type):
     return FingerprintExemplarBatch(
         input_ids=batch["input_ids"],
         position=batch["position"],
@@ -932,6 +988,16 @@ def _jax_exemplar_batch(batch):
         interestingness_score=jnp.zeros_like(batch["weight"]),
         reason_codes=(),
         example_id=(),
+        target_type=target_type,
+        top_token_ids=batch["top_token_ids"],
+        top_log_probs=batch["top_log_probs"],
+        top_mass=batch["top_mass"],
+        tail_mass=batch["tail_mass"],
+        teacher_entropy=batch["teacher_entropy"],
+        bucket_edges=batch["bucket_edges"],
+        bucket_mass=batch["bucket_mass"],
+        bucket_count=batch["bucket_count"],
+        bucket_mean_logp=batch["bucket_mean_logp"],
     )
 
 
@@ -939,11 +1005,28 @@ def _validate_exemplar_records(records, vocab_size):
     for record in records:
         if not 0 <= record.position < len(record.input_ids):
             raise ValueError("exemplar position is outside input sequence")
+        if record.target_type == "cascaded_soft_labels_v1":
+            token_ids = np.asarray(record.top_token_ids, dtype=np.int32)
+            if (
+                token_ids.size == 0
+                or np.unique(token_ids).size != token_ids.size
+                or np.any(token_ids < 0)
+                or np.any(token_ids >= vocab_size)
+            ):
+                raise ValueError("compressed exemplar token ids are invalid")
+            continue
         probs = np.asarray(record.teacher_probs, dtype=np.float64)
         if len(probs) != vocab_size or not np.all(np.isfinite(probs)):
             raise ValueError("exemplar target payload must be finite and match vocab")
         if np.any(probs < 0.0) or not np.isclose(np.sum(probs), 1.0, atol=1e-5):
             raise ValueError("exemplar teacher probabilities must be normalized")
+
+
+def _record_array(records, name, dtype):
+    values = [getattr(record, name) for record in records]
+    if values[0] is None:
+        return None
+    return np.asarray(values, dtype=dtype)
 
 
 def _validate_config(config):

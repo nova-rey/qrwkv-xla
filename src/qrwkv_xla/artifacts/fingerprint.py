@@ -374,10 +374,8 @@ def _validate_exemplar_reservoir(
     metadata["exemplar_reservoir_enabled"] = bool(enabled)
 
     payload_type = reservoir.get("payload_type")
-    if payload_type != "dense_probs":
-        blockers.append(
-            "exemplar_reservoir.payload_type must be 'dense_probs' for P137"
-        )
+    if payload_type not in {"dense_probs", "cascaded_soft_labels_v1"}:
+        blockers.append("exemplar_reservoir.payload_type is unsupported")
     metadata["exemplar_payload_type"] = (
         payload_type if isinstance(payload_type, str) else None
     )
@@ -385,6 +383,13 @@ def _validate_exemplar_reservoir(
     loss = reservoir.get("loss")
     if loss != "kl":
         blockers.append("exemplar_reservoir.loss must be 'kl' for P137")
+    encoding_contract = reservoir.get("encoding_contract")
+    if payload_type == "cascaded_soft_labels_v1":
+        blockers.extend(
+            _validate_cascaded_contract(
+                encoding_contract, vocab_size=vocab_size
+            )
+        )
 
     expected_total = _non_negative_int(reservoir.get("num_records"))
     if expected_total is None:
@@ -425,6 +430,8 @@ def _validate_exemplar_reservoir(
             vocab_size=vocab_size,
             max_seq_len=max_seq_len,
             modes_by_id=modes_by_id,
+            payload_type=payload_type,
+            encoding_contract=encoding_contract,
         )
         total_records += actual_records
         blockers.extend(shard_blockers)
@@ -450,6 +457,8 @@ def _validate_exemplar_shard(
     vocab_size: int | None,
     max_seq_len: int | None,
     modes_by_id: dict[int, dict[str, Any]],
+    payload_type: str | None,
+    encoding_contract: Any,
 ) -> tuple[int, list[str]]:
     blockers: list[str] = []
     record_count = 0
@@ -479,6 +488,8 @@ def _validate_exemplar_shard(
                 vocab_size=vocab_size,
                 max_seq_len=max_seq_len,
                 modes_by_id=modes_by_id,
+                payload_type=payload_type,
+                encoding_contract=encoding_contract,
             )
         )
     return record_count, blockers
@@ -491,6 +502,8 @@ def _validate_exemplar_row(
     vocab_size: int | None,
     max_seq_len: int | None,
     modes_by_id: dict[int, dict[str, Any]],
+    payload_type: str | None,
+    encoding_contract: Any,
 ) -> list[str]:
     blockers: list[str] = []
     if not isinstance(row.get("example_id"), str) or not row["example_id"].strip():
@@ -522,9 +535,10 @@ def _validate_exemplar_row(
                 )
 
     teacher_probs = row.get("teacher_probs")
-    if not isinstance(teacher_probs, list):
-        blockers.append(f"{source}: teacher_probs must be a list")
-    else:
+    if payload_type == "dense_probs":
+        if not isinstance(teacher_probs, list):
+            blockers.append(f"{source}: teacher_probs must be a list")
+            teacher_probs = []
         if vocab_size is not None and len(teacher_probs) != vocab_size:
             blockers.append(
                 f"{source}: len(teacher_probs)={len(teacher_probs)} must equal "
@@ -548,6 +562,19 @@ def _validate_exemplar_row(
             blockers.append(
                 f"{source}: teacher_probs must sum to 1.0 within 1e-5, got {prob_sum}"
             )
+    elif payload_type == "cascaded_soft_labels_v1":
+        if "teacher_probs" in row:
+            blockers.append(
+                f"{source}: teacher_probs is forbidden for cascaded_soft_labels_v1"
+            )
+        blockers.extend(
+            _validate_cascaded_exemplar_row(
+                row,
+                source=source,
+                vocab_size=vocab_size,
+                contract=encoding_contract,
+            )
+        )
 
     weight = _finite_number(row.get("weight"))
     if weight is None:
@@ -576,6 +603,113 @@ def _validate_exemplar_row(
                     blockers.append(
                         f"{source}: reason_codes[{offset}] must be a string"
                     )
+    return blockers
+
+
+def _validate_cascaded_contract(
+    contract: Any, *, vocab_size: int | None
+) -> list[str]:
+    if not isinstance(contract, dict):
+        return ["cascaded exemplar encoding_contract must be an object"]
+    blockers = []
+    if contract.get("kind") != "cascaded_soft_labels_v1":
+        blockers.append("cascaded encoding_contract.kind mismatch")
+    if contract.get("version") != 1:
+        blockers.append("unsupported cascaded encoding version")
+    top_k = contract.get("top_k")
+    if not isinstance(top_k, int) or top_k <= 0:
+        blockers.append("cascaded encoding_contract.top_k must be positive")
+    elif vocab_size is not None and top_k > vocab_size and vocab_size >= 256:
+        blockers.append("cascaded encoding_contract.top_k exceeds vocabulary")
+    edges = contract.get("bucket_edges")
+    if not isinstance(edges, list) or len(edges) < 2:
+        blockers.append("cascaded encoding_contract.bucket_edges is invalid")
+    else:
+        numbers = [_finite_number(value) for value in edges]
+        if any(value is None for value in numbers):
+            blockers.append("cascaded bucket_edges must be finite")
+        elif (
+            numbers[0] != 1.0
+            or numbers[-1] != 0.0
+            or any(
+                left <= right
+                for left, right in zip(numbers[:-1], numbers[1:], strict=True)
+            )
+        ):
+            blockers.append("cascaded bucket_edges must be strictly descending 1 to 0")
+    return blockers
+
+
+def _validate_cascaded_exemplar_row(
+    row: dict[str, Any],
+    *,
+    source: str,
+    vocab_size: int | None,
+    contract: Any,
+) -> list[str]:
+    blockers = []
+    if not isinstance(contract, dict):
+        return [f"{source}: missing cascaded encoding contract"]
+    if row.get("encoding_kind") != contract.get("kind"):
+        blockers.append(f"{source}: encoding kind does not match manifest")
+    if row.get("encoding_version") != contract.get("version"):
+        blockers.append(f"{source}: encoding version does not match manifest")
+    if row.get("bucket_edges") != contract.get("bucket_edges"):
+        blockers.append(f"{source}: bucket edges do not match manifest")
+    token_ids = row.get("top_token_ids")
+    log_probs = row.get("top_log_probs")
+    configured_k = contract.get("top_k")
+    if not isinstance(token_ids, list) or not isinstance(log_probs, list):
+        blockers.append(f"{source}: malformed top-K arrays")
+        return blockers
+    if len(token_ids) != len(log_probs) or not token_ids:
+        blockers.append(f"{source}: malformed top-K arrays")
+    if isinstance(configured_k, int) and len(token_ids) > configured_k:
+        blockers.append(f"{source}: stored K exceeds configured K")
+    if len(set(token_ids)) != len(token_ids):
+        blockers.append(f"{source}: top token ids must be unique")
+    for token_id in token_ids:
+        if not isinstance(token_id, int) or (
+            vocab_size is not None and not 0 <= token_id < vocab_size
+        ):
+            blockers.append(f"{source}: top token id outside vocabulary")
+            break
+    if any(_finite_number(value) is None for value in log_probs):
+        blockers.append(f"{source}: top log probabilities must be finite")
+    bucket_mass = row.get("bucket_mass")
+    bucket_count = row.get("bucket_count")
+    bucket_mean = row.get("bucket_mean_logp")
+    edges = contract.get("bucket_edges", [])
+    expected_buckets = max(0, len(edges) - 1)
+    for name, values in (
+        ("bucket_mass", bucket_mass),
+        ("bucket_count", bucket_count),
+        ("bucket_mean_logp", bucket_mean),
+    ):
+        if not isinstance(values, list) or len(values) != expected_buckets:
+            blockers.append(f"{source}: {name} shape mismatch")
+    if isinstance(bucket_mass, list):
+        masses = [_finite_number(value) for value in bucket_mass]
+        if any(value is None or value < 0 for value in masses):
+            blockers.append(f"{source}: bucket masses must be finite and nonnegative")
+        top_mass = _finite_number(row.get("top_mass"))
+        tail_mass = _finite_number(row.get("tail_mass"))
+        if top_mass is None or tail_mass is None:
+            blockers.append(f"{source}: top_mass and tail_mass must be finite")
+        elif (
+            abs(
+                top_mass
+                + sum(value for value in masses if value is not None)
+                - 1.0
+            )
+            > 2e-3
+        ):
+            blockers.append(f"{source}: compressed probability mass is inconsistent")
+        elif (
+            abs(sum(value for value in masses if value is not None) - tail_mass)
+            > 2e-3
+        ):
+            blockers.append(f"{source}: bucket mass does not match tail mass")
     return blockers
 
 

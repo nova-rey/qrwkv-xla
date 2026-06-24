@@ -1,0 +1,20 @@
+{
+  "phase": "P156.5",
+  "receipt": "mac_1000_tranche",
+  "status": "unavailable",
+  "reason": "The exact 1,000-example Cardboard tranche could not be run because the Cardboard corpus was not found locally and the HF teacher runtime is unavailable in this workspace.",
+  "requested_tranche": {
+    "teacher": "sshleifer/tiny-gpt2",
+    "sequence_length": 256,
+    "target_positions": 256000,
+    "max_exemplars": 2560,
+    "fixed_top_k": 256,
+    "encoding": "cascaded_soft_labels_v1"
+  },
+  "wall_time_seconds": null,
+  "peak_rss_bytes": null,
+  "artifact_bytes_by_category": null,
+  "exemplar_bytes_per_record": null,
+  "projected_20000_window_artifact_size_bytes": null,
+  "not_faked": true
+}

@@ -19,8 +19,18 @@ class FingerprintExemplarRecord:
     example_id: str
     input_ids: tuple[int, ...]
     position: int
-    teacher_probs: tuple[float, ...]
+    teacher_probs: tuple[float, ...] | None
     weight: float
+    target_type: str = "dense_probs"
+    top_token_ids: tuple[int, ...] | None = None
+    top_log_probs: tuple[float, ...] | None = None
+    top_mass: float | None = None
+    tail_mass: float | None = None
+    teacher_entropy: float | None = None
+    bucket_edges: tuple[float, ...] | None = None
+    bucket_mass: tuple[float, ...] | None = None
+    bucket_count: tuple[int, ...] | None = None
+    bucket_mean_logp: tuple[float, ...] | None = None
     mode_id: int | None = None
     interestingness_score: float | None = None
     reason_codes: tuple[str, ...] = ()
@@ -30,12 +40,22 @@ class FingerprintExemplarRecord:
 class FingerprintExemplarBatch:
     input_ids: np.ndarray
     position: np.ndarray
-    teacher_probs: np.ndarray
+    teacher_probs: np.ndarray | None
     weight: np.ndarray
     mode_id: np.ndarray
     interestingness_score: np.ndarray
     reason_codes: tuple[tuple[str, ...], ...]
     example_id: tuple[str, ...]
+    target_type: str = "dense_probs"
+    top_token_ids: np.ndarray | None = None
+    top_log_probs: np.ndarray | None = None
+    top_mass: np.ndarray | None = None
+    tail_mass: np.ndarray | None = None
+    teacher_entropy: np.ndarray | None = None
+    bucket_edges: np.ndarray | None = None
+    bucket_mass: np.ndarray | None = None
+    bucket_count: np.ndarray | None = None
+    bucket_mean_logp: np.ndarray | None = None
 
 
 @dataclass(frozen=True)
@@ -82,8 +102,10 @@ class FingerprintExemplarDataset:
                 raise ValueError("fingerprint artifact has no exemplar_reservoir")
             self._records: tuple[FingerprintExemplarRecord, ...] = ()
             return
-        if reservoir.get("payload_type") != "dense_probs":
-            raise ValueError("P137 exemplar loader supports only dense_probs payloads")
+        self._target_type = str(reservoir.get("payload_type"))
+        if self._target_type not in {"dense_probs", "cascaded_soft_labels_v1"}:
+            raise ValueError("unsupported fingerprint exemplar payload type")
+        self._encoding_contract = reservoir.get("encoding_contract", {})
 
         records = list(self._load_records(reservoir))
         if config.max_records is not None:
@@ -134,6 +156,7 @@ class FingerprintExemplarDataset:
                     json.loads(line),
                     max_seq_len=self.max_seq_len,
                     vocab_size=self.vocab_size,
+                    target_type=self._target_type,
                 )
 
 
@@ -167,6 +190,7 @@ def _row_to_record(
     *,
     max_seq_len: int,
     vocab_size: int,
+    target_type: str,
 ) -> FingerprintExemplarRecord:
     input_ids = tuple(int(token_id) for token_id in row["input_ids"])
     if len(input_ids) != max_seq_len:
@@ -176,19 +200,39 @@ def _row_to_record(
             f"len(input_ids)={len(input_ids)} max_seq_len={max_seq_len} "
             f"example_id={row.get('example_id')!r}"
         )
-    teacher_probs = tuple(float(probability) for probability in row["teacher_probs"])
-    if len(teacher_probs) != vocab_size:
-        raise ValueError(
-            "P137 dense_probs length must match teacher.vocab_size: "
-            f"len(teacher_probs)={len(teacher_probs)} vocab_size={vocab_size} "
-            f"example_id={row.get('example_id')!r}"
+    teacher_probs = None
+    compressed: dict[str, object] = {}
+    if target_type == "dense_probs":
+        teacher_probs = tuple(
+            float(probability) for probability in row["teacher_probs"]
         )
+        if len(teacher_probs) != vocab_size:
+            raise ValueError(
+                "dense_probs length must match teacher.vocab_size: "
+                f"len(teacher_probs)={len(teacher_probs)} vocab_size={vocab_size}"
+            )
+    else:
+        compressed = {
+            "top_token_ids": tuple(int(value) for value in row["top_token_ids"]),
+            "top_log_probs": tuple(float(value) for value in row["top_log_probs"]),
+            "top_mass": float(row["top_mass"]),
+            "tail_mass": float(row["tail_mass"]),
+            "teacher_entropy": float(row["teacher_entropy"]),
+            "bucket_edges": tuple(float(value) for value in row["bucket_edges"]),
+            "bucket_mass": tuple(float(value) for value in row["bucket_mass"]),
+            "bucket_count": tuple(int(value) for value in row["bucket_count"]),
+            "bucket_mean_logp": tuple(
+                float(value) for value in row["bucket_mean_logp"]
+            ),
+        }
     return FingerprintExemplarRecord(
         example_id=str(row["example_id"]),
         input_ids=input_ids,
         position=int(row["position"]),
         teacher_probs=teacher_probs,
         weight=float(row["weight"]),
+        target_type=target_type,
+        **compressed,
         mode_id=int(row["mode_id"]) if row.get("mode_id") is not None else None,
         interestingness_score=(
             float(row["interestingness_score"])
@@ -205,16 +249,23 @@ def _records_to_batch(
     max_seq_len: int,
     vocab_size: int,
 ) -> FingerprintExemplarBatch:
+    target_type = records[0].target_type
+    if any(record.target_type != target_type for record in records):
+        raise ValueError("fingerprint exemplar batch mixes target types")
     return FingerprintExemplarBatch(
         input_ids=np.asarray(
             [record.input_ids for record in records],
             dtype=np.int32,
         ).reshape((len(records), max_seq_len)),
         position=np.asarray([record.position for record in records], dtype=np.int32),
-        teacher_probs=np.asarray(
-            [record.teacher_probs for record in records],
-            dtype=np.float32,
-        ).reshape((len(records), vocab_size)),
+        teacher_probs=(
+            np.asarray(
+                [record.teacher_probs for record in records],
+                dtype=np.float32,
+            ).reshape((len(records), vocab_size))
+            if target_type == "dense_probs"
+            else None
+        ),
         weight=np.asarray([record.weight for record in records], dtype=np.float32),
         mode_id=np.asarray(
             [-1 if record.mode_id is None else record.mode_id for record in records],
@@ -231,7 +282,28 @@ def _records_to_batch(
         ),
         reason_codes=tuple(record.reason_codes for record in records),
         example_id=tuple(record.example_id for record in records),
+        target_type=target_type,
+        top_token_ids=_optional_array(records, "top_token_ids", np.int32),
+        top_log_probs=_optional_array(records, "top_log_probs", np.float32),
+        top_mass=_optional_array(records, "top_mass", np.float32),
+        tail_mass=_optional_array(records, "tail_mass", np.float32),
+        teacher_entropy=_optional_array(records, "teacher_entropy", np.float32),
+        bucket_edges=(
+            np.asarray(records[0].bucket_edges, dtype=np.float32)
+            if records[0].bucket_edges is not None
+            else None
+        ),
+        bucket_mass=_optional_array(records, "bucket_mass", np.float32),
+        bucket_count=_optional_array(records, "bucket_count", np.int32),
+        bucket_mean_logp=_optional_array(records, "bucket_mean_logp", np.float32),
     )
+
+
+def _optional_array(records, name: str, dtype) -> np.ndarray | None:
+    values = [getattr(record, name) for record in records]
+    if values[0] is None:
+        return None
+    return np.asarray(values, dtype=dtype)
 
 
 def _positive_int(value, name: str) -> int:

@@ -11,6 +11,7 @@ from typing import Any
 import numpy as np
 
 from qrwkv_xla.artifacts._json import write_json
+from qrwkv_xla.artifacts.cascaded_soft_labels import encode_cascaded_soft_labels
 from qrwkv_xla.artifacts.teacher_textbook import (
     TeacherTextbookValidationReport,
     validate_teacher_textbook,
@@ -788,29 +789,28 @@ def _bucket_tail_arrays(
     top_token_ids: np.ndarray,
     config: TeacherTextbookBuildConfig,
 ) -> dict[str, np.ndarray]:
-    edges = np.asarray(config.bucket_edges, dtype=np.float32)
-    bucket_count = len(edges) - 1
-    top_mask = np.zeros(probs.shape, dtype=bool)
-    np.put_along_axis(top_mask, top_token_ids, True, axis=-1)
-    bucket_mass = np.zeros((*probs.shape[:2], bucket_count), dtype=np.float32)
-    bucket_token_count = np.zeros((*probs.shape[:2], bucket_count), dtype=np.int32)
-    bucket_mean_logp = np.zeros((*probs.shape[:2], bucket_count), dtype=np.float32)
-    for bucket_id in range(bucket_count):
-        upper = edges[bucket_id]
-        lower = edges[bucket_id + 1]
-        mask = (~top_mask) & (probs < upper) & (probs >= lower)
-        mass = np.sum(np.where(mask, probs, 0.0), axis=-1, dtype=np.float32)
-        count = np.sum(mask, axis=-1, dtype=np.int32)
-        logp_sum = np.sum(np.where(mask, log_probs, 0.0), axis=-1, dtype=np.float32)
-        mean_logp = np.divide(
-            logp_sum,
-            count,
-            out=np.zeros_like(logp_sum, dtype=np.float32),
-            where=count > 0,
+    del probs, top_token_ids
+    shape = log_probs.shape[:2]
+    encoded = [
+        encode_cascaded_soft_labels(
+            log_probs[index],
+            top_k=config.top_k,
+            bucket_edges=config.bucket_edges,
+            top_log_probs_dtype=config.top_log_probs_dtype,
+            bucket_mass_dtype=config.bucket_mass_dtype,
+            bucket_mean_logp_dtype=config.bucket_mean_logp_dtype,
         )
-        bucket_mass[..., bucket_id] = mass
-        bucket_token_count[..., bucket_id] = count
-        bucket_mean_logp[..., bucket_id] = mean_logp
+        for index in np.ndindex(shape)
+    ]
+    bucket_mass = np.asarray([item.bucket_mass for item in encoded]).reshape(
+        (*shape, len(config.bucket_edges) - 1)
+    )
+    bucket_token_count = np.asarray(
+        [item.bucket_count for item in encoded]
+    ).reshape((*shape, len(config.bucket_edges) - 1))
+    bucket_mean_logp = np.asarray(
+        [item.bucket_mean_logp for item in encoded]
+    ).reshape((*shape, len(config.bucket_edges) - 1))
     return {
         "bucket_mass": bucket_mass.astype(
             np.dtype(_canonical_dtype(config.bucket_mass_dtype))

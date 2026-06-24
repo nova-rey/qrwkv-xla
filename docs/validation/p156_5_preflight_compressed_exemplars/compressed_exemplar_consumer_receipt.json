@@ -1,0 +1,15 @@
+{
+  "phase": "P156.5",
+  "receipt": "compressed_exemplar_consumer",
+  "status": "pass",
+  "evidence": {
+    "direct_loader": "load_fingerprint_exemplars consumes cascaded_soft_labels_v1 rows without dense reconstruction",
+    "loss": "compute_fingerprint_exemplar_loss dispatches directly to cascaded_soft_labels_loss",
+    "optimizer_step": "tests/test_compressed_fingerprint_exemplars.py proves finite gradients and parameter movement on compressed exemplar batches",
+    "consumer_sanity": "real_teacher compressed artifacts run compressed_exemplar_optimizer_step instead of loader-only when validation passes"
+  },
+  "tests": {
+    "command": ".venv/bin/pytest -q tests/test_compressed_fingerprint_exemplars.py tests/test_tiny_real_teacher_fingerprint_capture.py",
+    "result": "13 passed, 1 skipped"
+  }
+}

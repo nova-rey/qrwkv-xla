@@ -5,6 +5,12 @@ import argparse
 import sys
 from pathlib import Path
 
+from qrwkv_xla.artifacts.cascaded_soft_labels import (
+    DEFAULT_BUCKET_MASS_DTYPE,
+    DEFAULT_BUCKET_MEAN_LOGP_DTYPE,
+    DEFAULT_CASCADED_BUCKET_EDGES,
+    DEFAULT_TOP_LOG_PROBS_DTYPE,
+)
 from qrwkv_xla.fingerprint import (
     DEFAULT_TINY_REAL_TEACHER,
     TinyRealTeacherFingerprintCaptureConfig,
@@ -36,6 +42,29 @@ def main() -> int:
         default="stratified_interestingness_v0",
     )
     parser.add_argument("--per-mode-min", type=int, default=1)
+    parser.add_argument(
+        "--exemplar-target-type",
+        choices=("dense_probs", "cascaded_soft_labels_v1"),
+        default="cascaded_soft_labels_v1",
+    )
+    parser.add_argument("--exemplar-top-k", type=int, default=256)
+    parser.add_argument(
+        "--exemplar-bucket-edges",
+        type=_bucket_edges,
+        default=DEFAULT_CASCADED_BUCKET_EDGES,
+    )
+    parser.add_argument(
+        "--exemplar-top-log-probs-dtype",
+        default=DEFAULT_TOP_LOG_PROBS_DTYPE,
+    )
+    parser.add_argument(
+        "--exemplar-bucket-mass-dtype",
+        default=DEFAULT_BUCKET_MASS_DTYPE,
+    )
+    parser.add_argument(
+        "--exemplar-bucket-mean-logp-dtype",
+        default=DEFAULT_BUCKET_MEAN_LOGP_DTYPE,
+    )
     parser.add_argument("--consumer-vocab-limit", type=int, default=4096)
     parser.add_argument("--example-id-prefix", default="p145-real-teacher")
     parser.add_argument("--local-files-only", action="store_true", default=True)
@@ -62,6 +91,12 @@ def main() -> int:
                 upper_quantile=args.upper_quantile,
                 exemplar_selection_policy=args.exemplar_selection_policy,
                 per_mode_min=args.per_mode_min,
+                exemplar_target_type=args.exemplar_target_type,
+                exemplar_top_k=args.exemplar_top_k,
+                exemplar_bucket_edges=args.exemplar_bucket_edges,
+                exemplar_top_log_probs_dtype=args.exemplar_top_log_probs_dtype,
+                exemplar_bucket_mass_dtype=args.exemplar_bucket_mass_dtype,
+                exemplar_bucket_mean_logp_dtype=args.exemplar_bucket_mean_logp_dtype,
                 consumer_vocab_limit=args.consumer_vocab_limit,
                 example_id_prefix=args.example_id_prefix,
             )
@@ -82,6 +117,15 @@ def main() -> int:
     print(f"consumer_sanity_kind={result.consumer_sanity['kind']}")
     print(f"consumer_sanity_status={result.consumer_sanity['status']}")
     return 0 if result.status == "pass" else 1
+
+
+def _bucket_edges(value: str) -> tuple[float, ...]:
+    try:
+        return tuple(float(part.strip()) for part in value.split(","))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "bucket edges must be comma-separated floats"
+        ) from exc
 
 
 if __name__ == "__main__":
