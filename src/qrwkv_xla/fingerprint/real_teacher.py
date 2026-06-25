@@ -29,6 +29,8 @@ from qrwkv_xla.distill import (
     run_distill_stage,
 )
 from qrwkv_xla.fingerprint.capture import (
+    SUPPORTED_TARGET_PAYLOAD_TYPES,
+    TARGET_PAYLOAD_PACKED_CORRIDOR_V1,
     FingerprintCaptureBudgetConfig,
     FingerprintCaptureConfig,
     FingerprintCaptureExample,
@@ -74,6 +76,7 @@ class TinyRealTeacherFingerprintCaptureConfig:
     exemplar_bucket_mean_logp_dtype: str = DEFAULT_BUCKET_MEAN_LOGP_DTYPE
     consumer_vocab_limit: int = DEFAULT_CONSUMER_VOCAB_LIMIT
     example_id_prefix: str = "p145-real-teacher"
+    target_payload_type: str = TARGET_PAYLOAD_PACKED_CORRIDOR_V1
 
 
 @dataclass(frozen=True)
@@ -173,6 +176,7 @@ def run_tiny_real_teacher_fingerprint_capture(
             bucket_mass_dtype=config.exemplar_bucket_mass_dtype,
             bucket_mean_logp_dtype=config.exemplar_bucket_mean_logp_dtype,
         ),
+        target_payload_type=config.target_payload_type,
     )
     capture = capture_fingerprint_artifact(capture_config, iter_examples())
     vocab_size = int(emission["vocab_size"] or 0)
@@ -279,6 +283,11 @@ def _validate_config(config: TinyRealTeacherFingerprintCaptureConfig) -> None:
         raise ValueError("exemplar_top_k must be > 0")
     if config.consumer_vocab_limit < 0:
         raise ValueError("consumer_vocab_limit must be >= 0")
+    if config.target_payload_type not in SUPPORTED_TARGET_PAYLOAD_TYPES:
+        raise ValueError(
+            "target_payload_type must be one of "
+            f"{SUPPORTED_TARGET_PAYLOAD_TYPES!r}"
+        )
     if config.local_files_only and config.allow_downloads:
         raise ValueError("local_files_only and allow_downloads cannot both be true")
 

@@ -1271,6 +1271,29 @@ def _record_bounds(record: FingerprintTargetRecord) -> dict[str, tuple[float, fl
 
 def _target_record_sizes(artifact: Path) -> tuple[int, ...]:
     manifest = read_json_object(artifact / "manifest.json")
+    target_payload = manifest.get("target_payload")
+    if (
+        isinstance(target_payload, dict)
+        and target_payload.get("kind") == "packed_corridor_v1"
+    ):
+        num_records = int(target_payload.get("num_records", 0))
+        if num_records <= 0:
+            return ()
+        paths = [
+            array["path"]
+            for array in target_payload.get("arrays", {}).values()
+            if isinstance(array, dict) and isinstance(array.get("path"), str)
+        ]
+        metadata = target_payload.get("examples_metadata")
+        if isinstance(metadata, dict) and isinstance(metadata.get("path"), str):
+            paths.append(metadata["path"])
+        total_bytes = sum((artifact / path).stat().st_size for path in paths)
+        base = total_bytes // num_records
+        remainder = total_bytes % num_records
+        return tuple(
+            base + (1 if index < remainder else 0)
+            for index in range(num_records)
+        )
     sizes = []
     for shard in manifest["target_shards"]:
         with (artifact / shard["path"]).open("rb") as handle:

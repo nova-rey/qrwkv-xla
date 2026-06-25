@@ -39,6 +39,12 @@ TRACKED_STATS: tuple[str, ...] = (
     "top32_mass",
     "tail_mass",
 )
+TARGET_PAYLOAD_LEGACY_JSONL = "legacy_jsonl"
+TARGET_PAYLOAD_PACKED_CORRIDOR_V1 = "packed_corridor_v1"
+SUPPORTED_TARGET_PAYLOAD_TYPES = (
+    TARGET_PAYLOAD_LEGACY_JSONL,
+    TARGET_PAYLOAD_PACKED_CORRIDOR_V1,
+)
 
 
 @dataclass(frozen=True)
@@ -88,6 +94,7 @@ class FingerprintCaptureConfig:
     teacher_model_name: str = "synthetic-p143-teacher"
     tokenizer_name: str = "synthetic-p143-tokenizer"
     dtype: str = "float32"
+    target_payload_type: str = TARGET_PAYLOAD_LEGACY_JSONL
     capture_budget: FingerprintCaptureBudgetConfig = field(
         default_factory=FingerprintCaptureBudgetConfig
     )
@@ -348,13 +355,9 @@ def capture_fingerprint_artifact(
 
     mode_bounds = _finalize_mode_bounds(aggregates, config.corridor_bounds)
     modes_payload = _modes_payload(mode_ids, aggregates, mode_bounds)
-    target_rows = [
-        _target_row(position, mode_bounds[position.mode_id]) for position in captured
-    ]
     exemplar_rows = _exemplar_rows(exemplar_reservoir.selected())
 
     modes_path = config.output_dir / "modes.json"
-    targets_path = config.output_dir / "targets" / "targets-00000.jsonl"
     exemplar_shards = (
         _write_exemplar_shards(
             config.output_dir,
@@ -368,12 +371,18 @@ def capture_fingerprint_artifact(
         config.output_dir / exemplar_shards[0]["path"] if exemplar_shards else None
     )
     write_json(modes_path, modes_payload)
-    _write_jsonl(targets_path, target_rows)
+    target_payload, targets_path = _write_target_payload(
+        config=config,
+        captured=captured,
+        mode_bounds=mode_bounds,
+        max_seq_len=max_seq_len,
+    )
     manifest = _manifest_payload(
         config=config,
         max_seq_len=max_seq_len,
         vocab_size=vocab_size,
-        target_count=len(target_rows),
+        target_count=len(captured),
+        target_payload=target_payload,
         exemplar_count=len(exemplar_rows),
         exemplar_shards=exemplar_shards,
     )
@@ -396,6 +405,8 @@ def capture_fingerprint_artifact(
         artifact_validated=validation.ok,
         validation_blockers=validation.blockers,
         artifact_size_bytes=_artifact_size(config.output_dir),
+        target_payload_type=config.target_payload_type,
+        target_payload_bytes=_target_payload_bytes(config.output_dir, target_payload),
         exemplar_payload_bytes=sum(
             (config.output_dir / shard["path"]).stat().st_size
             for shard in exemplar_shards
@@ -500,6 +511,11 @@ def _validate_config(config: FingerprintCaptureConfig) -> None:
         raise ValueError(
             "P143 supports artifact_version "
             f"{BEHAVIORAL_FINGERPRINT_VERSION!r}, got {config.artifact_version!r}"
+        )
+    if config.target_payload_type not in SUPPORTED_TARGET_PAYLOAD_TYPES:
+        raise ValueError(
+            "target_payload_type must be one of "
+            f"{SUPPORTED_TARGET_PAYLOAD_TYPES!r}"
         )
     if config.capture_budget.max_examples is not None:
         if config.capture_budget.max_examples <= 0:
@@ -728,6 +744,126 @@ def _target_row(
     }
 
 
+def _write_target_payload(
+    *,
+    config: FingerprintCaptureConfig,
+    captured: list[_CapturedPosition],
+    mode_bounds: dict[int, dict[str, dict[str, float]]],
+    max_seq_len: int,
+) -> tuple[dict[str, Any], Path]:
+    if config.target_payload_type == TARGET_PAYLOAD_LEGACY_JSONL:
+        target_rows = [
+            _target_row(position, mode_bounds[position.mode_id])
+            for position in captured
+        ]
+        targets_path = config.output_dir / "targets" / "targets-00000.jsonl"
+        _write_jsonl(targets_path, target_rows)
+        return (
+            {
+                "kind": TARGET_PAYLOAD_LEGACY_JSONL,
+                "num_records": len(target_rows),
+                "shards": [
+                    {
+                        "path": "targets/targets-00000.jsonl",
+                        "num_records": len(target_rows),
+                    }
+                ],
+            },
+            targets_path,
+        )
+
+    payload = _write_packed_target_payload(
+        config.output_dir,
+        captured=captured,
+        max_seq_len=max_seq_len,
+    )
+    return payload, config.output_dir / "targets"
+
+
+def _write_packed_target_payload(
+    output_dir: Path,
+    *,
+    captured: list[_CapturedPosition],
+    max_seq_len: int,
+) -> dict[str, Any]:
+    targets_dir = output_dir / "targets"
+    targets_dir.mkdir(parents=True, exist_ok=True)
+    example_indexes: dict[str, int] = {}
+    example_ids: list[str] = []
+    example_input_ids: list[tuple[int, ...]] = []
+    position_example_index = np.empty((len(captured),), dtype=np.int32)
+    position = np.empty((len(captured),), dtype=np.int32)
+    mode_id = np.empty((len(captured),), dtype=np.int32)
+    weight = np.ones((len(captured),), dtype=np.float32)
+
+    for row_index, row in enumerate(captured):
+        example_index = example_indexes.get(row.example_id)
+        if example_index is None:
+            example_index = len(example_ids)
+            example_indexes[row.example_id] = example_index
+            example_ids.append(row.example_id)
+            example_input_ids.append(row.input_ids)
+        elif example_input_ids[example_index] != row.input_ids:
+            raise ValueError(f"example_id has inconsistent input_ids: {row.example_id}")
+        position_example_index[row_index] = example_index
+        position[row_index] = row.position
+        mode_id[row_index] = row.mode_id
+
+    examples_input_ids = np.asarray(example_input_ids, dtype=np.int32).reshape(
+        (len(example_ids), max_seq_len)
+    )
+    arrays = {
+        "examples_input_ids": (
+            "targets/examples_input_ids.npy",
+            examples_input_ids,
+        ),
+        "position_example_index": (
+            "targets/position_example_index.npy",
+            position_example_index,
+        ),
+        "position": ("targets/position.npy", position),
+        "mode_id": ("targets/mode_id.npy", mode_id),
+        "weight": ("targets/weight.npy", weight),
+    }
+    for relative_path, array in arrays.values():
+        np.save(output_dir / relative_path, array)
+
+    metadata_path = targets_dir / "examples_metadata.jsonl"
+    metadata_path.write_text(
+        "".join(
+            json.dumps(
+                {"example_index": index, "example_id": example_id},
+                sort_keys=True,
+            )
+            + "\n"
+            for index, example_id in enumerate(example_ids)
+        ),
+        encoding="utf-8",
+    )
+
+    return {
+        "kind": TARGET_PAYLOAD_PACKED_CORRIDOR_V1,
+        "num_records": len(captured),
+        "num_examples": len(example_ids),
+        "max_seq_len": max_seq_len,
+        "mode_table_path": "modes.json",
+        "ordering": "capture_position_order_v1",
+        "example_index_contract": "zero_based_row_index_into_examples_input_ids",
+        "arrays": {
+            name: {
+                "path": relative_path,
+                "dtype": str(array.dtype),
+                "shape": list(array.shape),
+            }
+            for name, (relative_path, array) in arrays.items()
+        },
+        "examples_metadata": {
+            "path": "targets/examples_metadata.jsonl",
+            "num_records": len(example_ids),
+        },
+    }
+
+
 def _exemplar_rows(selected: list[_CapturedPosition]) -> list[dict[str, Any]]:
     return [
         {
@@ -760,9 +896,15 @@ def _manifest_payload(
     max_seq_len: int,
     vocab_size: int,
     target_count: int,
+    target_payload: dict[str, Any],
     exemplar_count: int,
     exemplar_shards: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    legacy_shards = (
+        target_payload.get("shards", [])
+        if target_payload.get("kind") == TARGET_PAYLOAD_LEGACY_JSONL
+        else []
+    )
     manifest: dict[str, Any] = {
         "artifact_type": BEHAVIORAL_FINGERPRINT_ARTIFACT_TYPE,
         "artifact_version": config.artifact_version,
@@ -773,9 +915,8 @@ def _manifest_payload(
             "target_positions": target_count,
         },
         "stats": {"tracked": list(TRACKED_STATS)},
-        "target_shards": [
-            {"path": "targets/targets-00000.jsonl", "num_records": target_count}
-        ],
+        "target_payload": target_payload,
+        "target_shards": legacy_shards,
         "teacher": {
             "model_name": config.teacher_model_name,
             "tokenizer_name": config.tokenizer_name,
@@ -828,6 +969,8 @@ def _summary_payload(
     artifact_validated: bool,
     validation_blockers: tuple[str, ...],
     artifact_size_bytes: int,
+    target_payload_type: str,
+    target_payload_bytes: int,
     exemplar_payload_bytes: int,
     stored_top_k: list[int],
     dense_oracle_bytes: int,
@@ -849,6 +992,13 @@ def _summary_payload(
         "exemplar_selection_policy": config.exemplar_reservoir.selection_policy,
         "per_mode_min": config.exemplar_reservoir.per_mode_min,
         "artifact_size_bytes": artifact_size_bytes,
+        "target_payload_type": target_payload_type,
+        "target_payload_bytes": target_payload_bytes,
+        "bytes_per_target_position": (
+            target_payload_bytes / target_positions_processed
+            if target_positions_processed
+            else 0.0
+        ),
         "exemplar_target_type": config.exemplar_reservoir.payload_type,
         "configured_top_k": config.exemplar_reservoir.top_k,
         "actual_stored_k": {
@@ -879,6 +1029,23 @@ def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     text = "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows)
     path.write_text(text, encoding="utf-8")
+
+
+def _target_payload_bytes(output_dir: Path, target_payload: dict[str, Any]) -> int:
+    if target_payload.get("kind") == TARGET_PAYLOAD_LEGACY_JSONL:
+        return sum(
+            (output_dir / shard["path"]).stat().st_size
+            for shard in target_payload.get("shards", ())
+        )
+    paths = [
+        array["path"]
+        for array in target_payload.get("arrays", {}).values()
+        if isinstance(array, dict) and isinstance(array.get("path"), str)
+    ]
+    metadata = target_payload.get("examples_metadata", {})
+    if isinstance(metadata, dict) and isinstance(metadata.get("path"), str):
+        paths.append(metadata["path"])
+    return sum((output_dir / path).stat().st_size for path in paths)
 
 
 def _write_exemplar_shards(

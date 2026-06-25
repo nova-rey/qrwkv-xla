@@ -46,6 +46,9 @@ from qrwkv_xla.fingerprint.budgeted_artifact import (
     validate_budgeted_artifact,
 )
 from qrwkv_xla.fingerprint.capture import (
+    SUPPORTED_TARGET_PAYLOAD_TYPES,
+    TARGET_PAYLOAD_LEGACY_JSONL,
+    TARGET_PAYLOAD_PACKED_CORRIDOR_V1,
     FingerprintCaptureBudgetConfig,
     FingerprintCaptureConfig,
     FingerprintCaptureExample,
@@ -217,6 +220,9 @@ __all__ = [
     "TinyRealTeacherFingerprintCaptureResult",
     "TwoCycleExperimentConfig",
     "TwoCycleExperimentResult",
+    "SUPPORTED_TARGET_PAYLOAD_TYPES",
+    "TARGET_PAYLOAD_LEGACY_JSONL",
+    "TARGET_PAYLOAD_PACKED_CORRIDOR_V1",
     "build_synthetic_capture_examples",
     "aggressiveness_profiles",
     "adaptive_weighted_loss",

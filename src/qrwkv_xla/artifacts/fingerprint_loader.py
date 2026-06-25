@@ -20,6 +20,8 @@ REQUIRED_FINGERPRINT_STATS = (
     "top32_mass",
     "tail_mass",
 )
+TARGET_PAYLOAD_LEGACY_JSONL = "legacy_jsonl"
+TARGET_PAYLOAD_PACKED_CORRIDOR_V1 = "packed_corridor_v1"
 
 
 @dataclass(frozen=True)
@@ -107,18 +109,27 @@ class FingerprintTargetDataset:
                 + ", ".join(REQUIRED_FINGERPRINT_STATS)
             )
 
-        records = list(self._load_records())
+        self._packed: _PackedTargets | None = None
+        self._records: tuple[FingerprintTargetRecord, ...] | None = None
+        if _target_payload_kind(self.manifest) == TARGET_PAYLOAD_PACKED_CORRIDOR_V1:
+            self._packed = _PackedTargets.load(self.artifact_dir, self.manifest)
+            record_count = self._packed.num_records
+        else:
+            records = list(self._load_jsonl_records())
+            self._records = tuple(records)
+            record_count = len(records)
+
+        order = np.arange(record_count, dtype=np.int64)
         if config.max_records is not None:
-            records = records[: config.max_records]
+            order = order[: config.max_records]
         if config.shuffle:
             rng = np.random.default_rng(config.seed)
-            order = rng.permutation(len(records))
-            records = [records[index] for index in order]
-        self._records = tuple(records)
+            order = rng.permutation(order)
+        self._order = order
 
     @property
     def num_records(self) -> int:
-        return len(self._records)
+        return int(self._order.size)
 
     @property
     def vocab_size(self) -> int:
@@ -133,17 +144,28 @@ class FingerprintTargetDataset:
         return self._tracked_stats
 
     def iter_records(self) -> Iterator[FingerprintTargetRecord]:
-        yield from self._records
+        if self._packed is not None:
+            for index in self._order:
+                yield self._packed.record_at(int(index))
+            return
+        assert self._records is not None
+        for index in self._order:
+            yield self._records[int(index)]
 
     def iter_batches(self) -> Iterator[FingerprintBatch]:
         batch_size = self.config.batch_size
-        for start in range(0, len(self._records), batch_size):
-            records = self._records[start : start + batch_size]
-            if self.config.drop_remainder and len(records) < batch_size:
+        for start in range(0, self.num_records, batch_size):
+            indexes = self._order[start : start + batch_size]
+            if self.config.drop_remainder and indexes.size < batch_size:
                 continue
-            yield _records_to_batch(records, max_seq_len=self.max_seq_len)
+            if self._packed is not None:
+                yield self._packed.batch_at(indexes)
+            else:
+                assert self._records is not None
+                records = tuple(self._records[int(index)] for index in indexes)
+                yield _records_to_batch(records, max_seq_len=self.max_seq_len)
 
-    def _load_records(self) -> Iterator[FingerprintTargetRecord]:
+    def _load_jsonl_records(self) -> Iterator[FingerprintTargetRecord]:
         for shard in self.manifest.target_shards:
             shard_path = self.artifact_dir / str(shard["path"])
             for line in shard_path.read_text(encoding="utf-8").splitlines():
@@ -153,6 +175,108 @@ class FingerprintTargetDataset:
                     json.loads(line),
                     max_seq_len=self.max_seq_len,
                 )
+
+
+class _PackedTargets:
+    def __init__(
+        self,
+        *,
+        example_ids: tuple[str, ...],
+        examples_input_ids: np.ndarray,
+        position_example_index: np.ndarray,
+        position: np.ndarray,
+        mode_id: np.ndarray,
+        weight: np.ndarray,
+        mode_bounds: dict[int, dict[str, dict[str, float]]],
+    ) -> None:
+        self.example_ids = example_ids
+        self.examples_input_ids = examples_input_ids
+        self.position_example_index = position_example_index
+        self.position = position
+        self.mode_id = mode_id
+        self.weight = weight
+        self.mode_bounds = mode_bounds
+
+    @classmethod
+    def load(cls, artifact_dir: Path, manifest: FingerprintManifest) -> _PackedTargets:
+        payload = manifest.target_payload
+        if not isinstance(payload, dict):
+            raise ValueError("packed fingerprint target payload missing from manifest")
+        arrays = payload.get("arrays")
+        if not isinstance(arrays, dict):
+            raise ValueError("packed fingerprint target arrays missing from manifest")
+        return cls(
+            example_ids=_load_example_ids(artifact_dir, payload),
+            examples_input_ids=_load_manifest_array(
+                artifact_dir, arrays, "examples_input_ids"
+            ),
+            position_example_index=_load_manifest_array(
+                artifact_dir, arrays, "position_example_index"
+            ),
+            position=_load_manifest_array(artifact_dir, arrays, "position"),
+            mode_id=_load_manifest_array(artifact_dir, arrays, "mode_id"),
+            weight=_load_manifest_array(artifact_dir, arrays, "weight"),
+            mode_bounds=_load_mode_bounds(artifact_dir / manifest.modes_file),
+        )
+
+    @property
+    def num_records(self) -> int:
+        return int(self.position.shape[0])
+
+    def record_at(self, index: int) -> FingerprintTargetRecord:
+        example_index = int(self.position_example_index[index])
+        mode_id = int(self.mode_id[index])
+        bounds = self.mode_bounds[mode_id]
+        return FingerprintTargetRecord(
+            example_id=self.example_ids[example_index],
+            position=int(self.position[index]),
+            input_ids=tuple(
+                int(token) for token in self.examples_input_ids[example_index]
+            ),
+            mode_id=mode_id,
+            entropy_min=float(bounds["entropy"]["min"]),
+            entropy_max=float(bounds["entropy"]["max"]),
+            top1_margin_min=float(bounds["top1_margin"]["min"]),
+            top1_margin_max=float(bounds["top1_margin"]["max"]),
+            top8_mass_min=float(bounds["top8_mass"]["min"]),
+            top8_mass_max=float(bounds["top8_mass"]["max"]),
+            top32_mass_min=float(bounds["top32_mass"]["min"]),
+            top32_mass_max=float(bounds["top32_mass"]["max"]),
+            tail_mass_min=float(bounds["tail_mass"]["min"]),
+            tail_mass_max=float(bounds["tail_mass"]["max"]),
+            weight=float(self.weight[index]),
+        )
+
+    def batch_at(self, indexes: np.ndarray) -> FingerprintBatch:
+        example_indexes = self.position_example_index[indexes]
+        bounds = [self.mode_bounds[int(mode_id)] for mode_id in self.mode_id[indexes]]
+        return FingerprintBatch(
+            input_ids=np.asarray(
+                self.examples_input_ids[example_indexes],
+                dtype=np.int32,
+            ),
+            position=np.asarray(self.position[indexes], dtype=np.int32),
+            mode_id=np.asarray(self.mode_id[indexes], dtype=np.int32),
+            entropy_min=_float_array(bound["entropy"]["min"] for bound in bounds),
+            entropy_max=_float_array(bound["entropy"]["max"] for bound in bounds),
+            top1_margin_min=_float_array(
+                bound["top1_margin"]["min"] for bound in bounds
+            ),
+            top1_margin_max=_float_array(
+                bound["top1_margin"]["max"] for bound in bounds
+            ),
+            top8_mass_min=_float_array(bound["top8_mass"]["min"] for bound in bounds),
+            top8_mass_max=_float_array(bound["top8_mass"]["max"] for bound in bounds),
+            top32_mass_min=_float_array(
+                bound["top32_mass"]["min"] for bound in bounds
+            ),
+            top32_mass_max=_float_array(
+                bound["top32_mass"]["max"] for bound in bounds
+            ),
+            tail_mass_min=_float_array(bound["tail_mass"]["min"] for bound in bounds),
+            tail_mass_max=_float_array(bound["tail_mass"]["max"] for bound in bounds),
+            weight=np.asarray(self.weight[indexes], dtype=np.float32),
+        )
 
 
 def load_fingerprint_targets(
@@ -238,6 +362,49 @@ def _records_to_batch(
 
 def _float_array(values) -> np.ndarray:
     return np.asarray(list(values), dtype=np.float32)
+
+
+def _target_payload_kind(manifest: FingerprintManifest) -> str:
+    if manifest.target_payload is None:
+        return TARGET_PAYLOAD_LEGACY_JSONL
+    kind = manifest.target_payload.get("kind")
+    if kind == TARGET_PAYLOAD_PACKED_CORRIDOR_V1:
+        return TARGET_PAYLOAD_PACKED_CORRIDOR_V1
+    return TARGET_PAYLOAD_LEGACY_JSONL
+
+
+def _load_manifest_array(
+    artifact_dir: Path,
+    arrays: dict,
+    name: str,
+) -> np.ndarray:
+    payload = arrays.get(name)
+    if not isinstance(payload, dict) or not isinstance(payload.get("path"), str):
+        raise ValueError(f"packed target array {name!r} missing path")
+    return np.load(artifact_dir / payload["path"], mmap_mode="r", allow_pickle=False)
+
+
+def _load_example_ids(artifact_dir: Path, payload: dict) -> tuple[str, ...]:
+    metadata = payload.get("examples_metadata")
+    if not isinstance(metadata, dict) or not isinstance(metadata.get("path"), str):
+        raise ValueError("packed target examples_metadata missing path")
+    rows: list[str] = []
+    for expected_index, line in enumerate(
+        (artifact_dir / metadata["path"]).read_text(encoding="utf-8").splitlines()
+    ):
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        if row.get("example_index") != expected_index:
+            raise ValueError("packed target examples_metadata is not ordered")
+        rows.append(str(row["example_id"]))
+    return tuple(rows)
+
+
+def _load_mode_bounds(path: Path) -> dict[int, dict[str, dict[str, float]]]:
+    payload = read_json_object(path)
+    modes = payload.get("modes", ())
+    return {int(mode["mode_id"]): mode["bounds"] for mode in modes}
 
 
 def _tracked_stats(manifest: FingerprintManifest) -> tuple[str, ...]:

@@ -6,6 +6,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from qrwkv_xla.artifacts._json import read_json_object
 
 BEHAVIORAL_FINGERPRINT_ARTIFACT_TYPE = "behavioral_fingerprint"
@@ -14,6 +16,15 @@ SUPPORTED_BEHAVIORAL_FINGERPRINT_VERSIONS = (BEHAVIORAL_FINGERPRINT_VERSION,)
 PROBABILITY_LIKE_STATS = frozenset(
     {"top1_margin", "top8_mass", "top32_mass", "tail_mass"}
 )
+TARGET_PAYLOAD_LEGACY_JSONL = "legacy_jsonl"
+TARGET_PAYLOAD_PACKED_CORRIDOR_V1 = "packed_corridor_v1"
+PACKED_TARGET_ARRAYS = {
+    "examples_input_ids": 2,
+    "position_example_index": 1,
+    "position": 1,
+    "mode_id": 1,
+    "weight": 1,
+}
 
 
 @dataclass(frozen=True)
@@ -26,6 +37,7 @@ class FingerprintManifest:
     stats: dict[str, Any]
     modes_file: str
     target_shards: tuple[dict[str, Any], ...]
+    target_payload: dict[str, Any] | None = None
     exemplar_reservoir: dict[str, Any] | None = None
 
     @classmethod
@@ -41,6 +53,11 @@ class FingerprintManifest:
             modes_file=str(payload.get("modes_file", "")),
             target_shards=tuple(
                 _mapping_or_empty(item) for item in payload.get("target_shards", ())
+            ),
+            target_payload=(
+                _mapping_or_empty(payload.get("target_payload"))
+                if payload.get("target_payload") is not None
+                else None
             ),
             exemplar_reservoir=(
                 _mapping_or_empty(exemplar_reservoir)
@@ -97,7 +114,9 @@ def validate_fingerprint_artifact(path: str | Path) -> ValidationResult:
 
     manifest = FingerprintManifest.from_payload(manifest_payload)
     metadata["artifact_version"] = manifest.artifact_version
-    blockers.extend(_validate_manifest(manifest))
+    target_payload_kind = _target_payload_kind(manifest)
+    blockers.extend(_validate_manifest(manifest, target_payload_kind))
+    metadata["target_payload_type"] = target_payload_kind
 
     tracked_stats = _tracked_stats(manifest.stats)
     vocab_size = _positive_int(manifest.teacher.get("vocab_size"))
@@ -116,38 +135,49 @@ def validate_fingerprint_artifact(path: str | Path) -> ValidationResult:
     elif manifest.modes_file:
         blockers.append(f"modes_file does not exist: {manifest.modes_file}")
 
-    metadata["shards"] = len(manifest.target_shards)
-    total_records = 0
-    for shard_index, shard in enumerate(manifest.target_shards):
-        shard_path_value = shard.get("path")
-        if not isinstance(shard_path_value, str) or not shard_path_value.strip():
-            blockers.append(f"target_shards[{shard_index}] missing non-empty path")
-            continue
-        shard_path = root / shard_path_value
-        expected_records = _non_negative_int(shard.get("num_records"))
-        if expected_records is None:
-            blockers.append(
-                f"target_shards[{shard_index}] num_records must be a "
-                "non-negative integer"
-            )
-        if not shard_path.is_file():
-            blockers.append(f"target shard does not exist: {shard_path_value}")
-            continue
-        actual_records, shard_blockers = _validate_target_shard(
-            shard_path,
-            root=root,
-            tracked_stats=tracked_stats,
+    if target_payload_kind == TARGET_PAYLOAD_PACKED_CORRIDOR_V1:
+        metadata["shards"] = 1
+        total_records, packed_blockers = _validate_packed_target_payload(
+            root,
+            manifest.target_payload,
             vocab_size=vocab_size,
             max_seq_len=max_seq_len,
             modes_by_id=modes_by_id,
         )
-        total_records += actual_records
-        blockers.extend(shard_blockers)
-        if expected_records is not None and actual_records != expected_records:
-            blockers.append(
-                f"target shard record count mismatch for {shard_path_value}: "
-                f"expected {expected_records}, got {actual_records}"
+        blockers.extend(packed_blockers)
+    else:
+        metadata["shards"] = len(manifest.target_shards)
+        total_records = 0
+        for shard_index, shard in enumerate(manifest.target_shards):
+            shard_path_value = shard.get("path")
+            if not isinstance(shard_path_value, str) or not shard_path_value.strip():
+                blockers.append(f"target_shards[{shard_index}] missing non-empty path")
+                continue
+            shard_path = root / shard_path_value
+            expected_records = _non_negative_int(shard.get("num_records"))
+            if expected_records is None:
+                blockers.append(
+                    f"target_shards[{shard_index}] num_records must be a "
+                    "non-negative integer"
+                )
+            if not shard_path.is_file():
+                blockers.append(f"target shard does not exist: {shard_path_value}")
+                continue
+            actual_records, shard_blockers = _validate_target_shard(
+                shard_path,
+                root=root,
+                tracked_stats=tracked_stats,
+                vocab_size=vocab_size,
+                max_seq_len=max_seq_len,
+                modes_by_id=modes_by_id,
             )
+            total_records += actual_records
+            blockers.extend(shard_blockers)
+            if expected_records is not None and actual_records != expected_records:
+                blockers.append(
+                    f"target shard record count mismatch for {shard_path_value}: "
+                    f"expected {expected_records}, got {actual_records}"
+                )
 
     metadata["records"] = total_records
     target_positions = manifest.sequence.get("target_positions")
@@ -174,7 +204,9 @@ def validate_fingerprint_artifact(path: str | Path) -> ValidationResult:
     return _result(blockers=blockers, warnings=warnings, metadata=metadata)
 
 
-def _validate_manifest(manifest: FingerprintManifest) -> list[str]:
+def _validate_manifest(
+    manifest: FingerprintManifest, target_payload_kind: str
+) -> list[str]:
     blockers: list[str] = []
     if manifest.artifact_type != BEHAVIORAL_FINGERPRINT_ARTIFACT_TYPE:
         blockers.append(
@@ -207,9 +239,37 @@ def _validate_manifest(manifest: FingerprintManifest) -> list[str]:
         blockers.append("manifest stats.tracked must be a non-empty list")
     if not manifest.modes_file.strip():
         blockers.append("manifest modes_file must be non-empty")
-    if not manifest.target_shards:
+    if (
+        target_payload_kind == TARGET_PAYLOAD_LEGACY_JSONL
+        and not manifest.target_shards
+    ):
         blockers.append("manifest target_shards must be non-empty")
+    if target_payload_kind not in {
+        TARGET_PAYLOAD_LEGACY_JSONL,
+        TARGET_PAYLOAD_PACKED_CORRIDOR_V1,
+    }:
+        blockers.append(
+            f"manifest target_payload.kind unsupported: {target_payload_kind!r}"
+        )
+    if target_payload_kind == TARGET_PAYLOAD_PACKED_CORRIDOR_V1:
+        if manifest.target_shards:
+            blockers.append(
+                "manifest target_shards must be empty for packed_corridor_v1"
+            )
+        if not isinstance(manifest.target_payload, dict) or not manifest.target_payload:
+            blockers.append("manifest target_payload must describe packed targets")
+        elif manifest.target_payload.get("kind") != TARGET_PAYLOAD_PACKED_CORRIDOR_V1:
+            blockers.append("manifest target_payload.kind mismatch")
     return blockers
+
+
+def _target_payload_kind(manifest: FingerprintManifest) -> str:
+    if manifest.target_payload is None:
+        return TARGET_PAYLOAD_LEGACY_JSONL
+    kind = manifest.target_payload.get("kind")
+    if kind in {TARGET_PAYLOAD_LEGACY_JSONL, TARGET_PAYLOAD_PACKED_CORRIDOR_V1}:
+        return str(kind)
+    return str(kind or "")
 
 
 def _validate_modes(
@@ -345,6 +405,207 @@ def _validate_target_row(
                     bound, mode_bounds.get(stat), stat_source
                 )
             )
+    return blockers
+
+
+def _validate_packed_target_payload(
+    root: Path,
+    payload: dict[str, Any] | None,
+    *,
+    vocab_size: int | None,
+    max_seq_len: int | None,
+    modes_by_id: dict[int, dict[str, Any]],
+) -> tuple[int, list[str]]:
+    blockers: list[str] = []
+    if not isinstance(payload, dict):
+        return 0, ["target_payload must be an object for packed_corridor_v1"]
+    expected_records = _non_negative_int(payload.get("num_records"))
+    if expected_records is None:
+        blockers.append("target_payload.num_records must be a non-negative integer")
+        expected_records = 0
+    expected_examples = _non_negative_int(payload.get("num_examples"))
+    if expected_examples is None:
+        blockers.append("target_payload.num_examples must be a non-negative integer")
+        expected_examples = 0
+    payload_max_seq_len = _positive_int(payload.get("max_seq_len"))
+    if payload_max_seq_len is None:
+        blockers.append("target_payload.max_seq_len must be a positive integer")
+    elif max_seq_len is not None and payload_max_seq_len != max_seq_len:
+        blockers.append(
+            "target_payload.max_seq_len mismatch: "
+            f"expected {max_seq_len}, got {payload_max_seq_len}"
+        )
+    if payload.get("mode_table_path") != "modes.json":
+        blockers.append("target_payload.mode_table_path must be 'modes.json'")
+    if payload.get("ordering") != "capture_position_order_v1":
+        blockers.append("target_payload.ordering is unsupported")
+    if (
+        payload.get("example_index_contract")
+        != "zero_based_row_index_into_examples_input_ids"
+    ):
+        blockers.append("target_payload.example_index_contract is unsupported")
+
+    arrays_payload = payload.get("arrays")
+    if not isinstance(arrays_payload, dict):
+        blockers.append("target_payload.arrays must be an object")
+        arrays_payload = {}
+    arrays: dict[str, np.ndarray] = {}
+    for name, rank in PACKED_TARGET_ARRAYS.items():
+        array_payload = arrays_payload.get(name)
+        array, array_blockers = _load_packed_array(
+            root,
+            name=name,
+            rank=rank,
+            payload=array_payload,
+        )
+        blockers.extend(array_blockers)
+        if array is not None:
+            arrays[name] = array
+
+    examples = arrays.get("examples_input_ids")
+    if examples is not None:
+        if examples.shape[0] != expected_examples:
+            blockers.append(
+                "examples_input_ids example count mismatch: "
+                f"expected {expected_examples}, got {examples.shape[0]}"
+            )
+        if max_seq_len is not None and examples.shape[1] != max_seq_len:
+            blockers.append(
+                "examples_input_ids max_seq_len mismatch: "
+                f"expected {max_seq_len}, got {examples.shape[1]}"
+            )
+        if vocab_size is not None and examples.size:
+            if bool(np.any((examples < 0) | (examples >= vocab_size))):
+                blockers.append("examples_input_ids contains token ids outside vocab")
+
+    for name in ("position_example_index", "position", "mode_id", "weight"):
+        array = arrays.get(name)
+        if array is not None and array.shape[0] != expected_records:
+            blockers.append(
+                f"{name} record count mismatch: expected {expected_records}, "
+                f"got {array.shape[0]}"
+            )
+
+    example_index = arrays.get("position_example_index")
+    if example_index is not None and example_index.size:
+        if bool(np.any((example_index < 0) | (example_index >= expected_examples))):
+            blockers.append("position_example_index contains invalid example indexes")
+    position = arrays.get("position")
+    if position is not None and position.size and max_seq_len is not None:
+        if bool(np.any((position < 0) | (position >= max_seq_len))):
+            blockers.append("position contains values outside sequence range")
+    mode_id = arrays.get("mode_id")
+    if mode_id is not None and mode_id.size:
+        valid_modes = np.asarray(sorted(modes_by_id), dtype=mode_id.dtype)
+        if valid_modes.size == 0 or bool(~np.all(np.isin(mode_id, valid_modes))):
+            blockers.append("mode_id contains unknown mode ids")
+    weight = arrays.get("weight")
+    if weight is not None and weight.size:
+        if bool(np.any(~np.isfinite(weight))):
+            blockers.append("weight contains non-finite values")
+        if bool(np.any(weight < 0.0)):
+            blockers.append("weight contains negative values")
+
+    metadata = payload.get("examples_metadata")
+    blockers.extend(
+        _validate_examples_metadata(
+            root,
+            metadata,
+            expected_examples=expected_examples,
+        )
+    )
+    return int(expected_records), blockers
+
+
+def _load_packed_array(
+    root: Path,
+    *,
+    name: str,
+    rank: int,
+    payload: Any,
+) -> tuple[np.ndarray | None, list[str]]:
+    blockers: list[str] = []
+    if not isinstance(payload, dict):
+        return None, [f"target_payload.arrays.{name} must be an object"]
+    path_value = payload.get("path")
+    if not isinstance(path_value, str) or not path_value.strip():
+        return None, [f"target_payload.arrays.{name}.path must be non-empty"]
+    array_path = root / path_value
+    if not array_path.is_file():
+        return None, [f"packed target array does not exist: {path_value}"]
+    try:
+        array = np.load(array_path, mmap_mode="r", allow_pickle=False)
+    except (OSError, ValueError) as exc:
+        return None, [f"packed target array invalid: {path_value}: {exc}"]
+    dtype = payload.get("dtype")
+    if dtype != str(array.dtype):
+        blockers.append(
+            f"target_payload.arrays.{name}.dtype mismatch: "
+            f"expected {dtype!r}, got {str(array.dtype)!r}"
+        )
+    shape = payload.get("shape")
+    if shape != list(array.shape):
+        blockers.append(
+            f"target_payload.arrays.{name}.shape mismatch: "
+            f"expected {shape!r}, got {list(array.shape)!r}"
+        )
+    if array.ndim != rank:
+        blockers.append(f"target_payload.arrays.{name} must have rank {rank}")
+    return array, blockers
+
+
+def _validate_examples_metadata(
+    root: Path,
+    metadata: Any,
+    *,
+    expected_examples: int,
+) -> list[str]:
+    blockers: list[str] = []
+    if not isinstance(metadata, dict):
+        return ["target_payload.examples_metadata must be an object"]
+    path_value = metadata.get("path")
+    if not isinstance(path_value, str) or not path_value.strip():
+        return ["target_payload.examples_metadata.path must be non-empty"]
+    expected_records = _non_negative_int(metadata.get("num_records"))
+    if expected_records is None:
+        blockers.append("target_payload.examples_metadata.num_records invalid")
+        expected_records = expected_examples
+    if expected_records != expected_examples:
+        blockers.append(
+            "target_payload.examples_metadata.num_records mismatch: "
+            f"expected {expected_examples}, got {expected_records}"
+        )
+    path = root / path_value
+    if not path.is_file():
+        return blockers + [f"examples metadata does not exist: {path_value}"]
+    actual = 0
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines()):
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError as exc:
+            blockers.append(
+                f"malformed examples metadata row line {line_number + 1}: {exc.msg}"
+            )
+            continue
+        if not isinstance(row, dict):
+            blockers.append(f"examples metadata line {line_number + 1} must be object")
+            continue
+        if row.get("example_index") != actual:
+            blockers.append(
+                f"examples metadata line {line_number + 1} example_index mismatch"
+            )
+        if not isinstance(row.get("example_id"), str) or not row["example_id"].strip():
+            blockers.append(
+                f"examples metadata line {line_number + 1} example_id invalid"
+            )
+        actual += 1
+    if actual != expected_examples:
+        blockers.append(
+            "examples metadata record count mismatch: "
+            f"expected {expected_examples}, got {actual}"
+        )
     return blockers
 
 

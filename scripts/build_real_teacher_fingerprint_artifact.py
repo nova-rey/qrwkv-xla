@@ -13,6 +13,8 @@ from qrwkv_xla.artifacts.cascaded_soft_labels import (
 )
 from qrwkv_xla.fingerprint import (
     DEFAULT_TINY_REAL_TEACHER,
+    SUPPORTED_TARGET_PAYLOAD_TYPES,
+    TARGET_PAYLOAD_PACKED_CORRIDOR_V1,
     TinyRealTeacherFingerprintCaptureConfig,
     run_tiny_real_teacher_fingerprint_capture,
 )
@@ -67,6 +69,11 @@ def main() -> int:
     )
     parser.add_argument("--consumer-vocab-limit", type=int, default=4096)
     parser.add_argument("--example-id-prefix", default="p145-real-teacher")
+    parser.add_argument(
+        "--target-payload-type",
+        choices=SUPPORTED_TARGET_PAYLOAD_TYPES,
+        default=TARGET_PAYLOAD_PACKED_CORRIDOR_V1,
+    )
     parser.add_argument("--local-files-only", action="store_true", default=True)
     parser.add_argument("--allow-downloads", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
@@ -99,6 +106,7 @@ def main() -> int:
                 exemplar_bucket_mean_logp_dtype=args.exemplar_bucket_mean_logp_dtype,
                 consumer_vocab_limit=args.consumer_vocab_limit,
                 example_id_prefix=args.example_id_prefix,
+                target_payload_type=args.target_payload_type,
             )
         )
     except HFTeacherUnavailable as exc:
