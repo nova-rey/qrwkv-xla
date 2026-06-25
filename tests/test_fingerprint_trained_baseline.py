@@ -237,9 +237,10 @@ class _FakeTokenizer:
         length = int(kwargs["max_length"])
         rows = []
         masks = []
-        for row, prompt in enumerate(prompts):
+        for prompt in prompts:
             used = min(max(1, len(prompt.split())), length)
-            ids = [((row + offset + 3) % self.vocab_size) for offset in range(used)]
+            prompt_seed = sum(ord(char) for char in prompt) % self.vocab_size
+            ids = [((prompt_seed + offset) % self.vocab_size) for offset in range(used)]
             rows.append(ids + [self.pad_token_id] * (length - used))
             masks.append([1] * used + [0] * (length - used))
         return {"input_ids": np.asarray(rows), "attention_mask": np.asarray(masks)}

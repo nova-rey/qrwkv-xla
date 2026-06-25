@@ -267,10 +267,11 @@ class _FakeTokenizer:
         assert return_tensors == "pt"
         rows = []
         masks = []
-        for row, prompt in enumerate(prompts):
+        for prompt in prompts:
             prompt_len = min(max(1, len(prompt.split())), max_length)
+            prompt_seed = sum(ord(char) for char in prompt) % self.vocab_size
             rows.append(
-                [(row * 3 + col) % self.vocab_size for col in range(max_length)]
+                [(prompt_seed + col) % self.vocab_size for col in range(max_length)]
             )
             masks.append([1 if col < prompt_len else 0 for col in range(max_length)])
         return {
