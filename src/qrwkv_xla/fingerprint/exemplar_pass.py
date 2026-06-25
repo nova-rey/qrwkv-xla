@@ -910,9 +910,7 @@ def _records_to_batches(records, batch_size, max_seq_len):
                 ).reshape((len(selected), max_seq_len)),
                 position=np.asarray([r.position for r in selected], dtype=np.int32),
                 teacher_probs=(
-                    np.asarray(
-                        [r.teacher_probs for r in selected], dtype=np.float32
-                    )
+                    np.asarray([r.teacher_probs for r in selected], dtype=np.float32)
                     if target_type == "dense_probs"
                     else None
                 ),
@@ -937,9 +935,7 @@ def _records_to_batches(records, batch_size, max_seq_len):
                 top_log_probs=_record_array(selected, "top_log_probs", np.float32),
                 top_mass=_record_array(selected, "top_mass", np.float32),
                 tail_mass=_record_array(selected, "tail_mass", np.float32),
-                teacher_entropy=_record_array(
-                    selected, "teacher_entropy", np.float32
-                ),
+                teacher_entropy=_record_array(selected, "teacher_entropy", np.float32),
                 bucket_edges=(
                     np.asarray(selected[0].bucket_edges, dtype=np.float32)
                     if selected[0].bucket_edges is not None

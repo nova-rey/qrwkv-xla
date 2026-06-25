@@ -400,9 +400,7 @@ def capture_fingerprint_artifact(
             (config.output_dir / shard["path"]).stat().st_size
             for shard in exemplar_shards
         ),
-        stored_top_k=[
-            len(row.get("top_token_ids", ())) for row in exemplar_rows
-        ],
+        stored_top_k=[len(row.get("top_token_ids", ())) for row in exemplar_rows],
         dense_oracle_bytes=sum(
             len(
                 json.dumps(
@@ -860,9 +858,7 @@ def _summary_payload(
         },
         "exemplar_payload_bytes": exemplar_payload_bytes,
         "bytes_per_exemplar": (
-            exemplar_payload_bytes / exemplars_retained
-            if exemplars_retained
-            else 0.0
+            exemplar_payload_bytes / exemplars_retained if exemplars_retained else 0.0
         ),
         "dense_json_oracle_bytes": dense_oracle_bytes,
         "compression_ratio_vs_dense_json_oracle": (

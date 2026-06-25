@@ -145,6 +145,7 @@ def run_tiny_real_teacher_fingerprint_capture(
                 input_ids=tuple(int(token) for token in input_ids[0]),
                 logits=logits[0],
             )
+
     capture_config = FingerprintCaptureConfig(
         output_dir=config.output_dir,
         overwrite=config.overwrite,
