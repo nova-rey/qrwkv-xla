@@ -109,6 +109,13 @@ def test_summary_fields_and_consumer_sanity_are_recorded(tmp_path: Path) -> None
         "loader_only",
     }
     assert summary["consumer_sanity"]["status"] == "pass"
+    if summary["consumer_sanity"]["kind"] == "compressed_exemplar_optimizer_step":
+        assert summary["consumer_sanity"]["loss_finite"] is True
+        assert summary["consumer_sanity"]["gradient_finite"] is True
+        assert summary["consumer_sanity"]["gradient_norm"] > 0.0
+        assert summary["consumer_sanity"]["gradient_norm_finite"] is True
+        assert summary["consumer_sanity"]["gradient_norm_positive"] is True
+        assert summary["consumer_sanity"]["parameters_changed"] is True
 
 
 def test_exemplar_budget_is_honored(tmp_path: Path) -> None:

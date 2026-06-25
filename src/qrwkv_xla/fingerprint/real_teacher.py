@@ -354,7 +354,12 @@ def _run_consumer_sanity(
                     ).iter_batches()
                 )
             )
-            initial = jnp.zeros((1, vocab_size), dtype=jnp.float32)
+            initial = jnp.linspace(
+                -0.25,
+                0.25,
+                vocab_size,
+                dtype=jnp.float32,
+            )[None, :]
 
             def loss_fn(logits: jax.Array) -> jax.Array:
                 return compute_fingerprint_exemplar_loss(logits, batch).loss
@@ -362,15 +367,29 @@ def _run_consumer_sanity(
             loss, gradient = jax.value_and_grad(loss_fn)(initial)
             updated = initial - 0.01 * gradient
             changed = bool(np.any(np.asarray(updated) != np.asarray(initial)))
-            finite = bool(
-                np.isfinite(float(loss)) and np.all(np.isfinite(np.asarray(gradient)))
+            gradient_array = np.asarray(gradient)
+            gradient_norm = float(jnp.linalg.norm(gradient))
+            loss_finite = bool(np.isfinite(float(loss)))
+            gradient_finite = bool(np.all(np.isfinite(gradient_array)))
+            gradient_norm_finite = bool(np.isfinite(gradient_norm))
+            gradient_norm_positive = bool(gradient_norm > 0.0)
+            passed = bool(
+                loss_finite
+                and gradient_finite
+                and gradient_norm_finite
+                and gradient_norm_positive
+                and changed
             )
             return {
                 "kind": "compressed_exemplar_optimizer_step",
-                "status": "pass" if finite and changed else "fail",
-                "reason": None if finite and changed else "nonfinite_or_unchanged",
+                "status": "pass" if passed else "fail",
+                "reason": None if passed else "nonfinite_zero_gradient_or_unchanged",
                 "initial_loss": float(loss),
-                "gradient_finite": bool(np.all(np.isfinite(np.asarray(gradient)))),
+                "loss_finite": loss_finite,
+                "gradient_finite": gradient_finite,
+                "gradient_norm": gradient_norm,
+                "gradient_norm_finite": gradient_norm_finite,
+                "gradient_norm_positive": gradient_norm_positive,
                 "parameters_changed": changed,
             }
         except Exception as error:

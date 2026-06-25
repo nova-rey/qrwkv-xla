@@ -20,6 +20,10 @@ from qrwkv_xla.fingerprint.capture import (
     FingerprintExemplarReservoirCaptureConfig,
     capture_fingerprint_artifact,
 )
+from qrwkv_xla.fingerprint.real_teacher import (
+    TinyRealTeacherFingerprintCaptureConfig,
+    _run_consumer_sanity,
+)
 from qrwkv_xla.training import compute_fingerprint_exemplar_loss
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -64,6 +68,34 @@ def test_compressed_capture_load_loss_gradient_and_optimizer_step(
     assert np.isclose(float(output.loss), float(reference.total_loss), atol=1e-6)
     assert np.all(np.isfinite(np.asarray(gradient)))
     assert np.any(np.asarray(updated) != np.asarray(student_logits))
+
+
+def test_near_uniform_compressed_consumer_sanity_uses_nonstationary_init(
+    tmp_path: Path,
+) -> None:
+    artifact = _build_near_uniform_compressed_artifact(tmp_path)
+    receipt = _run_consumer_sanity(
+        TinyRealTeacherFingerprintCaptureConfig(
+            output_dir=artifact,
+            texts_path=ROOT
+            / "tests"
+            / "fixtures"
+            / "fingerprint_capture_real_teacher"
+            / "tiny_texts.jsonl",
+        ),
+        vocab_size=32,
+        validation_ok=True,
+    )
+
+    assert receipt["kind"] == "compressed_exemplar_optimizer_step"
+    assert receipt["status"] == "pass"
+    assert np.isfinite(receipt["initial_loss"])
+    assert receipt["loss_finite"] is True
+    assert receipt["gradient_finite"] is True
+    assert np.isfinite(receipt["gradient_norm"])
+    assert receipt["gradient_norm"] > 0.0
+    assert receipt["gradient_norm_positive"] is True
+    assert receipt["parameters_changed"] is True
 
 
 def test_compressed_rows_and_manifest_bind_the_encoding_contract(
@@ -147,6 +179,37 @@ def _build_compressed_artifact(tmp_path: Path, *, name: str = "compressed") -> P
                 max_exemplars=2,
                 payload_type="cascaded_soft_labels_v1",
                 top_k=4,
+                shard_size=1,
+            ),
+        ),
+        examples,
+    )
+    return output
+
+
+def _build_near_uniform_compressed_artifact(tmp_path: Path) -> Path:
+    output = tmp_path / "near_uniform"
+    logits = np.asarray(
+        [
+            np.linspace(-1.0e-5, 1.0e-5, 32, dtype=np.float32),
+            np.linspace(1.0e-5, -1.0e-5, 32, dtype=np.float32),
+        ],
+        dtype=np.float32,
+    )
+    examples = (
+        FingerprintCaptureExample(
+            example_id="near-uniform-000",
+            input_ids=(1, 2),
+            logits=logits,
+        ),
+    )
+    capture_fingerprint_artifact(
+        FingerprintCaptureConfig(
+            output_dir=output,
+            exemplar_reservoir=FingerprintExemplarReservoirCaptureConfig(
+                max_exemplars=1,
+                payload_type="cascaded_soft_labels_v1",
+                top_k=8,
                 shard_size=1,
             ),
         ),
