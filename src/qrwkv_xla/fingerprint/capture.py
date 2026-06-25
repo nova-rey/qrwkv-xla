@@ -613,8 +613,7 @@ def _validate_config(config: FingerprintCaptureConfig) -> None:
         )
     if config.target_payload_type not in SUPPORTED_TARGET_PAYLOAD_TYPES:
         raise ValueError(
-            "target_payload_type must be one of "
-            f"{SUPPORTED_TARGET_PAYLOAD_TYPES!r}"
+            f"target_payload_type must be one of {SUPPORTED_TARGET_PAYLOAD_TYPES!r}"
         )
     if config.capture_budget.max_examples is not None:
         if config.capture_budget.max_examples <= 0:
@@ -739,10 +738,7 @@ def _new_stat_aggregate(
     vocab_size: int,
     packed_targets: bool,
 ) -> Any:
-    if (
-        packed_targets
-        and config.corridor_bounds.method == "quantile"
-    ):
+    if packed_targets and config.corridor_bounds.method == "quantile":
         lower, upper = _histogram_range(stat, vocab_size)
         return _HistogramStatAggregate(
             lower=lower,
@@ -955,8 +951,7 @@ class _PackedTargetWriter:
     ) -> None:
         if self.count >= self.capacity:
             raise ValueError(
-                "packed_corridor_v1 target capacity exceeded: "
-                f"capacity={self.capacity}"
+                f"packed_corridor_v1 target capacity exceeded: capacity={self.capacity}"
             )
         example_index = self.example_indexes.get(example_id)
         if example_index is None:

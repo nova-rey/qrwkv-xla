@@ -285,8 +285,7 @@ def _validate_config(config: TinyRealTeacherFingerprintCaptureConfig) -> None:
         raise ValueError("consumer_vocab_limit must be >= 0")
     if config.target_payload_type not in SUPPORTED_TARGET_PAYLOAD_TYPES:
         raise ValueError(
-            "target_payload_type must be one of "
-            f"{SUPPORTED_TARGET_PAYLOAD_TYPES!r}"
+            f"target_payload_type must be one of {SUPPORTED_TARGET_PAYLOAD_TYPES!r}"
         )
     if config.local_files_only and config.allow_downloads:
         raise ValueError("local_files_only and allow_downloads cannot both be true")

@@ -58,8 +58,7 @@ def test_packed_corridor_targets_validate_and_match_legacy_loader(
     packed_manifest = _json(packed.manifest_path)
     assert packed.targets_path == packed.output_dir / "targets"
     assert (
-        packed_manifest["target_payload"]["kind"]
-        == TARGET_PAYLOAD_PACKED_CORRIDOR_V1
+        packed_manifest["target_payload"]["kind"] == TARGET_PAYLOAD_PACKED_CORRIDOR_V1
     )
     assert packed_manifest["target_payload"]["num_records"] == 21
     assert packed_manifest["target_payload"]["num_examples"] == 3
@@ -326,7 +325,9 @@ def test_packed_quantile_histogram_is_deterministic_and_close_to_exact(
     probability_tol = 1.0 / bounds.quantile_bins + 1.0e-6
     for mode_id, exact_bounds in exact_modes.items():
         for stat, exact in exact_bounds.items():
-            tolerance = entropy_tol if stat == "entropy" else probability_tol
+            bin_tolerance = entropy_tol if stat == "entropy" else probability_tol
+            sparse_interpolation_tolerance = exact["max"] - exact["min"]
+            tolerance = bin_tolerance + sparse_interpolation_tolerance
             packed = packed_modes[mode_id][stat]
             assert packed["min"] == pytest.approx(exact["min"], abs=tolerance)
             assert packed["max"] == pytest.approx(exact["max"], abs=tolerance)

@@ -1291,8 +1291,7 @@ def _target_record_sizes(artifact: Path) -> tuple[int, ...]:
         base = total_bytes // num_records
         remainder = total_bytes % num_records
         return tuple(
-            base + (1 if index < remainder else 0)
-            for index in range(num_records)
+            base + (1 if index < remainder else 0) for index in range(num_records)
         )
     sizes = []
     for shard in manifest["target_shards"]:
