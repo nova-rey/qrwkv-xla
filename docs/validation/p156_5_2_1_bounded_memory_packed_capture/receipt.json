@@ -1,0 +1,48 @@
+{
+  "phase": "P156.5.2.1",
+  "created_at_utc": "2026-06-25T17:28:47Z",
+  "purpose": "bounded-memory packed corridor capture correction",
+  "implementation": {
+    "packed_target_capture_memory_kind": "preallocated_typed_arrays",
+    "packed_quantile_aggregation_kind": "bounded_fixed_histogram_v1",
+    "legacy_jsonl_capture_memory_kind": "legacy_python_target_objects",
+    "packed_capture_requires_bounded_capacity": true,
+    "capacity_sources": [
+      "capture_budget.packed_target_capacity",
+      "capture_budget.max_target_positions",
+      "capture_budget.max_examples * max_seq_len"
+    ]
+  },
+  "local_validation": {
+    "ruff": {
+      "command": ".venv/bin/ruff check .",
+      "status": "pass"
+    },
+    "capture_loader_validator_tests": {
+      "command": ".venv/bin/pytest -q tests/test_packed_fingerprint_targets.py tests/test_fingerprint_loader.py tests/test_fingerprint_artifact_validation.py tests/test_tiny_real_teacher_fingerprint_capture.py tests/test_fingerprint_capture.py tests/test_fingerprint_capture_parity.py",
+      "status": "pass",
+      "summary": "62 passed, 1 skipped"
+    },
+    "consumer_tests": {
+      "command": ".venv/bin/pytest -q tests/test_fingerprint_training_smoke.py tests/test_real_student_fingerprint_forward_smoke.py tests/test_corridor_measurement.py::test_corridor_measurement_integration tests/test_corridor_measurement.py::test_aggressiveness_calibration_four_profile_smoke",
+      "status": "pass",
+      "summary": "17 passed"
+    }
+  },
+  "real_machine_gates": {
+    "gate_a_25_example_cardboard_probe": {
+      "status": "unavailable",
+      "reason": "local environment has no transformers package, no torch package, and no Cardboard corpus file under corpora/"
+    },
+    "gate_b_1000_example_barbara_tranche": {
+      "status": "not_run",
+      "reason": "blocked until Gate A is available and passes; no RSS measurement was performed"
+    }
+  },
+  "claims_not_made": [
+    "measured_peak_rss",
+    "25_example_cardboard_pass",
+    "1000_example_barbara_pass",
+    "full_20000_window_generation_ready"
+  ]
+}

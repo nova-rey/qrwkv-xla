@@ -51,6 +51,7 @@ SUPPORTED_TARGET_PAYLOAD_TYPES = (
 class FingerprintCaptureBudgetConfig:
     max_examples: int | None = None
     max_target_positions: int | None = None
+    packed_target_capacity: int | None = None
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,7 @@ class FingerprintCorridorBoundsConfig:
     min_width: float = 1.0e-6
     lower_quantile: float = 0.05
     upper_quantile: float = 0.95
+    quantile_bins: int = 2048
 
 
 @dataclass(frozen=True)
@@ -134,20 +136,73 @@ class _StatAggregate:
     minimum: float = math.inf
     maximum: float = -math.inf
     total: float = 0.0
-    values: list[float] = field(default_factory=list)
+    values: list[float] | None = field(default_factory=list)
 
     def update(self, value: float) -> None:
         self.count += 1
         self.minimum = min(self.minimum, value)
         self.maximum = max(self.maximum, value)
         self.total += value
-        self.values.append(value)
+        if self.values is not None:
+            self.values.append(value)
 
     @property
     def mean(self) -> float:
         if self.count == 0:
             return 0.0
         return self.total / self.count
+
+    def quantile(self, quantile: float, *, side: str) -> float:
+        del side
+        if self.values is None:
+            raise ValueError("exact quantile values were not retained")
+        return float(np.quantile(self.values, quantile))
+
+
+@dataclass
+class _HistogramStatAggregate:
+    lower: float
+    upper: float
+    bins: int
+    count: int = 0
+    minimum: float = math.inf
+    maximum: float = -math.inf
+    total: float = 0.0
+    histogram: np.ndarray = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.histogram = np.zeros((self.bins,), dtype=np.int64)
+
+    def update(self, value: float) -> None:
+        self.count += 1
+        self.minimum = min(self.minimum, value)
+        self.maximum = max(self.maximum, value)
+        self.total += value
+        width = self.upper - self.lower
+        if width <= 0.0:
+            index = 0
+        else:
+            scaled = (value - self.lower) / width
+            index = int(np.floor(scaled * self.bins))
+            index = max(0, min(index, self.bins - 1))
+        self.histogram[index] += 1
+
+    @property
+    def mean(self) -> float:
+        if self.count == 0:
+            return 0.0
+        return self.total / self.count
+
+    def quantile(self, quantile: float, *, side: str) -> float:
+        if self.count == 0:
+            return 0.0
+        target = max(1, int(math.ceil(quantile * self.count)))
+        index = int(np.searchsorted(np.cumsum(self.histogram), target, side="left"))
+        index = max(0, min(index, self.bins - 1))
+        edge_width = (self.upper - self.lower) / self.bins
+        if side == "upper":
+            return float(self.lower + edge_width * (index + 1))
+        return float(self.lower + edge_width * index)
 
 
 @dataclass(frozen=True)
@@ -282,13 +337,20 @@ def capture_fingerprint_artifact(
         shutil.rmtree(config.output_dir)
     config.output_dir.mkdir(parents=True)
 
+    packed_targets = config.target_payload_type == TARGET_PAYLOAD_PACKED_CORRIDOR_V1
     mode_ids: dict[tuple[int, int, int], int] = {}
-    aggregates: dict[int, dict[str, _StatAggregate]] = {}
+    aggregates = {}
     captured: list[_CapturedPosition] = []
+    target_writer = (
+        _PackedTargetWriter.create(config, max_seq_len=max_seq_len)
+        if packed_targets
+        else None
+    )
     exemplar_reservoir = _BoundedExemplarReservoir(config.exemplar_reservoir)
 
     examples_processed = 0
     target_positions_processed = 0
+    records_per_mode: Counter[str] = Counter()
     for example in chain((first_example,), selected_examples):
         _validate_example(
             example,
@@ -323,10 +385,26 @@ def capture_fingerprint_artifact(
                 mode_ids[mode_key] = len(mode_ids)
             mode_id = mode_ids[mode_key]
             aggregates.setdefault(
-                mode_id, {stat: _StatAggregate() for stat in TRACKED_STATS}
+                mode_id,
+                {
+                    stat: _new_stat_aggregate(
+                        stat,
+                        config=config,
+                        vocab_size=vocab_size,
+                        packed_targets=packed_targets,
+                    )
+                    for stat in TRACKED_STATS
+                },
             )
             for stat, value in row_stats.items():
                 aggregates[mode_id][stat].update(value)
+            if target_writer is not None:
+                target_writer.add(
+                    example_id=example.example_id,
+                    input_ids=example.input_ids,
+                    position=position,
+                    mode_id=mode_id,
+                )
             captured_position = _CapturedPosition(
                 example_id=example.example_id,
                 input_ids=example.input_ids,
@@ -337,20 +415,22 @@ def capture_fingerprint_artifact(
                 interestingness_score=_interestingness(row_stats),
                 reason_codes=_reason_codes(row_stats),
             )
-            captured.append(captured_position)
+            if not packed_targets:
+                captured.append(captured_position)
             exemplar_reservoir.consider(
                 captured_position,
                 logits[position],
                 probs[position] if probs is not None else None,
             )
             target_positions_processed += 1
+            records_per_mode[str(mode_id)] += 1
         if (
             config.capture_budget.max_target_positions is not None
             and target_positions_processed >= config.capture_budget.max_target_positions
         ):
             break
 
-    if not captured:
+    if target_positions_processed == 0:
         raise ValueError("fingerprint capture produced zero target positions")
 
     mode_bounds = _finalize_mode_bounds(aggregates, config.corridor_bounds)
@@ -371,18 +451,30 @@ def capture_fingerprint_artifact(
         config.output_dir / exemplar_shards[0]["path"] if exemplar_shards else None
     )
     write_json(modes_path, modes_payload)
-    target_payload, targets_path = _write_target_payload(
-        config=config,
-        captured=captured,
-        mode_bounds=mode_bounds,
-        max_seq_len=max_seq_len,
-    )
+    if target_writer is None:
+        target_payload, targets_path = _write_target_payload(
+            config=config,
+            captured=captured,
+            mode_bounds=mode_bounds,
+            max_seq_len=max_seq_len,
+        )
+    else:
+        target_payload = target_writer.write(config.output_dir)
+        targets_path = config.output_dir / "targets"
     manifest = _manifest_payload(
         config=config,
         max_seq_len=max_seq_len,
         vocab_size=vocab_size,
-        target_count=len(captured),
+        target_count=target_positions_processed,
         target_payload=target_payload,
+        target_capture_memory_kind=_target_capture_memory_kind(config),
+        target_capacity=_target_capacity(config, max_seq_len=max_seq_len),
+        quantile_aggregation_kind=_quantile_aggregation_kind(config, packed_targets),
+        bounded_quantile_state_size=_bounded_quantile_state_size(
+            config,
+            modes_discovered=len(mode_ids),
+            packed_targets=packed_targets,
+        ),
         exemplar_count=len(exemplar_rows),
         exemplar_shards=exemplar_shards,
     )
@@ -390,14 +482,13 @@ def capture_fingerprint_artifact(
     write_json(manifest_path, manifest)
 
     validation = validate_fingerprint_artifact(config.output_dir)
-    records_per_mode = Counter(str(position.mode_id) for position in captured)
     reason_distribution = Counter(
         reason for row in exemplar_rows for reason in row.get("reason_codes", ())
     )
     summary = _summary_payload(
         config=config,
         examples_processed=examples_processed,
-        target_positions_processed=len(captured),
+        target_positions_processed=target_positions_processed,
         modes_discovered=len(mode_ids),
         records_per_mode=dict(sorted(records_per_mode.items())),
         exemplars_retained=len(exemplar_rows),
@@ -406,6 +497,14 @@ def capture_fingerprint_artifact(
         validation_blockers=validation.blockers,
         artifact_size_bytes=_artifact_size(config.output_dir),
         target_payload_type=config.target_payload_type,
+        target_capture_memory_kind=_target_capture_memory_kind(config),
+        target_capacity=_target_capacity(config, max_seq_len=max_seq_len),
+        quantile_aggregation_kind=_quantile_aggregation_kind(config, packed_targets),
+        bounded_quantile_state_size=_bounded_quantile_state_size(
+            config,
+            modes_discovered=len(mode_ids),
+            packed_targets=packed_targets,
+        ),
         target_payload_bytes=_target_payload_bytes(config.output_dir, target_payload),
         exemplar_payload_bytes=sum(
             (config.output_dir / shard["path"]).stat().st_size
@@ -523,6 +622,9 @@ def _validate_config(config: FingerprintCaptureConfig) -> None:
     if config.capture_budget.max_target_positions is not None:
         if config.capture_budget.max_target_positions <= 0:
             raise ValueError("capture_budget.max_target_positions must be > 0 when set")
+    if config.capture_budget.packed_target_capacity is not None:
+        if config.capture_budget.packed_target_capacity <= 0:
+            raise ValueError("capture_budget.packed_target_capacity must be > 0")
     if config.mode_discovery.method != "stat_bands_v0":
         raise ValueError("P143 supports only mode_discovery.method='stat_bands_v0'")
     if config.mode_discovery.max_modes <= 0:
@@ -542,6 +644,8 @@ def _validate_config(config: FingerprintCaptureConfig) -> None:
         raise ValueError("corridor_bounds.upper_quantile must be in (0.0, 1.0]")
     if config.corridor_bounds.lower_quantile >= config.corridor_bounds.upper_quantile:
         raise ValueError("corridor_bounds.lower_quantile must be < upper_quantile")
+    if config.corridor_bounds.quantile_bins <= 0:
+        raise ValueError("corridor_bounds.quantile_bins must be > 0")
     if config.exemplar_reservoir.max_exemplars < 0:
         raise ValueError("exemplar_reservoir.max_exemplars must be >= 0")
     if config.exemplar_reservoir.payload_type not in {
@@ -628,6 +732,75 @@ def _stats_to_numpy(stats: Any) -> dict[str, np.ndarray]:
     }
 
 
+def _new_stat_aggregate(
+    stat: str,
+    *,
+    config: FingerprintCaptureConfig,
+    vocab_size: int,
+    packed_targets: bool,
+) -> Any:
+    if (
+        packed_targets
+        and config.corridor_bounds.method == "quantile"
+    ):
+        lower, upper = _histogram_range(stat, vocab_size)
+        return _HistogramStatAggregate(
+            lower=lower,
+            upper=upper,
+            bins=config.corridor_bounds.quantile_bins,
+        )
+    retain_values = config.corridor_bounds.method == "quantile"
+    return _StatAggregate(values=[] if retain_values else None)
+
+
+def _histogram_range(stat: str, vocab_size: int) -> tuple[float, float]:
+    if stat == "entropy":
+        return 0.0, max(float(math.log(vocab_size)), 1.0e-12)
+    return 0.0, 1.0
+
+
+def _target_capacity(
+    config: FingerprintCaptureConfig,
+    *,
+    max_seq_len: int,
+) -> int | None:
+    if config.capture_budget.packed_target_capacity is not None:
+        return config.capture_budget.packed_target_capacity
+    if config.capture_budget.max_target_positions is not None:
+        return config.capture_budget.max_target_positions
+    if config.capture_budget.max_examples is not None:
+        return config.capture_budget.max_examples * max_seq_len
+    return None
+
+
+def _target_capture_memory_kind(config: FingerprintCaptureConfig) -> str:
+    if config.target_payload_type == TARGET_PAYLOAD_PACKED_CORRIDOR_V1:
+        return "preallocated_typed_arrays"
+    return "legacy_python_target_objects"
+
+
+def _quantile_aggregation_kind(
+    config: FingerprintCaptureConfig,
+    packed_targets: bool,
+) -> str:
+    if config.corridor_bounds.method != "quantile":
+        return "not_applicable_minmax"
+    if packed_targets:
+        return "bounded_fixed_histogram_v1"
+    return "legacy_exact_values"
+
+
+def _bounded_quantile_state_size(
+    config: FingerprintCaptureConfig,
+    *,
+    modes_discovered: int,
+    packed_targets: bool,
+) -> int:
+    if not packed_targets or config.corridor_bounds.method != "quantile":
+        return 0
+    return modes_discovered * len(TRACKED_STATS) * config.corridor_bounds.quantile_bins
+
+
 def _mode_key(
     stats: dict[str, float],
     config: FingerprintModeDiscoveryConfig,
@@ -662,7 +835,7 @@ def _reason_codes(stats: dict[str, float]) -> tuple[str, ...]:
 
 
 def _finalize_mode_bounds(
-    aggregates: dict[int, dict[str, _StatAggregate]],
+    aggregates: dict[int, dict[str, Any]],
     config: FingerprintCorridorBoundsConfig,
 ) -> dict[int, dict[str, dict[str, float]]]:
     return {
@@ -676,12 +849,12 @@ def _finalize_mode_bounds(
 
 def _bound_from_aggregate(
     stat: str,
-    aggregate: _StatAggregate,
+    aggregate: Any,
     config: FingerprintCorridorBoundsConfig,
 ) -> dict[str, float]:
     if config.method == "quantile":
-        lower = float(np.quantile(aggregate.values, config.lower_quantile))
-        upper = float(np.quantile(aggregate.values, config.upper_quantile))
+        lower = aggregate.quantile(config.lower_quantile, side="lower")
+        upper = aggregate.quantile(config.upper_quantile, side="upper")
     else:
         lower = aggregate.minimum
         upper = aggregate.maximum
@@ -706,7 +879,7 @@ def _bound_from_aggregate(
 
 def _modes_payload(
     mode_ids: dict[tuple[int, int, int], int],
-    aggregates: dict[int, dict[str, _StatAggregate]],
+    aggregates: dict[int, dict[str, Any]],
     mode_bounds: dict[int, dict[str, dict[str, float]]],
 ) -> dict[str, Any]:
     by_id = {mode_id: mode_key for mode_key, mode_id in mode_ids.items()}
@@ -744,6 +917,105 @@ def _target_row(
     }
 
 
+class _PackedTargetWriter:
+    def __init__(self, *, capacity: int, max_seq_len: int) -> None:
+        self.capacity = capacity
+        self.max_seq_len = max_seq_len
+        self.count = 0
+        self.example_indexes: dict[str, int] = {}
+        self.example_ids: list[str] = []
+        self.example_input_ids: list[tuple[int, ...]] = []
+        self.position_example_index = np.empty((capacity,), dtype=np.int32)
+        self.position = np.empty((capacity,), dtype=np.int32)
+        self.mode_id = np.empty((capacity,), dtype=np.int32)
+        self.weight = np.ones((capacity,), dtype=np.float32)
+
+    @classmethod
+    def create(
+        cls,
+        config: FingerprintCaptureConfig,
+        *,
+        max_seq_len: int,
+    ) -> _PackedTargetWriter:
+        capacity = _target_capacity(config, max_seq_len=max_seq_len)
+        if capacity is None:
+            raise ValueError(
+                "packed_corridor_v1 capture requires max_target_positions, "
+                "max_examples, or packed_target_capacity to bound target memory"
+            )
+        return cls(capacity=capacity, max_seq_len=max_seq_len)
+
+    def add(
+        self,
+        *,
+        example_id: str,
+        input_ids: tuple[int, ...],
+        position: int,
+        mode_id: int,
+    ) -> None:
+        if self.count >= self.capacity:
+            raise ValueError(
+                "packed_corridor_v1 target capacity exceeded: "
+                f"capacity={self.capacity}"
+            )
+        example_index = self.example_indexes.get(example_id)
+        if example_index is None:
+            example_index = len(self.example_ids)
+            self.example_indexes[example_id] = example_index
+            self.example_ids.append(example_id)
+            self.example_input_ids.append(input_ids)
+        elif self.example_input_ids[example_index] != input_ids:
+            raise ValueError(f"example_id has inconsistent input_ids: {example_id}")
+        self.position_example_index[self.count] = example_index
+        self.position[self.count] = position
+        self.mode_id[self.count] = mode_id
+        self.count += 1
+
+    def write(self, output_dir: Path) -> dict[str, Any]:
+        targets_dir = output_dir / "targets"
+        targets_dir.mkdir(parents=True, exist_ok=True)
+        examples_input_ids = np.asarray(
+            self.example_input_ids,
+            dtype=np.int32,
+        ).reshape((len(self.example_ids), self.max_seq_len))
+        arrays = {
+            "examples_input_ids": (
+                "targets/examples_input_ids.npy",
+                examples_input_ids,
+            ),
+            "position_example_index": (
+                "targets/position_example_index.npy",
+                self.position_example_index[: self.count].copy(),
+            ),
+            "position": ("targets/position.npy", self.position[: self.count].copy()),
+            "mode_id": ("targets/mode_id.npy", self.mode_id[: self.count].copy()),
+            "weight": ("targets/weight.npy", self.weight[: self.count].copy()),
+        }
+        for relative_path, array in arrays.values():
+            np.save(output_dir / relative_path, array)
+
+        metadata_path = targets_dir / "examples_metadata.jsonl"
+        metadata_path.write_text(
+            "".join(
+                json.dumps(
+                    {"example_index": index, "example_id": example_id},
+                    sort_keys=True,
+                )
+                + "\n"
+                for index, example_id in enumerate(self.example_ids)
+            ),
+            encoding="utf-8",
+        )
+
+        return _packed_target_payload(
+            arrays=arrays,
+            num_records=self.count,
+            num_examples=len(self.example_ids),
+            max_seq_len=self.max_seq_len,
+            target_capacity=self.capacity,
+        )
+
+
 def _write_target_payload(
     *,
     config: FingerprintCaptureConfig,
@@ -771,81 +1043,24 @@ def _write_target_payload(
             },
             targets_path,
         )
-
-    payload = _write_packed_target_payload(
-        config.output_dir,
-        captured=captured,
-        max_seq_len=max_seq_len,
-    )
-    return payload, config.output_dir / "targets"
+    raise ValueError("packed target payloads must use the streaming writer")
 
 
-def _write_packed_target_payload(
-    output_dir: Path,
+def _packed_target_payload(
     *,
-    captured: list[_CapturedPosition],
+    arrays: dict[str, tuple[str, np.ndarray]],
+    num_records: int,
+    num_examples: int,
     max_seq_len: int,
+    target_capacity: int,
 ) -> dict[str, Any]:
-    targets_dir = output_dir / "targets"
-    targets_dir.mkdir(parents=True, exist_ok=True)
-    example_indexes: dict[str, int] = {}
-    example_ids: list[str] = []
-    example_input_ids: list[tuple[int, ...]] = []
-    position_example_index = np.empty((len(captured),), dtype=np.int32)
-    position = np.empty((len(captured),), dtype=np.int32)
-    mode_id = np.empty((len(captured),), dtype=np.int32)
-    weight = np.ones((len(captured),), dtype=np.float32)
-
-    for row_index, row in enumerate(captured):
-        example_index = example_indexes.get(row.example_id)
-        if example_index is None:
-            example_index = len(example_ids)
-            example_indexes[row.example_id] = example_index
-            example_ids.append(row.example_id)
-            example_input_ids.append(row.input_ids)
-        elif example_input_ids[example_index] != row.input_ids:
-            raise ValueError(f"example_id has inconsistent input_ids: {row.example_id}")
-        position_example_index[row_index] = example_index
-        position[row_index] = row.position
-        mode_id[row_index] = row.mode_id
-
-    examples_input_ids = np.asarray(example_input_ids, dtype=np.int32).reshape(
-        (len(example_ids), max_seq_len)
-    )
-    arrays = {
-        "examples_input_ids": (
-            "targets/examples_input_ids.npy",
-            examples_input_ids,
-        ),
-        "position_example_index": (
-            "targets/position_example_index.npy",
-            position_example_index,
-        ),
-        "position": ("targets/position.npy", position),
-        "mode_id": ("targets/mode_id.npy", mode_id),
-        "weight": ("targets/weight.npy", weight),
-    }
-    for relative_path, array in arrays.values():
-        np.save(output_dir / relative_path, array)
-
-    metadata_path = targets_dir / "examples_metadata.jsonl"
-    metadata_path.write_text(
-        "".join(
-            json.dumps(
-                {"example_index": index, "example_id": example_id},
-                sort_keys=True,
-            )
-            + "\n"
-            for index, example_id in enumerate(example_ids)
-        ),
-        encoding="utf-8",
-    )
-
     return {
         "kind": TARGET_PAYLOAD_PACKED_CORRIDOR_V1,
-        "num_records": len(captured),
-        "num_examples": len(example_ids),
+        "num_records": num_records,
+        "num_examples": num_examples,
         "max_seq_len": max_seq_len,
+        "target_capacity": target_capacity,
+        "target_capture_memory_kind": "preallocated_typed_arrays",
         "mode_table_path": "modes.json",
         "ordering": "capture_position_order_v1",
         "example_index_contract": "zero_based_row_index_into_examples_input_ids",
@@ -859,7 +1074,7 @@ def _write_packed_target_payload(
         },
         "examples_metadata": {
             "path": "targets/examples_metadata.jsonl",
-            "num_records": len(example_ids),
+            "num_records": num_examples,
         },
     }
 
@@ -897,6 +1112,10 @@ def _manifest_payload(
     vocab_size: int,
     target_count: int,
     target_payload: dict[str, Any],
+    target_capture_memory_kind: str,
+    target_capacity: int | None,
+    quantile_aggregation_kind: str,
+    bounded_quantile_state_size: int,
     exemplar_count: int,
     exemplar_shards: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -930,6 +1149,12 @@ def _manifest_payload(
             "corridor_bounds_method": config.corridor_bounds.method,
             "lower_quantile": config.corridor_bounds.lower_quantile,
             "upper_quantile": config.corridor_bounds.upper_quantile,
+            "quantile_bins": config.corridor_bounds.quantile_bins,
+            "quantile_aggregation_kind": quantile_aggregation_kind,
+            "bounded_quantile_state_size": bounded_quantile_state_size,
+            "target_capture_memory_kind": target_capture_memory_kind,
+            "target_capacity": target_capacity,
+            "actual_target_count": target_count,
             "exemplar_selection_policy": config.exemplar_reservoir.selection_policy,
         },
     }
@@ -970,6 +1195,10 @@ def _summary_payload(
     validation_blockers: tuple[str, ...],
     artifact_size_bytes: int,
     target_payload_type: str,
+    target_capture_memory_kind: str,
+    target_capacity: int | None,
+    quantile_aggregation_kind: str,
+    bounded_quantile_state_size: int,
     target_payload_bytes: int,
     exemplar_payload_bytes: int,
     stored_top_k: list[int],
@@ -993,6 +1222,12 @@ def _summary_payload(
         "per_mode_min": config.exemplar_reservoir.per_mode_min,
         "artifact_size_bytes": artifact_size_bytes,
         "target_payload_type": target_payload_type,
+        "target_capture_memory_kind": target_capture_memory_kind,
+        "target_capacity": target_capacity,
+        "actual_target_count": target_positions_processed,
+        "quantile_aggregation_kind": quantile_aggregation_kind,
+        "bounded_quantile_state_size": bounded_quantile_state_size,
+        "quantile_bins": config.corridor_bounds.quantile_bins,
         "target_payload_bytes": target_payload_bytes,
         "bytes_per_target_position": (
             target_payload_bytes / target_positions_processed

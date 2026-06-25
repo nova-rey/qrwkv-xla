@@ -437,6 +437,18 @@ def _validate_packed_target_payload(
         )
     if payload.get("mode_table_path") != "modes.json":
         blockers.append("target_payload.mode_table_path must be 'modes.json'")
+    if payload.get("target_capture_memory_kind") != "preallocated_typed_arrays":
+        blockers.append(
+            "target_payload.target_capture_memory_kind must be "
+            "'preallocated_typed_arrays'"
+        )
+    target_capacity = _non_negative_int(payload.get("target_capacity"))
+    if target_capacity is None:
+        blockers.append("target_payload.target_capacity must be a non-negative integer")
+    elif target_capacity < expected_records:
+        blockers.append(
+            "target_payload.target_capacity must be >= target_payload.num_records"
+        )
     if payload.get("ordering") != "capture_position_order_v1":
         blockers.append("target_payload.ordering is unsupported")
     if (
