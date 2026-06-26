@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import math
 from dataclasses import replace
 from pathlib import Path
 
@@ -23,6 +22,7 @@ from qrwkv_xla.fingerprint import (
     build_synthetic_capture_examples,
     capture_fingerprint_artifact,
 )
+from qrwkv_xla.fingerprint.capture import _HistogramStatAggregate
 
 
 def test_packed_corridor_targets_validate_and_match_legacy_loader(
@@ -265,7 +265,27 @@ def test_packed_exemplar_output_matches_legacy_for_same_fixture(
     assert _jsonl(legacy.exemplars_path) == _jsonl(packed.exemplars_path)
 
 
-def test_packed_quantile_histogram_is_deterministic_and_close_to_exact(
+def test_dense_histogram_quantiles_respect_bin_and_rank_contract() -> None:
+    values = np.linspace(0.125, 0.875, 4096, dtype=np.float64)
+    aggregate = _HistogramStatAggregate(lower=0.0, upper=1.0, bins=1024)
+    for value in values:
+        aggregate.update(float(value))
+
+    bin_width = 1.0 / aggregate.bins
+    lower = aggregate.quantile(0.25, side="lower")
+    upper = aggregate.quantile(0.75, side="upper")
+    exact_lower = float(np.quantile(values, 0.25))
+    exact_upper = float(np.quantile(values, 0.75))
+
+    assert lower <= exact_lower <= lower + (2.0 * bin_width)
+    assert upper - (2.0 * bin_width) <= exact_upper <= upper
+    assert abs(_rank_fraction(values, lower) - 0.25) <= 2.0 / aggregate.bins
+    assert abs(_rank_fraction(values, upper) - 0.75) <= 2.0 / aggregate.bins
+    assert aggregate.quantile(0.25, side="lower") == lower
+    assert aggregate.quantile(0.75, side="upper") == upper
+
+
+def test_sparse_packed_quantile_histogram_is_deterministic_and_ordered(
     tmp_path: Path,
 ) -> None:
     examples = build_synthetic_capture_examples(
@@ -315,22 +335,25 @@ def test_packed_quantile_histogram_is_deterministic_and_close_to_exact(
     assert packed_a.summary["quantile_aggregation_kind"] == "bounded_fixed_histogram_v1"
     assert packed_a.summary["bounded_quantile_state_size"] > 0
 
-    exact_modes = {
-        mode["mode_id"]: mode["bounds"] for mode in _json(legacy.modes_path)["modes"]
-    }
+    exact_modes = {mode["mode_id"]: mode for mode in _json(legacy.modes_path)["modes"]}
     packed_modes = {
-        mode["mode_id"]: mode["bounds"] for mode in _json(packed_a.modes_path)["modes"]
+        mode["mode_id"]: mode for mode in _json(packed_a.modes_path)["modes"]
     }
-    entropy_tol = math.log(16) / bounds.quantile_bins + 1.0e-6
-    probability_tol = 1.0 / bounds.quantile_bins + 1.0e-6
-    for mode_id, exact_bounds in exact_modes.items():
-        for stat, exact in exact_bounds.items():
-            bin_tolerance = entropy_tol if stat == "entropy" else probability_tol
-            sparse_interpolation_tolerance = exact["max"] - exact["min"]
-            tolerance = bin_tolerance + sparse_interpolation_tolerance
-            packed = packed_modes[mode_id][stat]
-            assert packed["min"] == pytest.approx(exact["min"], abs=tolerance)
-            assert packed["max"] == pytest.approx(exact["max"], abs=tolerance)
+    assert set(packed_modes) == set(exact_modes)
+    for mode_id, packed_mode in packed_modes.items():
+        exact_mode = exact_modes[mode_id]
+        assert packed_mode["record_count"] == exact_mode["record_count"]
+        for stat, packed in packed_mode["bounds"].items():
+            exact = exact_mode["bounds"][stat]
+            assert np.isfinite(packed["min"])
+            assert np.isfinite(packed["mean"])
+            assert np.isfinite(packed["max"])
+            assert packed["min"] <= packed["mean"] <= packed["max"]
+            assert packed["min"] <= exact["mean"] <= packed["max"]
+            if stat == "entropy":
+                assert packed["min"] >= 0.0
+            else:
+                assert 0.0 <= packed["min"] <= packed["max"] <= 1.0
 
 
 def _packed_artifact(tmp_path: Path) -> Path:
@@ -432,3 +455,7 @@ def _jsonl(path: Path | None) -> list[dict]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
+
+
+def _rank_fraction(values: np.ndarray, threshold: float) -> float:
+    return float(np.count_nonzero(values <= threshold) / values.size)

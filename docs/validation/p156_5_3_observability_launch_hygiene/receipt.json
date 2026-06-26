@@ -1,0 +1,67 @@
+{
+  "phase": "P156.5.3",
+  "created_at_utc": "2026-06-26T13:46:27Z",
+  "purpose": "full-run observability and launch hygiene",
+  "implementation": {
+    "real_teacher_progress_heartbeat": true,
+    "progress_default_path": "<output_dir>/progress.json",
+    "progress_json_write": "same_directory_temp_file_then_os_replace",
+    "progress_line_fields": [
+      "status",
+      "examples_processed",
+      "examples_total",
+      "target_positions_processed",
+      "target_positions_total",
+      "examples_per_second",
+      "positions_per_second",
+      "elapsed_seconds",
+      "eta_seconds",
+      "modes_discovered",
+      "exemplars_retained",
+      "exemplar_capacity"
+    ],
+    "deprecated_transformers_cache_project_use": false,
+    "preferred_hf_cache_env": "HF_HOME=$HOME/radjax_cache/huggingface"
+  },
+  "local_validation": {
+    "ruff": {
+      "command": ".venv/bin/ruff check .",
+      "status": "pass"
+    },
+    "format": {
+      "command": ".venv/bin/ruff format --check .",
+      "status": "pass"
+    },
+    "focused_tests": {
+      "command": ".venv/bin/python -m pytest tests/test_tiny_real_teacher_fingerprint_capture.py tests/test_packed_fingerprint_targets.py",
+      "status": "pass",
+      "summary": "24 passed, 1 skipped"
+    },
+    "full_pytest": {
+      "command": ".venv/bin/pytest -q",
+      "status": "pass",
+      "summary": "1451 passed, 24 skipped"
+    },
+    "pipeline_validation": {
+      "command": ".venv/bin/python scripts/validate_pipeline.py",
+      "status": "pass",
+      "summary": "36/36 steps passed"
+    }
+  },
+  "cardboard_acceptance_gates": {
+    "gate_a_25_example_cardboard": {
+      "status": "unavailable",
+      "reason": "Cardboard corpus was not found locally and the local-files-only HF teacher path is unavailable in this workspace."
+    },
+    "gate_b_100_example_cardboard": {
+      "status": "unavailable",
+      "reason": "Blocked by the same missing local Cardboard corpus and unavailable local-files-only HF teacher path."
+    }
+  },
+  "claims_not_made": [
+    "25_example_cardboard_pass",
+    "100_example_cardboard_pass",
+    "production_full_run_launch",
+    "teacher_quality_improvement"
+  ]
+}

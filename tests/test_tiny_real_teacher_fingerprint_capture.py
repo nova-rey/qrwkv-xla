@@ -18,7 +18,13 @@ from qrwkv_xla.artifacts import (
 )
 from qrwkv_xla.fingerprint import (
     DEFAULT_TINY_REAL_TEACHER,
+    TARGET_PAYLOAD_PACKED_CORRIDOR_V1,
+    FingerprintCaptureBudgetConfig,
+    FingerprintCaptureConfig,
+    FingerprintCaptureProgressConfig,
     TinyRealTeacherFingerprintCaptureConfig,
+    build_synthetic_capture_examples,
+    capture_fingerprint_artifact,
     load_text_fixture,
     run_tiny_real_teacher_fingerprint_capture,
 )
@@ -149,6 +155,157 @@ def test_large_vocab_records_loader_only_consumer_reason(tmp_path: Path) -> None
     assert summary["consumer_sanity"]["kind"] == "loader_only"
     assert summary["consumer_sanity"]["status"] == "pass"
     assert "vocab too large" in summary["consumer_sanity"]["reason"]
+
+
+def test_capture_progress_json_is_atomic_monotonic_and_complete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from qrwkv_xla.fingerprint import capture as capture_module
+
+    ticks = iter(float(value) for value in range(100))
+    monkeypatch.setattr(capture_module.time, "monotonic", lambda: next(ticks))
+    real_replace = capture_module.os.replace
+    writes: list[dict[str, Any]] = []
+
+    def recording_replace(src: object, dst: object) -> None:
+        writes.append(json.loads(Path(src).read_text(encoding="utf-8")))
+        real_replace(src, dst)
+
+    monkeypatch.setattr(capture_module.os, "replace", recording_replace)
+    progress_path = tmp_path / "artifact" / "progress.json"
+    examples = build_synthetic_capture_examples(
+        num_examples=3,
+        max_seq_len=4,
+        vocab_size=16,
+    )
+
+    result = capture_fingerprint_artifact(
+        FingerprintCaptureConfig(
+            output_dir=tmp_path / "artifact",
+            overwrite=True,
+            capture_budget=FingerprintCaptureBudgetConfig(max_target_positions=12),
+            target_payload_type=TARGET_PAYLOAD_PACKED_CORRIDOR_V1,
+            progress=FingerprintCaptureProgressConfig(
+                enabled=True,
+                progress_path=progress_path,
+                interval_seconds=999.0,
+                interval_examples=1,
+            ),
+        ),
+        examples,
+    )
+    final = _json(progress_path)
+
+    assert result.validation_ok is True
+    assert writes[0]["status"] == "running"
+    assert writes[0]["eta_seconds"] is None
+    assert any(
+        payload["status"] == "running" and payload["eta_seconds"] is not None
+        for payload in writes
+    )
+    assert writes[-1]["status"] == "complete"
+    assert final["status"] == "complete"
+    assert final["artifact_validated"] is True
+    assert final["artifact_size_bytes"] > 0
+    assert final["examples_processed"] == 3
+    assert final["target_positions_processed"] == 12
+    assert final["target_capture_memory_kind"] == "preallocated_typed_arrays"
+    assert [payload["examples_processed"] for payload in writes] == sorted(
+        payload["examples_processed"] for payload in writes
+    )
+    assert [payload["target_positions_processed"] for payload in writes] == sorted(
+        payload["target_positions_processed"] for payload in writes
+    )
+
+
+def test_capture_progress_failure_status_preserves_exception(
+    tmp_path: Path,
+) -> None:
+    progress_path = tmp_path / "artifact" / "progress.json"
+    valid = build_synthetic_capture_examples(
+        num_examples=1,
+        max_seq_len=4,
+        vocab_size=16,
+    )[0]
+    invalid = build_synthetic_capture_examples(
+        num_examples=1,
+        max_seq_len=5,
+        vocab_size=16,
+    )[0]
+
+    with pytest.raises(ValueError, match="share logits shape"):
+        capture_fingerprint_artifact(
+            FingerprintCaptureConfig(
+                output_dir=tmp_path / "artifact",
+                overwrite=True,
+                capture_budget=FingerprintCaptureBudgetConfig(max_target_positions=8),
+                progress=FingerprintCaptureProgressConfig(
+                    enabled=True,
+                    progress_path=progress_path,
+                    interval_seconds=999.0,
+                    interval_examples=1,
+                ),
+            ),
+            (valid, invalid),
+        )
+
+    progress = _json(progress_path)
+    assert progress["status"] == "failed"
+    assert progress["exception_type"] == "ValueError"
+    assert "share logits shape" in progress["exception_message"]
+
+
+def test_real_teacher_progress_defaults_to_output_dir_complete(
+    tmp_path: Path,
+) -> None:
+    result = run_tiny_real_teacher_fingerprint_capture(
+        TinyRealTeacherFingerprintCaptureConfig(
+            output_dir=tmp_path / "artifact",
+            texts_path=TEXTS,
+            sequence_length=4,
+            max_examples=4,
+            max_target_positions=16,
+            overwrite=True,
+            max_exemplars=3,
+            consumer_vocab_limit=64,
+            progress_interval_examples=1,
+        ),
+        backend=_fake_backend(vocab_size=16),
+    )
+    progress = _json(result.output_dir / "progress.json")
+
+    assert progress["status"] == "complete"
+    assert progress["phase"] == "teacher_capture"
+    assert progress["examples_processed"] == result.examples_processed
+    assert progress["target_positions_processed"] == result.target_positions_processed
+    assert progress["modes_discovered"] == result.modes_discovered
+    assert progress["exemplars_retained"] == result.exemplars_retained
+    assert progress["consumer_sanity"]["status"] == "pass"
+    assert progress["teacher_model"] == DEFAULT_TINY_REAL_TEACHER
+    assert progress["pid"] > 0
+
+
+def test_project_active_files_do_not_set_deprecated_transformers_cache() -> None:
+    completed = subprocess.run(
+        [
+            "git",
+            "grep",
+            "-n",
+            "TRANSFORMERS_CACHE",
+            "--",
+            "src",
+            "scripts",
+            ".github",
+            "configs",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 1, completed.stdout
 
 
 def test_text_fixture_loads_expected_rows() -> None:

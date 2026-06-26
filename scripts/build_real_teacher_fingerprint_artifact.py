@@ -74,6 +74,9 @@ def main() -> int:
         choices=SUPPORTED_TARGET_PAYLOAD_TYPES,
         default=TARGET_PAYLOAD_PACKED_CORRIDOR_V1,
     )
+    parser.add_argument("--progress-interval-seconds", type=float, default=30.0)
+    parser.add_argument("--progress-interval-examples", type=int, default=100)
+    parser.add_argument("--progress-path", type=Path, default=None)
     parser.add_argument("--local-files-only", action="store_true", default=True)
     parser.add_argument("--allow-downloads", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
@@ -107,6 +110,9 @@ def main() -> int:
                 consumer_vocab_limit=args.consumer_vocab_limit,
                 example_id_prefix=args.example_id_prefix,
                 target_payload_type=args.target_payload_type,
+                progress_interval_seconds=args.progress_interval_seconds,
+                progress_interval_examples=args.progress_interval_examples,
+                progress_path=args.progress_path,
             )
         )
     except HFTeacherUnavailable as exc:

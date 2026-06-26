@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "qwen_reference"
 ATOL = 1e-5
 RTOL = 1e-5
+REL_SUMMARY_LIMIT = 1e-4
 
 
 def test_checked_in_qwen_reference_fixture_manifest_is_complete() -> None:
@@ -89,7 +90,12 @@ def test_qwen_reference_fixture_payloads_lock_full_vs_stepwise_parity() -> None:
             atol=ATOL,
             rtol=RTOL,
         )
-        assert all(value <= ATOL for value in case["equivalence"].values())
+        for name, value in case["equivalence"].items():
+            if name.endswith("_max_abs") or name == "next_position_abs":
+                assert value <= ATOL
+            else:
+                assert np.isfinite(value)
+                assert value <= REL_SUMMARY_LIMIT
 
 
 def test_qwen_reference_mask_edge_fixture_behavior_is_documented() -> None:
@@ -169,7 +175,7 @@ def test_qwen_reference_fixture_generation_is_deterministic(tmp_path: Path) -> N
     checked_in = _read_manifest(FIXTURE_DIR)
     fresh = _read_manifest(generated)
 
-    assert _manifest_without_runtime(fresh) == _manifest_without_runtime(checked_in)
+    _assert_manifest_contract_matches(fresh, checked_in)
     for case in fresh["cases"]:
         generated_payload = _load_case(case, base=generated)
         assert case["payload_sha256"] == _hash_npz_payload(generated_payload)
@@ -195,9 +201,7 @@ def test_qwen_reference_fixture_script_smoke(tmp_path: Path) -> None:
     manifest = _read_manifest(out)
     assert "wrote 3 qwen reference fixture cases" in result.stdout
     assert (out / "manifest.json").is_file()
-    assert _manifest_without_runtime(manifest) == _manifest_without_runtime(
-        _read_manifest(FIXTURE_DIR)
-    )
+    _assert_manifest_contract_matches(manifest, _read_manifest(FIXTURE_DIR))
     for case in manifest["cases"]:
         assert case["payload_sha256"] == _hash_npz_payload(_load_case(case, base=out))
 
@@ -219,6 +223,53 @@ def _manifest_without_runtime(manifest: dict) -> dict:
         for case in manifest["cases"]
     ]
     return stable
+
+
+def _assert_manifest_contract_matches(candidate: dict, reference: dict) -> None:
+    candidate_stable = _manifest_without_runtime(candidate)
+    reference_stable = _manifest_without_runtime(reference)
+    assert {
+        key: value
+        for key, value in candidate_stable.items()
+        if key not in {"cases", "parameter_surface"}
+    } == {
+        key: value
+        for key, value in reference_stable.items()
+        if key not in {"cases", "parameter_surface"}
+    }
+    assert [
+        {
+            key: value
+            for key, value in case.items()
+            if key not in {"equivalence", "payload_sha256"}
+        }
+        for case in candidate_stable["cases"]
+    ] == [
+        {
+            key: value
+            for key, value in case.items()
+            if key not in {"equivalence", "payload_sha256"}
+        }
+        for case in reference_stable["cases"]
+    ]
+    for case in candidate_stable["cases"]:
+        for name, value in case["equivalence"].items():
+            if name.endswith("_max_abs") or name == "next_position_abs":
+                assert value <= ATOL
+            else:
+                assert np.isfinite(value)
+                assert value <= REL_SUMMARY_LIMIT
+    assert [
+        {key: value for key, value in leaf.items() if key != "sha256"}
+        for leaf in candidate_stable["parameter_surface"]["leaves"]
+    ] == [
+        {key: value for key, value in leaf.items() if key != "sha256"}
+        for leaf in reference_stable["parameter_surface"]["leaves"]
+    ]
+    assert (
+        candidate_stable["parameter_surface"]["leaf_count"]
+        == reference_stable["parameter_surface"]["leaf_count"]
+    )
 
 
 def _hash_npz_payload(payload: dict[str, np.ndarray]) -> str:

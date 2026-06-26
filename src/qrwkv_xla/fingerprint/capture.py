@@ -3,9 +3,12 @@ from __future__ import annotations
 import heapq
 import json
 import math
+import os
 import shutil
+import time
 from collections import Counter
 from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
 from itertools import chain, islice
 from pathlib import Path
 from typing import Any
@@ -89,6 +92,14 @@ class FingerprintExemplarReservoirCaptureConfig:
 
 
 @dataclass(frozen=True)
+class FingerprintCaptureProgressConfig:
+    enabled: bool = False
+    progress_path: Path | None = None
+    interval_seconds: float = 30.0
+    interval_examples: int = 100
+
+
+@dataclass(frozen=True)
 class FingerprintCaptureConfig:
     output_dir: Path
     artifact_version: str = BEHAVIORAL_FINGERPRINT_VERSION
@@ -108,6 +119,9 @@ class FingerprintCaptureConfig:
     )
     exemplar_reservoir: FingerprintExemplarReservoirCaptureConfig = field(
         default_factory=FingerprintExemplarReservoirCaptureConfig
+    )
+    progress: FingerprintCaptureProgressConfig = field(
+        default_factory=FingerprintCaptureProgressConfig
     )
 
 
@@ -288,6 +302,9 @@ class _BoundedExemplarReservoir:
                 selected_keys.add(key)
         return selected
 
+    def retained_count(self) -> int:
+        return len(self.selected())
+
     def _push(
         self,
         heap: list[tuple[Any, int, _CapturedPosition]],
@@ -317,6 +334,281 @@ def _heap_would_accept(
     limit: int,
 ) -> bool:
     return limit > 0 and (len(heap) < limit or quality > heap[0][0])
+
+
+def _utc_now() -> str:
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _rate(count: int, elapsed_seconds: float) -> float | None:
+    if count <= 0 or elapsed_seconds <= 0.0:
+        return None
+    return float(count / elapsed_seconds)
+
+
+def _eta_seconds(
+    *,
+    examples_processed: int,
+    examples_total: int | None,
+    positions_processed: int,
+    positions_total: int | None,
+    elapsed_seconds: float,
+) -> float | None:
+    if elapsed_seconds <= 0.0:
+        return None
+    if positions_total is not None and positions_processed > 0:
+        remaining = max(0, positions_total - positions_processed)
+        return float(remaining / (positions_processed / elapsed_seconds))
+    if examples_total is not None and examples_processed > 0:
+        remaining = max(0, examples_total - examples_processed)
+        return float(remaining / (examples_processed / elapsed_seconds))
+    return None
+
+
+def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f".{path.name}.tmp.{os.getpid()}")
+    tmp_path.write_text(
+        json.dumps(_json_safe(payload), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    os.replace(tmp_path, path)
+
+
+def _print_progress_line(payload: dict[str, Any]) -> None:
+    fields = (
+        "status",
+        "examples_processed",
+        "examples_total",
+        "target_positions_processed",
+        "target_positions_total",
+        "examples_per_second",
+        "positions_per_second",
+        "elapsed_seconds",
+        "eta_seconds",
+        "modes_discovered",
+        "exemplars_retained",
+        "exemplar_capacity",
+    )
+    print(
+        " ".join(f"{field}={_progress_value(payload.get(field))}" for field in fields),
+        flush=True,
+    )
+
+
+def _progress_value(value: Any) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, float):
+        return f"{value:.6g}"
+    return str(value)
+
+
+def _wall_elapsed_seconds(payload: dict[str, Any]) -> float:
+    started_at = payload.get("started_at")
+    if not isinstance(started_at, str):
+        return float(payload.get("elapsed_seconds") or 0.0)
+    try:
+        started = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+    except ValueError:
+        return float(payload.get("elapsed_seconds") or 0.0)
+    return max(0.0, (datetime.now(UTC) - started).total_seconds())
+
+
+class _CaptureProgressReporter:
+    def __init__(
+        self,
+        *,
+        config: FingerprintCaptureConfig,
+        max_seq_len: int,
+        examples_total: int | None,
+        target_positions_total: int | None,
+    ) -> None:
+        self._config = config.progress
+        self._capture_config = config
+        self._max_seq_len = max_seq_len
+        self._examples_total = examples_total
+        self._target_positions_total = target_positions_total
+        self._started_at = _utc_now()
+        self._started_monotonic = time.monotonic()
+        self._last_emit_monotonic: float | None = None
+        self._last_emit_examples = 0
+
+    def emit_running(
+        self,
+        counters: dict[str, int],
+        *,
+        force: bool = False,
+    ) -> None:
+        if not self._config.enabled:
+            return
+        now = time.monotonic()
+        if (
+            not force
+            and self._last_emit_monotonic is not None
+            and now - self._last_emit_monotonic < self._config.interval_seconds
+            and counters["examples_processed"] - self._last_emit_examples
+            < self._config.interval_examples
+        ):
+            return
+        self._emit("running", counters, now=now)
+
+    def emit_complete(
+        self,
+        counters: dict[str, int],
+        *,
+        artifact_validated: bool,
+        consumer_sanity: dict[str, Any] | None,
+        artifact_size_bytes: int,
+    ) -> None:
+        if not self._config.enabled:
+            return
+        payload = self._payload("complete", counters, now=time.monotonic())
+        payload.update(
+            {
+                "finished_at": _utc_now(),
+                "artifact_validated": bool(artifact_validated),
+                "validation_status": "pass" if artifact_validated else "fail",
+                "consumer_sanity": consumer_sanity,
+                "artifact_size_bytes": int(artifact_size_bytes),
+            }
+        )
+        self._write(payload)
+
+    def emit_failed(self, counters: dict[str, int], exc: Exception) -> None:
+        if not self._config.enabled:
+            return
+        payload = self._payload("failed", counters, now=time.monotonic())
+        payload.update(
+            {
+                "finished_at": _utc_now(),
+                "exception_type": type(exc).__name__,
+                "exception_message": str(exc),
+            }
+        )
+        self._write(payload)
+
+    def _emit(
+        self,
+        status: str,
+        counters: dict[str, int],
+        *,
+        now: float,
+    ) -> None:
+        payload = self._payload(status, counters, now=now)
+        self._write(payload)
+        self._last_emit_monotonic = now
+        self._last_emit_examples = counters["examples_processed"]
+
+    def _payload(
+        self,
+        status: str,
+        counters: dict[str, int],
+        *,
+        now: float,
+    ) -> dict[str, Any]:
+        elapsed = max(0.0, now - self._started_monotonic)
+        examples_processed = int(counters["examples_processed"])
+        positions_processed = int(counters["target_positions_processed"])
+        examples_per_second = _rate(examples_processed, elapsed)
+        positions_per_second = _rate(positions_processed, elapsed)
+        return {
+            "schema_version": 1,
+            "status": status,
+            "phase": "teacher_capture",
+            "started_at": self._started_at,
+            "updated_at": _utc_now(),
+            "elapsed_seconds": elapsed,
+            "eta_seconds": _eta_seconds(
+                examples_processed=examples_processed,
+                examples_total=self._examples_total,
+                positions_processed=positions_processed,
+                positions_total=self._target_positions_total,
+                elapsed_seconds=elapsed,
+            ),
+            "examples_processed": examples_processed,
+            "examples_total": self._examples_total,
+            "target_positions_processed": positions_processed,
+            "target_positions_total": self._target_positions_total,
+            "examples_per_second": examples_per_second,
+            "positions_per_second": positions_per_second,
+            "modes_discovered": int(counters["modes_discovered"]),
+            "exemplars_retained": int(counters["exemplars_retained"]),
+            "exemplar_capacity": self._capture_config.exemplar_reservoir.max_exemplars,
+            "target_payload_type": self._capture_config.target_payload_type,
+            "target_capture_memory_kind": _target_capture_memory_kind(
+                self._capture_config
+            ),
+            "teacher_model": self._capture_config.teacher_model_name,
+            "max_seq_len": self._max_seq_len,
+            "pid": os.getpid(),
+        }
+
+    def _write(self, payload: dict[str, Any]) -> None:
+        if self._config.progress_path is not None:
+            _write_json_atomic(self._config.progress_path, payload)
+        if payload["status"] == "running":
+            _print_progress_line(payload)
+
+
+def finalize_capture_progress(
+    progress_path: Path,
+    *,
+    artifact_validated: bool,
+    consumer_sanity: dict[str, Any] | None,
+    artifact_size_bytes: int,
+    examples_processed: int,
+    target_positions_processed: int,
+    modes_discovered: int,
+    exemplars_retained: int,
+) -> None:
+    if not progress_path.exists():
+        return
+    payload = json.loads(progress_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        return
+    payload.update(
+        {
+            "status": "complete",
+            "updated_at": _utc_now(),
+            "finished_at": _utc_now(),
+            "elapsed_seconds": _wall_elapsed_seconds(payload),
+            "examples_processed": int(examples_processed),
+            "target_positions_processed": int(target_positions_processed),
+            "modes_discovered": int(modes_discovered),
+            "exemplars_retained": int(exemplars_retained),
+            "artifact_validated": bool(artifact_validated),
+            "validation_status": "pass" if artifact_validated else "fail",
+            "consumer_sanity": consumer_sanity,
+            "artifact_size_bytes": int(artifact_size_bytes),
+        }
+    )
+    _write_json_atomic(progress_path, payload)
+
+
+def mark_capture_progress_failed(progress_path: Path, exc: Exception) -> None:
+    try:
+        payload = (
+            json.loads(progress_path.read_text(encoding="utf-8"))
+            if progress_path.exists()
+            else {}
+        )
+        if not isinstance(payload, dict):
+            payload = {}
+        payload.update(
+            {
+                "status": "failed",
+                "updated_at": _utc_now(),
+                "finished_at": _utc_now(),
+                "elapsed_seconds": _wall_elapsed_seconds(payload),
+                "exception_type": type(exc).__name__,
+                "exception_message": str(exc),
+                "pid": os.getpid(),
+            }
+        )
+        _write_json_atomic(progress_path, payload)
+    except Exception:
+        return
 
 
 def capture_fingerprint_artifact(
@@ -349,202 +641,247 @@ def capture_fingerprint_artifact(
     exemplar_reservoir = _BoundedExemplarReservoir(config.exemplar_reservoir)
 
     examples_processed = 0
+    examples_completed = 0
     target_positions_processed = 0
     records_per_mode: Counter[str] = Counter()
-    for example in chain((first_example,), selected_examples):
-        _validate_example(
-            example,
-            expected_shape=(max_seq_len, vocab_size),
-        )
-        examples_processed += 1
-        logits = np.asarray(example.logits, dtype=np.float32)
-        stats = compute_fingerprint_distribution_stats(jnp.asarray(logits))
-        stat_arrays = _stats_to_numpy(stats)
-        probs = (
-            np.asarray(jax.nn.softmax(jnp.asarray(logits), axis=-1))
-            if config.exemplar_reservoir.payload_type == "dense_probs"
-            else None
-        )
-        for position in range(logits.shape[0]):
+    progress = _CaptureProgressReporter(
+        config=config,
+        max_seq_len=max_seq_len,
+        examples_total=config.capture_budget.max_examples,
+        target_positions_total=_target_capacity(config, max_seq_len=max_seq_len),
+    )
+
+    def progress_counters() -> dict[str, int]:
+        return {
+            "examples_processed": examples_completed,
+            "target_positions_processed": target_positions_processed,
+            "modes_discovered": len(mode_ids),
+            "exemplars_retained": exemplar_reservoir.retained_count(),
+        }
+
+    progress.emit_running(progress_counters(), force=True)
+    try:
+        for example in chain((first_example,), selected_examples):
+            _validate_example(
+                example,
+                expected_shape=(max_seq_len, vocab_size),
+            )
+            examples_processed += 1
+            logits = np.asarray(example.logits, dtype=np.float32)
+            stats = compute_fingerprint_distribution_stats(jnp.asarray(logits))
+            stat_arrays = _stats_to_numpy(stats)
+            probs = (
+                np.asarray(jax.nn.softmax(jnp.asarray(logits), axis=-1))
+                if config.exemplar_reservoir.payload_type == "dense_probs"
+                else None
+            )
+            positions_this_example = 0
+            for position in range(logits.shape[0]):
+                if (
+                    config.capture_budget.max_target_positions is not None
+                    and target_positions_processed
+                    >= config.capture_budget.max_target_positions
+                ):
+                    break
+                row_stats = {
+                    stat: float(stat_arrays[stat][position]) for stat in TRACKED_STATS
+                }
+                mode_key = _mode_key(row_stats, config.mode_discovery)
+                if mode_key not in mode_ids:
+                    if len(mode_ids) >= config.mode_discovery.max_modes:
+                        raise ValueError(
+                            "stat_bands_v0 discovered more modes than max_modes="
+                            f"{config.mode_discovery.max_modes}"
+                        )
+                    mode_ids[mode_key] = len(mode_ids)
+                mode_id = mode_ids[mode_key]
+                aggregates.setdefault(
+                    mode_id,
+                    {
+                        stat: _new_stat_aggregate(
+                            stat,
+                            config=config,
+                            vocab_size=vocab_size,
+                            packed_targets=packed_targets,
+                        )
+                        for stat in TRACKED_STATS
+                    },
+                )
+                for stat, value in row_stats.items():
+                    aggregates[mode_id][stat].update(value)
+                if target_writer is not None:
+                    target_writer.add(
+                        example_id=example.example_id,
+                        input_ids=example.input_ids,
+                        position=position,
+                        mode_id=mode_id,
+                    )
+                captured_position = _CapturedPosition(
+                    example_id=example.example_id,
+                    input_ids=example.input_ids,
+                    position=position,
+                    mode_id=mode_id,
+                    stats=row_stats,
+                    exemplar_payload=None,
+                    interestingness_score=_interestingness(row_stats),
+                    reason_codes=_reason_codes(row_stats),
+                )
+                if not packed_targets:
+                    captured.append(captured_position)
+                exemplar_reservoir.consider(
+                    captured_position,
+                    logits[position],
+                    probs[position] if probs is not None else None,
+                )
+                target_positions_processed += 1
+                positions_this_example += 1
+                records_per_mode[str(mode_id)] += 1
+            if positions_this_example == logits.shape[0]:
+                examples_completed += 1
+            progress.emit_running(progress_counters())
             if (
                 config.capture_budget.max_target_positions is not None
                 and target_positions_processed
                 >= config.capture_budget.max_target_positions
             ):
                 break
-            row_stats = {
-                stat: float(stat_arrays[stat][position]) for stat in TRACKED_STATS
-            }
-            mode_key = _mode_key(row_stats, config.mode_discovery)
-            if mode_key not in mode_ids:
-                if len(mode_ids) >= config.mode_discovery.max_modes:
-                    raise ValueError(
-                        "stat_bands_v0 discovered more modes than max_modes="
-                        f"{config.mode_discovery.max_modes}"
-                    )
-                mode_ids[mode_key] = len(mode_ids)
-            mode_id = mode_ids[mode_key]
-            aggregates.setdefault(
-                mode_id,
-                {
-                    stat: _new_stat_aggregate(
-                        stat,
-                        config=config,
-                        vocab_size=vocab_size,
-                        packed_targets=packed_targets,
-                    )
-                    for stat in TRACKED_STATS
-                },
-            )
-            for stat, value in row_stats.items():
-                aggregates[mode_id][stat].update(value)
-            if target_writer is not None:
-                target_writer.add(
-                    example_id=example.example_id,
-                    input_ids=example.input_ids,
-                    position=position,
-                    mode_id=mode_id,
-                )
-            captured_position = _CapturedPosition(
-                example_id=example.example_id,
-                input_ids=example.input_ids,
-                position=position,
-                mode_id=mode_id,
-                stats=row_stats,
-                exemplar_payload=None,
-                interestingness_score=_interestingness(row_stats),
-                reason_codes=_reason_codes(row_stats),
-            )
-            if not packed_targets:
-                captured.append(captured_position)
-            exemplar_reservoir.consider(
-                captured_position,
-                logits[position],
-                probs[position] if probs is not None else None,
-            )
-            target_positions_processed += 1
-            records_per_mode[str(mode_id)] += 1
-        if (
-            config.capture_budget.max_target_positions is not None
-            and target_positions_processed >= config.capture_budget.max_target_positions
-        ):
-            break
+    except Exception as exc:
+        progress.emit_failed(progress_counters(), exc)
+        raise
 
     if target_positions_processed == 0:
-        raise ValueError("fingerprint capture produced zero target positions")
+        error = ValueError("fingerprint capture produced zero target positions")
+        progress.emit_failed(progress_counters(), error)
+        raise error
 
-    mode_bounds = _finalize_mode_bounds(aggregates, config.corridor_bounds)
-    modes_payload = _modes_payload(mode_ids, aggregates, mode_bounds)
-    exemplar_rows = _exemplar_rows(exemplar_reservoir.selected())
+    try:
+        mode_bounds = _finalize_mode_bounds(aggregates, config.corridor_bounds)
+        modes_payload = _modes_payload(mode_ids, aggregates, mode_bounds)
+        exemplar_rows = _exemplar_rows(exemplar_reservoir.selected())
 
-    modes_path = config.output_dir / "modes.json"
-    exemplar_shards = (
-        _write_exemplar_shards(
-            config.output_dir,
-            exemplar_rows,
-            config.exemplar_reservoir.shard_size,
-        )
-        if config.exemplar_reservoir.enabled
-        else []
-    )
-    exemplars_path = (
-        config.output_dir / exemplar_shards[0]["path"] if exemplar_shards else None
-    )
-    write_json(modes_path, modes_payload)
-    if target_writer is None:
-        target_payload, targets_path = _write_target_payload(
-            config=config,
-            captured=captured,
-            mode_bounds=mode_bounds,
-            max_seq_len=max_seq_len,
-        )
-    else:
-        target_payload = target_writer.write(config.output_dir)
-        targets_path = config.output_dir / "targets"
-    manifest = _manifest_payload(
-        config=config,
-        max_seq_len=max_seq_len,
-        vocab_size=vocab_size,
-        target_count=target_positions_processed,
-        target_payload=target_payload,
-        target_capture_memory_kind=_target_capture_memory_kind(config),
-        target_capacity=_target_capacity(config, max_seq_len=max_seq_len),
-        quantile_aggregation_kind=_quantile_aggregation_kind(config, packed_targets),
-        bounded_quantile_state_size=_bounded_quantile_state_size(
-            config,
-            modes_discovered=len(mode_ids),
-            packed_targets=packed_targets,
-        ),
-        exemplar_count=len(exemplar_rows),
-        exemplar_shards=exemplar_shards,
-    )
-    manifest_path = config.output_dir / "manifest.json"
-    write_json(manifest_path, manifest)
-
-    validation = validate_fingerprint_artifact(config.output_dir)
-    reason_distribution = Counter(
-        reason for row in exemplar_rows for reason in row.get("reason_codes", ())
-    )
-    summary = _summary_payload(
-        config=config,
-        examples_processed=examples_processed,
-        target_positions_processed=target_positions_processed,
-        modes_discovered=len(mode_ids),
-        records_per_mode=dict(sorted(records_per_mode.items())),
-        exemplars_retained=len(exemplar_rows),
-        exemplar_reason_code_distribution=dict(sorted(reason_distribution.items())),
-        artifact_validated=validation.ok,
-        validation_blockers=validation.blockers,
-        artifact_size_bytes=_artifact_size(config.output_dir),
-        target_payload_type=config.target_payload_type,
-        target_capture_memory_kind=_target_capture_memory_kind(config),
-        target_capacity=_target_capacity(config, max_seq_len=max_seq_len),
-        quantile_aggregation_kind=_quantile_aggregation_kind(config, packed_targets),
-        bounded_quantile_state_size=_bounded_quantile_state_size(
-            config,
-            modes_discovered=len(mode_ids),
-            packed_targets=packed_targets,
-        ),
-        target_payload_bytes=_target_payload_bytes(config.output_dir, target_payload),
-        exemplar_payload_bytes=sum(
-            (config.output_dir / shard["path"]).stat().st_size
-            for shard in exemplar_shards
-        ),
-        stored_top_k=[len(row.get("top_token_ids", ())) for row in exemplar_rows],
-        dense_oracle_bytes=sum(
-            len(
-                json.dumps(
-                    {
-                        **{
-                            key: value
-                            for key, value in row.items()
-                            if key
-                            not in {
-                                "top_token_ids",
-                                "top_log_probs",
-                                "top_mass",
-                                "tail_mass",
-                                "teacher_entropy",
-                                "bucket_edges",
-                                "bucket_mass",
-                                "bucket_count",
-                                "bucket_mean_logp",
-                                "original_vocab_size",
-                                "encoding_kind",
-                                "encoding_version",
-                            }
-                        },
-                        "teacher_probs": [0.0] * vocab_size,
-                    },
-                    sort_keys=True,
-                )
-                + "\n"
+        modes_path = config.output_dir / "modes.json"
+        exemplar_shards = (
+            _write_exemplar_shards(
+                config.output_dir,
+                exemplar_rows,
+                config.exemplar_reservoir.shard_size,
             )
-            for row in exemplar_rows
-        ),
-    )
-    capture_summary_path = config.output_dir / "capture_summary.json"
-    write_json(capture_summary_path, summary)
+            if config.exemplar_reservoir.enabled
+            else []
+        )
+        exemplars_path = (
+            config.output_dir / exemplar_shards[0]["path"] if exemplar_shards else None
+        )
+        write_json(modes_path, modes_payload)
+        if target_writer is None:
+            target_payload, targets_path = _write_target_payload(
+                config=config,
+                captured=captured,
+                mode_bounds=mode_bounds,
+                max_seq_len=max_seq_len,
+            )
+        else:
+            target_payload = target_writer.write(config.output_dir)
+            targets_path = config.output_dir / "targets"
+        manifest = _manifest_payload(
+            config=config,
+            max_seq_len=max_seq_len,
+            vocab_size=vocab_size,
+            target_count=target_positions_processed,
+            target_payload=target_payload,
+            target_capture_memory_kind=_target_capture_memory_kind(config),
+            target_capacity=_target_capacity(config, max_seq_len=max_seq_len),
+            quantile_aggregation_kind=_quantile_aggregation_kind(
+                config, packed_targets
+            ),
+            bounded_quantile_state_size=_bounded_quantile_state_size(
+                config,
+                modes_discovered=len(mode_ids),
+                packed_targets=packed_targets,
+            ),
+            exemplar_count=len(exemplar_rows),
+            exemplar_shards=exemplar_shards,
+        )
+        manifest_path = config.output_dir / "manifest.json"
+        write_json(manifest_path, manifest)
+
+        validation = validate_fingerprint_artifact(config.output_dir)
+        reason_distribution = Counter(
+            reason for row in exemplar_rows for reason in row.get("reason_codes", ())
+        )
+        summary = _summary_payload(
+            config=config,
+            examples_processed=examples_processed,
+            target_positions_processed=target_positions_processed,
+            modes_discovered=len(mode_ids),
+            records_per_mode=dict(sorted(records_per_mode.items())),
+            exemplars_retained=len(exemplar_rows),
+            exemplar_reason_code_distribution=dict(sorted(reason_distribution.items())),
+            artifact_validated=validation.ok,
+            validation_blockers=validation.blockers,
+            artifact_size_bytes=_artifact_size(config.output_dir),
+            target_payload_type=config.target_payload_type,
+            target_capture_memory_kind=_target_capture_memory_kind(config),
+            target_capacity=_target_capacity(config, max_seq_len=max_seq_len),
+            quantile_aggregation_kind=_quantile_aggregation_kind(
+                config, packed_targets
+            ),
+            bounded_quantile_state_size=_bounded_quantile_state_size(
+                config,
+                modes_discovered=len(mode_ids),
+                packed_targets=packed_targets,
+            ),
+            target_payload_bytes=_target_payload_bytes(
+                config.output_dir, target_payload
+            ),
+            exemplar_payload_bytes=sum(
+                (config.output_dir / shard["path"]).stat().st_size
+                for shard in exemplar_shards
+            ),
+            stored_top_k=[len(row.get("top_token_ids", ())) for row in exemplar_rows],
+            dense_oracle_bytes=sum(
+                len(
+                    json.dumps(
+                        {
+                            **{
+                                key: value
+                                for key, value in row.items()
+                                if key
+                                not in {
+                                    "top_token_ids",
+                                    "top_log_probs",
+                                    "top_mass",
+                                    "tail_mass",
+                                    "teacher_entropy",
+                                    "bucket_edges",
+                                    "bucket_mass",
+                                    "bucket_count",
+                                    "bucket_mean_logp",
+                                    "original_vocab_size",
+                                    "encoding_kind",
+                                    "encoding_version",
+                                }
+                            },
+                            "teacher_probs": [0.0] * vocab_size,
+                        },
+                        sort_keys=True,
+                    )
+                    + "\n"
+                )
+                for row in exemplar_rows
+            ),
+        )
+        capture_summary_path = config.output_dir / "capture_summary.json"
+        write_json(capture_summary_path, summary)
+        progress.emit_complete(
+            progress_counters(),
+            artifact_validated=validation.ok,
+            consumer_sanity=None,
+            artifact_size_bytes=summary["artifact_size_bytes"],
+        )
+    except Exception as exc:
+        progress.emit_failed(progress_counters(), exc)
+        raise
 
     return FingerprintCaptureResult(
         output_dir=config.output_dir,
@@ -667,6 +1004,11 @@ def _validate_config(config: FingerprintCaptureConfig) -> None:
         )
     if config.exemplar_reservoir.per_mode_min < 0:
         raise ValueError("exemplar_reservoir.per_mode_min must be >= 0")
+    if config.progress.enabled:
+        if config.progress.interval_seconds <= 0.0:
+            raise ValueError("progress.interval_seconds must be > 0")
+        if config.progress.interval_examples <= 0:
+            raise ValueError("progress.interval_examples must be > 0")
 
 
 def _validate_bins(values: tuple[float, ...], name: str) -> None:

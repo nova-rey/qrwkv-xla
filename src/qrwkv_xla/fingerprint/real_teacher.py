@@ -34,10 +34,13 @@ from qrwkv_xla.fingerprint.capture import (
     FingerprintCaptureBudgetConfig,
     FingerprintCaptureConfig,
     FingerprintCaptureExample,
+    FingerprintCaptureProgressConfig,
     FingerprintCorridorBoundsConfig,
     FingerprintExemplarReservoirCaptureConfig,
     FingerprintModeDiscoveryConfig,
     capture_fingerprint_artifact,
+    finalize_capture_progress,
+    mark_capture_progress_failed,
 )
 from qrwkv_xla.teachers import HFTeacherBackend
 from qrwkv_xla.training import (
@@ -77,6 +80,9 @@ class TinyRealTeacherFingerprintCaptureConfig:
     consumer_vocab_limit: int = DEFAULT_CONSUMER_VOCAB_LIMIT
     example_id_prefix: str = "p145-real-teacher"
     target_payload_type: str = TARGET_PAYLOAD_PACKED_CORRIDOR_V1
+    progress_interval_seconds: float = 30.0
+    progress_interval_examples: int = 100
+    progress_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -106,143 +112,164 @@ def run_tiny_real_teacher_fingerprint_capture(
     backend: HFTeacherBackend | None = None,
 ) -> TinyRealTeacherFingerprintCaptureResult:
     _validate_config(config)
-    texts = load_text_fixture(config.texts_path)
-    prompts = tuple(texts[: config.max_examples])
-    if not prompts:
-        raise ValueError("tiny real teacher capture requires at least one text")
+    progress_path = _progress_path(config)
+    try:
+        texts = load_text_fixture(config.texts_path)
+        prompts = tuple(texts[: config.max_examples])
+        if not prompts:
+            raise ValueError("tiny real teacher capture requires at least one text")
 
-    effective_local_files_only = (
-        False if config.allow_downloads else config.local_files_only
-    )
-    teacher = backend or HFTeacherBackend(
-        config.teacher_model,
-        local_files_only=effective_local_files_only,
-        prompts=prompts,
-    )
-    emission = {"tokens": 0, "vocab_size": None}
+        effective_local_files_only = (
+            False if config.allow_downloads else config.local_files_only
+        )
+        teacher = backend or HFTeacherBackend(
+            config.teacher_model,
+            local_files_only=effective_local_files_only,
+            prompts=prompts,
+        )
+        emission = {"tokens": 0, "vocab_size": None}
 
-    def iter_examples() -> Any:
-        for index, prompt in enumerate(prompts):
-            teacher.prompts = (prompt,)
-            emitted = teacher.emit_targets(
-                num_examples=1,
-                sequence_length=config.sequence_length,
-            )
-            input_ids = np.asarray(emitted["input_ids"], dtype=np.int32)
-            attention_mask = np.asarray(emitted["attention_mask"], dtype=np.int32)
-            logits = np.asarray(emitted["logits"], dtype=np.float32)
-            _validate_emitted_shapes(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                logits=logits,
-                examples=1,
-                sequence_length=config.sequence_length,
-            )
-            vocab_size = int(logits.shape[-1])
-            if emission["vocab_size"] not in {None, vocab_size}:
-                raise ValueError("teacher vocabulary size changed during capture")
-            emission["vocab_size"] = vocab_size
-            emission["tokens"] += int(np.sum(attention_mask))
-            yield FingerprintCaptureExample(
-                example_id=f"{config.example_id_prefix}-{index:06d}",
-                input_ids=tuple(int(token) for token in input_ids[0]),
-                logits=logits[0],
-            )
+        def iter_examples() -> Any:
+            for index, prompt in enumerate(prompts):
+                teacher.prompts = (prompt,)
+                emitted = teacher.emit_targets(
+                    num_examples=1,
+                    sequence_length=config.sequence_length,
+                )
+                input_ids = np.asarray(emitted["input_ids"], dtype=np.int32)
+                attention_mask = np.asarray(emitted["attention_mask"], dtype=np.int32)
+                logits = np.asarray(emitted["logits"], dtype=np.float32)
+                _validate_emitted_shapes(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    logits=logits,
+                    examples=1,
+                    sequence_length=config.sequence_length,
+                )
+                vocab_size = int(logits.shape[-1])
+                if emission["vocab_size"] not in {None, vocab_size}:
+                    raise ValueError("teacher vocabulary size changed during capture")
+                emission["vocab_size"] = vocab_size
+                emission["tokens"] += int(np.sum(attention_mask))
+                yield FingerprintCaptureExample(
+                    example_id=f"{config.example_id_prefix}-{index:06d}",
+                    input_ids=tuple(int(token) for token in input_ids[0]),
+                    logits=logits[0],
+                )
 
-    capture_config = FingerprintCaptureConfig(
-        output_dir=config.output_dir,
-        overwrite=config.overwrite,
-        teacher_model_name=config.teacher_model,
-        tokenizer_name=config.tokenizer or config.teacher_model,
-        capture_budget=FingerprintCaptureBudgetConfig(
-            max_examples=config.max_examples,
-            max_target_positions=config.max_target_positions,
-        ),
-        mode_discovery=FingerprintModeDiscoveryConfig(),
-        corridor_bounds=FingerprintCorridorBoundsConfig(
-            method=config.bounds_method,
-            lower_quantile=config.lower_quantile,
-            upper_quantile=config.upper_quantile,
-        ),
-        exemplar_reservoir=FingerprintExemplarReservoirCaptureConfig(
-            enabled=True,
-            max_exemplars=config.max_exemplars,
-            payload_type=config.exemplar_target_type,
-            selection_policy=config.exemplar_selection_policy,
-            per_mode_min=config.per_mode_min,
-            top_k=config.exemplar_top_k,
-            bucket_edges=config.exemplar_bucket_edges,
-            top_log_probs_dtype=config.exemplar_top_log_probs_dtype,
-            bucket_mass_dtype=config.exemplar_bucket_mass_dtype,
-            bucket_mean_logp_dtype=config.exemplar_bucket_mean_logp_dtype,
-        ),
-        target_payload_type=config.target_payload_type,
-    )
-    capture = capture_fingerprint_artifact(capture_config, iter_examples())
-    vocab_size = int(emission["vocab_size"] or 0)
-    _rewrite_manifest_for_p145(
-        capture.manifest_path,
-        config=config,
-        teacher=teacher,
-        vocab_size=vocab_size,
-        effective_local_files_only=effective_local_files_only,
-    )
-    validation = validate_fingerprint_artifact(config.output_dir)
-    targets_loadable = False
-    exemplars_loadable = False
-    target_records = 0
-    exemplar_records = 0
-    if validation.ok:
-        targets = load_fingerprint_targets(config.output_dir, batch_size=1)
-        target_records = targets.num_records
-        targets_loadable = True
-        exemplars = load_fingerprint_exemplars(config.output_dir, batch_size=1)
-        exemplar_records = exemplars.num_records
-        exemplars_loadable = True
-    artifact_summary = summarize_fingerprint_artifact(config.output_dir)
-    base_summary = read_json_object(capture.capture_summary_path)
-    consumer_sanity = _run_consumer_sanity(
-        config,
-        vocab_size=vocab_size,
-        validation_ok=validation.ok,
-    )
-    summary = _p145_summary(
-        config=config,
-        base_summary=base_summary,
-        teacher=teacher,
-        effective_local_files_only=effective_local_files_only,
-        examples_processed=len(prompts),
-        tokens_processed=int(emission["tokens"]),
-        target_positions_processed=target_records,
-        vocab_size=vocab_size,
-        artifact_validated=validation.ok,
-        validation_blockers=validation.blockers,
-        targets_loadable=targets_loadable,
-        exemplars_loadable=exemplars_loadable,
-        exemplar_records=exemplar_records,
-        artifact_summary=artifact_summary.to_dict(),
-        consumer_sanity=consumer_sanity,
-    )
-    write_json(capture.capture_summary_path, summary)
-    status = "pass" if validation.ok and targets_loadable else "fail"
-    return TinyRealTeacherFingerprintCaptureResult(
-        status=status,
-        output_dir=config.output_dir,
-        artifact_validated=validation.ok,
-        summary_path=capture.capture_summary_path,
-        manifest_path=capture.manifest_path,
-        teacher_real=True,
-        teacher_backend="hf_causal_lm",
-        teacher_model_name_or_path=teacher.model_id,
-        tokenizer_name_or_path=config.tokenizer or config.teacher_model,
-        local_files_only=effective_local_files_only,
-        examples_processed=len(prompts),
-        tokens_processed=int(emission["tokens"]),
-        target_positions_processed=target_records,
-        modes_discovered=int(summary["modes_discovered"]),
-        exemplars_retained=exemplar_records,
-        consumer_sanity=consumer_sanity,
-    )
+        capture_config = FingerprintCaptureConfig(
+            output_dir=config.output_dir,
+            overwrite=config.overwrite,
+            teacher_model_name=config.teacher_model,
+            tokenizer_name=config.tokenizer or config.teacher_model,
+            capture_budget=FingerprintCaptureBudgetConfig(
+                max_examples=config.max_examples,
+                max_target_positions=config.max_target_positions,
+            ),
+            mode_discovery=FingerprintModeDiscoveryConfig(),
+            corridor_bounds=FingerprintCorridorBoundsConfig(
+                method=config.bounds_method,
+                lower_quantile=config.lower_quantile,
+                upper_quantile=config.upper_quantile,
+            ),
+            exemplar_reservoir=FingerprintExemplarReservoirCaptureConfig(
+                enabled=True,
+                max_exemplars=config.max_exemplars,
+                payload_type=config.exemplar_target_type,
+                selection_policy=config.exemplar_selection_policy,
+                per_mode_min=config.per_mode_min,
+                top_k=config.exemplar_top_k,
+                bucket_edges=config.exemplar_bucket_edges,
+                top_log_probs_dtype=config.exemplar_top_log_probs_dtype,
+                bucket_mass_dtype=config.exemplar_bucket_mass_dtype,
+                bucket_mean_logp_dtype=config.exemplar_bucket_mean_logp_dtype,
+            ),
+            target_payload_type=config.target_payload_type,
+            progress=FingerprintCaptureProgressConfig(
+                enabled=True,
+                progress_path=progress_path,
+                interval_seconds=config.progress_interval_seconds,
+                interval_examples=config.progress_interval_examples,
+            ),
+        )
+        capture = capture_fingerprint_artifact(capture_config, iter_examples())
+        vocab_size = int(emission["vocab_size"] or 0)
+        _rewrite_manifest_for_p145(
+            capture.manifest_path,
+            config=config,
+            teacher=teacher,
+            vocab_size=vocab_size,
+            effective_local_files_only=effective_local_files_only,
+        )
+        validation = validate_fingerprint_artifact(config.output_dir)
+        targets_loadable = False
+        exemplars_loadable = False
+        target_records = 0
+        exemplar_records = 0
+        if validation.ok:
+            targets = load_fingerprint_targets(config.output_dir, batch_size=1)
+            target_records = targets.num_records
+            targets_loadable = True
+            exemplars = load_fingerprint_exemplars(config.output_dir, batch_size=1)
+            exemplar_records = exemplars.num_records
+            exemplars_loadable = True
+        artifact_summary = summarize_fingerprint_artifact(config.output_dir)
+        base_summary = read_json_object(capture.capture_summary_path)
+        consumer_sanity = _run_consumer_sanity(
+            config,
+            vocab_size=vocab_size,
+            validation_ok=validation.ok,
+        )
+        summary = _p145_summary(
+            config=config,
+            base_summary=base_summary,
+            teacher=teacher,
+            effective_local_files_only=effective_local_files_only,
+            examples_processed=len(prompts),
+            tokens_processed=int(emission["tokens"]),
+            target_positions_processed=target_records,
+            vocab_size=vocab_size,
+            artifact_validated=validation.ok,
+            validation_blockers=validation.blockers,
+            targets_loadable=targets_loadable,
+            exemplars_loadable=exemplars_loadable,
+            exemplar_records=exemplar_records,
+            artifact_summary=artifact_summary.to_dict(),
+            consumer_sanity=consumer_sanity,
+        )
+        write_json(capture.capture_summary_path, summary)
+        finalize_capture_progress(
+            progress_path,
+            artifact_validated=validation.ok,
+            consumer_sanity=consumer_sanity,
+            artifact_size_bytes=int(summary["artifact_size_bytes"]),
+            examples_processed=len(prompts),
+            target_positions_processed=target_records,
+            modes_discovered=int(summary["modes_discovered"]),
+            exemplars_retained=exemplar_records,
+        )
+        status = "pass" if validation.ok and targets_loadable else "fail"
+        return TinyRealTeacherFingerprintCaptureResult(
+            status=status,
+            output_dir=config.output_dir,
+            artifact_validated=validation.ok,
+            summary_path=capture.capture_summary_path,
+            manifest_path=capture.manifest_path,
+            teacher_real=True,
+            teacher_backend="hf_causal_lm",
+            teacher_model_name_or_path=teacher.model_id,
+            tokenizer_name_or_path=config.tokenizer or config.teacher_model,
+            local_files_only=effective_local_files_only,
+            examples_processed=len(prompts),
+            tokens_processed=int(emission["tokens"]),
+            target_positions_processed=target_records,
+            modes_discovered=int(summary["modes_discovered"]),
+            exemplars_retained=exemplar_records,
+            consumer_sanity=consumer_sanity,
+        )
+    except Exception as exc:
+        mark_capture_progress_failed(progress_path, exc)
+        raise
 
 
 def load_text_fixture(path: str | Path) -> tuple[str, ...]:
@@ -289,6 +316,14 @@ def _validate_config(config: TinyRealTeacherFingerprintCaptureConfig) -> None:
         )
     if config.local_files_only and config.allow_downloads:
         raise ValueError("local_files_only and allow_downloads cannot both be true")
+    if config.progress_interval_seconds <= 0.0:
+        raise ValueError("progress_interval_seconds must be > 0")
+    if config.progress_interval_examples <= 0:
+        raise ValueError("progress_interval_examples must be > 0")
+
+
+def _progress_path(config: TinyRealTeacherFingerprintCaptureConfig) -> Path:
+    return config.progress_path or config.output_dir / "progress.json"
 
 
 def _validate_emitted_shapes(
