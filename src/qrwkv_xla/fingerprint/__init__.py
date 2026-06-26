@@ -49,6 +49,7 @@ from qrwkv_xla.fingerprint.capture import (
     SUPPORTED_TARGET_PAYLOAD_TYPES,
     TARGET_PAYLOAD_LEGACY_JSONL,
     TARGET_PAYLOAD_PACKED_CORRIDOR_V1,
+    CompactFingerprintCaptureBatch,
     FingerprintCaptureBatch,
     FingerprintCaptureBudgetConfig,
     FingerprintCaptureConfig,
@@ -142,6 +143,7 @@ from qrwkv_xla.fingerprint.real_teacher import (
 )
 from qrwkv_xla.fingerprint.topology import (
     CaptureTopologyConfig,
+    GpuReductionMode,
     ResolvedCaptureTopology,
     detect_cpu_budget,
     resolve_capture_topology,
@@ -193,6 +195,7 @@ __all__ = [
     "ControlledQualityPerByteResult",
     "BudgetedArtifactConfig",
     "BudgetedArtifactResult",
+    "CompactFingerprintCaptureBatch",
     "ExemplarPassConfig",
     "ExemplarPassResult",
     "FingerprintExemplarReservoirCaptureConfig",
@@ -201,6 +204,7 @@ __all__ = [
     "FingerprintQualityPerByteExperimentResult",
     "FingerprintTrainedBaselineConfig",
     "FingerprintTrainedBaselineResult",
+    "GpuReductionMode",
     "HeldOutFingerprintEvaluationConfig",
     "HeldOutFingerprintEvaluationResult",
     "ARMS",

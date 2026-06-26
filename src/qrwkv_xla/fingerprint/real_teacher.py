@@ -34,6 +34,7 @@ from qrwkv_xla.distill import (
 from qrwkv_xla.fingerprint.capture import (
     SUPPORTED_TARGET_PAYLOAD_TYPES,
     TARGET_PAYLOAD_PACKED_CORRIDOR_V1,
+    CompactFingerprintCaptureBatch,
     FingerprintCaptureBatch,
     FingerprintCaptureBudgetConfig,
     FingerprintCaptureConfig,
@@ -49,6 +50,7 @@ from qrwkv_xla.fingerprint.topology import (
     AutoBool,
     AutoInt,
     CaptureTopologyConfig,
+    GpuReductionMode,
     ResolvedCaptureTopology,
     apply_torch_thread_settings,
     resolve_capture_topology,
@@ -105,6 +107,7 @@ class TinyRealTeacherFingerprintCaptureConfig:
     teacher_device: str = "auto"
     pin_memory: AutoBool = "auto"
     non_blocking_transfer: AutoBool = "auto"
+    gpu_reduction_mode: GpuReductionMode = "auto"
 
 
 @dataclass(frozen=True)
@@ -148,9 +151,14 @@ class _PreparedTeacherBatch:
 @dataclass(frozen=True)
 class _InferredTeacherBatch:
     sequence: int
-    batch: FingerprintCaptureBatch
+    batch: FingerprintCaptureBatch | CompactFingerprintCaptureBatch
     token_count: int
     vocab_size: int
+    estimated_raw_logits_bytes: int
+    compact_bytes_transferred_to_host: int
+    logits_dtype: str
+    gpu_memory_allocated_bytes: int | None = None
+    gpu_memory_reserved_bytes: int | None = None
 
 
 @dataclass(frozen=True)
@@ -221,8 +229,20 @@ def run_tiny_real_teacher_fingerprint_capture(
             teacher.pin_memory = topology.pin_memory
             teacher.non_blocking_transfer = topology.non_blocking_transfer
         teacher.load()
-        emission: dict[str, Any] = {"tokens": 0, "vocab_size": None, "batches": 0}
+        _validate_capture_mode(config, topology)
+        emission: dict[str, Any] = {
+            "tokens": 0,
+            "vocab_size": None,
+            "batches": 0,
+            "estimated_raw_logits_bytes": 0,
+            "compact_bytes_transferred_to_host": 0,
+            "logits_dtype": None,
+            "gpu_memory_allocated_bytes": None,
+            "gpu_memory_reserved_bytes": None,
+        }
         stage_counters = _StageCounters()
+        if topology.gpu_reduction_mode == "compact":
+            stage_counters.reduced_batches = 0
         batch_iter = _iter_teacher_batches(
             config=config,
             teacher=teacher,
@@ -278,6 +298,7 @@ def run_tiny_real_teacher_fingerprint_capture(
             vocab_size=vocab_size,
             effective_local_files_only=effective_local_files_only,
             topology_metadata=topology_metadata,
+            emission_metadata=_emission_metadata(config, topology, emission),
         )
         validation = validate_fingerprint_artifact(config.output_dir)
         targets_loadable = False
@@ -316,6 +337,7 @@ def run_tiny_real_teacher_fingerprint_capture(
             consumer_sanity=consumer_sanity,
             batches_processed=int(emission["batches"]),
             topology_metadata=topology_metadata,
+            emission_metadata=_emission_metadata(config, topology, emission),
             stage_counters=stage_counters.snapshot(),
         )
         write_json(capture.capture_summary_path, summary)
@@ -335,6 +357,7 @@ def run_tiny_real_teacher_fingerprint_capture(
             ),
             extra_metadata={
                 **topology_metadata,
+                **_emission_metadata(config, topology, emission),
                 **stage_counters.snapshot(),
             },
         )
@@ -410,12 +433,26 @@ def _validate_config(config: TinyRealTeacherFingerprintCaptureConfig) -> None:
         raise ValueError("progress_interval_seconds must be > 0")
     if config.progress_interval_examples <= 0:
         raise ValueError("progress_interval_examples must be > 0")
-    if config.teacher_batch_size not in {1, 2, 4, 8}:
-        raise ValueError("teacher_batch_size must be one of 1, 2, 4, or 8")
+    if config.teacher_batch_size not in {1, 2, 4, 8, 16, 32, 64}:
+        raise ValueError("teacher_batch_size must be one of 1, 2, 4, 8, 16, 32, or 64")
     if config.prefetch_depth <= 0:
         raise ValueError("prefetch_depth must be > 0")
     if config.result_queue_depth <= 0:
         raise ValueError("result_queue_depth must be > 0")
+
+
+def _validate_capture_mode(
+    config: TinyRealTeacherFingerprintCaptureConfig,
+    topology: ResolvedCaptureTopology,
+) -> None:
+    if topology.gpu_reduction_mode != "compact":
+        return
+    if topology.teacher_device not in {"cuda", "mps"}:
+        raise ValueError("gpu_reduction_mode=compact requires CUDA or MPS")
+    if config.exemplar_target_type != "cascaded_soft_labels_v1":
+        raise ValueError(
+            "gpu_reduction_mode=compact requires cascaded_soft_labels_v1 exemplars"
+        )
 
 
 def _progress_path(config: TinyRealTeacherFingerprintCaptureConfig) -> Path:
@@ -436,6 +473,7 @@ def _capture_topology_config(
         teacher_device=config.teacher_device,
         pin_memory=config.pin_memory,
         non_blocking_transfer=config.non_blocking_transfer,
+        gpu_reduction_mode=config.gpu_reduction_mode,
     )
 
 
@@ -465,6 +503,14 @@ def _topology_metadata(
         ),
         "gpu_name": topology.gpu_name,
         "gpu_reduction_mode": topology.gpu_reduction_mode,
+        "teacher_batch_size_requested": None,
+        "teacher_batch_size_effective": None,
+        "estimated_raw_logits_bytes": None,
+        "estimated_raw_logits_mib": None,
+        "gpu_memory_allocated_bytes": None,
+        "gpu_memory_reserved_bytes": None,
+        "full_logits_transferred_to_host": None,
+        "compact_bytes_transferred_to_host": 0,
     }
 
 
@@ -483,6 +529,7 @@ def _iter_teacher_batches(
             config=config,
             teacher=teacher,
             prompts=prompts,
+            topology=topology,
             emission=emission,
             stage_counters=stage_counters,
             tokenizer_lock=tokenizer_lock,
@@ -504,6 +551,7 @@ def _iter_teacher_batches_sync(
     config: TinyRealTeacherFingerprintCaptureConfig,
     teacher: HFTeacherBackend,
     prompts: tuple[str, ...],
+    topology: ResolvedCaptureTopology,
     emission: dict[str, Any],
     stage_counters: _StageCounters,
     tokenizer_lock: threading.Lock,
@@ -518,8 +566,10 @@ def _iter_teacher_batches_sync(
         if prepared.sequence != sequence:
             raise ValueError("prepared batch sequence mismatch")
         stage_counters.increment("prepared_batches")
-        inferred = _infer_teacher_batch(config, teacher, prepared)
+        inferred = _infer_teacher_batch(config, teacher, prepared, topology=topology)
         stage_counters.increment("inference_batches")
+        if topology.gpu_reduction_mode == "compact":
+            stage_counters.increment("reduced_batches")
         _record_inferred_batch(emission, inferred)
         stage_counters.increment("committed_batches")
         yield inferred.batch
@@ -560,6 +610,7 @@ def _iter_teacher_batches_staged(
             kwargs={
                 "config": config,
                 "teacher": teacher,
+                "topology": topology,
                 "prepared_queue": prepared_queue,
                 "result_queue": result_queue,
                 "stop_event": stop_event,
@@ -698,6 +749,7 @@ def _inference_worker(
     *,
     config: TinyRealTeacherFingerprintCaptureConfig,
     teacher: HFTeacherBackend,
+    topology: ResolvedCaptureTopology,
     prepared_queue: queue.Queue[object],
     result_queue: queue.Queue[object],
     stop_event: threading.Event,
@@ -716,8 +768,10 @@ def _inference_worker(
                 return
             if not isinstance(item, _PreparedTeacherBatch):
                 raise TypeError(f"unexpected prepared item: {type(item).__name__}")
-            inferred = _infer_teacher_batch(config, teacher, item)
+            inferred = _infer_teacher_batch(config, teacher, item, topology=topology)
             stage_counters.increment("inference_batches")
+            if topology.gpu_reduction_mode == "compact":
+                stage_counters.increment("reduced_batches")
             _put_with_stop(result_queue, inferred, stop_event)
     except BaseException as exc:
         _put_with_stop(result_queue, _StageError("inference", exc), stop_event)
@@ -777,6 +831,19 @@ def _infer_teacher_batch(
     config: TinyRealTeacherFingerprintCaptureConfig,
     teacher: HFTeacherBackend,
     prepared: _PreparedTeacherBatch,
+    topology: ResolvedCaptureTopology | None = None,
+) -> _InferredTeacherBatch:
+    if topology is not None and topology.gpu_reduction_mode == "compact":
+        return _infer_compact_teacher_batch(config, teacher, prepared)
+    return _infer_full_teacher_batch(config, teacher, prepared, topology=topology)
+
+
+def _infer_full_teacher_batch(
+    config: TinyRealTeacherFingerprintCaptureConfig,
+    teacher: HFTeacherBackend,
+    prepared: _PreparedTeacherBatch,
+    *,
+    topology: ResolvedCaptureTopology | None,
 ) -> _InferredTeacherBatch:
     emitted = teacher.emit_targets_from_encoded(
         input_ids=prepared.input_ids,
@@ -796,10 +863,63 @@ def _infer_teacher_batch(
         sequence=prepared.sequence,
         token_count=int(np.sum(attention_mask)),
         vocab_size=int(logits.shape[-1]),
+        estimated_raw_logits_bytes=int(logits.nbytes),
+        compact_bytes_transferred_to_host=0,
+        logits_dtype=str(logits.dtype),
         batch=FingerprintCaptureBatch(
             example_ids=prepared.example_ids,
             input_ids=input_ids,
             logits=logits,
+        ),
+    )
+
+
+def _infer_compact_teacher_batch(
+    config: TinyRealTeacherFingerprintCaptureConfig,
+    teacher: HFTeacherBackend,
+    prepared: _PreparedTeacherBatch,
+) -> _InferredTeacherBatch:
+    compact = teacher.emit_compact_targets_from_encoded(
+        input_ids=prepared.input_ids,
+        attention_mask=prepared.attention_mask,
+        top_k=config.exemplar_top_k,
+        bucket_edges=config.exemplar_bucket_edges,
+    )
+    input_ids = np.asarray(compact.input_ids, dtype=np.int32)
+    attention_mask = np.asarray(compact.attention_mask, dtype=np.int32)
+    _validate_compact_emitted_shapes(
+        compact=compact,
+        examples=len(prepared.example_ids),
+        sequence_length=config.sequence_length,
+    )
+    return _InferredTeacherBatch(
+        sequence=prepared.sequence,
+        token_count=int(np.sum(attention_mask)),
+        vocab_size=int(compact.original_vocab_size),
+        estimated_raw_logits_bytes=int(compact.estimated_raw_logits_bytes),
+        compact_bytes_transferred_to_host=_compact_transfer_bytes(compact),
+        logits_dtype=compact.logits_dtype,
+        gpu_memory_allocated_bytes=compact.gpu_memory_allocated_bytes,
+        gpu_memory_reserved_bytes=compact.gpu_memory_reserved_bytes,
+        batch=CompactFingerprintCaptureBatch(
+            example_ids=prepared.example_ids,
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            entropy=np.asarray(compact.entropy, dtype=np.float32),
+            max_log_prob=np.asarray(compact.max_log_prob, dtype=np.float32),
+            top1_margin=np.asarray(compact.top1_margin, dtype=np.float32),
+            top8_mass=np.asarray(compact.top8_mass, dtype=np.float32),
+            top32_mass=np.asarray(compact.top32_mass, dtype=np.float32),
+            tail_mass=np.asarray(compact.tail_mass, dtype=np.float32),
+            top_token_ids=np.asarray(compact.top_token_ids, dtype=np.int32),
+            top_log_probs=np.asarray(compact.top_log_probs, dtype=np.float32),
+            top_mass=np.asarray(compact.top_mass, dtype=np.float32),
+            bucket_masses=np.asarray(compact.bucket_masses, dtype=np.float32),
+            bucket_counts=np.asarray(compact.bucket_counts, dtype=np.int32),
+            bucket_mean_log_probs=np.asarray(
+                compact.bucket_mean_log_probs, dtype=np.float32
+            ),
+            original_vocab_size=int(compact.original_vocab_size),
         ),
     )
 
@@ -813,6 +933,19 @@ def _record_inferred_batch(
     emission["vocab_size"] = inferred.vocab_size
     emission["tokens"] += inferred.token_count
     emission["batches"] += 1
+    emission["estimated_raw_logits_bytes"] += inferred.estimated_raw_logits_bytes
+    emission["compact_bytes_transferred_to_host"] += (
+        inferred.compact_bytes_transferred_to_host
+    )
+    emission["logits_dtype"] = inferred.logits_dtype
+    emission["gpu_memory_allocated_bytes"] = _max_optional_int(
+        emission["gpu_memory_allocated_bytes"],
+        inferred.gpu_memory_allocated_bytes,
+    )
+    emission["gpu_memory_reserved_bytes"] = _max_optional_int(
+        emission["gpu_memory_reserved_bytes"],
+        inferred.gpu_memory_reserved_bytes,
+    )
 
 
 def _put_with_stop(
@@ -847,6 +980,103 @@ def _validate_emitted_shapes(
         raise ValueError("teacher logits must be finite")
 
 
+def _validate_compact_emitted_shapes(
+    *,
+    compact: Any,
+    examples: int,
+    sequence_length: int,
+) -> None:
+    expected = (examples, sequence_length)
+    if np.asarray(compact.input_ids).shape != expected:
+        raise ValueError(f"compact input_ids shape must be {expected}")
+    if np.asarray(compact.attention_mask).shape != expected:
+        raise ValueError(f"compact attention_mask shape must be {expected}")
+    for name in (
+        "entropy",
+        "max_log_prob",
+        "top1_margin",
+        "top8_mass",
+        "top32_mass",
+        "tail_mass",
+        "top_mass",
+    ):
+        array = np.asarray(getattr(compact, name))
+        if array.shape != expected:
+            raise ValueError(f"compact {name} shape must be {expected}")
+        if not np.all(np.isfinite(array)):
+            raise ValueError(f"compact {name} must be finite")
+    top_shape = np.asarray(compact.top_token_ids).shape
+    if len(top_shape) != 3 or top_shape[:2] != expected:
+        raise ValueError("compact top_token_ids must be [batch, seq, top_k]")
+    if np.asarray(compact.top_log_probs).shape != top_shape:
+        raise ValueError("compact top_log_probs shape must match top_token_ids")
+    bucket_shape = np.asarray(compact.bucket_masses).shape
+    if len(bucket_shape) != 3 or bucket_shape[:2] != expected:
+        raise ValueError("compact bucket_masses must be [batch, seq, buckets]")
+    if np.asarray(compact.bucket_counts).shape != bucket_shape:
+        raise ValueError("compact bucket_counts shape must match bucket_masses")
+    if np.asarray(compact.bucket_mean_log_probs).shape != bucket_shape:
+        raise ValueError("compact bucket_mean_log_probs shape must match bucket_masses")
+
+
+def _compact_transfer_bytes(compact: Any) -> int:
+    names = (
+        "input_ids",
+        "attention_mask",
+        "entropy",
+        "max_log_prob",
+        "top1_margin",
+        "top8_mass",
+        "top32_mass",
+        "tail_mass",
+        "top_token_ids",
+        "top_log_probs",
+        "top_mass",
+        "bucket_masses",
+        "bucket_counts",
+        "bucket_mean_log_probs",
+    )
+    return int(sum(np.asarray(getattr(compact, name)).nbytes for name in names))
+
+
+def _max_optional_int(left: int | None, right: int | None) -> int | None:
+    if left is None:
+        return right
+    if right is None:
+        return left
+    return max(int(left), int(right))
+
+
+def _emission_metadata(
+    config: TinyRealTeacherFingerprintCaptureConfig,
+    topology: ResolvedCaptureTopology,
+    emission: dict[str, Any],
+) -> dict[str, Any]:
+    estimated_bytes = int(emission.get("estimated_raw_logits_bytes") or 0)
+    return {
+        "teacher_batch_size_requested": int(config.teacher_batch_size),
+        "teacher_batch_size_effective": int(config.teacher_batch_size),
+        "top_k": int(config.exemplar_top_k),
+        "bucket_edges": list(config.exemplar_bucket_edges),
+        "logits_dtype": emission.get("logits_dtype") or "unknown",
+        "estimated_raw_logits_bytes": estimated_bytes,
+        "estimated_raw_logits_mib": float(estimated_bytes / (1024 * 1024)),
+        "gpu_memory_allocated_bytes": emission.get("gpu_memory_allocated_bytes"),
+        "gpu_memory_reserved_bytes": emission.get("gpu_memory_reserved_bytes"),
+        "full_logits_transferred_to_host": _full_logits_transferred_to_host(topology),
+        "compact_bytes_transferred_to_host": int(
+            emission.get("compact_bytes_transferred_to_host") or 0
+        ),
+    }
+
+
+def _full_logits_transferred_to_host(topology: ResolvedCaptureTopology) -> bool:
+    return bool(
+        topology.teacher_device in {"cuda", "mps"}
+        and topology.gpu_reduction_mode == "full-logits"
+    )
+
+
 def _validate_encoded_batch_shapes(
     *,
     input_ids: np.ndarray,
@@ -871,6 +1101,7 @@ def _rewrite_manifest_for_p145(
     vocab_size: int,
     effective_local_files_only: bool,
     topology_metadata: dict[str, Any],
+    emission_metadata: dict[str, Any],
 ) -> None:
     manifest = read_json_object(path)
     manifest["teacher"] = {
@@ -888,6 +1119,17 @@ def _rewrite_manifest_for_p145(
         "non_blocking_transfer": topology_metadata["non_blocking_transfer"],
         "gpu_name": topology_metadata["gpu_name"],
         "gpu_reduction_mode": topology_metadata["gpu_reduction_mode"],
+        "logits_dtype": emission_metadata["logits_dtype"],
+        "estimated_raw_logits_bytes": emission_metadata["estimated_raw_logits_bytes"],
+        "estimated_raw_logits_mib": emission_metadata["estimated_raw_logits_mib"],
+        "gpu_memory_allocated_bytes": emission_metadata["gpu_memory_allocated_bytes"],
+        "gpu_memory_reserved_bytes": emission_metadata["gpu_memory_reserved_bytes"],
+        "full_logits_transferred_to_host": emission_metadata[
+            "full_logits_transferred_to_host"
+        ],
+        "compact_bytes_transferred_to_host": emission_metadata[
+            "compact_bytes_transferred_to_host"
+        ],
         "teacher_real": True,
     }
     manifest["capture"] = {
@@ -896,6 +1138,7 @@ def _rewrite_manifest_for_p145(
         "run_kind": "tiny_real_teacher_capture",
         "capture_engine": "teacher_side_capture_skeleton_v0",
         "capture_topology": topology_metadata,
+        **emission_metadata,
     }
     write_json(path, manifest)
 
@@ -1038,6 +1281,7 @@ def _p145_summary(
     consumer_sanity: dict[str, Any],
     batches_processed: int,
     topology_metadata: dict[str, Any],
+    emission_metadata: dict[str, Any],
     stage_counters: dict[str, int | None],
 ) -> dict[str, Any]:
     return {
@@ -1062,6 +1306,16 @@ def _p145_summary(
             "non_blocking_transfer": topology_metadata["non_blocking_transfer"],
             "gpu_name": topology_metadata["gpu_name"],
             "gpu_reduction_mode": topology_metadata["gpu_reduction_mode"],
+            "logits_dtype": emission_metadata["logits_dtype"],
+            "estimated_raw_logits_bytes": emission_metadata[
+                "estimated_raw_logits_bytes"
+            ],
+            "full_logits_transferred_to_host": emission_metadata[
+                "full_logits_transferred_to_host"
+            ],
+            "compact_bytes_transferred_to_host": emission_metadata[
+                "compact_bytes_transferred_to_host"
+            ],
         },
         "examples_processed": examples_processed,
         "tokens_processed": tokens_processed,
@@ -1087,6 +1341,7 @@ def _p145_summary(
         "consumer_sanity": consumer_sanity,
         "capture_topology": topology_metadata,
         **topology_metadata,
+        **emission_metadata,
         **stage_counters,
         "claims_not_made": (
             "real_scale_teacher_capture",

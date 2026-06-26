@@ -289,7 +289,7 @@ def test_real_teacher_progress_defaults_to_output_dir_complete(
     assert progress["pid"] > 0
 
 
-@pytest.mark.parametrize("teacher_batch_size", [1, 2, 4, 8])
+@pytest.mark.parametrize("teacher_batch_size", [1, 2, 4, 8, 16, 32, 64])
 def test_real_teacher_microbatch_matches_batch_one_artifact(
     tmp_path: Path,
     teacher_batch_size: int,
@@ -350,6 +350,33 @@ def test_real_teacher_microbatch_handles_incomplete_final_batch(
     assert progress["teacher_batch_size"] == 2
     assert progress["batches_processed"] == 2
     assert progress["effective_examples_per_batch"] == pytest.approx(1.5)
+
+
+def test_real_teacher_batch_size_64_preserves_incomplete_final_batch(
+    tmp_path: Path,
+) -> None:
+    backend = _fake_backend(vocab_size=16)
+    result = run_tiny_real_teacher_fingerprint_capture(
+        TinyRealTeacherFingerprintCaptureConfig(
+            output_dir=tmp_path / "artifact",
+            texts_path=TEXTS,
+            sequence_length=4,
+            max_examples=3,
+            max_target_positions=12,
+            overwrite=True,
+            max_exemplars=3,
+            consumer_vocab_limit=64,
+            teacher_batch_size=64,
+        ),
+        backend=backend,
+    )
+    summary = _json(result.summary_path)
+
+    assert backend.model.call_batch_sizes == [3]
+    assert result.examples_processed == 3
+    assert result.target_positions_processed == 12
+    assert summary["teacher_batch_size_requested"] == 64
+    assert summary["teacher_batch_size_effective"] == 64
 
 
 def test_real_teacher_staged_prefetch_tokenizes_before_inference(
@@ -506,7 +533,40 @@ def test_capture_topology_records_gpu_reduction_fallback(
 
     assert topology.teacher_device == "cuda"
     assert topology.gpu_name == "fake-cuda"
-    assert topology.gpu_reduction_mode == "full_logits_host_transfer_fallback"
+    assert topology.gpu_reduction_mode == "compact"
+
+
+def test_capture_topology_explicit_full_logits_gpu_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from qrwkv_xla.fingerprint import topology as topology_module
+
+    monkeypatch.setattr(
+        topology_module,
+        "_device_available",
+        lambda device: device in {"cpu", "cuda"},
+    )
+
+    topology = topology_module.resolve_capture_topology(
+        topology_module.CaptureTopologyConfig(
+            cpu_budget=4,
+            torch_num_threads=1,
+            prefetch_workers=1,
+            teacher_device="cuda",
+            gpu_reduction_mode="full-logits",
+        ),
+        detected_cpu_budget=4,
+    )
+
+    assert topology.gpu_reduction_mode == "full-logits"
+
+
+def test_capture_topology_rejects_cpu_compact_mode() -> None:
+    with pytest.raises(ValueError, match="compact requires CUDA or MPS"):
+        resolve_capture_topology(
+            CaptureTopologyConfig(teacher_device="cpu", gpu_reduction_mode="compact"),
+            detected_cpu_budget=4,
+        )
 
 
 def test_real_teacher_staged_pipeline_matches_sync_artifact(tmp_path: Path) -> None:
@@ -594,9 +654,183 @@ def test_real_teacher_manifest_records_resolved_device_and_transfer_metadata(
     assert manifest["teacher"]["non_blocking_transfer"] is False
     assert manifest["teacher"]["gpu_name"] is None
     assert manifest["teacher"]["gpu_reduction_mode"] == "not_applicable"
+    assert manifest["teacher"]["full_logits_transferred_to_host"] is False
     assert summary["teacher"]["device"] == manifest["teacher"]["device"]
     assert summary["gpu_reduction_mode"] == "not_applicable"
+    assert summary["full_logits_transferred_to_host"] is False
+    assert summary["teacher_batch_size_requested"] == 2
+    assert summary["teacher_batch_size_effective"] == 2
+    assert summary["estimated_raw_logits_bytes"] > 0
     assert progress["gpu_reduction_mode"] == "not_applicable"
+    assert progress["full_logits_transferred_to_host"] is False
+
+
+def test_real_teacher_gpu_compact_mode_uses_compact_backend_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from qrwkv_xla.fingerprint import topology as topology_module
+
+    monkeypatch.setattr(
+        topology_module,
+        "_device_available",
+        lambda device: device in {"cpu", "cuda"},
+    )
+    monkeypatch.setattr(topology_module, "_gpu_name", lambda device: f"fake-{device}")
+    backend = _compact_only_backend(vocab_size=16)
+    result = run_tiny_real_teacher_fingerprint_capture(
+        TinyRealTeacherFingerprintCaptureConfig(
+            output_dir=tmp_path / "artifact",
+            texts_path=TEXTS,
+            sequence_length=4,
+            max_examples=4,
+            max_target_positions=16,
+            overwrite=True,
+            max_exemplars=3,
+            consumer_vocab_limit=64,
+            teacher_batch_size=2,
+            teacher_device="cuda",
+            gpu_reduction_mode="compact",
+            cpu_budget=4,
+            torch_num_threads=1,
+            prefetch_workers=1,
+            prefetch_depth=1,
+            result_queue_depth=1,
+        ),
+        backend=backend,
+    )
+    summary = _json(result.summary_path)
+    progress = _json(result.output_dir / "progress.json")
+    manifest = _json(result.manifest_path)
+
+    assert backend.compact_calls == 2
+    assert backend.full_calls == 0
+    assert summary["gpu_reduction_mode"] == "compact"
+    assert summary["full_logits_transferred_to_host"] is False
+    assert summary["compact_bytes_transferred_to_host"] > 0
+    assert summary["reduced_batches"] == 2
+    assert progress["gpu_reduction_mode"] == "compact"
+    assert progress["compact_bytes_transferred_to_host"] > 0
+    assert manifest["teacher"]["gpu_reduction_mode"] == "compact"
+    assert manifest["teacher"]["full_logits_transferred_to_host"] is False
+
+
+def test_real_teacher_gpu_full_logits_mode_preserves_old_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from qrwkv_xla.fingerprint import topology as topology_module
+
+    monkeypatch.setattr(
+        topology_module,
+        "_device_available",
+        lambda device: device in {"cpu", "cuda"},
+    )
+    backend = _fake_backend(vocab_size=16)
+    result = run_tiny_real_teacher_fingerprint_capture(
+        TinyRealTeacherFingerprintCaptureConfig(
+            output_dir=tmp_path / "artifact",
+            texts_path=TEXTS,
+            sequence_length=4,
+            max_examples=4,
+            max_target_positions=16,
+            overwrite=True,
+            max_exemplars=3,
+            consumer_vocab_limit=64,
+            teacher_batch_size=2,
+            teacher_device="cuda",
+            gpu_reduction_mode="full-logits",
+            cpu_budget=4,
+            torch_num_threads=1,
+            prefetch_workers=1,
+            prefetch_depth=1,
+            result_queue_depth=1,
+        ),
+        backend=backend,
+    )
+    summary = _json(result.summary_path)
+
+    assert backend.model.call_batch_sizes == [2, 2]
+    assert summary["gpu_reduction_mode"] == "full-logits"
+    assert summary["full_logits_transferred_to_host"] is True
+    assert summary["compact_bytes_transferred_to_host"] == 0
+    assert summary["reduced_batches"] is None
+
+
+def test_real_teacher_gpu_auto_compact_fails_without_cascaded_payload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from qrwkv_xla.fingerprint import topology as topology_module
+
+    monkeypatch.setattr(
+        topology_module,
+        "_device_available",
+        lambda device: device in {"cpu", "cuda"},
+    )
+
+    with pytest.raises(ValueError, match="compact requires cascaded_soft_labels_v1"):
+        run_tiny_real_teacher_fingerprint_capture(
+            TinyRealTeacherFingerprintCaptureConfig(
+                output_dir=tmp_path / "artifact",
+                texts_path=TEXTS,
+                sequence_length=4,
+                max_examples=2,
+                max_target_positions=8,
+                overwrite=True,
+                max_exemplars=2,
+                exemplar_target_type="dense_probs",
+                teacher_device="cuda",
+                gpu_reduction_mode="auto",
+                cpu_budget=4,
+                torch_num_threads=1,
+                prefetch_workers=1,
+            ),
+            backend=_fake_backend(vocab_size=16),
+        )
+
+
+def test_real_teacher_gpu_compact_oom_marks_progress_failed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from qrwkv_xla.fingerprint import topology as topology_module
+
+    monkeypatch.setattr(
+        topology_module,
+        "_device_available",
+        lambda device: device in {"cpu", "cuda"},
+    )
+    progress_path = tmp_path / "artifact" / "progress.json"
+
+    with pytest.raises(RuntimeError, match="estimated_raw_logits_bytes=1024"):
+        run_tiny_real_teacher_fingerprint_capture(
+            TinyRealTeacherFingerprintCaptureConfig(
+                output_dir=tmp_path / "artifact",
+                texts_path=TEXTS,
+                sequence_length=4,
+                max_examples=4,
+                max_target_positions=16,
+                overwrite=True,
+                max_exemplars=3,
+                consumer_vocab_limit=64,
+                teacher_batch_size=2,
+                teacher_device="cuda",
+                gpu_reduction_mode="compact",
+                cpu_budget=4,
+                torch_num_threads=1,
+                prefetch_workers=1,
+                prefetch_depth=1,
+                result_queue_depth=1,
+            ),
+            backend=_compact_oom_backend(vocab_size=16),
+        )
+    progress = _json(progress_path)
+
+    assert progress["status"] == "failed"
+    assert progress["exception_type"] == "RuntimeError"
+    assert "teacher_batch_size" in progress["exception_message"]
+    assert "estimated_raw_logits_bytes=1024" in progress["exception_message"]
 
 
 def test_real_teacher_staged_prefetch_failure_marks_progress_failed(
@@ -804,6 +1038,75 @@ def _fake_backend(
         model=_FakeCausalLM(vocab_size=vocab_size, fail_on_call=fail_on_call),
         prompts=("placeholder",),
     )
+
+
+def _compact_only_backend(*, vocab_size: int) -> HFTeacherBackend:
+    return _CompactOnlyFakeBackend(
+        "local/fake-real-teacher",
+        tokenizer=_FakeTokenizer(vocab_size=vocab_size),
+        model=_FakeCausalLM(vocab_size=vocab_size),
+        prompts=("placeholder",),
+    )
+
+
+def _compact_oom_backend(*, vocab_size: int) -> HFTeacherBackend:
+    return _CompactOomFakeBackend(
+        "local/fake-real-teacher",
+        tokenizer=_FakeTokenizer(vocab_size=vocab_size),
+        model=_FakeCausalLM(vocab_size=vocab_size),
+        prompts=("placeholder",),
+    )
+
+
+class _CompactOnlyFakeBackend(HFTeacherBackend):
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)
+        self.compact_calls = 0
+        self.full_calls = 0
+
+    def emit_targets_from_encoded(
+        self,
+        *,
+        input_ids: object,
+        attention_mask: object | None,
+    ) -> dict[str, np.ndarray]:
+        del input_ids, attention_mask
+        self.full_calls += 1
+        raise AssertionError("full-logit inference path must not run in compact mode")
+
+    def emit_compact_targets_from_encoded(
+        self,
+        *,
+        input_ids: object,
+        attention_mask: object | None,
+        top_k: int,
+        bucket_edges: tuple[float, ...],
+    ) -> object:
+        self.compact_calls += 1
+        return super().emit_compact_targets_from_encoded(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            top_k=top_k,
+            bucket_edges=bucket_edges,
+        )
+
+
+class _CompactOomFakeBackend(_CompactOnlyFakeBackend):
+    def emit_compact_targets_from_encoded(
+        self,
+        *,
+        input_ids: object,
+        attention_mask: object | None,
+        top_k: int,
+        bucket_edges: tuple[float, ...],
+    ) -> object:
+        del input_ids, attention_mask, top_k, bucket_edges
+        self.compact_calls += 1
+        raise RuntimeError(
+            "compact GPU reduction ran out of memory: "
+            "batch_size=2 sequence_length=4 vocab_size=16 "
+            "estimated_raw_logits_bytes=1024; try a smaller teacher_batch_size"
+        )
 
 
 class _FakeTokenizer:

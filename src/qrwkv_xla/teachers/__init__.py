@@ -2,7 +2,11 @@
 
 from qrwkv_xla.teachers.backend import TeacherBackend
 from qrwkv_xla.teachers.emission import emit_teacher_target_store
-from qrwkv_xla.teachers.hf import HFTeacherBackend, HFTeacherUnavailable
+from qrwkv_xla.teachers.hf import (
+    HFCompactTeacherTargets,
+    HFTeacherBackend,
+    HFTeacherUnavailable,
+)
 from qrwkv_xla.teachers.hf_specimen_smoke import (
     DEFAULT_HF_SPECIMEN_MODEL_ID,
     HFTeacherSpecimenConfig,
@@ -16,6 +20,7 @@ from qrwkv_xla.teachers.synthetic import SyntheticTeacherBackend
 __all__ = [
     "DEFAULT_HF_SPECIMEN_MODEL_ID",
     "HFTeacherBackend",
+    "HFCompactTeacherTargets",
     "HFTeacherSpecimenConfig",
     "HFTeacherSpecimenSmokeResult",
     "HFTeacherSpecimenSwapReport",

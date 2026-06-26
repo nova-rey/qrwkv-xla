@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 AutoInt = int | Literal["auto"]
 AutoBool = bool | Literal["auto"]
+GpuReductionMode = Literal["auto", "compact", "full-logits"]
 
 SUPPORTED_TEACHER_DEVICES = ("auto", "cpu", "cuda", "mps")
 
@@ -22,6 +23,7 @@ class CaptureTopologyConfig:
     teacher_device: str = "auto"
     pin_memory: AutoBool = "auto"
     non_blocking_transfer: AutoBool = "auto"
+    gpu_reduction_mode: GpuReductionMode = "auto"
 
 
 @dataclass(frozen=True)
@@ -55,6 +57,10 @@ def resolve_capture_topology(
     if detected <= 0:
         detected = 1
     device = _resolve_teacher_device(config.teacher_device)
+    gpu_reduction_mode = _resolve_gpu_reduction_mode(
+        config.gpu_reduction_mode,
+        teacher_device=device,
+    )
     effective = _resolve_auto_int(
         config.cpu_budget,
         name="cpu_budget",
@@ -115,7 +121,7 @@ def resolve_capture_topology(
         omp_num_threads=os.environ.get("OMP_NUM_THREADS"),
         mkl_num_threads=os.environ.get("MKL_NUM_THREADS"),
         gpu_name=_gpu_name(device),
-        gpu_reduction_mode=_gpu_reduction_mode(device),
+        gpu_reduction_mode=gpu_reduction_mode,
     )
 
 
@@ -262,10 +268,16 @@ def _gpu_name(device: str) -> str | None:
     return None
 
 
-def _gpu_reduction_mode(device: str) -> str:
-    if device in {"cuda", "mps"}:
-        return "full_logits_host_transfer_fallback"
-    return "not_applicable"
+def _resolve_gpu_reduction_mode(value: str, *, teacher_device: str) -> str:
+    if value not in {"auto", "compact", "full-logits"}:
+        raise ValueError("gpu_reduction_mode must be one of auto, compact, full-logits")
+    if teacher_device == "cpu":
+        if value == "compact":
+            raise ValueError("gpu_reduction_mode=compact requires CUDA or MPS")
+        return "not_applicable"
+    if value == "auto":
+        return "compact"
+    return value
 
 
 def _validate_depth(value: int, *, name: str) -> None:

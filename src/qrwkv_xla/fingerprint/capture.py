@@ -142,6 +142,26 @@ class FingerprintCaptureBatch:
 
 
 @dataclass(frozen=True)
+class CompactFingerprintCaptureBatch:
+    example_ids: tuple[str, ...]
+    input_ids: np.ndarray
+    attention_mask: np.ndarray
+    entropy: np.ndarray
+    max_log_prob: np.ndarray
+    top1_margin: np.ndarray
+    top8_mass: np.ndarray
+    top32_mass: np.ndarray
+    tail_mass: np.ndarray
+    top_token_ids: np.ndarray
+    top_log_probs: np.ndarray
+    top_mass: np.ndarray
+    bucket_masses: np.ndarray
+    bucket_counts: np.ndarray
+    bucket_mean_log_probs: np.ndarray
+    original_vocab_size: int
+
+
+@dataclass(frozen=True)
 class FingerprintCaptureResult:
     output_dir: Path
     manifest_path: Path
@@ -271,8 +291,9 @@ class _BoundedExemplarReservoir:
     def consider(
         self,
         position: _CapturedPosition,
-        logits: np.ndarray,
+        logits: np.ndarray | None,
         probs: np.ndarray | None,
+        precomputed_payload: dict[str, Any] | None = None,
     ) -> None:
         if not self._config.enabled or self._config.max_exemplars == 0:
             return
@@ -295,7 +316,11 @@ class _BoundedExemplarReservoir:
             position=position.position,
             mode_id=position.mode_id,
             stats=position.stats,
-            exemplar_payload=_exemplar_payload(logits, probs, self._config),
+            exemplar_payload=(
+                precomputed_payload
+                if precomputed_payload is not None
+                else _exemplar_payload(logits, probs, self._config)
+            ),
             interestingness_score=position.interestingness_score,
             reason_codes=position.reason_codes,
         )
@@ -664,7 +689,7 @@ def capture_fingerprint_artifact(
     if first_item is None:
         raise ValueError("fingerprint capture requires at least one example")
     first_batch = _coerce_capture_batch(first_item)
-    _, max_seq_len, vocab_size = _validate_batch(first_batch)
+    _, max_seq_len, vocab_size = _validate_any_batch(first_batch)
     if config.output_dir.exists():
         if not config.overwrite:
             raise FileExistsError(
@@ -717,23 +742,18 @@ def capture_fingerprint_artifact(
                 if examples_remaining <= 0:
                     break
                 batch = _trim_batch(batch, examples_remaining)
-            batch_size, _, _ = _validate_batch(
+            batch_size, _, _ = _validate_any_batch(
                 batch,
                 expected_shape=(max_seq_len, vocab_size),
             )
             batches_processed += 1
-            logits = np.asarray(batch.logits, dtype=np.float32)
-            flat_logits = logits.reshape((batch_size * max_seq_len, vocab_size))
-            stats = compute_fingerprint_distribution_stats(jnp.asarray(flat_logits))
-            stat_arrays = {
-                name: values.reshape((batch_size, max_seq_len))
-                for name, values in _stats_to_numpy(stats).items()
-            }
-            probs = (
-                np.asarray(jax.nn.softmax(jnp.asarray(logits), axis=-1))
-                if config.exemplar_reservoir.payload_type == "dense_probs"
+            stat_arrays = _batch_stat_arrays(batch, batch_size, max_seq_len, vocab_size)
+            logits = (
+                np.asarray(batch.logits, dtype=np.float32)
+                if isinstance(batch, FingerprintCaptureBatch)
                 else None
             )
+            probs = _batch_dense_probs(config, batch, logits)
             for example_offset, example_id in enumerate(batch.example_ids):
                 examples_processed += 1
                 if (
@@ -803,8 +823,18 @@ def capture_fingerprint_artifact(
                         captured.append(captured_position)
                     exemplar_reservoir.consider(
                         captured_position,
-                        logits[example_offset, position],
+                        (
+                            logits[example_offset, position]
+                            if logits is not None
+                            else None
+                        ),
                         probs[example_offset, position] if probs is not None else None,
+                        precomputed_payload=_compact_exemplar_payload(
+                            batch,
+                            example_offset,
+                            position,
+                            config.exemplar_reservoir,
+                        ),
                     )
                     records_per_mode[str(mode_id)] += 1
                 for mode_id, values_by_stat in stat_values_by_mode.items():
@@ -1127,8 +1157,10 @@ def _select_examples(
     return islice(examples, budget.max_examples)
 
 
-def _coerce_capture_batch(item: Any) -> FingerprintCaptureBatch:
-    if isinstance(item, FingerprintCaptureBatch):
+def _coerce_capture_batch(
+    item: Any,
+) -> FingerprintCaptureBatch | CompactFingerprintCaptureBatch:
+    if isinstance(item, FingerprintCaptureBatch | CompactFingerprintCaptureBatch):
         return item
     if isinstance(item, FingerprintCaptureExample):
         return FingerprintCaptureBatch(
@@ -1143,15 +1175,36 @@ def _coerce_capture_batch(item: Any) -> FingerprintCaptureBatch:
 
 
 def _trim_batch(
-    batch: FingerprintCaptureBatch,
+    batch: FingerprintCaptureBatch | CompactFingerprintCaptureBatch,
     max_examples: int,
-) -> FingerprintCaptureBatch:
+) -> FingerprintCaptureBatch | CompactFingerprintCaptureBatch:
     if max_examples >= len(batch.example_ids):
         return batch
-    return FingerprintCaptureBatch(
+    if isinstance(batch, FingerprintCaptureBatch):
+        return FingerprintCaptureBatch(
+            example_ids=batch.example_ids[:max_examples],
+            input_ids=np.asarray(batch.input_ids[:max_examples], dtype=np.int32),
+            logits=np.asarray(batch.logits[:max_examples], dtype=np.float32),
+        )
+    return CompactFingerprintCaptureBatch(
         example_ids=batch.example_ids[:max_examples],
         input_ids=np.asarray(batch.input_ids[:max_examples], dtype=np.int32),
-        logits=np.asarray(batch.logits[:max_examples], dtype=np.float32),
+        attention_mask=np.asarray(batch.attention_mask[:max_examples], dtype=np.int32),
+        entropy=np.asarray(batch.entropy[:max_examples], dtype=np.float32),
+        max_log_prob=np.asarray(batch.max_log_prob[:max_examples], dtype=np.float32),
+        top1_margin=np.asarray(batch.top1_margin[:max_examples], dtype=np.float32),
+        top8_mass=np.asarray(batch.top8_mass[:max_examples], dtype=np.float32),
+        top32_mass=np.asarray(batch.top32_mass[:max_examples], dtype=np.float32),
+        tail_mass=np.asarray(batch.tail_mass[:max_examples], dtype=np.float32),
+        top_token_ids=np.asarray(batch.top_token_ids[:max_examples], dtype=np.int32),
+        top_log_probs=np.asarray(batch.top_log_probs[:max_examples], dtype=np.float32),
+        top_mass=np.asarray(batch.top_mass[:max_examples], dtype=np.float32),
+        bucket_masses=np.asarray(batch.bucket_masses[:max_examples], dtype=np.float32),
+        bucket_counts=np.asarray(batch.bucket_counts[:max_examples], dtype=np.int32),
+        bucket_mean_log_probs=np.asarray(
+            batch.bucket_mean_log_probs[:max_examples], dtype=np.float32
+        ),
+        original_vocab_size=batch.original_vocab_size,
     )
 
 
@@ -1214,6 +1267,142 @@ def _validate_batch(
     if np.any(input_ids < 0) or np.any(input_ids >= vocab_size):
         raise ValueError("FingerprintCaptureBatch token ids outside vocabulary")
     return int(batch_size), int(max_seq_len), int(vocab_size)
+
+
+def _validate_compact_batch(
+    batch: CompactFingerprintCaptureBatch,
+    *,
+    expected_shape: tuple[int, int] | None = None,
+) -> tuple[int, int, int]:
+    input_ids = np.asarray(batch.input_ids)
+    if input_ids.ndim != 2:
+        raise ValueError(
+            "CompactFingerprintCaptureBatch.input_ids must be [batch, seq]"
+        )
+    batch_size, max_seq_len = input_ids.shape
+    vocab_size = int(batch.original_vocab_size)
+    if batch_size <= 0 or max_seq_len <= 0 or vocab_size <= 0:
+        raise ValueError("CompactFingerprintCaptureBatch inputs must be non-empty")
+    if len(batch.example_ids) != batch_size:
+        raise ValueError(
+            "CompactFingerprintCaptureBatch.example_ids length must match batch"
+        )
+    if expected_shape is not None and (max_seq_len, vocab_size) != expected_shape:
+        raise ValueError(
+            f"all capture examples must share logits shape {expected_shape}, "
+            f"got {(max_seq_len, vocab_size)}"
+        )
+    if any(not example_id.strip() for example_id in batch.example_ids):
+        raise ValueError("CompactFingerprintCaptureBatch.example_ids must be non-empty")
+    if np.any(input_ids < 0) or np.any(input_ids >= vocab_size):
+        raise ValueError("CompactFingerprintCaptureBatch token ids outside vocabulary")
+    _validate_compact_array(
+        batch.attention_mask,
+        (batch_size, max_seq_len),
+        "attention_mask",
+        np.int32,
+    )
+    for name in (
+        "entropy",
+        "max_log_prob",
+        "top1_margin",
+        "top8_mass",
+        "top32_mass",
+        "tail_mass",
+        "top_mass",
+    ):
+        _validate_compact_array(
+            getattr(batch, name), (batch_size, max_seq_len), name, np.float32
+        )
+    top_token_ids = np.asarray(batch.top_token_ids)
+    top_log_probs = np.asarray(batch.top_log_probs)
+    if top_token_ids.ndim != 3:
+        raise ValueError("CompactFingerprintCaptureBatch.top_token_ids must be [B,T,K]")
+    if top_log_probs.shape != top_token_ids.shape:
+        raise ValueError("compact top_token_ids and top_log_probs shapes must match")
+    if top_token_ids.shape[:2] != (batch_size, max_seq_len):
+        raise ValueError("compact top-K arrays must match [batch, seq]")
+    if np.any(top_token_ids < 0) or np.any(top_token_ids >= vocab_size):
+        raise ValueError("compact top_token_ids outside vocabulary")
+    bucket_masses = np.asarray(batch.bucket_masses)
+    bucket_counts = np.asarray(batch.bucket_counts)
+    bucket_mean_log_probs = np.asarray(batch.bucket_mean_log_probs)
+    if bucket_masses.ndim != 3:
+        raise ValueError("CompactFingerprintCaptureBatch.bucket_masses must be [B,T,N]")
+    if (
+        bucket_counts.shape != bucket_masses.shape
+        or bucket_mean_log_probs.shape != bucket_masses.shape
+    ):
+        raise ValueError("compact bucket arrays must have matching shapes")
+    if bucket_masses.shape[:2] != (batch_size, max_seq_len):
+        raise ValueError("compact bucket arrays must match [batch, seq]")
+    for name, value in (
+        ("top_log_probs", top_log_probs),
+        ("bucket_masses", bucket_masses),
+        ("bucket_mean_log_probs", bucket_mean_log_probs),
+    ):
+        if not np.all(np.isfinite(value)):
+            raise ValueError(f"CompactFingerprintCaptureBatch.{name} must be finite")
+    return batch_size, max_seq_len, vocab_size
+
+
+def _validate_any_batch(
+    batch: FingerprintCaptureBatch | CompactFingerprintCaptureBatch,
+    *,
+    expected_shape: tuple[int, int] | None = None,
+) -> tuple[int, int, int]:
+    if isinstance(batch, FingerprintCaptureBatch):
+        return _validate_batch(batch, expected_shape=expected_shape)
+    return _validate_compact_batch(batch, expected_shape=expected_shape)
+
+
+def _validate_compact_array(
+    value: np.ndarray,
+    shape: tuple[int, ...],
+    name: str,
+    dtype: type[np.generic],
+) -> None:
+    array = np.asarray(value, dtype=dtype)
+    if array.shape != shape:
+        raise ValueError(f"CompactFingerprintCaptureBatch.{name} shape must be {shape}")
+    if not np.all(np.isfinite(array)):
+        raise ValueError(f"CompactFingerprintCaptureBatch.{name} must be finite")
+
+
+def _batch_stat_arrays(
+    batch: FingerprintCaptureBatch | CompactFingerprintCaptureBatch,
+    batch_size: int,
+    max_seq_len: int,
+    vocab_size: int,
+) -> dict[str, np.ndarray]:
+    if isinstance(batch, CompactFingerprintCaptureBatch):
+        del vocab_size
+        return {
+            "entropy": np.asarray(batch.entropy, dtype=np.float64),
+            "top1_margin": np.asarray(batch.top1_margin, dtype=np.float64),
+            "top8_mass": np.asarray(batch.top8_mass, dtype=np.float64),
+            "top32_mass": np.asarray(batch.top32_mass, dtype=np.float64),
+            "tail_mass": np.asarray(batch.tail_mass, dtype=np.float64),
+        }
+    logits = np.asarray(batch.logits, dtype=np.float32)
+    flat_logits = logits.reshape((batch_size * max_seq_len, vocab_size))
+    stats = compute_fingerprint_distribution_stats(jnp.asarray(flat_logits))
+    return {
+        name: values.reshape((batch_size, max_seq_len))
+        for name, values in _stats_to_numpy(stats).items()
+    }
+
+
+def _batch_dense_probs(
+    config: FingerprintCaptureConfig,
+    batch: FingerprintCaptureBatch | CompactFingerprintCaptureBatch,
+    logits: np.ndarray | None,
+) -> np.ndarray | None:
+    if config.exemplar_reservoir.payload_type != "dense_probs":
+        return None
+    if isinstance(batch, CompactFingerprintCaptureBatch):
+        raise ValueError("compact capture batches do not support dense_probs exemplars")
+    return np.asarray(jax.nn.softmax(jnp.asarray(logits), axis=-1))
 
 
 def _stats_to_numpy(stats: Any) -> dict[str, np.ndarray]:
@@ -1821,7 +2010,7 @@ def _write_exemplar_shards(
 
 
 def _exemplar_payload(
-    logits: np.ndarray,
+    logits: np.ndarray | None,
     probs: np.ndarray | None,
     config: FingerprintExemplarReservoirCaptureConfig,
 ) -> dict[str, Any]:
@@ -1829,6 +2018,8 @@ def _exemplar_payload(
         if probs is None:
             raise ValueError("dense exemplar probabilities are missing")
         return {"teacher_probs": [float(value) for value in probs]}
+    if logits is None:
+        raise ValueError("cascaded exemplar logits are missing")
     encoded = encode_cascaded_soft_labels(
         logits,
         top_k=min(config.top_k, int(np.asarray(logits).size)),
@@ -1850,6 +2041,48 @@ def _exemplar_payload(
         "bucket_mass": encoded.bucket_mass.astype(np.float32).tolist(),
         "bucket_count": encoded.bucket_count.tolist(),
         "bucket_mean_logp": encoded.bucket_mean_logp.astype(np.float32).tolist(),
+    }
+
+
+def _compact_exemplar_payload(
+    batch: FingerprintCaptureBatch | CompactFingerprintCaptureBatch,
+    example_offset: int,
+    position: int,
+    config: FingerprintExemplarReservoirCaptureConfig,
+) -> dict[str, Any] | None:
+    if not isinstance(batch, CompactFingerprintCaptureBatch):
+        return None
+    if config.payload_type != "cascaded_soft_labels_v1":
+        raise ValueError("compact capture batches require cascaded_soft_labels_v1")
+    return {
+        "encoding_kind": "cascaded_soft_labels_v1",
+        "encoding_version": 1,
+        "original_vocab_size": int(batch.original_vocab_size),
+        "top_token_ids": np.asarray(
+            batch.top_token_ids[example_offset, position], dtype=np.int32
+        ).tolist(),
+        "top_log_probs": np.asarray(
+            batch.top_log_probs[example_offset, position], dtype=np.float32
+        ).tolist(),
+        "top_mass": float(
+            np.asarray(batch.top_mass[example_offset, position], dtype=np.float32)
+        ),
+        "tail_mass": float(
+            np.asarray(batch.tail_mass[example_offset, position], dtype=np.float32)
+        ),
+        "teacher_entropy": float(
+            np.asarray(batch.entropy[example_offset, position], dtype=np.float32)
+        ),
+        "bucket_edges": list(config.bucket_edges),
+        "bucket_mass": np.asarray(
+            batch.bucket_masses[example_offset, position], dtype=np.float32
+        ).tolist(),
+        "bucket_count": np.asarray(
+            batch.bucket_counts[example_offset, position], dtype=np.int32
+        ).tolist(),
+        "bucket_mean_logp": np.asarray(
+            batch.bucket_mean_log_probs[example_offset, position], dtype=np.float32
+        ).tolist(),
     }
 
 

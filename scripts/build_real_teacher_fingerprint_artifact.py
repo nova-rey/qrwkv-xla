@@ -92,6 +92,11 @@ def main() -> int:
     )
     parser.add_argument("--pin-memory", type=_auto_bool, default="auto")
     parser.add_argument("--non-blocking-transfer", type=_auto_bool, default="auto")
+    parser.add_argument(
+        "--gpu-reduction-mode",
+        choices=("auto", "compact", "full-logits"),
+        default="auto",
+    )
     parser.add_argument("--local-files-only", action="store_true", default=True)
     parser.add_argument("--allow-downloads", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
@@ -139,6 +144,7 @@ def main() -> int:
                 teacher_device=args.teacher_device,
                 pin_memory=args.pin_memory,
                 non_blocking_transfer=args.non_blocking_transfer,
+                gpu_reduction_mode=args.gpu_reduction_mode,
             )
         )
     except HFTeacherUnavailable as exc:

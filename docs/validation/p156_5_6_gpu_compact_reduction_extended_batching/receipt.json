@@ -1,0 +1,50 @@
+{
+  "phase": "P156.5.6",
+  "title": "GPU compact reduction and extended teacher batching",
+  "status": "pass",
+  "changes": {
+    "teacher_batch_sizes": [1, 2, 4, 8, 16, 32, 64],
+    "gpu_reduction_modes": ["auto", "compact", "full-logits"],
+    "compact_capture_batch": "CompactFingerprintCaptureBatch",
+    "backend_entrypoint": "HFTeacherBackend.emit_compact_targets_from_encoded",
+    "compact_mode_host_transfer": "compact tensors only",
+    "full_logits_debug_mode": "explicit full-logits"
+  },
+  "validation": {
+    "focused_tests": {
+      "command": ".venv/bin/python -m pytest tests/test_hf_teacher_backend.py tests/test_tiny_real_teacher_fingerprint_capture.py tests/test_fingerprint_capture.py",
+      "result": "63 passed, 1 skipped"
+    },
+    "focused_ruff": {
+      "command": ".venv/bin/python -m ruff check src/qrwkv_xla/fingerprint/capture.py src/qrwkv_xla/teachers/hf.py src/qrwkv_xla/fingerprint/topology.py src/qrwkv_xla/fingerprint/real_teacher.py src/qrwkv_xla/fingerprint/__init__.py src/qrwkv_xla/teachers/__init__.py scripts/build_real_teacher_fingerprint_artifact.py tests/test_hf_teacher_backend.py tests/test_tiny_real_teacher_fingerprint_capture.py tests/test_fingerprint_capture.py",
+      "result": "pass"
+    },
+    "repository_ruff": {
+      "command": ".venv/bin/python -m ruff check .",
+      "result": "pass"
+    },
+    "repository_format_check": {
+      "command": ".venv/bin/python -m ruff format --check .",
+      "result": "pass"
+    },
+    "full_tests": {
+      "command": ".venv/bin/python -m pytest",
+      "result": "1485 passed, 24 skipped"
+    },
+    "real_accelerator_smoke": {
+      "status": "unavailable",
+      "reason": "local validation environment does not have torch installed, so CUDA/MPS availability could not be exercised"
+    },
+    "accelerator_benchmark": {
+      "status": "unavailable",
+      "reason": "no local CUDA/MPS runtime was available for Cardboard batch 8/16/32/64 benchmarking"
+    }
+  },
+  "claims_not_made": [
+    "speedup",
+    "dynamic_batch_tuning",
+    "candidate_first_exemplar_encoding",
+    "distributed_capture",
+    "multi_teacher_replica_capture"
+  ]
+}

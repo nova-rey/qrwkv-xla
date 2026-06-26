@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 import pytest
 
+from qrwkv_xla.artifacts.cascaded_soft_labels import encode_cascaded_soft_labels
 from qrwkv_xla.contracts import vocab_contract_from_metadata
 from qrwkv_xla.targets import TeacherTargetStore
 from qrwkv_xla.teachers import (
@@ -74,6 +75,59 @@ def test_hf_teacher_backend_emits_targets_from_encoded_without_retokenizing() ->
     assert emitted["input_ids"].shape == (2, 4)
     assert emitted["attention_mask"].shape == (2, 4)
     assert emitted["logits"].shape == (2, 4, 11)
+
+
+def test_hf_teacher_backend_compact_targets_match_cascaded_reference() -> None:
+    backend = _fake_backend(vocab_size=11)
+    tokenizer = backend.tokenizer
+    assert isinstance(tokenizer, _FakeTokenizer)
+
+    encoded = backend.encode_prompts(("alpha", "beta"), sequence_length=4)
+    compact = backend.emit_compact_targets_from_encoded(
+        input_ids=encoded["input_ids"],
+        attention_mask=encoded["attention_mask"],
+        top_k=5,
+        bucket_edges=(1.0, 0.1, 0.01, 0.0),
+    )
+    full = backend.emit_targets_from_encoded(
+        input_ids=encoded["input_ids"],
+        attention_mask=encoded["attention_mask"],
+    )
+
+    assert tokenizer.call_count == 1
+    assert compact.input_ids.shape == (2, 4)
+    assert compact.top_token_ids.shape == (2, 4, 5)
+    assert compact.bucket_masses.shape == (2, 4, 3)
+    assert compact.estimated_raw_logits_bytes == full["logits"].nbytes
+    for batch_index in range(2):
+        for position in range(4):
+            reference = encode_cascaded_soft_labels(
+                full["logits"][batch_index, position],
+                top_k=5,
+                bucket_edges=(1.0, 0.1, 0.01, 0.0),
+                top_log_probs_dtype="float32",
+            )
+            assert compact.top_token_ids[batch_index, position].tolist() == (
+                reference.top_token_ids.tolist()
+            )
+            np.testing.assert_allclose(
+                compact.top_log_probs[batch_index, position],
+                reference.top_log_probs.astype(np.float32),
+                atol=1e-6,
+            )
+            np.testing.assert_allclose(
+                compact.bucket_masses[batch_index, position],
+                reference.bucket_mass.astype(np.float32),
+                atol=1e-6,
+            )
+            np.testing.assert_allclose(
+                compact.bucket_mean_log_probs[batch_index, position],
+                reference.bucket_mean_logp.astype(np.float32),
+                atol=1e-6,
+            )
+            assert compact.entropy[batch_index, position] == pytest.approx(
+                float(reference.teacher_entropy), abs=1e-6
+            )
 
 
 def test_fake_hf_vocab_contract_round_trips_from_metadata(tmp_path: Path) -> None:
