@@ -31,9 +31,9 @@ from qrwkv_xla.distill import (
 from qrwkv_xla.fingerprint.capture import (
     SUPPORTED_TARGET_PAYLOAD_TYPES,
     TARGET_PAYLOAD_PACKED_CORRIDOR_V1,
+    FingerprintCaptureBatch,
     FingerprintCaptureBudgetConfig,
     FingerprintCaptureConfig,
-    FingerprintCaptureExample,
     FingerprintCaptureProgressConfig,
     FingerprintCorridorBoundsConfig,
     FingerprintExemplarReservoirCaptureConfig,
@@ -83,6 +83,7 @@ class TinyRealTeacherFingerprintCaptureConfig:
     progress_interval_seconds: float = 30.0
     progress_interval_examples: int = 100
     progress_path: Path | None = None
+    teacher_batch_size: int = 1
 
 
 @dataclass(frozen=True)
@@ -127,13 +128,16 @@ def run_tiny_real_teacher_fingerprint_capture(
             local_files_only=effective_local_files_only,
             prompts=prompts,
         )
-        emission = {"tokens": 0, "vocab_size": None}
+        emission = {"tokens": 0, "vocab_size": None, "batches": 0}
 
-        def iter_examples() -> Any:
-            for index, prompt in enumerate(prompts):
-                teacher.prompts = (prompt,)
+        def iter_batches() -> Any:
+            for batch_start in range(0, len(prompts), config.teacher_batch_size):
+                batch_prompts = prompts[
+                    batch_start : batch_start + config.teacher_batch_size
+                ]
+                teacher.prompts = batch_prompts
                 emitted = teacher.emit_targets(
-                    num_examples=1,
+                    num_examples=len(batch_prompts),
                     sequence_length=config.sequence_length,
                 )
                 input_ids = np.asarray(emitted["input_ids"], dtype=np.int32)
@@ -143,7 +147,7 @@ def run_tiny_real_teacher_fingerprint_capture(
                     input_ids=input_ids,
                     attention_mask=attention_mask,
                     logits=logits,
-                    examples=1,
+                    examples=len(batch_prompts),
                     sequence_length=config.sequence_length,
                 )
                 vocab_size = int(logits.shape[-1])
@@ -151,10 +155,16 @@ def run_tiny_real_teacher_fingerprint_capture(
                     raise ValueError("teacher vocabulary size changed during capture")
                 emission["vocab_size"] = vocab_size
                 emission["tokens"] += int(np.sum(attention_mask))
-                yield FingerprintCaptureExample(
-                    example_id=f"{config.example_id_prefix}-{index:06d}",
-                    input_ids=tuple(int(token) for token in input_ids[0]),
-                    logits=logits[0],
+                emission["batches"] += 1
+                yield FingerprintCaptureBatch(
+                    example_ids=tuple(
+                        f"{config.example_id_prefix}-{index:06d}"
+                        for index in range(
+                            batch_start, batch_start + len(batch_prompts)
+                        )
+                    ),
+                    input_ids=input_ids,
+                    logits=logits,
                 )
 
         capture_config = FingerprintCaptureConfig(
@@ -190,9 +200,10 @@ def run_tiny_real_teacher_fingerprint_capture(
                 progress_path=progress_path,
                 interval_seconds=config.progress_interval_seconds,
                 interval_examples=config.progress_interval_examples,
+                teacher_batch_size=config.teacher_batch_size,
             ),
         )
-        capture = capture_fingerprint_artifact(capture_config, iter_examples())
+        capture = capture_fingerprint_artifact(capture_config, iter_batches())
         vocab_size = int(emission["vocab_size"] or 0)
         _rewrite_manifest_for_p145(
             capture.manifest_path,
@@ -236,6 +247,7 @@ def run_tiny_real_teacher_fingerprint_capture(
             exemplar_records=exemplar_records,
             artifact_summary=artifact_summary.to_dict(),
             consumer_sanity=consumer_sanity,
+            batches_processed=int(emission["batches"]),
         )
         write_json(capture.capture_summary_path, summary)
         finalize_capture_progress(
@@ -247,6 +259,11 @@ def run_tiny_real_teacher_fingerprint_capture(
             target_positions_processed=target_records,
             modes_discovered=int(summary["modes_discovered"]),
             exemplars_retained=exemplar_records,
+            teacher_batch_size=config.teacher_batch_size,
+            batches_processed=int(emission["batches"]),
+            effective_examples_per_batch=(
+                len(prompts) / int(emission["batches"]) if emission["batches"] else None
+            ),
         )
         status = "pass" if validation.ok and targets_loadable else "fail"
         return TinyRealTeacherFingerprintCaptureResult(
@@ -320,6 +337,8 @@ def _validate_config(config: TinyRealTeacherFingerprintCaptureConfig) -> None:
         raise ValueError("progress_interval_seconds must be > 0")
     if config.progress_interval_examples <= 0:
         raise ValueError("progress_interval_examples must be > 0")
+    if config.teacher_batch_size not in {1, 2, 4, 8}:
+        raise ValueError("teacher_batch_size must be one of 1, 2, 4, or 8")
 
 
 def _progress_path(config: TinyRealTeacherFingerprintCaptureConfig) -> Path:
@@ -512,6 +531,7 @@ def _p145_summary(
     exemplar_records: int,
     artifact_summary: dict[str, Any],
     consumer_sanity: dict[str, Any],
+    batches_processed: int,
 ) -> dict[str, Any]:
     return {
         **base_summary,
@@ -534,6 +554,11 @@ def _p145_summary(
         },
         "examples_processed": examples_processed,
         "tokens_processed": tokens_processed,
+        "teacher_batch_size": config.teacher_batch_size,
+        "batches_processed": batches_processed,
+        "effective_examples_per_batch": (
+            examples_processed / batches_processed if batches_processed else None
+        ),
         "target_positions_processed": target_positions_processed,
         "positions_policy": "fixed_all_positions",
         "mode_discovery_method": base_summary["mode_discovery_method"],

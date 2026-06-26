@@ -97,6 +97,7 @@ class FingerprintCaptureProgressConfig:
     progress_path: Path | None = None
     interval_seconds: float = 30.0
     interval_examples: int = 100
+    teacher_batch_size: int | None = None
 
 
 @dataclass(frozen=True)
@@ -133,6 +134,13 @@ class FingerprintCaptureExample:
 
 
 @dataclass(frozen=True)
+class FingerprintCaptureBatch:
+    example_ids: tuple[str, ...]
+    input_ids: np.ndarray
+    logits: np.ndarray
+
+
+@dataclass(frozen=True)
 class FingerprintCaptureResult:
     output_dir: Path
     manifest_path: Path
@@ -159,6 +167,10 @@ class _StatAggregate:
         self.total += value
         if self.values is not None:
             self.values.append(value)
+
+    def update_many(self, values: np.ndarray) -> None:
+        for value in values:
+            self.update(float(value))
 
     @property
     def mean(self) -> float:
@@ -200,6 +212,23 @@ class _HistogramStatAggregate:
             index = int(np.floor(scaled * self.bins))
             index = max(0, min(index, self.bins - 1))
         self.histogram[index] += 1
+
+    def update_many(self, values: np.ndarray) -> None:
+        values = np.asarray(values, dtype=np.float64)
+        if values.size == 0:
+            return
+        self.count += int(values.size)
+        self.minimum = min(self.minimum, float(np.min(values)))
+        self.maximum = max(self.maximum, float(np.max(values)))
+        self.total += sum(float(value) for value in values)
+        width = self.upper - self.lower
+        if width <= 0.0:
+            indexes = np.zeros(values.shape, dtype=np.int64)
+        else:
+            scaled = (values - self.lower) / width
+            indexes = np.floor(scaled * self.bins).astype(np.int64)
+            indexes = np.clip(indexes, 0, self.bins - 1)
+        self.histogram += np.bincount(indexes, minlength=self.bins)[: self.bins]
 
     @property
     def mean(self) -> float:
@@ -542,6 +571,7 @@ class _CaptureProgressReporter:
             "teacher_model": self._capture_config.teacher_model_name,
             "max_seq_len": self._max_seq_len,
             "pid": os.getpid(),
+            "teacher_batch_size": self._config.teacher_batch_size,
         }
 
     def _write(self, payload: dict[str, Any]) -> None:
@@ -561,6 +591,9 @@ def finalize_capture_progress(
     target_positions_processed: int,
     modes_discovered: int,
     exemplars_retained: int,
+    teacher_batch_size: int | None = None,
+    batches_processed: int | None = None,
+    effective_examples_per_batch: float | None = None,
 ) -> None:
     if not progress_path.exists():
         return
@@ -581,6 +614,9 @@ def finalize_capture_progress(
             "validation_status": "pass" if artifact_validated else "fail",
             "consumer_sanity": consumer_sanity,
             "artifact_size_bytes": int(artifact_size_bytes),
+            "teacher_batch_size": teacher_batch_size,
+            "batches_processed": batches_processed,
+            "effective_examples_per_batch": effective_examples_per_batch,
         }
     )
     _write_json_atomic(progress_path, payload)
@@ -616,11 +652,12 @@ def capture_fingerprint_artifact(
     examples: Any,
 ) -> FingerprintCaptureResult:
     _validate_config(config)
-    selected_examples = iter(_select_examples(examples, config.capture_budget))
-    first_example = next(selected_examples, None)
-    if first_example is None:
+    selected_items = iter(examples)
+    first_item = next(selected_items, None)
+    if first_item is None:
         raise ValueError("fingerprint capture requires at least one example")
-    max_seq_len, vocab_size = _validate_example(first_example)
+    first_batch = _coerce_capture_batch(first_item)
+    _, max_seq_len, vocab_size = _validate_batch(first_batch)
     if config.output_dir.exists():
         if not config.overwrite:
             raise FileExistsError(
@@ -642,6 +679,7 @@ def capture_fingerprint_artifact(
 
     examples_processed = 0
     examples_completed = 0
+    batches_processed = 0
     target_positions_processed = 0
     records_per_mode: Counter[str] = Counter()
     progress = _CaptureProgressReporter(
@@ -654,6 +692,7 @@ def capture_fingerprint_artifact(
     def progress_counters() -> dict[str, int]:
         return {
             "examples_processed": examples_completed,
+            "batches_processed": batches_processed,
             "target_positions_processed": target_positions_processed,
             "modes_discovered": len(mode_ids),
             "exemplars_retained": exemplar_reservoir.retained_count(),
@@ -661,88 +700,137 @@ def capture_fingerprint_artifact(
 
     progress.emit_running(progress_counters(), force=True)
     try:
-        for example in chain((first_example,), selected_examples):
-            _validate_example(
-                example,
+        for batch in chain(
+            (first_batch,), (_coerce_capture_batch(item) for item in selected_items)
+        ):
+            if config.capture_budget.max_examples is not None:
+                examples_remaining = (
+                    config.capture_budget.max_examples - examples_processed
+                )
+                if examples_remaining <= 0:
+                    break
+                batch = _trim_batch(batch, examples_remaining)
+            batch_size, _, _ = _validate_batch(
+                batch,
                 expected_shape=(max_seq_len, vocab_size),
             )
-            examples_processed += 1
-            logits = np.asarray(example.logits, dtype=np.float32)
-            stats = compute_fingerprint_distribution_stats(jnp.asarray(logits))
-            stat_arrays = _stats_to_numpy(stats)
+            batches_processed += 1
+            logits = np.asarray(batch.logits, dtype=np.float32)
+            flat_logits = logits.reshape((batch_size * max_seq_len, vocab_size))
+            stats = compute_fingerprint_distribution_stats(jnp.asarray(flat_logits))
+            stat_arrays = {
+                name: values.reshape((batch_size, max_seq_len))
+                for name, values in _stats_to_numpy(stats).items()
+            }
             probs = (
                 np.asarray(jax.nn.softmax(jnp.asarray(logits), axis=-1))
                 if config.exemplar_reservoir.payload_type == "dense_probs"
                 else None
             )
-            positions_this_example = 0
-            for position in range(logits.shape[0]):
+            for example_offset, example_id in enumerate(batch.example_ids):
+                examples_processed += 1
                 if (
                     config.capture_budget.max_target_positions is not None
                     and target_positions_processed
                     >= config.capture_budget.max_target_positions
                 ):
                     break
-                row_stats = {
-                    stat: float(stat_arrays[stat][position]) for stat in TRACKED_STATS
-                }
-                mode_key = _mode_key(row_stats, config.mode_discovery)
-                if mode_key not in mode_ids:
-                    if len(mode_ids) >= config.mode_discovery.max_modes:
-                        raise ValueError(
-                            "stat_bands_v0 discovered more modes than max_modes="
-                            f"{config.mode_discovery.max_modes}"
-                        )
-                    mode_ids[mode_key] = len(mode_ids)
-                mode_id = mode_ids[mode_key]
-                aggregates.setdefault(
-                    mode_id,
-                    {
-                        stat: _new_stat_aggregate(
-                            stat,
-                            config=config,
-                            vocab_size=vocab_size,
-                            packed_targets=packed_targets,
-                        )
-                        for stat in TRACKED_STATS
-                    },
+                input_ids = tuple(
+                    int(token) for token in batch.input_ids[example_offset]
                 )
-                for stat, value in row_stats.items():
-                    aggregates[mode_id][stat].update(value)
-                if target_writer is not None:
-                    target_writer.add(
-                        example_id=example.example_id,
-                        input_ids=example.input_ids,
+                positions_remaining = (
+                    max_seq_len
+                    if config.capture_budget.max_target_positions is None
+                    else min(
+                        max_seq_len,
+                        config.capture_budget.max_target_positions
+                        - target_positions_processed,
+                    )
+                )
+                mode_id_rows: list[int] = []
+                stat_values_by_mode: dict[int, dict[str, list[float]]] = {}
+                for position in range(positions_remaining):
+                    row_stats = {
+                        stat: float(stat_arrays[stat][example_offset, position])
+                        for stat in TRACKED_STATS
+                    }
+                    mode_key = _mode_key(row_stats, config.mode_discovery)
+                    if mode_key not in mode_ids:
+                        if len(mode_ids) >= config.mode_discovery.max_modes:
+                            raise ValueError(
+                                "stat_bands_v0 discovered more modes than max_modes="
+                                f"{config.mode_discovery.max_modes}"
+                            )
+                        mode_ids[mode_key] = len(mode_ids)
+                    mode_id = mode_ids[mode_key]
+                    mode_id_rows.append(mode_id)
+                    aggregates.setdefault(
+                        mode_id,
+                        {
+                            stat: _new_stat_aggregate(
+                                stat,
+                                config=config,
+                                vocab_size=vocab_size,
+                                packed_targets=packed_targets,
+                            )
+                            for stat in TRACKED_STATS
+                        },
+                    )
+                    mode_values = stat_values_by_mode.setdefault(
+                        mode_id,
+                        {stat: [] for stat in TRACKED_STATS},
+                    )
+                    for stat, value in row_stats.items():
+                        mode_values[stat].append(value)
+                    captured_position = _CapturedPosition(
+                        example_id=example_id,
+                        input_ids=input_ids,
                         position=position,
                         mode_id=mode_id,
+                        stats=row_stats,
+                        exemplar_payload=None,
+                        interestingness_score=_interestingness(row_stats),
+                        reason_codes=_reason_codes(row_stats),
                     )
-                captured_position = _CapturedPosition(
-                    example_id=example.example_id,
-                    input_ids=example.input_ids,
-                    position=position,
-                    mode_id=mode_id,
-                    stats=row_stats,
-                    exemplar_payload=None,
-                    interestingness_score=_interestingness(row_stats),
-                    reason_codes=_reason_codes(row_stats),
-                )
-                if not packed_targets:
-                    captured.append(captured_position)
-                exemplar_reservoir.consider(
-                    captured_position,
-                    logits[position],
-                    probs[position] if probs is not None else None,
-                )
-                target_positions_processed += 1
-                positions_this_example += 1
-                records_per_mode[str(mode_id)] += 1
-            if positions_this_example == logits.shape[0]:
-                examples_completed += 1
-            progress.emit_running(progress_counters())
+                    if not packed_targets:
+                        captured.append(captured_position)
+                    exemplar_reservoir.consider(
+                        captured_position,
+                        logits[example_offset, position],
+                        probs[example_offset, position] if probs is not None else None,
+                    )
+                    records_per_mode[str(mode_id)] += 1
+                for mode_id, values_by_stat in stat_values_by_mode.items():
+                    for stat, values in values_by_stat.items():
+                        aggregates[mode_id][stat].update_many(
+                            np.asarray(values, dtype=np.float64)
+                        )
+                if target_writer is not None and mode_id_rows:
+                    target_writer.add_example_positions(
+                        example_id=example_id,
+                        input_ids=input_ids,
+                        positions=np.arange(len(mode_id_rows), dtype=np.int32),
+                        mode_ids=np.asarray(mode_id_rows, dtype=np.int32),
+                    )
+                target_positions_processed += len(mode_id_rows)
+                if len(mode_id_rows) == max_seq_len:
+                    examples_completed += 1
+                progress.emit_running(progress_counters())
+                if (
+                    config.capture_budget.max_target_positions is not None
+                    and target_positions_processed
+                    >= config.capture_budget.max_target_positions
+                ):
+                    break
             if (
                 config.capture_budget.max_target_positions is not None
                 and target_positions_processed
                 >= config.capture_budget.max_target_positions
+            ):
+                break
+            if (
+                config.capture_budget.max_examples is not None
+                and examples_processed >= config.capture_budget.max_examples
             ):
                 break
     except Exception as exc:
@@ -1032,6 +1120,34 @@ def _select_examples(
     return islice(examples, budget.max_examples)
 
 
+def _coerce_capture_batch(item: Any) -> FingerprintCaptureBatch:
+    if isinstance(item, FingerprintCaptureBatch):
+        return item
+    if isinstance(item, FingerprintCaptureExample):
+        return FingerprintCaptureBatch(
+            example_ids=(item.example_id,),
+            input_ids=np.asarray([item.input_ids], dtype=np.int32),
+            logits=np.asarray([item.logits], dtype=np.float32),
+        )
+    raise TypeError(
+        "fingerprint capture inputs must be FingerprintCaptureExample "
+        "or FingerprintCaptureBatch"
+    )
+
+
+def _trim_batch(
+    batch: FingerprintCaptureBatch,
+    max_examples: int,
+) -> FingerprintCaptureBatch:
+    if max_examples >= len(batch.example_ids):
+        return batch
+    return FingerprintCaptureBatch(
+        example_ids=batch.example_ids[:max_examples],
+        input_ids=np.asarray(batch.input_ids[:max_examples], dtype=np.int32),
+        logits=np.asarray(batch.logits[:max_examples], dtype=np.float32),
+    )
+
+
 def _validate_example(
     example: FingerprintCaptureExample,
     *,
@@ -1061,6 +1177,36 @@ def _validate_example(
                 f"outside [0, {vocab_size})"
             )
     return int(max_seq_len), int(vocab_size)
+
+
+def _validate_batch(
+    batch: FingerprintCaptureBatch,
+    *,
+    expected_shape: tuple[int, int] | None = None,
+) -> tuple[int, int, int]:
+    logits = np.asarray(batch.logits)
+    input_ids = np.asarray(batch.input_ids)
+    if logits.ndim != 3:
+        raise ValueError("FingerprintCaptureBatch.logits must be [batch, seq, vocab]")
+    batch_size, max_seq_len, vocab_size = logits.shape
+    if batch_size <= 0 or max_seq_len <= 0 or vocab_size <= 0:
+        raise ValueError("FingerprintCaptureBatch.logits must be non-empty")
+    if len(batch.example_ids) != batch_size:
+        raise ValueError("FingerprintCaptureBatch.example_ids length must match batch")
+    if input_ids.shape != (batch_size, max_seq_len):
+        raise ValueError("FingerprintCaptureBatch.input_ids must be [batch, seq]")
+    if expected_shape is not None and (max_seq_len, vocab_size) != expected_shape:
+        raise ValueError(
+            f"all capture examples must share logits shape {expected_shape}, "
+            f"got {(max_seq_len, vocab_size)}"
+        )
+    if any(not example_id.strip() for example_id in batch.example_ids):
+        raise ValueError("FingerprintCaptureBatch.example_ids must be non-empty")
+    if not np.all(np.isfinite(logits)):
+        raise ValueError("FingerprintCaptureBatch contains non-finite logits")
+    if np.any(input_ids < 0) or np.any(input_ids >= vocab_size):
+        raise ValueError("FingerprintCaptureBatch token ids outside vocabulary")
+    return int(batch_size), int(max_seq_len), int(vocab_size)
 
 
 def _stats_to_numpy(stats: Any) -> dict[str, np.ndarray]:
@@ -1307,6 +1453,37 @@ class _PackedTargetWriter:
         self.position[self.count] = position
         self.mode_id[self.count] = mode_id
         self.count += 1
+
+    def add_example_positions(
+        self,
+        *,
+        example_id: str,
+        input_ids: tuple[int, ...],
+        positions: np.ndarray,
+        mode_ids: np.ndarray,
+    ) -> None:
+        if positions.shape != mode_ids.shape:
+            raise ValueError("packed positions and mode_ids must have matching shape")
+        count = int(positions.size)
+        if count == 0:
+            return
+        if self.count + count > self.capacity:
+            raise ValueError(
+                f"packed_corridor_v1 target capacity exceeded: capacity={self.capacity}"
+            )
+        example_index = self.example_indexes.get(example_id)
+        if example_index is None:
+            example_index = len(self.example_ids)
+            self.example_indexes[example_id] = example_index
+            self.example_ids.append(example_id)
+            self.example_input_ids.append(input_ids)
+        elif self.example_input_ids[example_index] != input_ids:
+            raise ValueError(f"example_id has inconsistent input_ids: {example_id}")
+        target_slice = slice(self.count, self.count + count)
+        self.position_example_index[target_slice] = example_index
+        self.position[target_slice] = positions.astype(np.int32, copy=False)
+        self.mode_id[target_slice] = mode_ids.astype(np.int32, copy=False)
+        self.count += count
 
     def write(self, output_dir: Path) -> dict[str, Any]:
         targets_dir = output_dir / "targets"

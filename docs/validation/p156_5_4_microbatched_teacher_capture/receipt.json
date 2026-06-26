@@ -1,0 +1,82 @@
+{
+  "phase": "P156.5.4",
+  "created_at_utc": "2026-06-26T15:36:53Z",
+  "purpose": "microbatched teacher capture fast path",
+  "implementation": {
+    "teacher_batch_size_cli": "--teacher-batch-size",
+    "teacher_batch_size_default": 1,
+    "supported_teacher_batch_sizes": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "incomplete_final_batches": true,
+    "batch_size_1_semantic_reference": true,
+    "teacher_forward_uses_torch_inference_mode": true,
+    "teacher_forward_disables_unused_outputs": [
+      "use_cache",
+      "output_hidden_states",
+      "output_attentions"
+    ],
+    "capture_batch_input_type": "FingerprintCaptureBatch",
+    "vectorized_stat_scope": "microbatch_flat_positions",
+    "packed_target_write_kind": "per_example_contiguous_slice",
+    "packed_quantile_histogram_update_kind": "grouped_numpy_bincount",
+    "candidate_first_exemplar_fast_path": "not_changed; existing deterministic reservoir path retained",
+    "progress_fields_added": [
+      "teacher_batch_size",
+      "batches_processed",
+      "effective_examples_per_batch"
+    ],
+    "artifact_contract_changes": "none"
+  },
+  "local_validation": {
+    "ruff": {
+      "command": ".venv/bin/ruff check .",
+      "status": "pass"
+    },
+    "format": {
+      "command": ".venv/bin/ruff format --check .",
+      "status": "pass"
+    },
+    "focused_teacher_capture_tests": {
+      "command": ".venv/bin/pytest -q tests/test_tiny_real_teacher_fingerprint_capture.py tests/test_packed_fingerprint_targets.py tests/test_hf_teacher_backend.py",
+      "status": "pass",
+      "summary": "37 passed, 1 skipped"
+    },
+    "fingerprint_artifact_suite": {
+      "command": ".venv/bin/pytest -q tests/test_tiny_real_teacher_fingerprint_capture.py tests/test_packed_fingerprint_targets.py tests/test_hf_teacher_backend.py tests/test_fingerprint_capture.py tests/test_fingerprint_capture_parity.py tests/test_fingerprint_loader.py tests/test_fingerprint_artifact_validation.py",
+      "status": "pass",
+      "summary": "80 passed, 1 skipped"
+    },
+    "full_pytest": {
+      "command": ".venv/bin/pytest -q",
+      "status": "pass",
+      "summary": "1457 passed, 24 skipped"
+    },
+    "pipeline_validation": {
+      "command": ".venv/bin/python scripts/validate_pipeline.py",
+      "status": "pass",
+      "summary": "36/36 steps passed"
+    }
+  },
+  "benchmark_gate": {
+    "hundred_example_corpus_batch_1_4_8": {
+      "status": "unavailable",
+      "reason": "The real 100-example corpus and local real-teacher checkpoint/cache required for the benchmark are not available in this workspace."
+    },
+    "thousand_example_best_batch": {
+      "status": "unavailable",
+      "reason": "Blocked by the same missing corpus and local real-teacher cache; no wall-time speedup claim is made."
+    }
+  },
+  "claims_not_made": [
+    "real_100_example_batch_speedup",
+    "real_1000_example_1_5x_speedup",
+    "measured_peak_rss",
+    "production_full_run_launch",
+    "multiprocessing_or_distributed_capture",
+    "candidate_first_exemplar_behavior_change"
+  ]
+}

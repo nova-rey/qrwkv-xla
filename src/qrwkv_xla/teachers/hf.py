@@ -161,14 +161,29 @@ class HFTeacherBackend:
 
 
 def _model_forward(model: Any, *, input_ids: Any, attention_mask: Any | None) -> Any:
+    kwargs = {
+        "input_ids": input_ids,
+        "attention_mask": attention_mask,
+        "use_cache": False,
+        "output_hidden_states": False,
+        "output_attentions": False,
+        "return_dict": True,
+    }
     try:
         import torch
     except ImportError:
         torch = None
     if torch is None:
-        return model(input_ids=input_ids, attention_mask=attention_mask)
-    with torch.no_grad():
-        return model(input_ids=input_ids, attention_mask=attention_mask)
+        try:
+            return model(**kwargs)
+        except TypeError:
+            return model(input_ids=input_ids, attention_mask=attention_mask)
+    inference_mode = getattr(torch, "inference_mode", torch.no_grad)
+    with inference_mode():
+        try:
+            return model(**kwargs)
+        except TypeError:
+            return model(input_ids=input_ids, attention_mask=attention_mask)
 
 
 def _ensure_pad_token(tokenizer: Any) -> None:

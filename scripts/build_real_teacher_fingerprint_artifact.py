@@ -77,6 +77,7 @@ def main() -> int:
     parser.add_argument("--progress-interval-seconds", type=float, default=30.0)
     parser.add_argument("--progress-interval-examples", type=int, default=100)
     parser.add_argument("--progress-path", type=Path, default=None)
+    parser.add_argument("--teacher-batch-size", type=int, default=1)
     parser.add_argument("--local-files-only", action="store_true", default=True)
     parser.add_argument("--allow-downloads", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
@@ -113,6 +114,7 @@ def main() -> int:
                 progress_interval_seconds=args.progress_interval_seconds,
                 progress_interval_examples=args.progress_interval_examples,
                 progress_path=args.progress_path,
+                teacher_batch_size=args.teacher_batch_size,
             )
         )
     except HFTeacherUnavailable as exc:

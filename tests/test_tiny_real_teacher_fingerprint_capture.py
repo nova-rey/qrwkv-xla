@@ -286,6 +286,81 @@ def test_real_teacher_progress_defaults_to_output_dir_complete(
     assert progress["pid"] > 0
 
 
+@pytest.mark.parametrize("teacher_batch_size", [1, 2, 4, 8])
+def test_real_teacher_microbatch_matches_batch_one_artifact(
+    tmp_path: Path,
+    teacher_batch_size: int,
+) -> None:
+    reference = _run_fake_capture(
+        tmp_path / "ref",
+        max_exemplars=5,
+        teacher_batch_size=1,
+    )
+    candidate = _run_fake_capture(
+        tmp_path / "candidate",
+        max_exemplars=5,
+        teacher_batch_size=teacher_batch_size,
+    )
+
+    assert (
+        _json(reference.manifest_path)["target_payload"]
+        == _json(candidate.manifest_path)["target_payload"]
+    )
+    assert _json(reference.output_dir / "modes.json") == _json(
+        candidate.output_dir / "modes.json"
+    )
+    assert _target_arrays(reference.output_dir) == _target_arrays(candidate.output_dir)
+    assert _jsonl(reference.output_dir / "exemplars" / "exemplars-00000.jsonl") == (
+        _jsonl(candidate.output_dir / "exemplars" / "exemplars-00000.jsonl")
+    )
+    assert candidate.target_positions_processed == reference.target_positions_processed
+
+
+def test_real_teacher_microbatch_handles_incomplete_final_batch(
+    tmp_path: Path,
+) -> None:
+    backend = _fake_backend(vocab_size=16)
+    result = run_tiny_real_teacher_fingerprint_capture(
+        TinyRealTeacherFingerprintCaptureConfig(
+            output_dir=tmp_path / "artifact",
+            texts_path=TEXTS,
+            sequence_length=4,
+            max_examples=3,
+            max_target_positions=12,
+            overwrite=True,
+            max_exemplars=3,
+            consumer_vocab_limit=64,
+            progress_interval_examples=1,
+            teacher_batch_size=2,
+        ),
+        backend=backend,
+    )
+    summary = _json(result.summary_path)
+    progress = _json(result.output_dir / "progress.json")
+
+    assert backend.model.call_batch_sizes == [2, 1]
+    assert result.examples_processed == 3
+    assert result.target_positions_processed == 12
+    assert summary["teacher_batch_size"] == 2
+    assert summary["batches_processed"] == 2
+    assert summary["effective_examples_per_batch"] == pytest.approx(1.5)
+    assert progress["teacher_batch_size"] == 2
+    assert progress["batches_processed"] == 2
+    assert progress["effective_examples_per_batch"] == pytest.approx(1.5)
+
+
+def test_real_teacher_rejects_invalid_teacher_batch_size(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="teacher_batch_size"):
+        run_tiny_real_teacher_fingerprint_capture(
+            TinyRealTeacherFingerprintCaptureConfig(
+                output_dir=tmp_path / "artifact",
+                texts_path=TEXTS,
+                teacher_batch_size=3,
+            ),
+            backend=_fake_backend(vocab_size=16),
+        )
+
+
 def test_project_active_files_do_not_set_deprecated_transformers_cache() -> None:
     completed = subprocess.run(
         [
@@ -380,6 +455,7 @@ def _run_fake_capture(
     tmp_path: Path,
     *,
     max_exemplars: int,
+    teacher_batch_size: int = 1,
 ) -> object:
     return run_tiny_real_teacher_fingerprint_capture(
         TinyRealTeacherFingerprintCaptureConfig(
@@ -391,6 +467,7 @@ def _run_fake_capture(
             overwrite=True,
             max_exemplars=max_exemplars,
             consumer_vocab_limit=64,
+            teacher_batch_size=teacher_batch_size,
         ),
         backend=_fake_backend(vocab_size=16),
     )
@@ -447,6 +524,7 @@ class _FakeTokenizer:
 class _FakeCausalLM:
     def __init__(self, *, vocab_size: int) -> None:
         self.vocab_size = vocab_size
+        self.call_batch_sizes: list[int] = []
 
     def eval(self) -> None:
         return None
@@ -454,6 +532,7 @@ class _FakeCausalLM:
     def __call__(self, *, input_ids: Any, attention_mask: Any | None) -> object:
         del attention_mask
         ids = np.asarray(input_ids, dtype=np.float32)
+        self.call_batch_sizes.append(int(ids.shape[0]))
         vocab = np.arange(self.vocab_size, dtype=np.float32)[None, None, :]
         logits = np.sin(ids[:, :, None] * 0.17 + vocab * 0.23)
         return SimpleNamespace(logits=logits.astype(np.float32))
@@ -461,3 +540,18 @@ class _FakeCausalLM:
 
 def _json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _jsonl(path: Path) -> list[dict]:
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
+def _target_arrays(artifact_dir: Path) -> dict[str, list]:
+    return {
+        path.name: np.load(path, allow_pickle=False).tolist()
+        for path in sorted((artifact_dir / "targets").glob("*.npy"))
+    }
