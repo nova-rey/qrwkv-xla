@@ -19,13 +19,16 @@ from qrwkv_xla.artifacts import (
 from qrwkv_xla.fingerprint import (
     DEFAULT_TINY_REAL_TEACHER,
     TARGET_PAYLOAD_PACKED_CORRIDOR_V1,
+    CaptureTopologyConfig,
     FingerprintCaptureBudgetConfig,
     FingerprintCaptureConfig,
     FingerprintCaptureProgressConfig,
     TinyRealTeacherFingerprintCaptureConfig,
     build_synthetic_capture_examples,
     capture_fingerprint_artifact,
+    detect_cpu_budget,
     load_text_fixture,
+    resolve_capture_topology,
     run_tiny_real_teacher_fingerprint_capture,
 )
 from qrwkv_xla.teachers import HFTeacherBackend
@@ -361,6 +364,142 @@ def test_real_teacher_rejects_invalid_teacher_batch_size(tmp_path: Path) -> None
         )
 
 
+@pytest.mark.parametrize("detected_cpu_budget", [1, 2, 3, 4, 8, 12])
+def test_capture_topology_auto_policy_simulated_cpu_budgets(
+    detected_cpu_budget: int,
+) -> None:
+    topology = resolve_capture_topology(
+        CaptureTopologyConfig(teacher_device="cpu"),
+        detected_cpu_budget=detected_cpu_budget,
+    )
+    runnable = (
+        topology.torch_num_threads
+        + topology.prefetch_workers
+        + topology.reducer_workers
+        + 1
+    )
+
+    assert topology.teacher_device == "cpu"
+    assert topology.detected_cpu_budget == detected_cpu_budget
+    assert 1 <= topology.effective_cpu_budget <= detected_cpu_budget
+    assert topology.torch_num_threads >= 1
+    assert topology.torch_num_interop_threads == 1
+    assert topology.prefetch_workers >= 0
+    assert topology.reducer_workers >= 0
+    assert runnable <= max(2, topology.effective_cpu_budget + 1)
+
+
+def test_capture_topology_rejects_explicit_oversubscription() -> None:
+    with pytest.raises(ValueError, match="oversubscribes"):
+        resolve_capture_topology(
+            CaptureTopologyConfig(
+                cpu_budget=4,
+                torch_num_threads=4,
+                prefetch_workers=2,
+                reducer_workers=0,
+                teacher_device="cpu",
+            ),
+            detected_cpu_budget=4,
+        )
+
+
+def test_real_teacher_staged_pipeline_matches_sync_artifact(tmp_path: Path) -> None:
+    runtime_budget = _runtime_cpu_budget()
+    reference = _run_fake_capture(
+        tmp_path / "sync",
+        max_exemplars=5,
+        teacher_batch_size=2,
+        cpu_budget=runtime_budget,
+        torch_num_threads=1,
+        prefetch_workers=0,
+        result_queue_depth=1,
+    )
+    candidate = _run_fake_capture(
+        tmp_path / "staged",
+        max_exemplars=5,
+        teacher_batch_size=2,
+        cpu_budget=runtime_budget,
+        torch_num_threads=1,
+        prefetch_workers=1,
+        prefetch_depth=1,
+        result_queue_depth=1,
+    )
+
+    assert _json(reference.output_dir / "modes.json") == _json(
+        candidate.output_dir / "modes.json"
+    )
+    assert _target_arrays(reference.output_dir) == _target_arrays(candidate.output_dir)
+    assert _jsonl(reference.output_dir / "exemplars" / "exemplars-00000.jsonl") == (
+        _jsonl(candidate.output_dir / "exemplars" / "exemplars-00000.jsonl")
+    )
+
+
+def test_real_teacher_progress_records_topology_and_staged_counters(
+    tmp_path: Path,
+) -> None:
+    runtime_budget = _runtime_cpu_budget()
+    result = _run_fake_capture(
+        tmp_path,
+        max_exemplars=3,
+        teacher_batch_size=2,
+        cpu_budget=runtime_budget,
+        torch_num_threads=1,
+        prefetch_workers=1,
+        prefetch_depth=1,
+        result_queue_depth=1,
+    )
+    summary = _json(result.summary_path)
+    progress = _json(result.output_dir / "progress.json")
+
+    for payload in (summary, progress):
+        assert payload["teacher_device"] == "cpu"
+        assert payload["detected_cpu_budget"] >= 1
+        assert payload["effective_cpu_budget"] == runtime_budget
+        assert payload["torch_num_threads"] == 1
+        assert payload["prefetch_workers"] == 1
+        assert payload["prefetch_depth"] == 1
+        assert payload["result_queue_depth"] == 1
+        assert payload["prepared_batches"] == 2
+        assert payload["inference_batches"] == 2
+        assert payload["committed_batches"] == 2
+    assert summary["capture_topology"]["teacher_device"] == "cpu"
+
+
+def test_real_teacher_staged_inference_failure_marks_progress_failed(
+    tmp_path: Path,
+) -> None:
+    backend = _fake_backend(vocab_size=16, fail_on_call=2)
+    progress_path = tmp_path / "artifact" / "progress.json"
+    runtime_budget = _runtime_cpu_budget()
+
+    with pytest.raises(RuntimeError, match="inference stage failed: RuntimeError"):
+        run_tiny_real_teacher_fingerprint_capture(
+            TinyRealTeacherFingerprintCaptureConfig(
+                output_dir=tmp_path / "artifact",
+                texts_path=TEXTS,
+                sequence_length=4,
+                max_examples=4,
+                max_target_positions=16,
+                overwrite=True,
+                max_exemplars=3,
+                consumer_vocab_limit=64,
+                progress_interval_examples=1,
+                teacher_batch_size=2,
+                cpu_budget=runtime_budget,
+                torch_num_threads=1,
+                prefetch_workers=1,
+                prefetch_depth=1,
+                result_queue_depth=1,
+            ),
+            backend=backend,
+        )
+    progress = _json(progress_path)
+
+    assert progress["status"] == "failed"
+    assert progress["exception_type"] == "RuntimeError"
+    assert "synthetic teacher failure" in progress["exception_message"]
+
+
 def test_project_active_files_do_not_set_deprecated_transformers_cache() -> None:
     completed = subprocess.run(
         [
@@ -456,6 +595,11 @@ def _run_fake_capture(
     *,
     max_exemplars: int,
     teacher_batch_size: int = 1,
+    cpu_budget: int | str = "auto",
+    torch_num_threads: int | str = "auto",
+    prefetch_workers: int | str = "auto",
+    prefetch_depth: int = 2,
+    result_queue_depth: int = 2,
 ) -> object:
     return run_tiny_real_teacher_fingerprint_capture(
         TinyRealTeacherFingerprintCaptureConfig(
@@ -468,16 +612,26 @@ def _run_fake_capture(
             max_exemplars=max_exemplars,
             consumer_vocab_limit=64,
             teacher_batch_size=teacher_batch_size,
+            cpu_budget=cpu_budget,
+            torch_num_threads=torch_num_threads,
+            prefetch_workers=prefetch_workers,
+            prefetch_depth=prefetch_depth,
+            result_queue_depth=result_queue_depth,
+            teacher_device="cpu",
         ),
         backend=_fake_backend(vocab_size=16),
     )
 
 
-def _fake_backend(*, vocab_size: int) -> HFTeacherBackend:
+def _fake_backend(
+    *,
+    vocab_size: int,
+    fail_on_call: int | None = None,
+) -> HFTeacherBackend:
     return HFTeacherBackend(
         "local/fake-real-teacher",
         tokenizer=_FakeTokenizer(vocab_size=vocab_size),
-        model=_FakeCausalLM(vocab_size=vocab_size),
+        model=_FakeCausalLM(vocab_size=vocab_size, fail_on_call=fail_on_call),
         prompts=("placeholder",),
     )
 
@@ -522,8 +676,9 @@ class _FakeTokenizer:
 
 
 class _FakeCausalLM:
-    def __init__(self, *, vocab_size: int) -> None:
+    def __init__(self, *, vocab_size: int, fail_on_call: int | None = None) -> None:
         self.vocab_size = vocab_size
+        self.fail_on_call = fail_on_call
         self.call_batch_sizes: list[int] = []
 
     def eval(self) -> None:
@@ -533,6 +688,11 @@ class _FakeCausalLM:
         del attention_mask
         ids = np.asarray(input_ids, dtype=np.float32)
         self.call_batch_sizes.append(int(ids.shape[0]))
+        if (
+            self.fail_on_call is not None
+            and len(self.call_batch_sizes) >= self.fail_on_call
+        ):
+            raise RuntimeError("synthetic teacher failure")
         vocab = np.arange(self.vocab_size, dtype=np.float32)[None, None, :]
         logits = np.sin(ids[:, :, None] * 0.17 + vocab * 0.23)
         return SimpleNamespace(logits=logits.astype(np.float32))
@@ -555,3 +715,10 @@ def _target_arrays(artifact_dir: Path) -> dict[str, list]:
         path.name: np.load(path, allow_pickle=False).tolist()
         for path in sorted((artifact_dir / "targets").glob("*.npy"))
     }
+
+
+def _runtime_cpu_budget() -> int:
+    detected = detect_cpu_budget()
+    if detected < 2:
+        pytest.skip("staged runtime test needs at least two detected CPUs")
+    return min(detected, 2)

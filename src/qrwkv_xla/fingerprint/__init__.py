@@ -140,6 +140,12 @@ from qrwkv_xla.fingerprint.real_teacher import (
     load_text_fixture,
     run_tiny_real_teacher_fingerprint_capture,
 )
+from qrwkv_xla.fingerprint.topology import (
+    CaptureTopologyConfig,
+    ResolvedCaptureTopology,
+    detect_cpu_budget,
+    resolve_capture_topology,
+)
 from qrwkv_xla.fingerprint.trained_baseline import (
     FingerprintTrainedBaselineConfig,
     FingerprintTrainedBaselineResult,
@@ -182,6 +188,7 @@ __all__ = [
     "FingerprintCorridorBoundsConfig",
     "CorridorMeasurementConfig",
     "CorridorMeasurementResult",
+    "CaptureTopologyConfig",
     "ControlledQualityPerByteConfig",
     "ControlledQualityPerByteResult",
     "BudgetedArtifactConfig",
@@ -207,6 +214,7 @@ __all__ = [
     "SharedInitialization",
     "RadjaxCrossoverBackend",
     "RadjaxCrossoverBackendConfig",
+    "ResolvedCaptureTopology",
     "ModeControllerState",
     "ModeObservation",
     "ModePlateauConfig",
@@ -238,6 +246,7 @@ __all__ = [
     "capture_fingerprint_artifact",
     "corridor_distance",
     "detect_corridor_entries",
+    "detect_cpu_budget",
     "derive_checkpoint_schedule",
     "entry_exit_metrics",
     "evaluate_student_corridor_adherence",
@@ -267,6 +276,7 @@ __all__ = [
     "run_held_out_fingerprint_evaluation",
     "run_real_teacher_fingerprint_training_rehearsal",
     "run_tiny_real_teacher_fingerprint_capture",
+    "resolve_capture_topology",
     "run_two_cycle_experiment",
     "run_unconfounded_quality_experiment",
     "select_held_out_winner",

@@ -78,6 +78,20 @@ def main() -> int:
     parser.add_argument("--progress-interval-examples", type=int, default=100)
     parser.add_argument("--progress-path", type=Path, default=None)
     parser.add_argument("--teacher-batch-size", type=int, default=1)
+    parser.add_argument("--cpu-budget", type=_auto_int, default="auto")
+    parser.add_argument("--torch-num-threads", type=_auto_int, default="auto")
+    parser.add_argument("--torch-num-interop-threads", type=_auto_int, default="auto")
+    parser.add_argument("--prefetch-workers", type=_auto_int, default="auto")
+    parser.add_argument("--reducer-workers", type=_auto_int, default="auto")
+    parser.add_argument("--prefetch-depth", type=int, default=2)
+    parser.add_argument("--result-queue-depth", type=int, default=2)
+    parser.add_argument(
+        "--teacher-device",
+        choices=("auto", "cpu", "cuda", "mps"),
+        default="auto",
+    )
+    parser.add_argument("--pin-memory", type=_auto_bool, default="auto")
+    parser.add_argument("--non-blocking-transfer", type=_auto_bool, default="auto")
     parser.add_argument("--local-files-only", action="store_true", default=True)
     parser.add_argument("--allow-downloads", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
@@ -115,6 +129,16 @@ def main() -> int:
                 progress_interval_examples=args.progress_interval_examples,
                 progress_path=args.progress_path,
                 teacher_batch_size=args.teacher_batch_size,
+                cpu_budget=args.cpu_budget,
+                torch_num_threads=args.torch_num_threads,
+                torch_num_interop_threads=args.torch_num_interop_threads,
+                prefetch_workers=args.prefetch_workers,
+                reducer_workers=args.reducer_workers,
+                prefetch_depth=args.prefetch_depth,
+                result_queue_depth=args.result_queue_depth,
+                teacher_device=args.teacher_device,
+                pin_memory=args.pin_memory,
+                non_blocking_transfer=args.non_blocking_transfer,
             )
         )
     except HFTeacherUnavailable as exc:
@@ -142,6 +166,27 @@ def _bucket_edges(value: str) -> tuple[float, ...]:
         raise argparse.ArgumentTypeError(
             "bucket edges must be comma-separated floats"
         ) from exc
+
+
+def _auto_int(value: str) -> int | str:
+    if value == "auto":
+        return value
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("value must be 'auto' or an integer") from exc
+    return parsed
+
+
+def _auto_bool(value: str) -> bool | str:
+    if value == "auto":
+        return value
+    lowered = value.lower()
+    if lowered in {"true", "1", "yes"}:
+        return True
+    if lowered in {"false", "0", "no"}:
+        return False
+    raise argparse.ArgumentTypeError("value must be auto, true, or false")
 
 
 if __name__ == "__main__":

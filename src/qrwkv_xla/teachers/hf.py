@@ -31,6 +31,9 @@ class HFTeacherBackend:
     model: Any | None = None
     name: str = "hf"
     model_family: str = "hf"
+    device: str = "cpu"
+    pin_memory: bool = False
+    non_blocking_transfer: bool = False
     _loaded: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -75,6 +78,8 @@ class HFTeacherBackend:
                     f"HF model_id {self.model_id!r} is unavailable{local_note}: {exc}"
                 ) from exc
         _ensure_pad_token(self.tokenizer)
+        if self.device != "cpu" and hasattr(self.model, "to"):
+            self.model.to(self.device)
         if hasattr(self.model, "eval"):
             self.model.eval()
         self._loaded = True
@@ -134,6 +139,15 @@ class HFTeacherBackend:
             max_length=sequence_length,
             return_tensors="pt",
         )
+        if self.device != "cpu":
+            encoded = {
+                key: _move_to_device(
+                    value,
+                    device=self.device,
+                    non_blocking=self.non_blocking_transfer,
+                )
+                for key, value in encoded.items()
+            }
         input_ids = _to_numpy(encoded["input_ids"]).astype(np.int32, copy=False)
         attention_mask = _to_numpy(
             encoded.get("attention_mask", np.ones_like(input_ids))
@@ -229,6 +243,15 @@ def _to_numpy(value: Any) -> np.ndarray:
     if hasattr(value, "numpy"):
         return np.asarray(value.numpy())
     return np.asarray(value)
+
+
+def _move_to_device(value: Any, *, device: str, non_blocking: bool) -> Any:
+    if not hasattr(value, "to"):
+        return value
+    try:
+        return value.to(device, non_blocking=non_blocking)
+    except TypeError:
+        return value.to(device)
 
 
 def _validate_shape(*, num_examples: int, sequence_length: int) -> None:

@@ -1,0 +1,92 @@
+{
+  "phase": "P156.5.5",
+  "created_at_utc": "2026-06-26T16:23:02Z",
+  "purpose": "topology-aware staged CPU/GPU teacher capture pipeline",
+  "implementation": {
+    "topology_config": "CaptureTopologyConfig",
+    "topology_resolution": "affinity_or_os_cpu_count_with_conservative_headroom",
+    "supported_teacher_devices": [
+      "auto",
+      "cpu",
+      "cuda",
+      "mps"
+    ],
+    "cli_flags_added": [
+      "--cpu-budget",
+      "--torch-num-threads",
+      "--torch-num-interop-threads",
+      "--prefetch-workers",
+      "--reducer-workers",
+      "--prefetch-depth",
+      "--result-queue-depth",
+      "--teacher-device",
+      "--pin-memory",
+      "--non-blocking-transfer"
+    ],
+    "bounded_stages": [
+      "prefetch",
+      "single_teacher_inference_lane",
+      "ordered_capture_commit"
+    ],
+    "ordered_commit_owner": "capture_fingerprint_artifact",
+    "sequence_numbering": true,
+    "bounded_queues": true,
+    "worker_failure_propagation": true,
+    "hf_teacher_device_move": true,
+    "torch_thread_settings": "applied_before_worker_start_when_torch_allows",
+    "artifact_contract_changes": "none"
+  },
+  "local_validation": {
+    "focused_real_teacher_tests": {
+      "command": ".venv/bin/pytest -q tests/test_tiny_real_teacher_fingerprint_capture.py",
+      "status": "pass",
+      "summary": "29 passed, 1 skipped"
+    },
+    "fingerprint_artifact_suite": {
+      "command": ".venv/bin/pytest -q tests/test_tiny_real_teacher_fingerprint_capture.py tests/test_packed_fingerprint_targets.py tests/test_hf_teacher_backend.py tests/test_fingerprint_capture.py tests/test_fingerprint_capture_parity.py tests/test_fingerprint_loader.py tests/test_fingerprint_artifact_validation.py",
+      "status": "pass",
+      "summary": "90 passed, 1 skipped"
+    },
+    "ruff": {
+      "command": ".venv/bin/ruff check .",
+      "status": "pass"
+    },
+    "format": {
+      "command": ".venv/bin/ruff format --check .",
+      "status": "pass",
+      "summary": "562 files already formatted"
+    },
+    "full_pytest": {
+      "command": ".venv/bin/pytest -q",
+      "status": "pass",
+      "summary": "1467 passed, 24 skipped"
+    },
+    "pipeline_validation": {
+      "command": ".venv/bin/python scripts/validate_pipeline.py",
+      "status": "pass",
+      "summary": "36/36 steps passed"
+    }
+  },
+  "benchmark_gate": {
+    "hundred_example_corpus": {
+      "status": "unavailable",
+      "reason": "The real 100-example corpus and local real-teacher checkpoint/cache required for the benchmark are not available in this workspace."
+    },
+    "thousand_example_p156_5_4_comparison": {
+      "status": "unavailable",
+      "reason": "Blocked by missing benchmark corpus and local real-teacher cache; no staged-pipeline speedup claim is made."
+    },
+    "gpu_smoke": {
+      "status": "deferred",
+      "reason": "No CUDA/MPS production teacher hardware smoke was available for this patch."
+    }
+  },
+  "claims_not_made": [
+    "real_100_example_speedup",
+    "real_1000_example_20_percent_speedup",
+    "fresh_20000_example_cardboard_launch",
+    "measured_gpu_transfer_speedup",
+    "distributed_capture",
+    "changed_artifact_schema"
+  ]
+}

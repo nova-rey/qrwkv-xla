@@ -98,6 +98,7 @@ class FingerprintCaptureProgressConfig:
     interval_seconds: float = 30.0
     interval_examples: int = 100
     teacher_batch_size: int | None = None
+    extra_metadata: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -541,7 +542,7 @@ class _CaptureProgressReporter:
         positions_processed = int(counters["target_positions_processed"])
         examples_per_second = _rate(examples_processed, elapsed)
         positions_per_second = _rate(positions_processed, elapsed)
-        return {
+        payload = {
             "schema_version": 1,
             "status": status,
             "phase": "teacher_capture",
@@ -573,6 +574,9 @@ class _CaptureProgressReporter:
             "pid": os.getpid(),
             "teacher_batch_size": self._config.teacher_batch_size,
         }
+        if self._config.extra_metadata:
+            payload.update(self._config.extra_metadata)
+        return payload
 
     def _write(self, payload: dict[str, Any]) -> None:
         if self._config.progress_path is not None:
@@ -594,6 +598,7 @@ def finalize_capture_progress(
     teacher_batch_size: int | None = None,
     batches_processed: int | None = None,
     effective_examples_per_batch: float | None = None,
+    extra_metadata: dict[str, Any] | None = None,
 ) -> None:
     if not progress_path.exists():
         return
@@ -619,6 +624,8 @@ def finalize_capture_progress(
             "effective_examples_per_batch": effective_examples_per_batch,
         }
     )
+    if extra_metadata:
+        payload.update(extra_metadata)
     _write_json_atomic(progress_path, payload)
 
 
