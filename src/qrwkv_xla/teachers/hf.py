@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 import numpy as np
 
@@ -15,6 +15,10 @@ from qrwkv_xla.targets import (
 )
 
 HF_CREATED_AT: Final = "2026-05-29T00:00:00Z"
+GpuVocabChunkSize = int | Literal["auto"]
+GPU_VOCAB_CHUNK_AUTO_CANDIDATES: Final = (32768, 16384, 8192, 4096, 2048, 1024)
+GPU_REDUCTION_SAFETY_RESERVE_BYTES: Final = 512 * 1024 * 1024
+GPU_REDUCTION_WORKSPACE_TENSORS: Final = 5
 
 
 class HFTeacherUnavailable(RuntimeError):
@@ -42,6 +46,13 @@ class HFCompactTeacherTargets:
     estimated_raw_logits_bytes: int
     gpu_memory_allocated_bytes: int | None
     gpu_memory_reserved_bytes: int | None
+    gpu_vocab_chunk_size_requested: GpuVocabChunkSize
+    gpu_vocab_chunk_size_effective: int
+    gpu_vocab_chunks_per_batch: int
+    estimated_reduction_workspace_bytes: int
+    peak_gpu_memory_allocated_bytes: int | None
+    peak_gpu_memory_reserved_bytes: int | None
+    gpu_vocab_chunk_auto_policy: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -64,6 +75,15 @@ class HFCompactTeacherTargets:
             "estimated_raw_logits_bytes": self.estimated_raw_logits_bytes,
             "gpu_memory_allocated_bytes": self.gpu_memory_allocated_bytes,
             "gpu_memory_reserved_bytes": self.gpu_memory_reserved_bytes,
+            "gpu_vocab_chunk_size_requested": self.gpu_vocab_chunk_size_requested,
+            "gpu_vocab_chunk_size_effective": self.gpu_vocab_chunk_size_effective,
+            "gpu_vocab_chunks_per_batch": self.gpu_vocab_chunks_per_batch,
+            "estimated_reduction_workspace_bytes": (
+                self.estimated_reduction_workspace_bytes
+            ),
+            "peak_gpu_memory_allocated_bytes": self.peak_gpu_memory_allocated_bytes,
+            "peak_gpu_memory_reserved_bytes": self.peak_gpu_memory_reserved_bytes,
+            "gpu_vocab_chunk_auto_policy": self.gpu_vocab_chunk_auto_policy,
         }
 
 
@@ -259,9 +279,11 @@ class HFTeacherBackend:
         attention_mask: Any | None,
         top_k: int,
         bucket_edges: tuple[float, ...],
+        gpu_vocab_chunk_size: GpuVocabChunkSize = "auto",
     ) -> HFCompactTeacherTargets:
         if top_k <= 0:
             raise ValueError("top_k must be > 0")
+        _validate_gpu_vocab_chunk_size(gpu_vocab_chunk_size)
         edges = validate_cascaded_bucket_edges(bucket_edges)
         self.load()
         outputs = _model_forward(
@@ -281,6 +303,7 @@ class HFTeacherBackend:
                 attention_mask=attention_mask,
                 top_k=top_k,
                 bucket_edges=edges,
+                gpu_vocab_chunk_size=gpu_vocab_chunk_size,
                 non_blocking_transfer=self.non_blocking_transfer,
             )
         return _compact_numpy_targets(
@@ -293,6 +316,7 @@ class HFTeacherBackend:
             ),
             top_k=top_k,
             bucket_edges=edges,
+            gpu_vocab_chunk_size=gpu_vocab_chunk_size,
         )
 
 
@@ -383,71 +407,49 @@ def _compact_torch_targets(
     attention_mask: Any | None,
     top_k: int,
     bucket_edges: tuple[float, ...],
+    gpu_vocab_chunk_size: GpuVocabChunkSize,
     non_blocking_transfer: bool,
 ) -> HFCompactTeacherTargets:
-    import torch
-
     logits_dtype = str(logits.dtype)
     batch_size, sequence_length, vocab_size = _logits_shape(logits)
     effective_top_k = min(int(top_k), vocab_size)
+    chunk_plan = _resolve_torch_vocab_chunk_plan(
+        logits,
+        requested=gpu_vocab_chunk_size,
+        batch_size=batch_size,
+        sequence_length=sequence_length,
+        vocab_size=vocab_size,
+        logits_dtype=logits_dtype,
+    )
     estimated_bytes = (
         batch_size * sequence_length * vocab_size * _dtype_itemsize(logits_dtype)
     )
+    _reset_torch_peak_memory_stats(logits)
     try:
-        compute_logits = logits.float()
-        log_probs = torch.nn.functional.log_softmax(compute_logits, dim=-1)
-        probs = torch.exp(log_probs)
-        stat_k = min(max(32, effective_top_k, 2), vocab_size)
-        stat_probs, _ = torch.topk(probs, k=stat_k, dim=-1, largest=True, sorted=True)
-        top1 = stat_probs[..., 0]
-        top2 = stat_probs[..., 1] if vocab_size >= 2 else torch.zeros_like(top1)
-        top8_mass = torch.sum(stat_probs[..., : min(8, stat_k)], dim=-1)
-        top32_mass = torch.sum(stat_probs[..., : min(32, stat_k)], dim=-1)
-        top_log_probs, top_token_ids = torch.topk(
-            log_probs,
-            k=effective_top_k,
-            dim=-1,
-            largest=True,
-            sorted=True,
+        reduced = _chunked_torch_compact_reduce(
+            logits,
+            top_k=effective_top_k,
+            bucket_edges=bucket_edges,
+            chunk_size=chunk_plan.effective_chunk_size,
         )
-        top_probs = torch.exp(top_log_probs)
-        top_mass = torch.sum(top_probs, dim=-1)
-        top_mask = torch.zeros_like(probs, dtype=torch.bool)
-        top_mask.scatter_(-1, top_token_ids, True)
-        bucket_mass_rows = []
-        bucket_count_rows = []
-        bucket_mean_rows = []
-        for upper, lower in zip(bucket_edges[:-1], bucket_edges[1:], strict=True):
-            mask = (~top_mask) & (probs < float(upper)) & (probs >= float(lower))
-            bucket_mass = torch.sum(
-                torch.where(mask, probs, torch.zeros_like(probs)),
-                dim=-1,
-            )
-            bucket_count = torch.sum(mask.to(torch.int32), dim=-1)
-            bucket_logp_sum = torch.sum(
-                torch.where(mask, log_probs, torch.zeros_like(log_probs)), dim=-1
-            )
-            bucket_mean = torch.where(
-                bucket_count > 0,
-                bucket_logp_sum / bucket_count.to(bucket_logp_sum.dtype),
-                torch.zeros_like(bucket_logp_sum),
-            )
-            bucket_mass_rows.append(bucket_mass)
-            bucket_count_rows.append(bucket_count)
-            bucket_mean_rows.append(bucket_mean)
-        bucket_masses = torch.stack(bucket_mass_rows, dim=-1)
-        bucket_counts = torch.stack(bucket_count_rows, dim=-1)
-        bucket_mean_log_probs = torch.stack(bucket_mean_rows, dim=-1)
-        entropy = -torch.sum(probs * log_probs, dim=-1)
-        tail_mass = torch.clamp(1.0 - top32_mass, min=0.0)
     except RuntimeError as exc:
         if "out of memory" in str(exc).lower():
+            peak_allocated, peak_reserved = _torch_peak_gpu_memory(logits)
             raise RuntimeError(
                 "compact GPU reduction ran out of memory: "
-                f"batch_size={batch_size} sequence_length={sequence_length} "
+                f"teacher_batch_size={batch_size} batch_size={batch_size} "
+                f"sequence_length={sequence_length} "
                 f"vocab_size={vocab_size} "
-                f"estimated_raw_logits_bytes={estimated_bytes}; "
-                "try a smaller teacher_batch_size"
+                f"gpu_vocab_chunk_size_requested={gpu_vocab_chunk_size} "
+                "gpu_vocab_chunk_size_effective="
+                f"{chunk_plan.effective_chunk_size} "
+                f"estimated_raw_logits_bytes={estimated_bytes} "
+                "estimated_reduction_workspace_bytes="
+                f"{chunk_plan.estimated_workspace_bytes} "
+                f"peak_gpu_memory_allocated_bytes={peak_allocated} "
+                f"peak_gpu_memory_reserved_bytes={peak_reserved}; "
+                "retry with a smaller --gpu-vocab-chunk-size or reduce "
+                "--teacher-batch-size"
             ) from exc
         raise
 
@@ -458,53 +460,347 @@ def _compact_torch_targets(
         else _tensor_to_numpy(attention_mask, non_blocking=non_blocking_transfer)
     )
     gpu_allocated, gpu_reserved = _torch_gpu_memory(logits)
+    peak_allocated, peak_reserved = _torch_peak_gpu_memory(logits)
     return HFCompactTeacherTargets(
         input_ids=input_ids_np.astype(np.int32, copy=False),
         attention_mask=attention_mask_np.astype(np.int32, copy=False),
-        entropy=_tensor_to_numpy(entropy, non_blocking=non_blocking_transfer).astype(
-            np.float32,
-            copy=False,
-        ),
+        entropy=_tensor_to_numpy(
+            reduced.entropy, non_blocking=non_blocking_transfer
+        ).astype(np.float32, copy=False),
         max_log_prob=_tensor_to_numpy(
-            top_log_probs[..., 0], non_blocking=non_blocking_transfer
+            reduced.top_log_probs[..., 0], non_blocking=non_blocking_transfer
         ).astype(np.float32, copy=False),
         top1_margin=_tensor_to_numpy(
-            top1 - top2, non_blocking=non_blocking_transfer
+            reduced.top1_margin, non_blocking=non_blocking_transfer
         ).astype(np.float32, copy=False),
         top8_mass=_tensor_to_numpy(
-            top8_mass, non_blocking=non_blocking_transfer
+            reduced.top8_mass, non_blocking=non_blocking_transfer
         ).astype(np.float32, copy=False),
         top32_mass=_tensor_to_numpy(
-            top32_mass, non_blocking=non_blocking_transfer
+            reduced.top32_mass, non_blocking=non_blocking_transfer
         ).astype(np.float32, copy=False),
         tail_mass=_tensor_to_numpy(
-            tail_mass, non_blocking=non_blocking_transfer
+            reduced.tail_mass, non_blocking=non_blocking_transfer
         ).astype(np.float32, copy=False),
         top_token_ids=_tensor_to_numpy(
-            top_token_ids, non_blocking=non_blocking_transfer
+            reduced.top_token_ids, non_blocking=non_blocking_transfer
         ).astype(np.int32, copy=False),
         top_log_probs=_tensor_to_numpy(
-            top_log_probs, non_blocking=non_blocking_transfer
+            reduced.top_log_probs, non_blocking=non_blocking_transfer
         ).astype(np.float32, copy=False),
-        top_mass=_tensor_to_numpy(top_mass, non_blocking=non_blocking_transfer).astype(
-            np.float32,
-            copy=False,
-        ),
+        top_mass=_tensor_to_numpy(
+            reduced.top_mass, non_blocking=non_blocking_transfer
+        ).astype(np.float32, copy=False),
         bucket_masses=_tensor_to_numpy(
-            bucket_masses, non_blocking=non_blocking_transfer
+            reduced.bucket_masses, non_blocking=non_blocking_transfer
         ).astype(np.float32, copy=False),
         bucket_counts=_tensor_to_numpy(
-            bucket_counts, non_blocking=non_blocking_transfer
+            reduced.bucket_counts, non_blocking=non_blocking_transfer
         ).astype(np.int32, copy=False),
         bucket_mean_log_probs=_tensor_to_numpy(
-            bucket_mean_log_probs, non_blocking=non_blocking_transfer
+            reduced.bucket_mean_log_probs, non_blocking=non_blocking_transfer
         ).astype(np.float32, copy=False),
         original_vocab_size=vocab_size,
         logits_dtype=logits_dtype,
         estimated_raw_logits_bytes=estimated_bytes,
         gpu_memory_allocated_bytes=gpu_allocated,
         gpu_memory_reserved_bytes=gpu_reserved,
+        gpu_vocab_chunk_size_requested=gpu_vocab_chunk_size,
+        gpu_vocab_chunk_size_effective=chunk_plan.effective_chunk_size,
+        gpu_vocab_chunks_per_batch=chunk_plan.chunks_per_batch,
+        estimated_reduction_workspace_bytes=chunk_plan.estimated_workspace_bytes,
+        peak_gpu_memory_allocated_bytes=peak_allocated,
+        peak_gpu_memory_reserved_bytes=peak_reserved,
+        gpu_vocab_chunk_auto_policy=chunk_plan.auto_policy,
     )
+
+
+@dataclass(frozen=True)
+class _TorchVocabChunkPlan:
+    requested_chunk_size: GpuVocabChunkSize
+    effective_chunk_size: int
+    chunks_per_batch: int
+    estimated_workspace_bytes: int
+    auto_policy: dict[str, Any] | None
+
+
+@dataclass(frozen=True)
+class _TorchCompactReduction:
+    entropy: Any
+    max_log_prob: Any
+    top1_margin: Any
+    top8_mass: Any
+    top32_mass: Any
+    tail_mass: Any
+    top_token_ids: Any
+    top_log_probs: Any
+    top_mass: Any
+    bucket_masses: Any
+    bucket_counts: Any
+    bucket_mean_log_probs: Any
+
+
+def _resolve_torch_vocab_chunk_plan(
+    logits: Any,
+    *,
+    requested: GpuVocabChunkSize,
+    batch_size: int,
+    sequence_length: int,
+    vocab_size: int,
+    logits_dtype: str,
+) -> _TorchVocabChunkPlan:
+    _validate_gpu_vocab_chunk_size(requested)
+    if requested != "auto":
+        effective = min(int(requested), vocab_size)
+        return _TorchVocabChunkPlan(
+            requested_chunk_size=requested,
+            effective_chunk_size=effective,
+            chunks_per_batch=_ceil_div(vocab_size, effective),
+            estimated_workspace_bytes=_estimate_reduction_workspace_bytes(
+                batch_size=batch_size,
+                sequence_length=sequence_length,
+                chunk_size=effective,
+            ),
+            auto_policy=None,
+        )
+
+    available_bytes, total_bytes = _torch_available_gpu_memory(logits)
+    useful_candidates = [
+        min(candidate, vocab_size)
+        for candidate in GPU_VOCAB_CHUNK_AUTO_CANDIDATES
+        if min(candidate, vocab_size) > 0
+    ]
+    useful_candidates = list(dict.fromkeys(useful_candidates))
+    evaluated = []
+    for candidate in useful_candidates:
+        workspace_bytes = _estimate_reduction_workspace_bytes(
+            batch_size=batch_size,
+            sequence_length=sequence_length,
+            chunk_size=candidate,
+        )
+        safe = (
+            available_bytes is None
+            or workspace_bytes + GPU_REDUCTION_SAFETY_RESERVE_BYTES <= available_bytes
+        )
+        evaluated.append(
+            {
+                "candidate": candidate,
+                "estimated_reduction_workspace_bytes": workspace_bytes,
+                "safe": safe,
+            }
+        )
+        if safe:
+            return _TorchVocabChunkPlan(
+                requested_chunk_size=requested,
+                effective_chunk_size=candidate,
+                chunks_per_batch=_ceil_div(vocab_size, candidate),
+                estimated_workspace_bytes=workspace_bytes,
+                auto_policy={
+                    "candidates_descending": list(GPU_VOCAB_CHUNK_AUTO_CANDIDATES),
+                    "batch_size": batch_size,
+                    "sequence_length": sequence_length,
+                    "vocab_size": vocab_size,
+                    "logits_dtype": logits_dtype,
+                    "available_gpu_memory_bytes": available_bytes,
+                    "total_gpu_memory_bytes": total_bytes,
+                    "safety_reserve_bytes": GPU_REDUCTION_SAFETY_RESERVE_BYTES,
+                    "workspace_tensors": GPU_REDUCTION_WORKSPACE_TENSORS,
+                    "evaluated": evaluated,
+                    "selected": candidate,
+                },
+            )
+    raise RuntimeError(
+        "compact GPU reduction could not select a safe vocab chunk size: "
+        f"batch_size={batch_size} sequence_length={sequence_length} "
+        f"vocab_size={vocab_size} logits_dtype={logits_dtype} "
+        f"available_gpu_memory_bytes={available_bytes} "
+        f"safety_reserve_bytes={GPU_REDUCTION_SAFETY_RESERVE_BYTES} "
+        f"candidates={list(GPU_VOCAB_CHUNK_AUTO_CANDIDATES)}"
+    )
+
+
+def _chunked_torch_compact_reduce(
+    logits: Any,
+    *,
+    top_k: int,
+    bucket_edges: tuple[float, ...],
+    chunk_size: int,
+) -> _TorchCompactReduction:
+    import torch
+
+    batch_size, sequence_length, vocab_size = _logits_shape(logits)
+    effective_top_k = min(int(top_k), vocab_size)
+    stat_k = min(max(32, effective_top_k, 2), vocab_size)
+    global_max = torch.full(
+        (batch_size, sequence_length),
+        -torch.inf,
+        dtype=torch.float32,
+        device=logits.device,
+    )
+    global_sum = torch.zeros(
+        (batch_size, sequence_length), dtype=torch.float32, device=logits.device
+    )
+    stat_logits = None
+    stat_token_ids = None
+
+    for start in range(0, vocab_size, chunk_size):
+        end = min(start + chunk_size, vocab_size)
+        chunk = logits[..., start:end].float()
+        chunk_max = torch.amax(chunk, dim=-1)
+        chunk_shifted_exp_sum = torch.sum(
+            torch.exp(chunk - chunk_max.unsqueeze(-1)),
+            dim=-1,
+        )
+        new_max = torch.maximum(global_max, chunk_max)
+        global_sum = (
+            torch.exp(global_max - new_max) * global_sum
+            + torch.exp(chunk_max - new_max) * chunk_shifted_exp_sum
+        )
+        global_max = new_max
+
+        local_k = min(stat_k, end - start)
+        local_logits, local_offsets = torch.topk(
+            chunk,
+            k=local_k,
+            dim=-1,
+            largest=True,
+            sorted=True,
+        )
+        local_token_ids = local_offsets + start
+        if stat_logits is None:
+            stat_logits = local_logits
+            stat_token_ids = local_token_ids
+        else:
+            merged_logits = torch.cat((stat_logits, local_logits), dim=-1)
+            merged_token_ids = torch.cat((stat_token_ids, local_token_ids), dim=-1)
+            merge_k = min(stat_k, int(merged_logits.shape[-1]))
+            stat_logits, merged_offsets = torch.topk(
+                merged_logits,
+                k=merge_k,
+                dim=-1,
+                largest=True,
+                sorted=True,
+            )
+            stat_token_ids = torch.gather(merged_token_ids, -1, merged_offsets)
+
+    if stat_logits is None or stat_token_ids is None:
+        raise ValueError("compact reduction requires a non-empty vocabulary")
+
+    global_logsumexp = global_max + torch.log(global_sum)
+    stat_log_probs = stat_logits - global_logsumexp.unsqueeze(-1)
+    stat_probs = torch.exp(stat_log_probs)
+    top_token_ids = stat_token_ids[..., :effective_top_k]
+    top_log_probs = stat_log_probs[..., :effective_top_k]
+    top_probs = stat_probs[..., :effective_top_k]
+    top_mass = torch.sum(top_probs, dim=-1)
+    top1 = stat_probs[..., 0]
+    top2 = stat_probs[..., 1] if vocab_size >= 2 else torch.zeros_like(top1)
+    top8_mass = torch.sum(stat_probs[..., : min(8, stat_k)], dim=-1)
+    top32_mass = torch.sum(stat_probs[..., : min(32, stat_k)], dim=-1)
+
+    bucket_count = len(bucket_edges) - 1
+    entropy = torch.zeros(
+        (batch_size, sequence_length), dtype=torch.float32, device=logits.device
+    )
+    bucket_masses = torch.zeros(
+        (batch_size, sequence_length, bucket_count),
+        dtype=torch.float32,
+        device=logits.device,
+    )
+    bucket_counts = torch.zeros(
+        (batch_size, sequence_length, bucket_count),
+        dtype=torch.int32,
+        device=logits.device,
+    )
+    bucket_logp_sums = torch.zeros(
+        (batch_size, sequence_length, bucket_count),
+        dtype=torch.float32,
+        device=logits.device,
+    )
+
+    for start in range(0, vocab_size, chunk_size):
+        end = min(start + chunk_size, vocab_size)
+        chunk = logits[..., start:end].float()
+        chunk_log_probs = chunk - global_logsumexp.unsqueeze(-1)
+        chunk_probs = torch.exp(chunk_log_probs)
+        entropy += -torch.sum(chunk_probs * chunk_log_probs, dim=-1)
+        excluded = _torch_chunk_top_token_mask(
+            top_token_ids=top_token_ids,
+            chunk_width=end - start,
+            chunk_start=start,
+            device=logits.device,
+        )
+        for bucket_id, (upper, lower) in enumerate(
+            zip(bucket_edges[:-1], bucket_edges[1:], strict=True)
+        ):
+            mask = (
+                (~excluded)
+                & (chunk_probs < float(upper))
+                & (chunk_probs >= float(lower))
+            )
+            bucket_masses[..., bucket_id] += torch.sum(
+                chunk_probs.masked_fill(~mask, 0.0),
+                dim=-1,
+            )
+            counts = torch.sum(mask.to(torch.int32), dim=-1)
+            bucket_counts[..., bucket_id] += counts
+            bucket_logp_sums[..., bucket_id] += torch.sum(
+                chunk_log_probs.masked_fill(~mask, 0.0),
+                dim=-1,
+            )
+
+    bucket_mean_log_probs = torch.where(
+        bucket_counts > 0,
+        bucket_logp_sums / bucket_counts.to(bucket_logp_sums.dtype),
+        torch.zeros_like(bucket_logp_sums),
+    )
+    tail_mass = torch.clamp(1.0 - top32_mass, min=0.0)
+    return _TorchCompactReduction(
+        entropy=entropy,
+        max_log_prob=top_log_probs[..., 0],
+        top1_margin=top1 - top2,
+        top8_mass=top8_mass,
+        top32_mass=top32_mass,
+        tail_mass=tail_mass,
+        top_token_ids=top_token_ids,
+        top_log_probs=top_log_probs,
+        top_mass=top_mass,
+        bucket_masses=bucket_masses,
+        bucket_counts=bucket_counts,
+        bucket_mean_log_probs=bucket_mean_log_probs,
+    )
+
+
+def _torch_chunk_top_token_mask(
+    *,
+    top_token_ids: Any,
+    chunk_width: int,
+    chunk_start: int,
+    device: Any,
+) -> Any:
+    import torch
+
+    relative_ids = top_token_ids - int(chunk_start)
+    in_chunk = (relative_ids >= 0) & (relative_ids < int(chunk_width))
+    mask = torch.zeros(
+        (*top_token_ids.shape[:2], int(chunk_width)),
+        dtype=torch.bool,
+        device=device,
+    )
+    for top_index in range(int(top_token_ids.shape[-1])):
+        valid = in_chunk[..., top_index]
+        update = torch.zeros_like(mask)
+        update.scatter_(
+            -1,
+            torch.clamp(
+                relative_ids[..., top_index],
+                min=0,
+                max=chunk_width - 1,
+            ).unsqueeze(-1),
+            valid.unsqueeze(-1),
+        )
+        mask |= update
+    return mask
 
 
 def _compact_numpy_targets(
@@ -514,12 +810,18 @@ def _compact_numpy_targets(
     attention_mask: np.ndarray | None,
     top_k: int,
     bucket_edges: tuple[float, ...],
+    gpu_vocab_chunk_size: GpuVocabChunkSize,
 ) -> HFCompactTeacherTargets:
+    _validate_gpu_vocab_chunk_size(gpu_vocab_chunk_size)
     values = np.asarray(logits, dtype=np.float32)
     if values.ndim != 3:
         raise ValueError(f"logits must be rank 3 [B,T,V], got {values.shape}")
     batch_size, sequence_length, vocab_size = values.shape
     effective_top_k = min(int(top_k), vocab_size)
+    chunk_size = _resolve_numpy_vocab_chunk_size(
+        gpu_vocab_chunk_size,
+        vocab_size=vocab_size,
+    )
     shifted = values - np.max(values, axis=-1, keepdims=True)
     log_probs = shifted - np.log(
         np.sum(np.exp(shifted), axis=-1, keepdims=True, dtype=np.float64)
@@ -588,6 +890,32 @@ def _compact_numpy_targets(
         estimated_raw_logits_bytes=estimated_bytes,
         gpu_memory_allocated_bytes=None,
         gpu_memory_reserved_bytes=None,
+        gpu_vocab_chunk_size_requested=gpu_vocab_chunk_size,
+        gpu_vocab_chunk_size_effective=chunk_size,
+        gpu_vocab_chunks_per_batch=_ceil_div(vocab_size, chunk_size),
+        estimated_reduction_workspace_bytes=_estimate_reduction_workspace_bytes(
+            batch_size=batch_size,
+            sequence_length=sequence_length,
+            chunk_size=chunk_size,
+        ),
+        peak_gpu_memory_allocated_bytes=None,
+        peak_gpu_memory_reserved_bytes=None,
+        gpu_vocab_chunk_auto_policy=(
+            {
+                "candidates_descending": list(GPU_VOCAB_CHUNK_AUTO_CANDIDATES),
+                "batch_size": batch_size,
+                "sequence_length": sequence_length,
+                "vocab_size": vocab_size,
+                "logits_dtype": str(values.dtype),
+                "available_gpu_memory_bytes": None,
+                "total_gpu_memory_bytes": None,
+                "safety_reserve_bytes": GPU_REDUCTION_SAFETY_RESERVE_BYTES,
+                "workspace_tensors": GPU_REDUCTION_WORKSPACE_TENSORS,
+                "selected": chunk_size,
+            }
+            if gpu_vocab_chunk_size == "auto"
+            else None
+        ),
     )
 
 
@@ -605,6 +933,43 @@ def _dtype_itemsize(dtype_name: str) -> int:
     if "float64" in lowered or "double" in lowered:
         return 8
     return 4
+
+
+def _validate_gpu_vocab_chunk_size(value: GpuVocabChunkSize) -> None:
+    if value == "auto":
+        return
+    if int(value) <= 0:
+        raise ValueError("gpu_vocab_chunk_size must be > 0 or 'auto'")
+
+
+def _resolve_numpy_vocab_chunk_size(
+    requested: GpuVocabChunkSize,
+    *,
+    vocab_size: int,
+) -> int:
+    _validate_gpu_vocab_chunk_size(requested)
+    if requested == "auto":
+        return min(vocab_size, GPU_VOCAB_CHUNK_AUTO_CANDIDATES[0])
+    return min(int(requested), vocab_size)
+
+
+def _ceil_div(numerator: int, denominator: int) -> int:
+    return int((int(numerator) + int(denominator) - 1) // int(denominator))
+
+
+def _estimate_reduction_workspace_bytes(
+    *,
+    batch_size: int,
+    sequence_length: int,
+    chunk_size: int,
+) -> int:
+    return int(
+        batch_size
+        * sequence_length
+        * chunk_size
+        * GPU_REDUCTION_WORKSPACE_TENSORS
+        * np.dtype(np.float32).itemsize
+    )
 
 
 def _tensor_to_numpy(value: Any, *, non_blocking: bool) -> np.ndarray:
@@ -635,6 +1000,46 @@ def _torch_gpu_memory(logits: Any) -> tuple[int | None, int | None]:
             int(torch.cuda.memory_allocated(device)),
             int(torch.cuda.memory_reserved(device)),
         )
+    except Exception:
+        return None, None
+
+
+def _torch_peak_gpu_memory(logits: Any) -> tuple[int | None, int | None]:
+    device = getattr(logits, "device", None)
+    if device is None or getattr(device, "type", None) != "cuda":
+        return None, None
+    try:
+        import torch
+
+        return (
+            int(torch.cuda.max_memory_allocated(device)),
+            int(torch.cuda.max_memory_reserved(device)),
+        )
+    except Exception:
+        return None, None
+
+
+def _reset_torch_peak_memory_stats(logits: Any) -> None:
+    device = getattr(logits, "device", None)
+    if device is None or getattr(device, "type", None) != "cuda":
+        return
+    try:
+        import torch
+
+        torch.cuda.reset_peak_memory_stats(device)
+    except Exception:
+        return
+
+
+def _torch_available_gpu_memory(logits: Any) -> tuple[int | None, int | None]:
+    device = getattr(logits, "device", None)
+    if device is None or getattr(device, "type", None) != "cuda":
+        return None, None
+    try:
+        import torch
+
+        free, total = torch.cuda.mem_get_info(device)
+        return int(free), int(total)
     except Exception:
         return None, None
 

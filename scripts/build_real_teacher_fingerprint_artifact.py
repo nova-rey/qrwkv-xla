@@ -97,6 +97,7 @@ def main() -> int:
         choices=("auto", "compact", "full-logits"),
         default="auto",
     )
+    parser.add_argument("--gpu-vocab-chunk-size", type=_auto_int, default="auto")
     parser.add_argument("--local-files-only", action="store_true", default=True)
     parser.add_argument("--allow-downloads", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
@@ -145,6 +146,7 @@ def main() -> int:
                 pin_memory=args.pin_memory,
                 non_blocking_transfer=args.non_blocking_transfer,
                 gpu_reduction_mode=args.gpu_reduction_mode,
+                gpu_vocab_chunk_size=args.gpu_vocab_chunk_size,
             )
         )
     except HFTeacherUnavailable as exc:

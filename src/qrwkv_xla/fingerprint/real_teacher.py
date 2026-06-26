@@ -108,6 +108,7 @@ class TinyRealTeacherFingerprintCaptureConfig:
     pin_memory: AutoBool = "auto"
     non_blocking_transfer: AutoBool = "auto"
     gpu_reduction_mode: GpuReductionMode = "auto"
+    gpu_vocab_chunk_size: AutoInt = "auto"
 
 
 @dataclass(frozen=True)
@@ -159,6 +160,13 @@ class _InferredTeacherBatch:
     logits_dtype: str
     gpu_memory_allocated_bytes: int | None = None
     gpu_memory_reserved_bytes: int | None = None
+    gpu_vocab_chunk_size_requested: int | str | None = None
+    gpu_vocab_chunk_size_effective: int | None = None
+    gpu_vocab_chunks_per_batch: int | None = None
+    estimated_reduction_workspace_bytes: int | None = None
+    peak_gpu_memory_allocated_bytes: int | None = None
+    peak_gpu_memory_reserved_bytes: int | None = None
+    gpu_vocab_chunk_auto_policy: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -239,6 +247,13 @@ def run_tiny_real_teacher_fingerprint_capture(
             "logits_dtype": None,
             "gpu_memory_allocated_bytes": None,
             "gpu_memory_reserved_bytes": None,
+            "gpu_vocab_chunk_size_requested": config.gpu_vocab_chunk_size,
+            "gpu_vocab_chunk_size_effective": None,
+            "gpu_vocab_chunks_per_batch": None,
+            "estimated_reduction_workspace_bytes": None,
+            "peak_gpu_memory_allocated_bytes": None,
+            "peak_gpu_memory_reserved_bytes": None,
+            "gpu_vocab_chunk_auto_policy": None,
         }
         stage_counters = _StageCounters()
         if topology.gpu_reduction_mode == "compact":
@@ -439,6 +454,8 @@ def _validate_config(config: TinyRealTeacherFingerprintCaptureConfig) -> None:
         raise ValueError("prefetch_depth must be > 0")
     if config.result_queue_depth <= 0:
         raise ValueError("result_queue_depth must be > 0")
+    if config.gpu_vocab_chunk_size != "auto" and int(config.gpu_vocab_chunk_size) <= 0:
+        raise ValueError("gpu_vocab_chunk_size must be > 0 or 'auto'")
 
 
 def _validate_capture_mode(
@@ -509,6 +526,13 @@ def _topology_metadata(
         "estimated_raw_logits_mib": None,
         "gpu_memory_allocated_bytes": None,
         "gpu_memory_reserved_bytes": None,
+        "gpu_vocab_chunk_size_requested": None,
+        "gpu_vocab_chunk_size_effective": None,
+        "gpu_vocab_chunks_per_batch": None,
+        "estimated_reduction_workspace_bytes": None,
+        "peak_gpu_memory_allocated_bytes": None,
+        "peak_gpu_memory_reserved_bytes": None,
+        "gpu_vocab_chunk_auto_policy": None,
         "full_logits_transferred_to_host": None,
         "compact_bytes_transferred_to_host": 0,
     }
@@ -884,6 +908,7 @@ def _infer_compact_teacher_batch(
         attention_mask=prepared.attention_mask,
         top_k=config.exemplar_top_k,
         bucket_edges=config.exemplar_bucket_edges,
+        gpu_vocab_chunk_size=config.gpu_vocab_chunk_size,
     )
     input_ids = np.asarray(compact.input_ids, dtype=np.int32)
     attention_mask = np.asarray(compact.attention_mask, dtype=np.int32)
@@ -901,6 +926,15 @@ def _infer_compact_teacher_batch(
         logits_dtype=compact.logits_dtype,
         gpu_memory_allocated_bytes=compact.gpu_memory_allocated_bytes,
         gpu_memory_reserved_bytes=compact.gpu_memory_reserved_bytes,
+        gpu_vocab_chunk_size_requested=compact.gpu_vocab_chunk_size_requested,
+        gpu_vocab_chunk_size_effective=compact.gpu_vocab_chunk_size_effective,
+        gpu_vocab_chunks_per_batch=compact.gpu_vocab_chunks_per_batch,
+        estimated_reduction_workspace_bytes=(
+            compact.estimated_reduction_workspace_bytes
+        ),
+        peak_gpu_memory_allocated_bytes=compact.peak_gpu_memory_allocated_bytes,
+        peak_gpu_memory_reserved_bytes=compact.peak_gpu_memory_reserved_bytes,
+        gpu_vocab_chunk_auto_policy=compact.gpu_vocab_chunk_auto_policy,
         batch=CompactFingerprintCaptureBatch(
             example_ids=prepared.example_ids,
             input_ids=input_ids,
@@ -946,6 +980,33 @@ def _record_inferred_batch(
         emission["gpu_memory_reserved_bytes"],
         inferred.gpu_memory_reserved_bytes,
     )
+    emission["gpu_vocab_chunk_size_requested"] = (
+        inferred.gpu_vocab_chunk_size_requested
+        if inferred.gpu_vocab_chunk_size_requested is not None
+        else emission.get("gpu_vocab_chunk_size_requested")
+    )
+    emission["gpu_vocab_chunk_size_effective"] = _max_optional_int(
+        emission["gpu_vocab_chunk_size_effective"],
+        inferred.gpu_vocab_chunk_size_effective,
+    )
+    emission["gpu_vocab_chunks_per_batch"] = _max_optional_int(
+        emission["gpu_vocab_chunks_per_batch"],
+        inferred.gpu_vocab_chunks_per_batch,
+    )
+    emission["estimated_reduction_workspace_bytes"] = _max_optional_int(
+        emission["estimated_reduction_workspace_bytes"],
+        inferred.estimated_reduction_workspace_bytes,
+    )
+    emission["peak_gpu_memory_allocated_bytes"] = _max_optional_int(
+        emission["peak_gpu_memory_allocated_bytes"],
+        inferred.peak_gpu_memory_allocated_bytes,
+    )
+    emission["peak_gpu_memory_reserved_bytes"] = _max_optional_int(
+        emission["peak_gpu_memory_reserved_bytes"],
+        inferred.peak_gpu_memory_reserved_bytes,
+    )
+    if inferred.gpu_vocab_chunk_auto_policy is not None:
+        emission["gpu_vocab_chunk_auto_policy"] = inferred.gpu_vocab_chunk_auto_policy
 
 
 def _put_with_stop(
@@ -1063,6 +1124,24 @@ def _emission_metadata(
         "estimated_raw_logits_mib": float(estimated_bytes / (1024 * 1024)),
         "gpu_memory_allocated_bytes": emission.get("gpu_memory_allocated_bytes"),
         "gpu_memory_reserved_bytes": emission.get("gpu_memory_reserved_bytes"),
+        "gpu_vocab_chunk_size_requested": emission.get(
+            "gpu_vocab_chunk_size_requested",
+            config.gpu_vocab_chunk_size,
+        ),
+        "gpu_vocab_chunk_size_effective": emission.get(
+            "gpu_vocab_chunk_size_effective"
+        ),
+        "gpu_vocab_chunks_per_batch": emission.get("gpu_vocab_chunks_per_batch"),
+        "estimated_reduction_workspace_bytes": emission.get(
+            "estimated_reduction_workspace_bytes"
+        ),
+        "peak_gpu_memory_allocated_bytes": emission.get(
+            "peak_gpu_memory_allocated_bytes"
+        ),
+        "peak_gpu_memory_reserved_bytes": emission.get(
+            "peak_gpu_memory_reserved_bytes"
+        ),
+        "gpu_vocab_chunk_auto_policy": emission.get("gpu_vocab_chunk_auto_policy"),
         "full_logits_transferred_to_host": _full_logits_transferred_to_host(topology),
         "compact_bytes_transferred_to_host": int(
             emission.get("compact_bytes_transferred_to_host") or 0
@@ -1124,6 +1203,22 @@ def _rewrite_manifest_for_p145(
         "estimated_raw_logits_mib": emission_metadata["estimated_raw_logits_mib"],
         "gpu_memory_allocated_bytes": emission_metadata["gpu_memory_allocated_bytes"],
         "gpu_memory_reserved_bytes": emission_metadata["gpu_memory_reserved_bytes"],
+        "gpu_vocab_chunk_size_requested": emission_metadata[
+            "gpu_vocab_chunk_size_requested"
+        ],
+        "gpu_vocab_chunk_size_effective": emission_metadata[
+            "gpu_vocab_chunk_size_effective"
+        ],
+        "gpu_vocab_chunks_per_batch": emission_metadata["gpu_vocab_chunks_per_batch"],
+        "estimated_reduction_workspace_bytes": emission_metadata[
+            "estimated_reduction_workspace_bytes"
+        ],
+        "peak_gpu_memory_allocated_bytes": emission_metadata[
+            "peak_gpu_memory_allocated_bytes"
+        ],
+        "peak_gpu_memory_reserved_bytes": emission_metadata[
+            "peak_gpu_memory_reserved_bytes"
+        ],
         "full_logits_transferred_to_host": emission_metadata[
             "full_logits_transferred_to_host"
         ],

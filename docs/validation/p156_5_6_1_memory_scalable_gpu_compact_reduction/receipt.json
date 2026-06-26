@@ -1,0 +1,57 @@
+{
+  "phase": "P156.5.6.1",
+  "title": "Memory-scalable GPU compact reduction",
+  "status": "pass",
+  "changes": {
+    "gpu_vocab_chunk_size": {
+      "cli": "--gpu-vocab-chunk-size",
+      "accepted_values": ["auto", "positive integer"],
+      "auto_candidates_descending": [32768, 16384, 8192, 4096, 2048, 1024],
+      "safety_reserve_bytes": 536870912
+    },
+    "compact_reducer": "torch compact path now reduces vocabulary chunks instead of dense full-vocabulary FP32/log-prob/probability/mask workspaces",
+    "provenance_fields": [
+      "gpu_vocab_chunk_size_requested",
+      "gpu_vocab_chunk_size_effective",
+      "gpu_vocab_chunks_per_batch",
+      "estimated_reduction_workspace_bytes",
+      "peak_gpu_memory_allocated_bytes",
+      "peak_gpu_memory_reserved_bytes",
+      "gpu_vocab_chunk_auto_policy"
+    ],
+    "full_logits_debug_mode": "unchanged"
+  },
+  "validation": {
+    "focused_tests": {
+      "command": ".venv/bin/python -m pytest tests/test_hf_teacher_backend.py tests/test_tiny_real_teacher_fingerprint_capture.py",
+      "result": "58 passed, 1 skipped"
+    },
+    "repository_ruff": {
+      "command": ".venv/bin/python -m ruff check .",
+      "result": "pass"
+    },
+    "repository_format_check": {
+      "command": ".venv/bin/python -m ruff format --check .",
+      "result": "pass"
+    },
+    "full_tests": {
+      "command": ".venv/bin/python -m pytest",
+      "result": "1489 passed, 24 skipped"
+    },
+    "real_accelerator_smoke": {
+      "status": "unavailable",
+      "reason": "local validation environment does not have torch installed, so CUDA/MPS availability could not be exercised"
+    },
+    "accelerator_benchmark": {
+      "status": "unavailable",
+      "reason": "no local CUDA/MPS runtime or torch install was available for L4-class batch/chunk benchmarking"
+    }
+  },
+  "claims_not_made": [
+    "accelerator throughput improvement",
+    "automatic teacher batch-size tuning",
+    "silent OOM retry",
+    "distributed capture",
+    "artifact schema redesign"
+  ]
+}

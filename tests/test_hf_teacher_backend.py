@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ from qrwkv_xla.teachers import (
     HFTeacherUnavailable,
     emit_teacher_target_store,
 )
+from qrwkv_xla.teachers import hf as hf_module
 
 
 def test_importing_teachers_does_not_require_transformers(
@@ -88,6 +90,7 @@ def test_hf_teacher_backend_compact_targets_match_cascaded_reference() -> None:
         attention_mask=encoded["attention_mask"],
         top_k=5,
         bucket_edges=(1.0, 0.1, 0.01, 0.0),
+        gpu_vocab_chunk_size=4,
     )
     full = backend.emit_targets_from_encoded(
         input_ids=encoded["input_ids"],
@@ -99,6 +102,10 @@ def test_hf_teacher_backend_compact_targets_match_cascaded_reference() -> None:
     assert compact.top_token_ids.shape == (2, 4, 5)
     assert compact.bucket_masses.shape == (2, 4, 3)
     assert compact.estimated_raw_logits_bytes == full["logits"].nbytes
+    assert compact.gpu_vocab_chunk_size_requested == 4
+    assert compact.gpu_vocab_chunk_size_effective == 4
+    assert compact.gpu_vocab_chunks_per_batch == 3
+    assert compact.estimated_reduction_workspace_bytes == 2 * 4 * 4 * 5 * 4
     for batch_index in range(2):
         for position in range(4):
             reference = encode_cascaded_soft_labels(
@@ -128,6 +135,62 @@ def test_hf_teacher_backend_compact_targets_match_cascaded_reference() -> None:
             assert compact.entropy[batch_index, position] == pytest.approx(
                 float(reference.teacher_entropy), abs=1e-6
             )
+
+
+def test_hf_teacher_backend_compact_rejects_invalid_chunk_size() -> None:
+    backend = _fake_backend(vocab_size=11)
+    encoded = backend.encode_prompts(("alpha",), sequence_length=4)
+
+    with pytest.raises(ValueError, match="gpu_vocab_chunk_size"):
+        backend.emit_compact_targets_from_encoded(
+            input_ids=encoded["input_ids"],
+            attention_mask=encoded["attention_mask"],
+            top_k=5,
+            bucket_edges=(1.0, 0.1, 0.01, 0.0),
+            gpu_vocab_chunk_size=0,
+        )
+
+
+def test_hf_teacher_backend_compact_auto_chunk_metadata_is_deterministic() -> None:
+    backend = _fake_backend(vocab_size=19)
+    encoded = backend.encode_prompts(("alpha", "beta"), sequence_length=5)
+
+    first = backend.emit_compact_targets_from_encoded(
+        input_ids=encoded["input_ids"],
+        attention_mask=encoded["attention_mask"],
+        top_k=7,
+        bucket_edges=(1.0, 0.1, 0.01, 0.0),
+        gpu_vocab_chunk_size="auto",
+    )
+    second = backend.emit_compact_targets_from_encoded(
+        input_ids=encoded["input_ids"],
+        attention_mask=encoded["attention_mask"],
+        top_k=7,
+        bucket_edges=(1.0, 0.1, 0.01, 0.0),
+        gpu_vocab_chunk_size="auto",
+    )
+
+    assert first.gpu_vocab_chunk_size_requested == "auto"
+    assert first.gpu_vocab_chunk_size_effective == 19
+    assert first.gpu_vocab_chunks_per_batch == 1
+    assert first.gpu_vocab_chunk_auto_policy == second.gpu_vocab_chunk_auto_policy
+    np.testing.assert_array_equal(first.top_token_ids, second.top_token_ids)
+    np.testing.assert_allclose(first.entropy, second.entropy)
+
+
+def test_torch_compact_reducer_source_has_no_dense_full_vocab_reduction() -> None:
+    source = "\n".join(
+        (
+            inspect.getsource(hf_module._compact_torch_targets),
+            inspect.getsource(hf_module._chunked_torch_compact_reduce),
+        )
+    )
+
+    assert "torch.nn.functional.log_softmax" not in source
+    assert "compute_logits = logits.float()" not in source
+    assert "torch.exp(log_probs)" not in source
+    assert "torch.zeros_like(probs" not in source
+    assert "zeros_like(chunk" not in source
 
 
 def test_fake_hf_vocab_contract_round_trips_from_metadata(tmp_path: Path) -> None:

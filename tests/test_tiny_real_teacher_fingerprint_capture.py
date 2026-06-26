@@ -456,6 +456,18 @@ def test_real_teacher_rejects_invalid_teacher_batch_size(tmp_path: Path) -> None
         )
 
 
+def test_real_teacher_rejects_invalid_gpu_vocab_chunk_size(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="gpu_vocab_chunk_size"):
+        run_tiny_real_teacher_fingerprint_capture(
+            TinyRealTeacherFingerprintCaptureConfig(
+                output_dir=tmp_path / "artifact",
+                texts_path=TEXTS,
+                gpu_vocab_chunk_size=0,
+            ),
+            backend=_fake_backend(vocab_size=16),
+        )
+
+
 @pytest.mark.parametrize("detected_cpu_budget", [1, 2, 3, 4, 8, 12])
 def test_capture_topology_auto_policy_simulated_cpu_budgets(
     detected_cpu_budget: int,
@@ -691,6 +703,7 @@ def test_real_teacher_gpu_compact_mode_uses_compact_backend_path(
             teacher_batch_size=2,
             teacher_device="cuda",
             gpu_reduction_mode="compact",
+            gpu_vocab_chunk_size=5,
             cpu_budget=4,
             torch_num_threads=1,
             prefetch_workers=1,
@@ -708,11 +721,21 @@ def test_real_teacher_gpu_compact_mode_uses_compact_backend_path(
     assert summary["gpu_reduction_mode"] == "compact"
     assert summary["full_logits_transferred_to_host"] is False
     assert summary["compact_bytes_transferred_to_host"] > 0
+    assert summary["gpu_vocab_chunk_size_requested"] == 5
+    assert summary["gpu_vocab_chunk_size_effective"] == 5
+    assert summary["gpu_vocab_chunks_per_batch"] == 4
+    assert summary["estimated_reduction_workspace_bytes"] == 2 * 4 * 5 * 5 * 4
+    assert summary["peak_gpu_memory_allocated_bytes"] is None
+    assert summary["peak_gpu_memory_reserved_bytes"] is None
     assert summary["reduced_batches"] == 2
     assert progress["gpu_reduction_mode"] == "compact"
     assert progress["compact_bytes_transferred_to_host"] > 0
+    assert progress["gpu_vocab_chunk_size_requested"] == 5
+    assert progress["gpu_vocab_chunk_size_effective"] == 5
     assert manifest["teacher"]["gpu_reduction_mode"] == "compact"
     assert manifest["teacher"]["full_logits_transferred_to_host"] is False
+    assert manifest["teacher"]["gpu_vocab_chunk_size_requested"] == 5
+    assert manifest["teacher"]["gpu_vocab_chunk_size_effective"] == 5
 
 
 def test_real_teacher_gpu_full_logits_mode_preserves_old_path(
@@ -1081,6 +1104,7 @@ class _CompactOnlyFakeBackend(HFTeacherBackend):
         attention_mask: object | None,
         top_k: int,
         bucket_edges: tuple[float, ...],
+        gpu_vocab_chunk_size: int | str = "auto",
     ) -> object:
         self.compact_calls += 1
         return super().emit_compact_targets_from_encoded(
@@ -1088,6 +1112,7 @@ class _CompactOnlyFakeBackend(HFTeacherBackend):
             attention_mask=attention_mask,
             top_k=top_k,
             bucket_edges=bucket_edges,
+            gpu_vocab_chunk_size=gpu_vocab_chunk_size,
         )
 
 
@@ -1099,13 +1124,18 @@ class _CompactOomFakeBackend(_CompactOnlyFakeBackend):
         attention_mask: object | None,
         top_k: int,
         bucket_edges: tuple[float, ...],
+        gpu_vocab_chunk_size: int | str = "auto",
     ) -> object:
-        del input_ids, attention_mask, top_k, bucket_edges
+        del input_ids, attention_mask, top_k, bucket_edges, gpu_vocab_chunk_size
         self.compact_calls += 1
         raise RuntimeError(
             "compact GPU reduction ran out of memory: "
-            "batch_size=2 sequence_length=4 vocab_size=16 "
-            "estimated_raw_logits_bytes=1024; try a smaller teacher_batch_size"
+            "teacher_batch_size=2 batch_size=2 sequence_length=4 vocab_size=16 "
+            "gpu_vocab_chunk_size_requested=auto gpu_vocab_chunk_size_effective=16 "
+            "estimated_raw_logits_bytes=1024 "
+            "estimated_reduction_workspace_bytes=2560; "
+            "retry with a smaller --gpu-vocab-chunk-size or reduce "
+            "--teacher-batch-size"
         )
 
 
