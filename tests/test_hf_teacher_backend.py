@@ -57,6 +57,25 @@ def test_fake_hf_teacher_emits_full_logits_store(tmp_path: Path) -> None:
     store.validate()
 
 
+def test_hf_teacher_backend_emits_targets_from_encoded_without_retokenizing() -> None:
+    backend = _fake_backend(vocab_size=11)
+    tokenizer = backend.tokenizer
+    assert isinstance(tokenizer, _FakeTokenizer)
+
+    encoded = backend.encode_prompts(("alpha", "beta"), sequence_length=4)
+    first_tokenizer_calls = tokenizer.call_count
+    emitted = backend.emit_targets_from_encoded(
+        input_ids=encoded["input_ids"],
+        attention_mask=encoded["attention_mask"],
+    )
+
+    assert tokenizer.call_count == first_tokenizer_calls
+    assert first_tokenizer_calls == 1
+    assert emitted["input_ids"].shape == (2, 4)
+    assert emitted["attention_mask"].shape == (2, 4)
+    assert emitted["logits"].shape == (2, 4, 11)
+
+
 def test_fake_hf_vocab_contract_round_trips_from_metadata(tmp_path: Path) -> None:
     backend = _fake_backend(vocab_size=13)
     expected = backend.vocab_contract()
@@ -131,6 +150,7 @@ class _FakeTokenizer:
 
     def __init__(self, *, vocab_size: int) -> None:
         self.vocab_size = vocab_size
+        self.call_count = 0
 
     def __call__(
         self,
@@ -141,6 +161,7 @@ class _FakeTokenizer:
         max_length: int,
         return_tensors: str,
     ) -> dict[str, np.ndarray]:
+        self.call_count += 1
         assert padding == "max_length"
         assert truncation is True
         assert return_tensors == "pt"

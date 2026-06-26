@@ -1,0 +1,46 @@
+{
+  "phase": "P156.5.5.1",
+  "title": "Make staged teacher capture pipeline real",
+  "status": "pass",
+  "changes": {
+    "prefetch_tokenization": "real",
+    "inference_retokenization": "disabled",
+    "encoded_hf_inference_entrypoint": "HFTeacherBackend.emit_targets_from_encoded",
+    "reducer_workers": "resolved_to_zero_nonzero_rejected",
+    "gpu_reduction_mode": "full_logits_host_transfer_fallback_for_cuda_or_mps",
+    "stage_counters": [
+      "prepared_batches",
+      "inference_batches",
+      "reduced_batches",
+      "committed_batches"
+    ]
+  },
+  "validation": {
+    "focused_tests": {
+      "command": ".venv/bin/python -m pytest tests/test_hf_teacher_backend.py tests/test_tiny_real_teacher_fingerprint_capture.py",
+      "result": "43 passed, 1 skipped"
+    },
+    "focused_ruff": {
+      "command": ".venv/bin/python -m ruff check src/qrwkv_xla/teachers/hf.py src/qrwkv_xla/fingerprint/real_teacher.py src/qrwkv_xla/fingerprint/topology.py tests/test_hf_teacher_backend.py tests/test_tiny_real_teacher_fingerprint_capture.py",
+      "result": "pass"
+    },
+    "repository_ruff": {
+      "command": ".venv/bin/python -m ruff check .",
+      "result": "pass"
+    },
+    "full_tests": {
+      "command": ".venv/bin/python -m pytest",
+      "result": "1474 passed, 24 skipped"
+    },
+    "benchmark_gate": {
+      "status": "unavailable",
+      "reason": "local validation host does not provide a representative dedicated capture benchmark environment"
+    }
+  },
+  "claims_not_made": [
+    "real_reducer_parallelism",
+    "production_capture_performance",
+    "quality_improvement",
+    "gpu_memory_reduction"
+  ]
+}

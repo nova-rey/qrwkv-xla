@@ -40,6 +40,7 @@ class ResolvedCaptureTopology:
     omp_num_threads: str | None
     mkl_num_threads: str | None
     gpu_name: str | None = None
+    gpu_reduction_mode: str = "not_applicable"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -82,13 +83,7 @@ def resolve_capture_topology(
         default=_auto_prefetch_workers(effective, teacher_device=device),
         allow_zero=True,
     )
-    reducer_workers = _resolve_auto_int(
-        config.reducer_workers,
-        name="reducer_workers",
-        detected_cpu_budget=effective,
-        default=0,
-        allow_zero=True,
-    )
+    reducer_workers = _resolve_reducer_workers(config.reducer_workers)
     _validate_depth(config.prefetch_depth, name="prefetch_depth")
     _validate_depth(config.result_queue_depth, name="result_queue_depth")
     runnable = torch_threads + prefetch_workers + reducer_workers + 1
@@ -120,6 +115,7 @@ def resolve_capture_topology(
         omp_num_threads=os.environ.get("OMP_NUM_THREADS"),
         mkl_num_threads=os.environ.get("MKL_NUM_THREADS"),
         gpu_name=_gpu_name(device),
+        gpu_reduction_mode=_gpu_reduction_mode(device),
     )
 
 
@@ -205,6 +201,18 @@ def _resolve_auto_int(
     return resolved
 
 
+def _resolve_reducer_workers(value: AutoInt) -> int:
+    if value == "auto":
+        return 0
+    resolved = int(value)
+    if resolved != 0:
+        raise ValueError(
+            "reducer_workers>0 is deferred until a real reducer stage exists; "
+            "use reducer_workers=0 or 'auto'"
+        )
+    return 0
+
+
 def _resolve_auto_bool(value: AutoBool, *, default: bool, name: str) -> bool:
     if value == "auto":
         return bool(default)
@@ -252,6 +260,12 @@ def _gpu_name(device: str) -> str | None:
     if device == "mps":
         return "mps"
     return None
+
+
+def _gpu_reduction_mode(device: str) -> str:
+    if device in {"cuda", "mps"}:
+        return "full_logits_host_transfer_fallback"
+    return "not_applicable"
 
 
 def _validate_depth(value: int, *, name: str) -> None:

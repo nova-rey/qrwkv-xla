@@ -129,10 +129,20 @@ class TinyRealTeacherFingerprintCaptureResult:
 
 
 @dataclass(frozen=True)
-class _PreparedTeacherBatch:
+class _PromptTeacherBatch:
     sequence: int
     batch_start: int
     prompts: tuple[str, ...]
+    example_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class _PreparedTeacherBatch:
+    sequence: int
+    batch_start: int
+    example_ids: tuple[str, ...]
+    input_ids: Any
+    attention_mask: Any | None
 
 
 @dataclass(frozen=True)
@@ -153,6 +163,7 @@ class _StageError:
 class _StageCounters:
     prepared_batches: int = 0
     inference_batches: int = 0
+    reduced_batches: int | None = None
     committed_batches: int = 0
     lock: threading.Lock = field(init=False, repr=False)
 
@@ -163,11 +174,12 @@ class _StageCounters:
         with self.lock:
             setattr(self, field, int(getattr(self, field)) + 1)
 
-    def snapshot(self) -> dict[str, int]:
+    def snapshot(self) -> dict[str, int | None]:
         with self.lock:
             return {
                 "prepared_batches": self.prepared_batches,
                 "inference_batches": self.inference_batches,
+                "reduced_batches": self.reduced_batches,
                 "committed_batches": self.committed_batches,
             }
 
@@ -208,6 +220,7 @@ def run_tiny_real_teacher_fingerprint_capture(
             teacher.device = topology.teacher_device
             teacher.pin_memory = topology.pin_memory
             teacher.non_blocking_transfer = topology.non_blocking_transfer
+        teacher.load()
         emission: dict[str, Any] = {"tokens": 0, "vocab_size": None, "batches": 0}
         stage_counters = _StageCounters()
         batch_iter = _iter_teacher_batches(
@@ -264,6 +277,7 @@ def run_tiny_real_teacher_fingerprint_capture(
             teacher=teacher,
             vocab_size=vocab_size,
             effective_local_files_only=effective_local_files_only,
+            topology_metadata=topology_metadata,
         )
         validation = validate_fingerprint_artifact(config.output_dir)
         targets_loadable = False
@@ -450,6 +464,7 @@ def _topology_metadata(
             "torch_thread_settings_error"
         ),
         "gpu_name": topology.gpu_name,
+        "gpu_reduction_mode": topology.gpu_reduction_mode,
     }
 
 
@@ -462,6 +477,7 @@ def _iter_teacher_batches(
     emission: dict[str, Any],
     stage_counters: _StageCounters,
 ) -> Any:
+    tokenizer_lock = threading.Lock()
     if topology.prefetch_workers == 0 and topology.result_queue_depth == 1:
         yield from _iter_teacher_batches_sync(
             config=config,
@@ -469,6 +485,7 @@ def _iter_teacher_batches(
             prompts=prompts,
             emission=emission,
             stage_counters=stage_counters,
+            tokenizer_lock=tokenizer_lock,
         )
         return
     yield from _iter_teacher_batches_staged(
@@ -478,6 +495,7 @@ def _iter_teacher_batches(
         topology=topology,
         emission=emission,
         stage_counters=stage_counters,
+        tokenizer_lock=tokenizer_lock,
     )
 
 
@@ -488,8 +506,15 @@ def _iter_teacher_batches_sync(
     prompts: tuple[str, ...],
     emission: dict[str, Any],
     stage_counters: _StageCounters,
+    tokenizer_lock: threading.Lock,
 ) -> Any:
-    for sequence, prepared in enumerate(_prepared_batches(config, prompts)):
+    for sequence, prompt_batch in enumerate(_prompt_batches(config, prompts)):
+        prepared = _prepare_teacher_batch(
+            config=config,
+            teacher=teacher,
+            prompt_batch=prompt_batch,
+            tokenizer_lock=tokenizer_lock,
+        )
         if prepared.sequence != sequence:
             raise ValueError("prepared batch sequence mismatch")
         stage_counters.increment("prepared_batches")
@@ -508,6 +533,7 @@ def _iter_teacher_batches_staged(
     topology: ResolvedCaptureTopology,
     emission: dict[str, Any],
     stage_counters: _StageCounters,
+    tokenizer_lock: threading.Lock,
 ) -> Any:
     prepared_queue: queue.Queue[object] = queue.Queue(maxsize=topology.prefetch_depth)
     result_queue: queue.Queue[object] = queue.Queue(maxsize=topology.result_queue_depth)
@@ -518,11 +544,13 @@ def _iter_teacher_batches_staged(
             name="fingerprint-prefetch",
             kwargs={
                 "config": config,
+                "teacher": teacher,
                 "prompts": prompts,
                 "topology": topology,
                 "prepared_queue": prepared_queue,
                 "stop_event": stop_event,
                 "stage_counters": stage_counters,
+                "tokenizer_lock": tokenizer_lock,
             },
             daemon=False,
         ),
@@ -590,27 +618,37 @@ def _iter_teacher_batches_staged(
 def _prefetch_worker(
     *,
     config: TinyRealTeacherFingerprintCaptureConfig,
+    teacher: HFTeacherBackend,
     prompts: tuple[str, ...],
     topology: ResolvedCaptureTopology,
     prepared_queue: queue.Queue[object],
     stop_event: threading.Event,
     stage_counters: _StageCounters,
+    tokenizer_lock: threading.Lock,
 ) -> None:
     try:
         if topology.prefetch_workers <= 1:
-            for prepared in _prepared_batches(config, prompts):
+            for prompt_batch in _prompt_batches(config, prompts):
                 if stop_event.is_set():
                     break
+                prepared = _prepare_teacher_batch(
+                    config=config,
+                    teacher=teacher,
+                    prompt_batch=prompt_batch,
+                    tokenizer_lock=tokenizer_lock,
+                )
                 stage_counters.increment("prepared_batches")
                 _put_with_stop(prepared_queue, prepared, stop_event)
         else:
             _prefetch_with_pool(
                 config=config,
+                teacher=teacher,
                 prompts=prompts,
                 topology=topology,
                 prepared_queue=prepared_queue,
                 stop_event=stop_event,
                 stage_counters=stage_counters,
+                tokenizer_lock=tokenizer_lock,
             )
     except BaseException as exc:
         _put_with_stop(prepared_queue, _StageError("prefetch", exc), stop_event)
@@ -621,22 +659,32 @@ def _prefetch_worker(
 def _prefetch_with_pool(
     *,
     config: TinyRealTeacherFingerprintCaptureConfig,
+    teacher: HFTeacherBackend,
     prompts: tuple[str, ...],
     topology: ResolvedCaptureTopology,
     prepared_queue: queue.Queue[object],
     stop_event: threading.Event,
     stage_counters: _StageCounters,
+    tokenizer_lock: threading.Lock,
 ) -> None:
-    prepared_iter = iter(_prepared_batches(config, prompts))
+    prompt_iter = iter(_prompt_batches(config, prompts))
     with ThreadPoolExecutor(max_workers=topology.prefetch_workers) as executor:
         pending = set()
         while not stop_event.is_set():
             while len(pending) < topology.prefetch_depth:
                 try:
-                    prepared = next(prepared_iter)
+                    prompt_batch = next(prompt_iter)
                 except StopIteration:
                     break
-                pending.add(executor.submit(lambda item=prepared: item))
+                pending.add(
+                    executor.submit(
+                        _prepare_teacher_batch,
+                        config=config,
+                        teacher=teacher,
+                        prompt_batch=prompt_batch,
+                        tokenizer_lock=tokenizer_lock,
+                    )
+                )
             if not pending:
                 break
             done, pending = wait(pending, return_when=FIRST_COMPLETED)
@@ -677,18 +725,52 @@ def _inference_worker(
         _put_with_stop(result_queue, _QUEUE_SENTINEL, stop_event)
 
 
-def _prepared_batches(
+def _prompt_batches(
     config: TinyRealTeacherFingerprintCaptureConfig,
     prompts: tuple[str, ...],
 ) -> Any:
     for sequence, batch_start in enumerate(
         range(0, len(prompts), config.teacher_batch_size)
     ):
-        yield _PreparedTeacherBatch(
+        batch_prompts = prompts[batch_start : batch_start + config.teacher_batch_size]
+        yield _PromptTeacherBatch(
             sequence=sequence,
             batch_start=batch_start,
-            prompts=prompts[batch_start : batch_start + config.teacher_batch_size],
+            prompts=batch_prompts,
+            example_ids=tuple(
+                f"{config.example_id_prefix}-{index:06d}"
+                for index in range(batch_start, batch_start + len(batch_prompts))
+            ),
         )
+
+
+def _prepare_teacher_batch(
+    *,
+    config: TinyRealTeacherFingerprintCaptureConfig,
+    teacher: HFTeacherBackend,
+    prompt_batch: _PromptTeacherBatch,
+    tokenizer_lock: threading.Lock,
+) -> _PreparedTeacherBatch:
+    with tokenizer_lock:
+        encoded = teacher.encode_prompts(
+            prompt_batch.prompts,
+            sequence_length=config.sequence_length,
+        )
+    input_ids = np.asarray(encoded["input_ids_np"], dtype=np.int32)
+    attention_mask = np.asarray(encoded["attention_mask_np"], dtype=np.int32)
+    _validate_encoded_batch_shapes(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        examples=len(prompt_batch.prompts),
+        sequence_length=config.sequence_length,
+    )
+    return _PreparedTeacherBatch(
+        sequence=prompt_batch.sequence,
+        batch_start=prompt_batch.batch_start,
+        example_ids=prompt_batch.example_ids,
+        input_ids=encoded["input_ids"],
+        attention_mask=encoded["attention_mask"],
+    )
 
 
 def _infer_teacher_batch(
@@ -696,11 +778,9 @@ def _infer_teacher_batch(
     teacher: HFTeacherBackend,
     prepared: _PreparedTeacherBatch,
 ) -> _InferredTeacherBatch:
-    batch_prompts = prepared.prompts
-    teacher.prompts = batch_prompts
-    emitted = teacher.emit_targets(
-        num_examples=len(batch_prompts),
-        sequence_length=config.sequence_length,
+    emitted = teacher.emit_targets_from_encoded(
+        input_ids=prepared.input_ids,
+        attention_mask=prepared.attention_mask,
     )
     input_ids = np.asarray(emitted["input_ids"], dtype=np.int32)
     attention_mask = np.asarray(emitted["attention_mask"], dtype=np.int32)
@@ -709,7 +789,7 @@ def _infer_teacher_batch(
         input_ids=input_ids,
         attention_mask=attention_mask,
         logits=logits,
-        examples=len(batch_prompts),
+        examples=len(prepared.example_ids),
         sequence_length=config.sequence_length,
     )
     return _InferredTeacherBatch(
@@ -717,13 +797,7 @@ def _infer_teacher_batch(
         token_count=int(np.sum(attention_mask)),
         vocab_size=int(logits.shape[-1]),
         batch=FingerprintCaptureBatch(
-            example_ids=tuple(
-                f"{config.example_id_prefix}-{index:06d}"
-                for index in range(
-                    prepared.batch_start,
-                    prepared.batch_start + len(batch_prompts),
-                )
-            ),
+            example_ids=prepared.example_ids,
             input_ids=input_ids,
             logits=logits,
         ),
@@ -773,6 +847,22 @@ def _validate_emitted_shapes(
         raise ValueError("teacher logits must be finite")
 
 
+def _validate_encoded_batch_shapes(
+    *,
+    input_ids: np.ndarray,
+    attention_mask: np.ndarray,
+    examples: int,
+    sequence_length: int,
+) -> None:
+    expected = (examples, sequence_length)
+    if input_ids.shape != expected:
+        raise ValueError(f"prepared input_ids shape {input_ids.shape} != {expected}")
+    if attention_mask.shape != expected:
+        raise ValueError(
+            f"prepared attention_mask shape {attention_mask.shape} != {expected}"
+        )
+
+
 def _rewrite_manifest_for_p145(
     path: Path,
     *,
@@ -780,6 +870,7 @@ def _rewrite_manifest_for_p145(
     teacher: HFTeacherBackend,
     vocab_size: int,
     effective_local_files_only: bool,
+    topology_metadata: dict[str, Any],
 ) -> None:
     manifest = read_json_object(path)
     manifest["teacher"] = {
@@ -792,7 +883,11 @@ def _rewrite_manifest_for_p145(
         "local_files_only": effective_local_files_only,
         "vocab_size": vocab_size,
         "dtype": teacher.dtype,
-        "device": "cpu",
+        "device": topology_metadata["teacher_device"],
+        "pin_memory": topology_metadata["pin_memory"],
+        "non_blocking_transfer": topology_metadata["non_blocking_transfer"],
+        "gpu_name": topology_metadata["gpu_name"],
+        "gpu_reduction_mode": topology_metadata["gpu_reduction_mode"],
         "teacher_real": True,
     }
     manifest["capture"] = {
@@ -800,6 +895,7 @@ def _rewrite_manifest_for_p145(
         "phase": "P145",
         "run_kind": "tiny_real_teacher_capture",
         "capture_engine": "teacher_side_capture_skeleton_v0",
+        "capture_topology": topology_metadata,
     }
     write_json(path, manifest)
 
@@ -942,7 +1038,7 @@ def _p145_summary(
     consumer_sanity: dict[str, Any],
     batches_processed: int,
     topology_metadata: dict[str, Any],
-    stage_counters: dict[str, int],
+    stage_counters: dict[str, int | None],
 ) -> dict[str, Any]:
     return {
         **base_summary,
@@ -962,6 +1058,10 @@ def _p145_summary(
             "vocab_size": vocab_size,
             "dtype": teacher.dtype,
             "device": topology_metadata["teacher_device"],
+            "pin_memory": topology_metadata["pin_memory"],
+            "non_blocking_transfer": topology_metadata["non_blocking_transfer"],
+            "gpu_name": topology_metadata["gpu_name"],
+            "gpu_reduction_mode": topology_metadata["gpu_reduction_mode"],
         },
         "examples_processed": examples_processed,
         "tokens_processed": tokens_processed,

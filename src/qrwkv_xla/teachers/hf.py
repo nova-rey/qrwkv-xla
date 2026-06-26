@@ -130,10 +130,23 @@ class HFTeacherBackend:
         sequence_length: int,
     ) -> dict[str, np.ndarray]:
         _validate_shape(num_examples=num_examples, sequence_length=sequence_length)
-        self.load()
         prompts = _select_prompts(self.prompts, num_examples=num_examples)
+        encoded = self.encode_prompts(prompts, sequence_length=sequence_length)
+        return self.emit_targets_from_encoded(
+            input_ids=encoded["input_ids"],
+            attention_mask=encoded["attention_mask"],
+        )
+
+    def encode_prompts(
+        self,
+        prompts: Sequence[str],
+        *,
+        sequence_length: int,
+    ) -> dict[str, Any]:
+        _validate_shape(num_examples=len(prompts), sequence_length=sequence_length)
+        self.load()
         encoded = self.tokenizer(
-            prompts,
+            list(prompts),
             padding="max_length",
             truncation=True,
             max_length=sequence_length,
@@ -152,24 +165,43 @@ class HFTeacherBackend:
         attention_mask = _to_numpy(
             encoded.get("attention_mask", np.ones_like(input_ids))
         ).astype(np.int32, copy=False)
+        _validate_encoded_shapes(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            examples=len(prompts),
+            sequence_length=sequence_length,
+        )
+        return {
+            "input_ids": encoded["input_ids"],
+            "attention_mask": encoded.get("attention_mask"),
+            "input_ids_np": input_ids,
+            "attention_mask_np": attention_mask,
+        }
+
+    def emit_targets_from_encoded(
+        self,
+        *,
+        input_ids: Any,
+        attention_mask: Any | None,
+    ) -> dict[str, np.ndarray]:
+        self.load()
+        input_ids_np = _to_numpy(input_ids).astype(np.int32, copy=False)
+        attention_mask_np = _to_numpy(
+            attention_mask if attention_mask is not None else np.ones_like(input_ids_np)
+        ).astype(np.int32, copy=False)
         outputs = _model_forward(
             self.model,
-            input_ids=encoded["input_ids"],
-            attention_mask=encoded.get("attention_mask"),
+            input_ids=input_ids,
+            attention_mask=attention_mask,
         )
         logits = _to_numpy(outputs.logits).astype(np.float32, copy=False)
-        if input_ids.shape != (num_examples, sequence_length):
-            raise ValueError(
-                "HF tokenizer emitted input_ids with shape "
-                f"{input_ids.shape}, expected {(num_examples, sequence_length)}"
-            )
-        if attention_mask.shape != input_ids.shape:
-            raise ValueError("HF tokenizer attention_mask shape must match input_ids")
-        if logits.shape[:2] != input_ids.shape:
+        if attention_mask_np.shape != input_ids_np.shape:
+            raise ValueError("HF encoded attention_mask shape must match input_ids")
+        if logits.ndim != 3 or logits.shape[:2] != input_ids_np.shape:
             raise ValueError("HF logits [N,T] must match encoded input_ids")
         return {
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
+            "input_ids": input_ids_np,
+            "attention_mask": attention_mask_np,
             "logits": logits,
         }
 
@@ -259,3 +291,20 @@ def _validate_shape(*, num_examples: int, sequence_length: int) -> None:
         raise ValueError(f"num_examples must be > 0, got {num_examples}")
     if sequence_length <= 0:
         raise ValueError(f"sequence_length must be > 0, got {sequence_length}")
+
+
+def _validate_encoded_shapes(
+    *,
+    input_ids: np.ndarray,
+    attention_mask: np.ndarray,
+    examples: int,
+    sequence_length: int,
+) -> None:
+    expected = (examples, sequence_length)
+    if input_ids.shape != expected:
+        raise ValueError(
+            "HF tokenizer emitted input_ids with shape "
+            f"{input_ids.shape}, expected {expected}"
+        )
+    if attention_mask.shape != expected:
+        raise ValueError("HF tokenizer attention_mask shape must match input_ids")
