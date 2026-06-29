@@ -1,13 +1,29 @@
 # QRWKV-XLA
 
+> [!IMPORTANT]
+> This repository is archived read-only as the historical QRWKV-XLA / RADJAX
+> monorepo. After pipeline verification and validation, active development moved
+> from this monorepo into the split RADJAX repositories:
+>
+> - [RADJAX-Contract](https://github.com/nova-rey/RADJAX-Contract) — shared Tome contract, validation, cover page, and compression metadata
+> - [RADJAX-Tome](https://github.com/nova-rey/RADJAX-Tome) — teacher-side Tome / TeacherTextbook generation
+> - [RADJAX-Student](https://github.com/nova-rey/RADJAX-Student) — student-side Tome consumption, training, evaluation, and export
+>
+> New implementation work should happen in the split repositories, not here.
+> This repo remains available as historical source material and migration
+> reference. See [docs/ARCHIVAL_FREEZE.md](docs/ARCHIVAL_FREEZE.md).
+
 QRWKV-XLA is a JAX/XLA-first recurrent conversion pipeline inspired by RADLADS.
 
 It aims to distill Qwen-family transformer teachers into RWKV7-style recurrent
 students using TPU-friendly training infrastructure.
 
-## Current Status
+## Historical Status at Freeze
 
-Current phase: P155.1, Three-Way Split and Final-Test Integrity.
+Final monorepo phase before archival freeze: P155.1, Three-Way Split and
+Final-Test Integrity. The text below is retained as historical context for the
+state reached before active work moved into the split RADJAX repositories.
+
 The Pallas runway is closed after a recorded real TPU v5 lite smoke pass for the tiny
 opt-in Pallas WKV path, the cascaded target pipeline has been merged into main,
 and behavioral fingerprint corridor training is wired into the main staged
@@ -75,9 +91,11 @@ experiment configuration is frozen before final metric evaluation, and final
 paired comparisons use only the independently held-out test records. Earlier
 two-split P155 outputs are validation-set smokes, not independent final tests.
 
-Current emphasis is behavioral fingerprint integration, teacher-pure capture
-planning, teacher backend modularity, vocab contracts, target stores, the
-student backend registry, runtime separation, and the burn-readiness arc.
+At freeze, the monorepo emphasis had been behavioral fingerprint integration,
+teacher-pure capture planning, teacher backend modularity, vocab contracts,
+target stores, the student backend registry, runtime separation, and the
+burn-readiness arc. Successor implementation work now belongs in
+RADJAX-Contract, RADJAX-Tome, and RADJAX-Student.
 The project can turn tiny text examples into deterministic batches, emit
 fake-HF-style sharded teacher target artifacts, validate and iterate multi-shard
 target stores, consume shards through the offline target path, checkpoint and
@@ -213,10 +231,10 @@ The behavioral fingerprint miniature arc is documented in:
 - `docs/P154_STANDALONE_EXEMPLAR_PASS.md`
 - `docs/P155_SEQUENTIAL_TWO_CYCLE_EXPERIMENT.md`
 
-The fingerprint work now covers real registered-student integration, main
-runner corridor training, tiny real-teacher artifact capture, and a matched
-trained baseline. It does not claim model-quality improvement; shared held-out
-evaluation remains the next gate.
+The fingerprint work reached real registered-student integration, main runner
+corridor training, tiny real-teacher artifact capture, and a matched trained
+baseline in this monorepo. It did not claim model-quality improvement. Follow-on
+gates after the split belong in the successor repositories.
 
 The post-P112 research intake is documented in
 `docs/RADLADS2_FLA_KVM_RESEARCH_INTAKE.md`.

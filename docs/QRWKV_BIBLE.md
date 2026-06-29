@@ -3186,3 +3186,10 @@ support a validity-first, reliability-first, minimum-sufficient-force choice.
 One seed is smoke evidence; three complete seeds per profile are the minimum
 publication-grade matrix. P153.1 does not run exemplars or establish final
 quality, quality-per-byte, scale, or RADLADS parity.
+
+## 2026-06-29 — Archival freeze
+
+The QRWKV-XLA / RADJAX monorepo is frozen as historical source material after
+pipeline verification and validation reached the split point. Active
+development moved to `RADJAX-Contract`, `RADJAX-Tome`, and `RADJAX-Student`.
+New implementation work should happen in those split repositories, not here.

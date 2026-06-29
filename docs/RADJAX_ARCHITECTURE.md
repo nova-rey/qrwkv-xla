@@ -1,8 +1,15 @@
 # Radjax Architecture Extraction Notes
 
-P91 starts the post-Pallas architecture extraction path. The project is still
-QRWKV-XLA, but the next phases are shaping it toward a teacher-agnostic and
-student-runtime-agnostic Radjax-style platform.
+> [!IMPORTANT]
+> This document is archived historical context from the QRWKV-XLA / RADJAX
+> monorepo. After pipeline verification and validation, active development moved
+> to [RADJAX-Contract](https://github.com/nova-rey/RADJAX-Contract),
+> [RADJAX-Tome](https://github.com/nova-rey/RADJAX-Tome), and
+> [RADJAX-Student](https://github.com/nova-rey/RADJAX-Student).
+
+P91 started the post-Pallas architecture extraction path. The project was still
+QRWKV-XLA at this point, but later phases shaped it toward a teacher-agnostic
+and student-runtime-agnostic Radjax-style platform before the repository split.
 
 ## Current Extracted Boundaries
 

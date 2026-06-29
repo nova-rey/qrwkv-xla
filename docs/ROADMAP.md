@@ -1,5 +1,14 @@
 # QRWKV-XLA Roadmap
 
+> [!IMPORTANT]
+> This roadmap is archived historical context. After pipeline verification and
+> validation, active development moved from `qrwkv-xla` into
+> [RADJAX-Contract](https://github.com/nova-rey/RADJAX-Contract),
+> [RADJAX-Tome](https://github.com/nova-rey/RADJAX-Tome), and
+> [RADJAX-Student](https://github.com/nova-rey/RADJAX-Student). Do not treat
+> older "Recommended next" entries as instructions to continue implementation in
+> this archived monorepo.
+
 ## Phase 149 - Arc 2 Report / Go-No-Go
 
 Goal: close Arc 2 with an evidence-based report and constrained go/no-go
